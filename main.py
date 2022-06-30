@@ -14,9 +14,9 @@ def model_simple_markov(data, n_cells, n_sites, n_copy_states = 7) -> tuple[torc
     C_u_m = 0
 
     # variables to store complete data in
-    C_r = torch.zeros(n_sites, )
-    C_u = torch.zeros(n_sites, )
-    y_u = torch.zeros(n_sites, n_cells)
+    C_r = torch.zeros(n_sites,)
+    C_u = torch.zeros(n_sites,)
+    y_u = torch.zeros(n_sites, n_cells,)
 
     a = 2
     # no need for pyro.markov, range is equivalent
