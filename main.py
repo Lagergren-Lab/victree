@@ -14,9 +14,9 @@ def model_simple_markov(data, n_cells, n_sites, n_copy_states = 7) -> tuple[torc
     C_u_m = 0
 
     # variables to store complete data in
-    C_r = torch.zeros(n_sites,)
-    C_u = torch.zeros(n_sites,)
-    y_u = torch.zeros(n_sites, n_cells,)
+    C_r = torch.zeros(n_sites, dtype=torch.int)
+    C_u = torch.zeros(n_sites, dtype=torch.int)
+    y_u = torch.zeros(n_sites, n_cells, dtype=torch.float)
 
     a = 2
     # no need for pyro.markov, range is equivalent
@@ -72,11 +72,21 @@ def main(args):
 
 
 if __name__ == '__main__':
+
+    # parse arguments
     parser = argparse.ArgumentParser(
         description="MAP Baum-Welch learning Bach Chorales"
     )
-    parser.add_argument("--seed", default=0, type=int)
+    parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
+    # seed for reproducibility
+    # torch rng
+    torch.manual_seed(args.seed)
+    torch.cuda.manual_seed(args.seed)
+    torch.cuda.manual_seed_all(args.seed)
+    # python rng
+    np.random.seed(args.seed)
+    random.seed(args.seed)
     main(args)
