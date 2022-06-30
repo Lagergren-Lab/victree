@@ -81,7 +81,7 @@ if __name__ == '__main__':
     )
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--cuda", action="store_true")
-    parser.add_argument("--tmc-num-samples", default=10, type=int)
+    # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     # seed for reproducibility
     # torch rng
