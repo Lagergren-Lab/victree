@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
+import numpy as np
+import random
 import torch
 import pyro
 import pyro.distributions as dist
-import logging
 import pyro.poutine as poutine
 
 
@@ -89,4 +91,5 @@ if __name__ == '__main__':
     # python rng
     np.random.seed(args.seed)
     random.seed(args.seed)
+
     main(args)
