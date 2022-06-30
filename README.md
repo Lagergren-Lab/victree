@@ -14,12 +14,12 @@ torch=1.11.0
 ## Options
 
 ``` 
-usage: main.py [-h] [--seed SEED] [--cuda] [--tmc-num-samples TMC_NUM_SAMPLES]
+usage: main.py [-h] [--seed SEED] [--cuda]
 
 MAP Baum-Welch learning Bach Chorales
 
 options:
-  -h, --help            show this help message and exit
+  -h, --help   show this help message and exit
   --seed SEED
   --cuda
 ```
