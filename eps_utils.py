@@ -11,13 +11,16 @@ differentiating between
 import torch
 import itertools
 
+from typing import Tuple
+
+
 def is_rare_case(jj, j, ii, i):
     return (j != 0 or jj == 0) and (i != 0 or ii == 0) and (jj - j != ii - i)
 
 def is_common_case(jj, j, ii, i):
     return (j != 0 or jj == 0) and (i != 0 or ii == 0) and (jj - j == ii - i)
 
-def compute_n_cases(n_copy_states) -> tuple[torch.Tensor, torch.Tensor]:
+def compute_n_cases(n_copy_states) -> Tuple[torch.Tensor, torch.Tensor]:
     rare_cnt = torch.zeros((n_copy_states,) * 3)
     common_cnt = torch.zeros((n_copy_states,) * 3)
     # iterates over all configurations
