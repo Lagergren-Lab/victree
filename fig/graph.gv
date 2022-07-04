@@ -14,26 +14,127 @@ digraph {
 	C_r_4 [label=C_r_4 fillcolor=white shape=ellipse style=filled]
 	C_u_4 [label=C_u_4 fillcolor=white shape=ellipse style=filled]
 	y_u_4 [label=y_u_4 fillcolor=grey shape=ellipse style=filled]
+	C_r_5 [label=C_r_5 fillcolor=white shape=ellipse style=filled]
+	C_u_5 [label=C_u_5 fillcolor=white shape=ellipse style=filled]
+	y_u_5 [label=y_u_5 fillcolor=grey shape=ellipse style=filled]
+	C_r_6 [label=C_r_6 fillcolor=white shape=ellipse style=filled]
+	C_u_6 [label=C_u_6 fillcolor=white shape=ellipse style=filled]
+	y_u_6 [label=y_u_6 fillcolor=grey shape=ellipse style=filled]
+	C_r_7 [label=C_r_7 fillcolor=white shape=ellipse style=filled]
+	C_u_7 [label=C_u_7 fillcolor=white shape=ellipse style=filled]
+	y_u_7 [label=y_u_7 fillcolor=grey shape=ellipse style=filled]
+	C_r_8 [label=C_r_8 fillcolor=white shape=ellipse style=filled]
+	C_u_8 [label=C_u_8 fillcolor=white shape=ellipse style=filled]
+	y_u_8 [label=y_u_8 fillcolor=grey shape=ellipse style=filled]
+	C_r_9 [label=C_r_9 fillcolor=white shape=ellipse style=filled]
+	C_u_9 [label=C_u_9 fillcolor=white shape=ellipse style=filled]
+	y_u_9 [label=y_u_9 fillcolor=grey shape=ellipse style=filled]
+	C_r_10 [label=C_r_10 fillcolor=white shape=ellipse style=filled]
+	C_u_10 [label=C_u_10 fillcolor=white shape=ellipse style=filled]
+	y_u_10 [label=y_u_10 fillcolor=grey shape=ellipse style=filled]
+	C_r_11 [label=C_r_11 fillcolor=white shape=ellipse style=filled]
+	C_u_11 [label=C_u_11 fillcolor=white shape=ellipse style=filled]
+	y_u_11 [label=y_u_11 fillcolor=grey shape=ellipse style=filled]
+	C_r_12 [label=C_r_12 fillcolor=white shape=ellipse style=filled]
+	C_u_12 [label=C_u_12 fillcolor=white shape=ellipse style=filled]
+	y_u_12 [label=y_u_12 fillcolor=grey shape=ellipse style=filled]
+	C_r_13 [label=C_r_13 fillcolor=white shape=ellipse style=filled]
+	C_u_13 [label=C_u_13 fillcolor=white shape=ellipse style=filled]
+	y_u_13 [label=y_u_13 fillcolor=grey shape=ellipse style=filled]
+	C_r_14 [label=C_r_14 fillcolor=white shape=ellipse style=filled]
+	C_u_14 [label=C_u_14 fillcolor=white shape=ellipse style=filled]
+	y_u_14 [label=y_u_14 fillcolor=grey shape=ellipse style=filled]
+	C_r_15 [label=C_r_15 fillcolor=white shape=ellipse style=filled]
+	C_u_15 [label=C_u_15 fillcolor=white shape=ellipse style=filled]
+	y_u_15 [label=y_u_15 fillcolor=grey shape=ellipse style=filled]
+	C_r_16 [label=C_r_16 fillcolor=white shape=ellipse style=filled]
+	C_u_16 [label=C_u_16 fillcolor=white shape=ellipse style=filled]
+	y_u_16 [label=y_u_16 fillcolor=grey shape=ellipse style=filled]
+	C_r_17 [label=C_r_17 fillcolor=white shape=ellipse style=filled]
+	C_u_17 [label=C_u_17 fillcolor=white shape=ellipse style=filled]
+	y_u_17 [label=y_u_17 fillcolor=grey shape=ellipse style=filled]
+	C_r_18 [label=C_r_18 fillcolor=white shape=ellipse style=filled]
+	C_u_18 [label=C_u_18 fillcolor=white shape=ellipse style=filled]
+	y_u_18 [label=y_u_18 fillcolor=grey shape=ellipse style=filled]
+	C_r_19 [label=C_r_19 fillcolor=white shape=ellipse style=filled]
+	C_u_19 [label=C_u_19 fillcolor=white shape=ellipse style=filled]
+	y_u_19 [label=y_u_19 fillcolor=grey shape=ellipse style=filled]
 	C_r_0 -> C_u_0
 	C_u_0 -> y_u_0
-	C_r_0 -> C_r_1
 	C_r_1 -> C_u_1
 	C_r_0 -> C_u_1
 	C_u_0 -> C_u_1
 	C_u_1 -> y_u_1
-	C_r_1 -> C_r_2
 	C_r_1 -> C_u_2
 	C_u_1 -> C_u_2
 	C_r_2 -> C_u_2
 	C_u_2 -> y_u_2
-	C_r_2 -> C_r_3
 	C_u_2 -> C_u_3
-	C_r_2 -> C_u_3
 	C_r_3 -> C_u_3
+	C_r_2 -> C_u_3
 	C_u_3 -> y_u_3
-	C_r_3 -> C_r_4
 	C_r_4 -> C_u_4
 	C_u_3 -> C_u_4
 	C_r_3 -> C_u_4
 	C_u_4 -> y_u_4
+	C_u_4 -> C_u_5
+	C_r_4 -> C_u_5
+	C_r_5 -> C_u_5
+	C_u_5 -> y_u_5
+	C_r_6 -> C_u_6
+	C_u_5 -> C_u_6
+	C_r_5 -> C_u_6
+	C_u_6 -> y_u_6
+	C_r_6 -> C_u_7
+	C_u_6 -> C_u_7
+	C_r_7 -> C_u_7
+	C_u_7 -> y_u_7
+	C_u_7 -> C_u_8
+	C_r_7 -> C_u_8
+	C_r_8 -> C_u_8
+	C_u_8 -> y_u_8
+	C_u_8 -> C_u_9
+	C_r_9 -> C_u_9
+	C_r_8 -> C_u_9
+	C_u_9 -> y_u_9
+	C_u_9 -> C_u_10
+	C_r_10 -> C_u_10
+	C_r_9 -> C_u_10
+	C_u_10 -> y_u_10
+	C_u_10 -> C_u_11
+	C_r_11 -> C_u_11
+	C_r_10 -> C_u_11
+	C_u_11 -> y_u_11
+	C_r_11 -> C_u_12
+	C_u_11 -> C_u_12
+	C_r_12 -> C_u_12
+	C_u_12 -> y_u_12
+	C_r_13 -> C_u_13
+	C_u_12 -> C_u_13
+	C_r_12 -> C_u_13
+	C_u_13 -> y_u_13
+	C_r_13 -> C_u_14
+	C_r_14 -> C_u_14
+	C_u_13 -> C_u_14
+	C_u_14 -> y_u_14
+	C_r_14 -> C_u_15
+	C_u_14 -> C_u_15
+	C_r_15 -> C_u_15
+	C_u_15 -> y_u_15
+	C_r_16 -> C_u_16
+	C_r_15 -> C_u_16
+	C_u_15 -> C_u_16
+	C_u_16 -> y_u_16
+	C_r_16 -> C_u_17
+	C_r_17 -> C_u_17
+	C_u_16 -> C_u_17
+	C_u_17 -> y_u_17
+	C_r_18 -> C_u_18
+	C_u_17 -> C_u_18
+	C_r_17 -> C_u_18
+	C_u_18 -> y_u_18
+	C_u_18 -> C_u_19
+	C_r_19 -> C_u_19
+	C_r_18 -> C_u_19
+	C_u_19 -> y_u_19
 }
