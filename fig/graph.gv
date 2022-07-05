@@ -1,79 +1,157 @@
 digraph {
-	C_r_0 [label=C_r_0 fillcolor=white shape=ellipse style=filled]
-	C_u_0 [label=C_u_0 fillcolor=white shape=ellipse style=filled]
-	y_u_0 [label=y_u_0 fillcolor=grey shape=ellipse style=filled]
-	C_r_1 [label=C_r_1 fillcolor=white shape=ellipse style=filled]
-	C_u_1 [label=C_u_1 fillcolor=white shape=ellipse style=filled]
-	y_u_1 [label=y_u_1 fillcolor=grey shape=ellipse style=filled]
-	C_r_2 [label=C_r_2 fillcolor=white shape=ellipse style=filled]
-	C_u_2 [label=C_u_2 fillcolor=white shape=ellipse style=filled]
-	y_u_2 [label=y_u_2 fillcolor=grey shape=ellipse style=filled]
-	C_r_3 [label=C_r_3 fillcolor=white shape=ellipse style=filled]
-	C_u_3 [label=C_u_3 fillcolor=white shape=ellipse style=filled]
-	y_u_3 [label=y_u_3 fillcolor=grey shape=ellipse style=filled]
-	C_r_4 [label=C_r_4 fillcolor=white shape=ellipse style=filled]
-	C_u_4 [label=C_u_4 fillcolor=white shape=ellipse style=filled]
-	y_u_4 [label=y_u_4 fillcolor=grey shape=ellipse style=filled]
-	C_r_5 [label=C_r_5 fillcolor=white shape=ellipse style=filled]
-	C_u_5 [label=C_u_5 fillcolor=white shape=ellipse style=filled]
-	y_u_5 [label=y_u_5 fillcolor=grey shape=ellipse style=filled]
-	C_r_6 [label=C_r_6 fillcolor=white shape=ellipse style=filled]
-	C_u_6 [label=C_u_6 fillcolor=white shape=ellipse style=filled]
-	y_u_6 [label=y_u_6 fillcolor=grey shape=ellipse style=filled]
-	C_r_7 [label=C_r_7 fillcolor=white shape=ellipse style=filled]
-	C_u_7 [label=C_u_7 fillcolor=white shape=ellipse style=filled]
-	y_u_7 [label=y_u_7 fillcolor=grey shape=ellipse style=filled]
-	C_r_8 [label=C_r_8 fillcolor=white shape=ellipse style=filled]
-	C_u_8 [label=C_u_8 fillcolor=white shape=ellipse style=filled]
-	y_u_8 [label=y_u_8 fillcolor=grey shape=ellipse style=filled]
-	C_r_9 [label=C_r_9 fillcolor=white shape=ellipse style=filled]
-	C_u_9 [label=C_u_9 fillcolor=white shape=ellipse style=filled]
-	y_u_9 [label=y_u_9 fillcolor=grey shape=ellipse style=filled]
-	C_r_0 -> C_u_0
-	C_u_0 -> y_u_0
-	C_r_0 -> C_r_1
-	C_u_0 -> C_u_1
-	C_r_0 -> C_u_1
-	C_r_1 -> C_u_1
-	C_u_1 -> y_u_1
-	C_r_1 -> C_r_2
-	C_r_2 -> C_u_2
-	C_u_1 -> C_u_2
-	C_r_1 -> C_u_2
-	C_u_2 -> y_u_2
-	C_r_2 -> C_r_3
-	C_u_2 -> C_u_3
-	C_r_3 -> C_u_3
-	C_r_2 -> C_u_3
-	C_u_3 -> y_u_3
-	C_r_3 -> C_r_4
-	C_r_4 -> C_u_4
-	C_u_3 -> C_u_4
-	C_r_3 -> C_u_4
-	C_u_4 -> y_u_4
-	C_r_4 -> C_r_5
-	C_r_4 -> C_u_5
-	C_u_4 -> C_u_5
-	C_r_5 -> C_u_5
-	C_u_5 -> y_u_5
-	C_r_5 -> C_r_6
-	C_r_6 -> C_u_6
-	C_u_5 -> C_u_6
-	C_r_5 -> C_u_6
-	C_u_6 -> y_u_6
-	C_r_6 -> C_r_7
-	C_r_6 -> C_u_7
-	C_r_7 -> C_u_7
-	C_u_6 -> C_u_7
-	C_u_7 -> y_u_7
-	C_r_7 -> C_r_8
-	C_u_7 -> C_u_8
-	C_r_7 -> C_u_8
-	C_r_8 -> C_u_8
-	C_u_8 -> y_u_8
-	C_r_8 -> C_r_9
-	C_u_8 -> C_u_9
-	C_r_8 -> C_u_9
-	C_r_9 -> C_u_9
-	C_u_9 -> y_u_9
+	C_0_0 [label=C_0_0 fillcolor=white shape=ellipse style=filled]
+	y_0_0 [label=y_0_0 fillcolor=grey shape=ellipse style=filled]
+	C_0_1 [label=C_0_1 fillcolor=white shape=ellipse style=filled]
+	y_0_1 [label=y_0_1 fillcolor=grey shape=ellipse style=filled]
+	C_0_2 [label=C_0_2 fillcolor=white shape=ellipse style=filled]
+	y_0_2 [label=y_0_2 fillcolor=grey shape=ellipse style=filled]
+	C_0_3 [label=C_0_3 fillcolor=white shape=ellipse style=filled]
+	y_0_3 [label=y_0_3 fillcolor=grey shape=ellipse style=filled]
+	C_0_4 [label=C_0_4 fillcolor=white shape=ellipse style=filled]
+	y_0_4 [label=y_0_4 fillcolor=grey shape=ellipse style=filled]
+	C_0_5 [label=C_0_5 fillcolor=white shape=ellipse style=filled]
+	y_0_5 [label=y_0_5 fillcolor=grey shape=ellipse style=filled]
+	C_0_6 [label=C_0_6 fillcolor=white shape=ellipse style=filled]
+	y_0_6 [label=y_0_6 fillcolor=grey shape=ellipse style=filled]
+	C_0_7 [label=C_0_7 fillcolor=white shape=ellipse style=filled]
+	y_0_7 [label=y_0_7 fillcolor=grey shape=ellipse style=filled]
+	C_0_8 [label=C_0_8 fillcolor=white shape=ellipse style=filled]
+	y_0_8 [label=y_0_8 fillcolor=grey shape=ellipse style=filled]
+	C_0_9 [label=C_0_9 fillcolor=white shape=ellipse style=filled]
+	y_0_9 [label=y_0_9 fillcolor=grey shape=ellipse style=filled]
+	C_1_0 [label=C_1_0 fillcolor=white shape=ellipse style=filled]
+	y_1_0 [label=y_1_0 fillcolor=grey shape=ellipse style=filled]
+	C_1_1 [label=C_1_1 fillcolor=white shape=ellipse style=filled]
+	y_1_1 [label=y_1_1 fillcolor=grey shape=ellipse style=filled]
+	C_1_2 [label=C_1_2 fillcolor=white shape=ellipse style=filled]
+	y_1_2 [label=y_1_2 fillcolor=grey shape=ellipse style=filled]
+	C_1_3 [label=C_1_3 fillcolor=white shape=ellipse style=filled]
+	y_1_3 [label=y_1_3 fillcolor=grey shape=ellipse style=filled]
+	C_1_4 [label=C_1_4 fillcolor=white shape=ellipse style=filled]
+	y_1_4 [label=y_1_4 fillcolor=grey shape=ellipse style=filled]
+	C_1_5 [label=C_1_5 fillcolor=white shape=ellipse style=filled]
+	y_1_5 [label=y_1_5 fillcolor=grey shape=ellipse style=filled]
+	C_1_6 [label=C_1_6 fillcolor=white shape=ellipse style=filled]
+	y_1_6 [label=y_1_6 fillcolor=grey shape=ellipse style=filled]
+	C_1_7 [label=C_1_7 fillcolor=white shape=ellipse style=filled]
+	y_1_7 [label=y_1_7 fillcolor=grey shape=ellipse style=filled]
+	C_1_8 [label=C_1_8 fillcolor=white shape=ellipse style=filled]
+	y_1_8 [label=y_1_8 fillcolor=grey shape=ellipse style=filled]
+	C_1_9 [label=C_1_9 fillcolor=white shape=ellipse style=filled]
+	y_1_9 [label=y_1_9 fillcolor=grey shape=ellipse style=filled]
+	C_2_0 [label=C_2_0 fillcolor=white shape=ellipse style=filled]
+	y_2_0 [label=y_2_0 fillcolor=grey shape=ellipse style=filled]
+	C_2_1 [label=C_2_1 fillcolor=white shape=ellipse style=filled]
+	y_2_1 [label=y_2_1 fillcolor=grey shape=ellipse style=filled]
+	C_2_2 [label=C_2_2 fillcolor=white shape=ellipse style=filled]
+	y_2_2 [label=y_2_2 fillcolor=grey shape=ellipse style=filled]
+	C_2_3 [label=C_2_3 fillcolor=white shape=ellipse style=filled]
+	y_2_3 [label=y_2_3 fillcolor=grey shape=ellipse style=filled]
+	C_2_4 [label=C_2_4 fillcolor=white shape=ellipse style=filled]
+	y_2_4 [label=y_2_4 fillcolor=grey shape=ellipse style=filled]
+	C_2_5 [label=C_2_5 fillcolor=white shape=ellipse style=filled]
+	y_2_5 [label=y_2_5 fillcolor=grey shape=ellipse style=filled]
+	C_2_6 [label=C_2_6 fillcolor=white shape=ellipse style=filled]
+	y_2_6 [label=y_2_6 fillcolor=grey shape=ellipse style=filled]
+	C_2_7 [label=C_2_7 fillcolor=white shape=ellipse style=filled]
+	y_2_7 [label=y_2_7 fillcolor=grey shape=ellipse style=filled]
+	C_2_8 [label=C_2_8 fillcolor=white shape=ellipse style=filled]
+	y_2_8 [label=y_2_8 fillcolor=grey shape=ellipse style=filled]
+	C_2_9 [label=C_2_9 fillcolor=white shape=ellipse style=filled]
+	y_2_9 [label=y_2_9 fillcolor=grey shape=ellipse style=filled]
+	C_0_0 -> y_0_0
+	C_0_0 -> C_0_1
+	C_0_1 -> y_0_1
+	C_0_1 -> C_0_2
+	C_0_2 -> y_0_2
+	C_0_2 -> C_0_3
+	C_0_3 -> y_0_3
+	C_0_3 -> C_0_4
+	C_0_4 -> y_0_4
+	C_0_4 -> C_0_5
+	C_0_5 -> y_0_5
+	C_0_5 -> C_0_6
+	C_0_6 -> y_0_6
+	C_0_6 -> C_0_7
+	C_0_7 -> y_0_7
+	C_0_7 -> C_0_8
+	C_0_8 -> y_0_8
+	C_0_8 -> C_0_9
+	C_0_9 -> y_0_9
+	C_0_0 -> C_1_0
+	C_1_0 -> y_1_0
+	C_0_1 -> C_1_1
+	C_1_0 -> C_1_1
+	C_0_0 -> C_1_1
+	C_1_1 -> y_1_1
+	C_0_1 -> C_1_2
+	C_0_2 -> C_1_2
+	C_1_1 -> C_1_2
+	C_1_2 -> y_1_2
+	C_0_2 -> C_1_3
+	C_0_3 -> C_1_3
+	C_1_2 -> C_1_3
+	C_1_3 -> y_1_3
+	C_0_3 -> C_1_4
+	C_1_3 -> C_1_4
+	C_0_4 -> C_1_4
+	C_1_4 -> y_1_4
+	C_0_5 -> C_1_5
+	C_1_4 -> C_1_5
+	C_0_4 -> C_1_5
+	C_1_5 -> y_1_5
+	C_0_5 -> C_1_6
+	C_1_5 -> C_1_6
+	C_0_6 -> C_1_6
+	C_1_6 -> y_1_6
+	C_0_7 -> C_1_7
+	C_1_6 -> C_1_7
+	C_0_6 -> C_1_7
+	C_1_7 -> y_1_7
+	C_0_8 -> C_1_8
+	C_1_7 -> C_1_8
+	C_0_7 -> C_1_8
+	C_1_8 -> y_1_8
+	C_0_9 -> C_1_9
+	C_1_8 -> C_1_9
+	C_0_8 -> C_1_9
+	C_1_9 -> y_1_9
+	C_0_0 -> C_2_0
+	C_2_0 -> y_2_0
+	C_2_0 -> C_2_1
+	C_0_1 -> C_2_1
+	C_0_0 -> C_2_1
+	C_2_1 -> y_2_1
+	C_0_1 -> C_2_2
+	C_2_1 -> C_2_2
+	C_0_2 -> C_2_2
+	C_2_2 -> y_2_2
+	C_0_2 -> C_2_3
+	C_0_3 -> C_2_3
+	C_2_2 -> C_2_3
+	C_2_3 -> y_2_3
+	C_0_3 -> C_2_4
+	C_2_3 -> C_2_4
+	C_0_4 -> C_2_4
+	C_2_4 -> y_2_4
+	C_0_5 -> C_2_5
+	C_0_4 -> C_2_5
+	C_2_4 -> C_2_5
+	C_2_5 -> y_2_5
+	C_0_5 -> C_2_6
+	C_2_5 -> C_2_6
+	C_0_6 -> C_2_6
+	C_2_6 -> y_2_6
+	C_0_7 -> C_2_7
+	C_2_6 -> C_2_7
+	C_0_6 -> C_2_7
+	C_2_7 -> y_2_7
+	C_2_7 -> C_2_8
+	C_0_8 -> C_2_8
+	C_0_7 -> C_2_8
+	C_2_8 -> y_2_8
+	C_0_9 -> C_2_9
+	C_0_8 -> C_2_9
+	C_2_8 -> C_2_9
+	C_2_9 -> y_2_9
 }
