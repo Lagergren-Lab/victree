@@ -121,7 +121,7 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
                 y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(C_r_m * torch.ones(n_cells), 1.0), obs=data[m])
             else:
                 # save previous copy number
-                parent_idx = [pred for pred in tree.predecessors(u)][0]  # Raise exception if multiple pred found?
+                parent_idx = [pred for pred in tree.predecessors(u)][0]  # Raise exception if multiple pred found
                 C_p_m_1 = C_temp[parent_idx, m-1]
                 C_p_m = C_temp[parent_idx, m]
                 C_u_m_1 = C_temp[u, m-1]
@@ -225,6 +225,9 @@ def main(args):
     tree = nx.DiGraph()
     tree.add_edge(0, 1)
     tree.add_edge(0, 2)
+    tree.add_edge(1, 3)
+    tree.add_edge(1, 4)
+    tree.add_edge(1, 5)
     nx.draw_networkx(tree)
     plt.show()
     graph = pyro.render_model(model_tree_markov, model_args=(data, n_cells, n_sites, n_copy_states, tree,))
@@ -233,11 +236,12 @@ def main(args):
     logging.info("Simulate data")
     # simulate latent variable as well as observations (synthetic data generation)
     # using "uncondition" handler
-    unconditioned_model = poutine.uncondition(model_simple_markov)
-    C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
-    print(f"C_r: {C_r}")
-    print(f"C_u: {C_u}")
-    print(f"y_u: {y_u}")
+    unconditioned_model = poutine.uncondition(model_tree_markov)
+    #C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
+    C, y = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
+    print(f"C_r: {C}")
+    #print(f"C_u: {C_u}")
+    print(f"y_u: {y}")
 
 
 if __name__ == '__main__':
