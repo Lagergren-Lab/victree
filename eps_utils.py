@@ -42,7 +42,10 @@ class TreeHMM:
         self.n_copy_states = n_copy_states
 
         self.n_rare_cases,  self.n_common_cases = compute_n_cases(n_copy_states)
+
+        # h(jj, j, ii, i) = p(c_u_m | c_u_m-1, c_p_m, c_p_m-1)
         self.cpd_table = torch.empty((n_copy_states,) * 4)
+        # h(j, i) = p(c_u_0 | c_p_0)
         self.cpd_pair_table = torch.empty((n_copy_states, ) * 2)
         self.compute_cpds()
 

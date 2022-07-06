@@ -4,6 +4,8 @@ import argparse
 import logging
 
 import networkx as nx
+from networkx.algorithms.tree.coding import NotATree
+from networkx.algorithms.tree.recognition import is_arborescence
 import numpy as np
 import random
 import torch
@@ -11,9 +13,7 @@ import pyro
 import pyro.distributions as dist
 import pyro.poutine as poutine
 from typing import Tuple
-
 from matplotlib import pyplot as plt
-
 from eps_utils import TreeHMM
 
 
@@ -68,6 +68,10 @@ def model_simple_markov(data, n_cells, n_sites, n_copy_states = 7) -> Tuple[torc
 
 
 def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
+    # check that tree is with maximum in-degree =1
+    if not is_arborescence(tree):
+        raise NotATree("The provided graph is not a tree/arborescence")
+
     treeHMM = TreeHMM(n_copy_states, eps=0.3)
     cpd = treeHMM.cpd_table
     pair_cpd = treeHMM.cpd_pair_table
@@ -83,12 +87,9 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
     C_temp = {}
     y = torch.zeros(n_nodes, n_sites, n_cells, dtype=torch.float)
 
-    # simple transition matrix for root cn evolution
-    pp = torch.eye(n_copy_states) * (1. - treeHMM.eps) + treeHMM.eps
-
     for u in nx.dfs_preorder_nodes(tree):
         if u == 0:  # root case
-            prior_tensor = torch.zeros(n_copy_states, dtype=torch.long)
+            prior_tensor = torch.zeros(n_copy_states)
             prior_tensor[2] = 1  # all probability on CN = 2
             C_r_m = pyro.sample("C_{}_{}".format(u, 0), dist.Categorical(prior_tensor))
             C_temp[u, 0] = C_r_m
@@ -96,9 +97,10 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
             y[u, 0] = pyro.sample("y_{}_{}".format(u, 0), dist.Normal(mu_n * C_r_m * torch.ones(n_cells), 1.0),
                                   obs=data[0])
         else:
-            parent_idx = [pred for pred in tree.predecessors(u)][0]  # Raise exception if multiple pred found?
+            # exception above makes sure tree is an actual tree (i.e. one and only one predecessor)
+            parent_idx = [pred for pred in tree.predecessors(u)][0]
             C_p_0 = C_temp[parent_idx, 0]
-            C_u_m = pyro.sample("C_{}_{}".format(u, 0), dist.Categorical(pp[:, C_p_0]))
+            C_u_m = pyro.sample("C_{}_{}".format(u, 0), dist.Categorical(pair_cpd[:, C_p_0]))
             C_temp[u, 0] = C_u_m
             C[u, 0] = C_u_m
             y[u, 0] = pyro.sample("y_{}_{}".format(u, 0), dist.Normal(mu_n * C_u_m * torch.ones(n_cells), 1.0),
@@ -111,17 +113,15 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
 
             # initial state case only depends on the parent initial state
             if u == 0:
-                # save previous copy number
-                C_r_m_1 = C_r_m if m != 0 else C_p_0
-                # follow previous site's copy number for root node
-                C_r_m = pyro.sample("C_{}_{}".format(u, m), dist.Categorical(probs=pp[:, C_r_m_1]))
+                # root node is always 2
+                C_r_m = pyro.sample("C_{}_{}".format(u, m), dist.Categorical(probs=prior_tensor))
                 # save values in arrays
                 C_temp[u, m] = C_r_m
                 C[u, m] = C_r_m
-                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(C_r_m * torch.ones(n_cells), 1.0), obs=data[m])
+                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu_n * C_r_m * torch.ones(n_cells), 1.0), obs=data[m])
             else:
                 # save previous copy number
-                parent_idx = [pred for pred in tree.predecessors(u)][0]  # Raise exception if multiple pred found
+                parent_idx = [pred for pred in tree.predecessors(u)][0]
                 C_p_m_1 = C_temp[parent_idx, m-1]
                 C_p_m = C_temp[parent_idx, m]
                 C_u_m_1 = C_temp[u, m-1]
@@ -133,7 +133,7 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
                 # save values in arrays
                 C_temp[u, m] = C_u_m
                 C[u, m] = C_u_m
-                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(C_u_m * torch.ones(n_cells), 1.0), obs=data[m])
+                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu_n * C_u_m * torch.ones(n_cells), 1.0), obs=data[m])
 
     return C, y
 
@@ -166,7 +166,7 @@ def model_markov_tree_recursive(data, n_cells, n_sites, n_copy_states, tree: nx.
     pp = torch.eye(n_copy_states) * (1. - treeHMM.eps) + treeHMM.eps
 
     # priors
-    prior_tensor = torch.zeros(n_copy_states, dtype=torch.long)
+    prior_tensor = torch.zeros(n_copy_states)
     prior_tensor[2] = 1  # all probability on CN = 2
 
     def markov_tree_recursion(u, m, C_p_m_1, C_p_m, C_u_m_1):
@@ -228,8 +228,13 @@ def main(args):
     tree.add_edge(1, 3)
     tree.add_edge(1, 4)
     tree.add_edge(1, 5)
-    nx.draw_networkx(tree)
-    plt.show()
+
+    # draw tree topology
+    f = plt.figure()
+    nx.draw_networkx(tree, ax=f.add_subplot(111))
+    f.savefig("./fig/tree_topology.png")
+
+    # draw bayes net
     graph = pyro.render_model(model_tree_markov, model_args=(data, n_cells, n_sites, n_copy_states, tree,))
     graph.render(outfile='./fig/graph.png')
 
