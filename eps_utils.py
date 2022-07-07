@@ -36,9 +36,9 @@ def compute_n_cases(n_copy_states) -> Tuple[torch.Tensor, torch.Tensor]:
 
 class TreeHMM:
 
-    def __init__(self, n_copy_states, eps = 1e-2, delta = 1e-10):
-        self.eps = torch.tensor(eps)
-        self.delta = torch.tensor(delta)
+    def __init__(self, n_copy_states, eps = torch.tensor(1e-2), delta = torch.tensor(1e-10)):
+        self.eps = eps
+        self.delta = delta
         self.n_copy_states = n_copy_states
 
         self.n_rare_cases,  self.n_common_cases = compute_n_cases(n_copy_states)
@@ -77,7 +77,7 @@ class TreeHMM:
             # either it's a rare case or an impossible one
             # eps should then be set to 1 and prob is distributed
             # over the rare cases
-            local_eps = 1.
+            local_eps = torch.tensor(1.)
 
         p = torch.tensor(-1)
         if (j == 0 and jj != 0) or (i == 0 and ii != 0):

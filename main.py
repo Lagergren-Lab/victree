@@ -21,12 +21,31 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
     if not is_arborescence(tree):
         raise NotATree("The provided graph is not a tree/arborescence")
 
-    treeHMM = TreeHMM(n_copy_states, eps=0.3)
+
+    n_nodes = len(tree.nodes)
+
+    # PRIORS PARAMETERS
+    # normal params
+    # location and scale
+    mu_0 = torch.tensor(0.)
+    sigma_0 = torch.tensor(1.)
+
+    # inverse gamma params
+    # concentration and rate
+    a0, b0 = torch.tensor(.001), torch.tensor(.001)
+
+    # beta params
+    # shape alpha, shape beta
+    alpha0, beta0 = torch.tensor(10.), torch.tensor(40.)
+
+    mu = pyro.sample("mu", dist.Normal(mu_0, sigma_0).expand([n_cells]))
+    sigma2 = pyro.sample("sigma", dist.InverseGamma(a0, b0))
+    eps = pyro.sample("eps", dist.Beta(alpha0, beta0))
+
+    treeHMM = TreeHMM(n_copy_states, eps=eps)
     cpd = treeHMM.cpd_table
     pair_cpd = treeHMM.cpd_pair_table
 
-    n_nodes = len(tree.nodes)
-    mu_n = 1.0  # TODO: change to random variable
     # TODO: add cell assignment sampling
     # pi = pyro.sample(dirich)
     # z = pyro.sample(categor)
@@ -49,7 +68,7 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
                 C_r_m = pyro.sample("C_{}_{}".format(0, m), dist.Categorical(prior_tensor[C_r_m, :]))
 
                 C_dict[0, m] = C_r_m
-                y[0, m] = pyro.sample("y_{}_{}".format(0, m), dist.Normal(mu_n * C_r_m * torch.ones(n_cells), 1.0),
+                y[0, m] = pyro.sample("y_{}_{}".format(0, m), dist.Normal(mu * C_r_m, sigma2.sqrt()),
                                     obs=data[m])
         # inner nodes
         else:
@@ -78,7 +97,7 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
 
                 # save values in dict
                 C_dict[u, m] = C_u_m
-                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu_n * C_u_m * torch.ones(n_cells), 1.0), obs=data[m])
+                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu * C_u_m, sigma2.sqrt()), obs=data[m])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():
