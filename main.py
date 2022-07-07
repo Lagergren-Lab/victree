@@ -2,69 +2,18 @@
 
 import argparse
 import logging
+import random
 
 import networkx as nx
 from networkx.algorithms.tree.coding import NotATree
 from networkx.algorithms.tree.recognition import is_arborescence
 import numpy as np
-import random
 import torch
 import pyro
 import pyro.distributions as dist
 import pyro.poutine as poutine
-from typing import Tuple
 from matplotlib import pyplot as plt
 from eps_utils import TreeHMM
-
-
-def model_simple_markov(data, n_cells, n_sites, n_copy_states = 7) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    treeHMM = TreeHMM(n_copy_states, eps=0.3)
-    cpd = treeHMM.cpd_table
-    pair_cpd = treeHMM.cpd_pair_table
-    # initialization
-    C_r_m = 0
-    C_u_m = 0
-
-    # variables to store complete data in
-    C_r = torch.zeros(n_sites, dtype=torch.int)
-    C_u = torch.zeros(n_sites, dtype=torch.int)
-    y_u = torch.zeros(n_sites, n_cells, dtype=torch.float)
-
-    # simple transition matrix for root cn evolution
-    pp = torch.eye(n_copy_states) * (1. - treeHMM.eps) + treeHMM.eps
-    # no need for pyro.markov, range is equivalent
-    # a simple for loop is used in the tutorials for sequential dependencies
-    # ref: https://pyro.ai/examples/svi_part_ii.html#Sequential-plate
-    for m in range(n_sites):
-
-        # initial state case only depends on the parent initial state
-        if m == 0:
-            # starts with uniform over copy states
-            dist_C_r_m = dist.Categorical(logits=torch.ones(n_copy_states))
-            C_r_m = pyro.sample("C_r_{}".format(m), dist_C_r_m)
-            dist_C_u_m = dist.Categorical(probs=pair_cpd[:, C_r_m])
-
-        else:
-            # save previous copy number
-            C_r_m_1 = C_r_m
-            # follow previous site's copy number for root node
-            C_r_m = pyro.sample("C_r_{}".format(m), dist.Categorical(probs=pp[:, C_r_m]))
-
-            # other states depend on 3 states
-            dist_C_u_m = dist.Categorical(probs=cpd[:, C_u_m, C_r_m, C_r_m_1])
-
-        C_u_m = pyro.sample("C_u_{}".format(m), dist_C_u_m)
-        # save values in arrays
-        C_r[m] = C_r_m
-        C_u[m] = C_u_m
-        y_u[m] = pyro.sample("y_u_{}".format(m), dist.Normal(C_u_m * torch.ones(n_cells), 1.0), obs=data[m])
-
-    # debug
-    # print(f"C_r_m {C_r}")
-    # print(f"C_u_m {C_u}")
-    # print(f"y_u_m {y_u}")
-
-    return C_r, C_u, y_u
 
 
 def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
@@ -136,81 +85,6 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
         C[u, m] = C_dict[u,m]
 
     return C, y
-
-
-def model_markov_tree_recursive(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
-    """
-    Recursive version of function above. Probably not needed. TODO: Delete when iterative version tested OK
-    :param data:
-    :param n_cells:
-    :param n_sites:
-    :param n_copy_states:
-    :param tree:
-    :return:
-    """
-    treeHMM = TreeHMM(n_copy_states, eps=0.3)
-    cpd = treeHMM.cpd_table
-    pair_cpd = treeHMM.cpd_pair_table
-
-    n_nodes = len(tree.nodes)
-    mu_n = 1.0  # TODO: change to random variable
-    # initialization
-    C_r_m = 0
-    C_u_m = 0
-
-    # variables to store complete data in
-    C = torch.zeros(n_nodes, n_sites, dtype=torch.int)
-    y = torch.zeros(n_nodes, n_sites, n_cells, dtype=torch.float)
-
-    # simple transition matrix for root cn evolution
-    pp = torch.eye(n_copy_states) * (1. - treeHMM.eps) + treeHMM.eps
-
-    # priors
-    prior_tensor = torch.zeros(n_copy_states)
-    prior_tensor[2] = 1  # all probability on CN = 2
-
-    def markov_tree_recursion(u, m, C_p_m_1, C_p_m, C_u_m_1):
-        if u == 0:
-            if m == 0:
-                C_r_0 = pyro.sample("C_{}_{}".format(0, 0), dist.Categorical(prior_tensor))
-                C[u, m] = C_r_0
-                #children_idx = [child for child in tree.successors(u)]
-                for child in tree.successors(u):
-                    markov_tree_recursion(u=child, m=m, C_p_m_1=None, C_p_m=C_r_0, C_u_m_1=None)
-            else:
-                # propagate m
-                C_r_m = pyro.sample("C_{}_{}".format(u, m), dist.Categorical(probs=pp[:, C_u_m_1]))
-                C[u, m] = C_r_m
-                for child in tree.successors(u):
-                    markov_tree_recursion(u=child, m=m, C_p_m_1=C_u_m_1, C_p_m=C_r_m, C_u_m_1=None)  # <--- How to access C_u_m_1 ???
-        else:
-            if m == 0:
-                C_u_0 = pyro.sample("C_{}_{}".format(u, m), dist.Categorical(probs=pair_cpd[:, C_p_m]))
-                C[u, m] = C_u_0
-                for child in tree.successors(u):
-                    markov_tree_recursion(u=child, m=m, C_p_m_1=None, C_p_m=C_u_0, C_u_m_1=None)
-
-            else:
-                C_u_m = pyro.sample("C_{}_{}".format(u, m), dist.Categorical(probs=cpd[:, C_p_m_1, C_p_m, C_u_m_1]))
-
-                C[u, m] = C_u_m
-
-        return 0
-
-    # root and 0 site
-
-    markov_tree_recursion(u=0, m=1, )
-
-
-
-    for m in range(n_sites):
-
-        # initial state case only depends on the parent initial state
-        if m == 0:
-            # starts with uniform over copy states
-            dist_C_r_m = dist.Categorical(logits=torch.ones(n_copy_states))
-            C_r_m = pyro.sample("C_r_{}".format(m), dist_C_r_m)
-            dist_C_u_m = dist.Categorical(probs=pair_cpd[:, C_r_m] )
 
 
 def main(args):
