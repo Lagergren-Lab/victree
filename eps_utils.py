@@ -51,6 +51,7 @@ class TreeHMM:
 
 
     def compute_cpds(self):
+        # FIXME: 0 absorption is not working properly
         for cp4 in itertools.product(*(range(self.n_copy_states), ) * 4):
             self.cpd_table[cp4] = self.h(*cp4)
 

@@ -78,62 +78,62 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
 
     n_nodes = len(tree.nodes)
     mu_n = 1.0  # TODO: change to random variable
-    # initialization
-    C_r_m = 0
-    C_u_m = 0
+    # TODO: add cell assignment sampling
+    # pi = pyro.sample(dirich)
+    # z = pyro.sample(categor)
 
     # variables to store complete data in
-    C = torch.zeros(n_nodes, n_sites, dtype=torch.int)
-    C_temp = {}
-    y = torch.zeros(n_nodes, n_sites, n_cells, dtype=torch.float)
+    C_dict = {}
+    y = torch.zeros(n_nodes, n_sites, n_cells)
+
+    # dist for root note (dirac on C_r_m)
+    prior_tensor = torch.eye(n_copy_states)
+    # C_r_m determines the value of the root copy number
+    # which is the same for each site
+    C_r_m = 2
 
     for u in nx.dfs_preorder_nodes(tree):
-        if u == 0:  # root case
-            prior_tensor = torch.zeros(n_copy_states)
-            prior_tensor[2] = 1  # all probability on CN = 2
-            C_r_m = pyro.sample("C_{}_{}".format(u, 0), dist.Categorical(prior_tensor))
-            C_temp[u, 0] = C_r_m
-            C[u, 0] = C_r_m
-            y[u, 0] = pyro.sample("y_{}_{}".format(u, 0), dist.Normal(mu_n * C_r_m * torch.ones(n_cells), 1.0),
-                                  obs=data[0])
-        else:
-            # exception above makes sure tree is an actual tree (i.e. one and only one predecessor)
-            parent_idx = [pred for pred in tree.predecessors(u)][0]
-            C_p_0 = C_temp[parent_idx, 0]
-            C_u_m = pyro.sample("C_{}_{}".format(u, 0), dist.Categorical(pair_cpd[:, C_p_0]))
-            C_temp[u, 0] = C_u_m
-            C[u, 0] = C_u_m
-            y[u, 0] = pyro.sample("y_{}_{}".format(u, 0), dist.Normal(mu_n * C_u_m * torch.ones(n_cells), 1.0),
-                                  obs=data[0])
-
-        # no need for pyro.markov, range is equivalent
-        # a simple for loop is used in the tutorials for sequential dependencies
-        # ref: https://pyro.ai/examples/svi_part_ii.html#Sequential-plate
-        for m in range(1, n_sites):
-
-            # initial state case only depends on the parent initial state
-            if u == 0:
+        # root node
+        if u == 0:
+            for m in range(n_sites):
                 # root node is always 2
-                C_r_m = pyro.sample("C_{}_{}".format(u, m), dist.Categorical(probs=prior_tensor))
-                # save values in arrays
-                C_temp[u, m] = C_r_m
-                C[u, m] = C_r_m
-                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu_n * C_r_m * torch.ones(n_cells), 1.0), obs=data[m])
-            else:
-                # save previous copy number
-                parent_idx = [pred for pred in tree.predecessors(u)][0]
-                C_p_m_1 = C_temp[parent_idx, m-1]
-                C_p_m = C_temp[parent_idx, m]
-                C_u_m_1 = C_temp[u, m-1]
+                C_r_m = pyro.sample("C_{}_{}".format(0, m), dist.Categorical(prior_tensor[C_r_m, :]))
 
-                # other states depend on 3 states
-                dist_C_u_m = dist.Categorical(probs=cpd[:, C_u_m_1, C_p_m, C_p_m_1])
-                C_u_m = pyro.sample("C_{}_{}".format(u, m), dist_C_u_m)
+                C_dict[0, m] = C_r_m
+                y[0, m] = pyro.sample("y_{}_{}".format(0, m), dist.Normal(mu_n * C_r_m * torch.ones(n_cells), 1.0),
+                                    obs=data[m])
+        # inner nodes
+        else:
+            p = [pred for pred in tree.predecessors(u)][0]
+            # no need for pyro.markov, range is equivalent
+            # a simple for loop is used in the tutorials for sequential dependencies
+            # ref: https://pyro.ai/examples/svi_part_ii.html#Sequential-plate
+            for m in range(n_sites):
+                # current site, parent copy number is always available
+                C_p_m = C_dict[p, m]
 
-                # save values in arrays
-                C_temp[u, m] = C_u_m
-                C[u, m] = C_u_m
+                zipping_dist = None
+                if m == 0:
+                    # initial state case only depends on the parent initial state
+                    # use pair_cpd as m-1 is not available
+                    zipping_dist = dist.Categorical(pair_cpd[:, C_p_m])
+                else:
+                    # previous copy numbers
+                    C_p_m_1 = C_dict[p, m - 1]
+                    C_u_m_1 = C_dict[u, m - 1]
+
+                    # other states depend on 3 states
+                    zipping_dist = dist.Categorical(probs=cpd[:, C_u_m_1, C_p_m, C_p_m_1])
+
+                C_u_m = pyro.sample("C_{}_{}".format(u, m), zipping_dist)
+
+                # save values in dict
+                C_dict[u, m] = C_u_m
                 y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu_n * C_u_m * torch.ones(n_cells), 1.0), obs=data[m])
+
+    C = torch.empty((n_nodes, n_sites))
+    for u, m in C_dict.keys():
+        C[u, m] = C_dict[u,m]
 
     return C, y
 
@@ -219,7 +219,7 @@ def main(args):
 
     # params
     n_cells = 3
-    n_sites = 10
+    n_sites = 5
     n_copy_states = 5
     data = torch.ones(n_sites, n_cells)
     tree = nx.DiGraph()
@@ -227,7 +227,6 @@ def main(args):
     tree.add_edge(0, 2)
     tree.add_edge(1, 3)
     tree.add_edge(1, 4)
-    tree.add_edge(1, 5)
 
     # draw tree topology
     f = plt.figure()
@@ -244,16 +243,16 @@ def main(args):
     unconditioned_model = poutine.uncondition(model_tree_markov)
     #C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
     C, y = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
-    print(f"C_r: {C}")
+    print(f"C: {C}")
     #print(f"C_u: {C_u}")
-    print(f"y_u: {y}")
+    print(f"y: {y}")
 
 
 if __name__ == '__main__':
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description="Double chain HMM test"
+        description="Tree HMM test"
     )
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--cuda", action="store_true")

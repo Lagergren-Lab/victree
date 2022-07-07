@@ -9,16 +9,6 @@ digraph {
 	y_0_3 [label=y_0_3 fillcolor=grey shape=ellipse style=filled]
 	C_0_4 [label=C_0_4 fillcolor=white shape=ellipse style=filled]
 	y_0_4 [label=y_0_4 fillcolor=grey shape=ellipse style=filled]
-	C_0_5 [label=C_0_5 fillcolor=white shape=ellipse style=filled]
-	y_0_5 [label=y_0_5 fillcolor=grey shape=ellipse style=filled]
-	C_0_6 [label=C_0_6 fillcolor=white shape=ellipse style=filled]
-	y_0_6 [label=y_0_6 fillcolor=grey shape=ellipse style=filled]
-	C_0_7 [label=C_0_7 fillcolor=white shape=ellipse style=filled]
-	y_0_7 [label=y_0_7 fillcolor=grey shape=ellipse style=filled]
-	C_0_8 [label=C_0_8 fillcolor=white shape=ellipse style=filled]
-	y_0_8 [label=y_0_8 fillcolor=grey shape=ellipse style=filled]
-	C_0_9 [label=C_0_9 fillcolor=white shape=ellipse style=filled]
-	y_0_9 [label=y_0_9 fillcolor=grey shape=ellipse style=filled]
 	C_1_0 [label=C_1_0 fillcolor=white shape=ellipse style=filled]
 	y_1_0 [label=y_1_0 fillcolor=grey shape=ellipse style=filled]
 	C_1_1 [label=C_1_1 fillcolor=white shape=ellipse style=filled]
@@ -29,16 +19,6 @@ digraph {
 	y_1_3 [label=y_1_3 fillcolor=grey shape=ellipse style=filled]
 	C_1_4 [label=C_1_4 fillcolor=white shape=ellipse style=filled]
 	y_1_4 [label=y_1_4 fillcolor=grey shape=ellipse style=filled]
-	C_1_5 [label=C_1_5 fillcolor=white shape=ellipse style=filled]
-	y_1_5 [label=y_1_5 fillcolor=grey shape=ellipse style=filled]
-	C_1_6 [label=C_1_6 fillcolor=white shape=ellipse style=filled]
-	y_1_6 [label=y_1_6 fillcolor=grey shape=ellipse style=filled]
-	C_1_7 [label=C_1_7 fillcolor=white shape=ellipse style=filled]
-	y_1_7 [label=y_1_7 fillcolor=grey shape=ellipse style=filled]
-	C_1_8 [label=C_1_8 fillcolor=white shape=ellipse style=filled]
-	y_1_8 [label=y_1_8 fillcolor=grey shape=ellipse style=filled]
-	C_1_9 [label=C_1_9 fillcolor=white shape=ellipse style=filled]
-	y_1_9 [label=y_1_9 fillcolor=grey shape=ellipse style=filled]
 	C_3_0 [label=C_3_0 fillcolor=white shape=ellipse style=filled]
 	y_3_0 [label=y_3_0 fillcolor=grey shape=ellipse style=filled]
 	C_3_1 [label=C_3_1 fillcolor=white shape=ellipse style=filled]
@@ -49,16 +29,6 @@ digraph {
 	y_3_3 [label=y_3_3 fillcolor=grey shape=ellipse style=filled]
 	C_3_4 [label=C_3_4 fillcolor=white shape=ellipse style=filled]
 	y_3_4 [label=y_3_4 fillcolor=grey shape=ellipse style=filled]
-	C_3_5 [label=C_3_5 fillcolor=white shape=ellipse style=filled]
-	y_3_5 [label=y_3_5 fillcolor=grey shape=ellipse style=filled]
-	C_3_6 [label=C_3_6 fillcolor=white shape=ellipse style=filled]
-	y_3_6 [label=y_3_6 fillcolor=grey shape=ellipse style=filled]
-	C_3_7 [label=C_3_7 fillcolor=white shape=ellipse style=filled]
-	y_3_7 [label=y_3_7 fillcolor=grey shape=ellipse style=filled]
-	C_3_8 [label=C_3_8 fillcolor=white shape=ellipse style=filled]
-	y_3_8 [label=y_3_8 fillcolor=grey shape=ellipse style=filled]
-	C_3_9 [label=C_3_9 fillcolor=white shape=ellipse style=filled]
-	y_3_9 [label=y_3_9 fillcolor=grey shape=ellipse style=filled]
 	C_4_0 [label=C_4_0 fillcolor=white shape=ellipse style=filled]
 	y_4_0 [label=y_4_0 fillcolor=grey shape=ellipse style=filled]
 	C_4_1 [label=C_4_1 fillcolor=white shape=ellipse style=filled]
@@ -69,36 +39,6 @@ digraph {
 	y_4_3 [label=y_4_3 fillcolor=grey shape=ellipse style=filled]
 	C_4_4 [label=C_4_4 fillcolor=white shape=ellipse style=filled]
 	y_4_4 [label=y_4_4 fillcolor=grey shape=ellipse style=filled]
-	C_4_5 [label=C_4_5 fillcolor=white shape=ellipse style=filled]
-	y_4_5 [label=y_4_5 fillcolor=grey shape=ellipse style=filled]
-	C_4_6 [label=C_4_6 fillcolor=white shape=ellipse style=filled]
-	y_4_6 [label=y_4_6 fillcolor=grey shape=ellipse style=filled]
-	C_4_7 [label=C_4_7 fillcolor=white shape=ellipse style=filled]
-	y_4_7 [label=y_4_7 fillcolor=grey shape=ellipse style=filled]
-	C_4_8 [label=C_4_8 fillcolor=white shape=ellipse style=filled]
-	y_4_8 [label=y_4_8 fillcolor=grey shape=ellipse style=filled]
-	C_4_9 [label=C_4_9 fillcolor=white shape=ellipse style=filled]
-	y_4_9 [label=y_4_9 fillcolor=grey shape=ellipse style=filled]
-	C_5_0 [label=C_5_0 fillcolor=white shape=ellipse style=filled]
-	y_5_0 [label=y_5_0 fillcolor=grey shape=ellipse style=filled]
-	C_5_1 [label=C_5_1 fillcolor=white shape=ellipse style=filled]
-	y_5_1 [label=y_5_1 fillcolor=grey shape=ellipse style=filled]
-	C_5_2 [label=C_5_2 fillcolor=white shape=ellipse style=filled]
-	y_5_2 [label=y_5_2 fillcolor=grey shape=ellipse style=filled]
-	C_5_3 [label=C_5_3 fillcolor=white shape=ellipse style=filled]
-	y_5_3 [label=y_5_3 fillcolor=grey shape=ellipse style=filled]
-	C_5_4 [label=C_5_4 fillcolor=white shape=ellipse style=filled]
-	y_5_4 [label=y_5_4 fillcolor=grey shape=ellipse style=filled]
-	C_5_5 [label=C_5_5 fillcolor=white shape=ellipse style=filled]
-	y_5_5 [label=y_5_5 fillcolor=grey shape=ellipse style=filled]
-	C_5_6 [label=C_5_6 fillcolor=white shape=ellipse style=filled]
-	y_5_6 [label=y_5_6 fillcolor=grey shape=ellipse style=filled]
-	C_5_7 [label=C_5_7 fillcolor=white shape=ellipse style=filled]
-	y_5_7 [label=y_5_7 fillcolor=grey shape=ellipse style=filled]
-	C_5_8 [label=C_5_8 fillcolor=white shape=ellipse style=filled]
-	y_5_8 [label=y_5_8 fillcolor=grey shape=ellipse style=filled]
-	C_5_9 [label=C_5_9 fillcolor=white shape=ellipse style=filled]
-	y_5_9 [label=y_5_9 fillcolor=grey shape=ellipse style=filled]
 	C_2_0 [label=C_2_0 fillcolor=white shape=ellipse style=filled]
 	y_2_0 [label=y_2_0 fillcolor=grey shape=ellipse style=filled]
 	C_2_1 [label=C_2_1 fillcolor=white shape=ellipse style=filled]
@@ -109,64 +49,33 @@ digraph {
 	y_2_3 [label=y_2_3 fillcolor=grey shape=ellipse style=filled]
 	C_2_4 [label=C_2_4 fillcolor=white shape=ellipse style=filled]
 	y_2_4 [label=y_2_4 fillcolor=grey shape=ellipse style=filled]
-	C_2_5 [label=C_2_5 fillcolor=white shape=ellipse style=filled]
-	y_2_5 [label=y_2_5 fillcolor=grey shape=ellipse style=filled]
-	C_2_6 [label=C_2_6 fillcolor=white shape=ellipse style=filled]
-	y_2_6 [label=y_2_6 fillcolor=grey shape=ellipse style=filled]
-	C_2_7 [label=C_2_7 fillcolor=white shape=ellipse style=filled]
-	y_2_7 [label=y_2_7 fillcolor=grey shape=ellipse style=filled]
-	C_2_8 [label=C_2_8 fillcolor=white shape=ellipse style=filled]
-	y_2_8 [label=y_2_8 fillcolor=grey shape=ellipse style=filled]
-	C_2_9 [label=C_2_9 fillcolor=white shape=ellipse style=filled]
-	y_2_9 [label=y_2_9 fillcolor=grey shape=ellipse style=filled]
 	C_0_0 -> y_0_0
+	C_0_0 -> C_0_1
 	C_0_1 -> y_0_1
+	C_0_1 -> C_0_2
 	C_0_2 -> y_0_2
+	C_0_2 -> C_0_3
 	C_0_3 -> y_0_3
+	C_0_3 -> C_0_4
 	C_0_4 -> y_0_4
-	C_0_5 -> y_0_5
-	C_0_6 -> y_0_6
-	C_0_7 -> y_0_7
-	C_0_8 -> y_0_8
-	C_0_9 -> y_0_9
 	C_0_0 -> C_1_0
 	C_1_0 -> y_1_0
 	C_0_0 -> C_1_1
-	C_0_1 -> C_1_1
 	C_1_0 -> C_1_1
+	C_0_1 -> C_1_1
 	C_1_1 -> y_1_1
-	C_0_2 -> C_1_2
 	C_0_1 -> C_1_2
+	C_0_2 -> C_1_2
 	C_1_1 -> C_1_2
 	C_1_2 -> y_1_2
-	C_0_3 -> C_1_3
 	C_1_2 -> C_1_3
 	C_0_2 -> C_1_3
+	C_0_3 -> C_1_3
 	C_1_3 -> y_1_3
 	C_0_3 -> C_1_4
 	C_0_4 -> C_1_4
 	C_1_3 -> C_1_4
 	C_1_4 -> y_1_4
-	C_0_4 -> C_1_5
-	C_0_5 -> C_1_5
-	C_1_4 -> C_1_5
-	C_1_5 -> y_1_5
-	C_0_6 -> C_1_6
-	C_0_5 -> C_1_6
-	C_1_5 -> C_1_6
-	C_1_6 -> y_1_6
-	C_0_6 -> C_1_7
-	C_1_6 -> C_1_7
-	C_0_7 -> C_1_7
-	C_1_7 -> y_1_7
-	C_1_7 -> C_1_8
-	C_0_8 -> C_1_8
-	C_0_7 -> C_1_8
-	C_1_8 -> y_1_8
-	C_0_9 -> C_1_9
-	C_0_8 -> C_1_9
-	C_1_8 -> C_1_9
-	C_1_9 -> y_1_9
 	C_1_0 -> C_3_0
 	C_3_0 -> y_3_0
 	C_3_0 -> C_3_1
@@ -174,149 +83,51 @@ digraph {
 	C_1_1 -> C_3_1
 	C_3_1 -> y_3_1
 	C_1_2 -> C_3_2
-	C_1_1 -> C_3_2
 	C_3_1 -> C_3_2
+	C_1_1 -> C_3_2
 	C_3_2 -> y_3_2
-	C_1_2 -> C_3_3
-	C_1_3 -> C_3_3
 	C_3_2 -> C_3_3
+	C_1_3 -> C_3_3
+	C_1_2 -> C_3_3
 	C_3_3 -> y_3_3
 	C_1_3 -> C_3_4
 	C_3_3 -> C_3_4
 	C_1_4 -> C_3_4
 	C_3_4 -> y_3_4
-	C_3_4 -> C_3_5
-	C_1_5 -> C_3_5
-	C_1_4 -> C_3_5
-	C_3_5 -> y_3_5
-	C_1_6 -> C_3_6
-	C_3_5 -> C_3_6
-	C_1_5 -> C_3_6
-	C_3_6 -> y_3_6
-	C_1_7 -> C_3_7
-	C_1_6 -> C_3_7
-	C_3_6 -> C_3_7
-	C_3_7 -> y_3_7
-	C_1_7 -> C_3_8
-	C_3_7 -> C_3_8
-	C_1_8 -> C_3_8
-	C_3_8 -> y_3_8
-	C_3_8 -> C_3_9
-	C_1_9 -> C_3_9
-	C_1_8 -> C_3_9
-	C_3_9 -> y_3_9
 	C_1_0 -> C_4_0
 	C_4_0 -> y_4_0
-	C_4_0 -> C_4_1
 	C_1_0 -> C_4_1
+	C_4_0 -> C_4_1
 	C_1_1 -> C_4_1
 	C_4_1 -> y_4_1
-	C_1_2 -> C_4_2
 	C_4_1 -> C_4_2
+	C_1_2 -> C_4_2
 	C_1_1 -> C_4_2
 	C_4_2 -> y_4_2
-	C_4_2 -> C_4_3
-	C_1_2 -> C_4_3
 	C_1_3 -> C_4_3
+	C_1_2 -> C_4_3
+	C_4_2 -> C_4_3
 	C_4_3 -> y_4_3
-	C_1_3 -> C_4_4
 	C_4_3 -> C_4_4
+	C_1_3 -> C_4_4
 	C_1_4 -> C_4_4
 	C_4_4 -> y_4_4
-	C_4_4 -> C_4_5
-	C_1_5 -> C_4_5
-	C_1_4 -> C_4_5
-	C_4_5 -> y_4_5
-	C_1_6 -> C_4_6
-	C_4_5 -> C_4_6
-	C_1_5 -> C_4_6
-	C_4_6 -> y_4_6
-	C_1_7 -> C_4_7
-	C_1_6 -> C_4_7
-	C_4_6 -> C_4_7
-	C_4_7 -> y_4_7
-	C_1_7 -> C_4_8
-	C_4_7 -> C_4_8
-	C_1_8 -> C_4_8
-	C_4_8 -> y_4_8
-	C_4_8 -> C_4_9
-	C_1_9 -> C_4_9
-	C_1_8 -> C_4_9
-	C_4_9 -> y_4_9
-	C_1_0 -> C_5_0
-	C_5_0 -> y_5_0
-	C_1_0 -> C_5_1
-	C_1_1 -> C_5_1
-	C_5_0 -> C_5_1
-	C_5_1 -> y_5_1
-	C_5_1 -> C_5_2
-	C_1_2 -> C_5_2
-	C_1_1 -> C_5_2
-	C_5_2 -> y_5_2
-	C_1_2 -> C_5_3
-	C_1_3 -> C_5_3
-	C_5_2 -> C_5_3
-	C_5_3 -> y_5_3
-	C_5_3 -> C_5_4
-	C_1_3 -> C_5_4
-	C_1_4 -> C_5_4
-	C_5_4 -> y_5_4
-	C_5_4 -> C_5_5
-	C_1_5 -> C_5_5
-	C_1_4 -> C_5_5
-	C_5_5 -> y_5_5
-	C_1_6 -> C_5_6
-	C_5_5 -> C_5_6
-	C_1_5 -> C_5_6
-	C_5_6 -> y_5_6
-	C_1_7 -> C_5_7
-	C_5_6 -> C_5_7
-	C_1_6 -> C_5_7
-	C_5_7 -> y_5_7
-	C_1_7 -> C_5_8
-	C_5_7 -> C_5_8
-	C_1_8 -> C_5_8
-	C_5_8 -> y_5_8
-	C_5_8 -> C_5_9
-	C_1_9 -> C_5_9
-	C_1_8 -> C_5_9
-	C_5_9 -> y_5_9
 	C_0_0 -> C_2_0
 	C_2_0 -> y_2_0
 	C_0_0 -> C_2_1
-	C_0_1 -> C_2_1
 	C_2_0 -> C_2_1
+	C_0_1 -> C_2_1
 	C_2_1 -> y_2_1
-	C_0_1 -> C_2_2
 	C_2_1 -> C_2_2
+	C_0_1 -> C_2_2
 	C_0_2 -> C_2_2
 	C_2_2 -> y_2_2
 	C_2_2 -> C_2_3
-	C_0_3 -> C_2_3
 	C_0_2 -> C_2_3
+	C_0_3 -> C_2_3
 	C_2_3 -> y_2_3
-	C_0_3 -> C_2_4
 	C_0_4 -> C_2_4
 	C_2_3 -> C_2_4
+	C_0_3 -> C_2_4
 	C_2_4 -> y_2_4
-	C_0_4 -> C_2_5
-	C_0_5 -> C_2_5
-	C_2_4 -> C_2_5
-	C_2_5 -> y_2_5
-	C_0_6 -> C_2_6
-	C_2_5 -> C_2_6
-	C_0_5 -> C_2_6
-	C_2_6 -> y_2_6
-	C_0_6 -> C_2_7
-	C_2_6 -> C_2_7
-	C_0_7 -> C_2_7
-	C_2_7 -> y_2_7
-	C_2_7 -> C_2_8
-	C_0_8 -> C_2_8
-	C_0_7 -> C_2_8
-	C_2_8 -> y_2_8
-	C_2_8 -> C_2_9
-	C_0_9 -> C_2_9
-	C_0_8 -> C_2_9
-	C_2_9 -> y_2_9
 }
