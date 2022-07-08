@@ -46,13 +46,16 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
     cpd = treeHMM.cpd_table
     pair_cpd = treeHMM.cpd_pair_table
 
-    # TODO: add cell assignment sampling
-    # pi = pyro.sample(dirich)
-    # z = pyro.sample(categor)
+    # cell assignments
+    # dirichlet param vector (uniform)
+    dir_alpha = torch.ones(n_nodes)
+
+    pi = pyro.sample("pi", dist.Dirichlet(dir_alpha))
+    z = pyro.sample("z", dist.Categorical(pi).expand([n_cells]))
 
     # variables to store complete data in
     C_dict = {}
-    y = torch.zeros(n_nodes, n_sites, n_cells)
+    y = torch.zeros(n_sites, n_cells)
 
     # dist for root note (dirac on C_r_m)
     prior_tensor = torch.eye(n_copy_states)
@@ -68,8 +71,8 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
                 C_r_m = pyro.sample("C_{}_{}".format(0, m), dist.Categorical(prior_tensor[C_r_m, :]))
 
                 C_dict[0, m] = C_r_m
-                y[0, m] = pyro.sample("y_{}_{}".format(0, m), dist.Normal(mu * C_r_m, sigma2.sqrt()),
-                                    obs=data[m])
+                y[m, z == u] = pyro.sample("y_{}_{}".format(0, m), dist.Normal(mu[z == u] * C_r_m, sigma2.sqrt()),
+                                    obs=data[m, z == u])
         # inner nodes
         else:
             p = [pred for pred in tree.predecessors(u)][0]
@@ -97,13 +100,14 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
 
                 # save values in dict
                 C_dict[u, m] = C_u_m
-                y[u, m] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu * C_u_m, sigma2.sqrt()), obs=data[m])
+                y[m, z == u] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu[z == u] * C_u_m, sigma2.sqrt()),
+                                      obs=data[m, z == u])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():
         C[u, m] = C_dict[u,m]
 
-    return C, y
+    return C, y, z
 
 
 def main(args):
@@ -111,10 +115,12 @@ def main(args):
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
     # params
-    n_cells = 3
+    n_cells = 10
     n_sites = 5
     n_copy_states = 5
+
     data = torch.ones(n_sites, n_cells)
+
     tree = nx.DiGraph()
     tree.add_edge(0, 1)
     tree.add_edge(0, 2)
@@ -135,10 +141,10 @@ def main(args):
     # using "uncondition" handler
     unconditioned_model = poutine.uncondition(model_tree_markov)
     #C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
-    C, y = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
+    C, y, z = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
     print(f"C: {C}")
-    #print(f"C_u: {C_u}")
     print(f"y: {y}")
+    print(f"z: {z}")
 
 
 if __name__ == '__main__':

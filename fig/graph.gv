@@ -2,6 +2,8 @@ digraph {
 	mu [label=mu fillcolor=white shape=ellipse style=filled]
 	sigma [label=sigma fillcolor=white shape=ellipse style=filled]
 	eps [label=eps fillcolor=white shape=ellipse style=filled]
+	pi [label=pi fillcolor=white shape=ellipse style=filled]
+	z [label=z fillcolor=white shape=ellipse style=filled]
 	C_0_0 [label=C_0_0 fillcolor=white shape=ellipse style=filled]
 	y_0_0 [label=y_0_0 fillcolor=grey shape=ellipse style=filled]
 	C_0_1 [label=C_0_1 fillcolor=white shape=ellipse style=filled]
@@ -52,135 +54,161 @@ digraph {
 	y_2_3 [label=y_2_3 fillcolor=grey shape=ellipse style=filled]
 	C_2_4 [label=C_2_4 fillcolor=white shape=ellipse style=filled]
 	y_2_4 [label=y_2_4 fillcolor=grey shape=ellipse style=filled]
+	pi -> z
 	mu -> y_0_0
+	z -> y_0_0
 	C_0_0 -> y_0_0
 	sigma -> y_0_0
 	C_0_0 -> C_0_1
 	mu -> y_0_1
-	C_0_1 -> y_0_1
+	z -> y_0_1
 	sigma -> y_0_1
+	C_0_1 -> y_0_1
 	C_0_1 -> C_0_2
-	mu -> y_0_2
 	C_0_2 -> y_0_2
+	z -> y_0_2
 	sigma -> y_0_2
+	mu -> y_0_2
 	C_0_2 -> C_0_3
 	mu -> y_0_3
-	C_0_3 -> y_0_3
+	z -> y_0_3
 	sigma -> y_0_3
+	C_0_3 -> y_0_3
 	C_0_3 -> C_0_4
 	C_0_4 -> y_0_4
-	mu -> y_0_4
 	sigma -> y_0_4
+	z -> y_0_4
+	mu -> y_0_4
 	C_0_0 -> C_1_0
 	mu -> y_1_0
 	C_1_0 -> y_1_0
+	z -> y_1_0
 	sigma -> y_1_0
-	C_0_1 -> C_1_1
 	C_0_0 -> C_1_1
 	C_1_0 -> C_1_1
-	mu -> y_1_1
+	C_0_1 -> C_1_1
 	C_1_1 -> y_1_1
+	z -> y_1_1
 	sigma -> y_1_1
+	mu -> y_1_1
 	C_1_1 -> C_1_2
 	C_0_1 -> C_1_2
 	C_0_2 -> C_1_2
-	mu -> y_1_2
 	C_1_2 -> y_1_2
+	mu -> y_1_2
+	z -> y_1_2
 	sigma -> y_1_2
-	C_0_3 -> C_1_3
-	C_0_2 -> C_1_3
 	C_1_2 -> C_1_3
+	C_0_2 -> C_1_3
+	C_0_3 -> C_1_3
 	mu -> y_1_3
 	C_1_3 -> y_1_3
+	z -> y_1_3
 	sigma -> y_1_3
 	C_0_4 -> C_1_4
 	C_0_3 -> C_1_4
 	C_1_3 -> C_1_4
-	sigma -> y_1_4
 	mu -> y_1_4
+	z -> y_1_4
+	sigma -> y_1_4
 	C_1_4 -> y_1_4
 	C_1_0 -> C_3_0
+	C_3_0 -> y_3_0
+	z -> y_3_0
 	sigma -> y_3_0
 	mu -> y_3_0
-	C_3_0 -> y_3_0
+	C_1_1 -> C_3_1
 	C_3_0 -> C_3_1
 	C_1_0 -> C_3_1
-	C_1_1 -> C_3_1
 	mu -> y_3_1
-	C_3_1 -> y_3_1
+	z -> y_3_1
 	sigma -> y_3_1
-	C_3_1 -> C_3_2
-	C_1_2 -> C_3_2
+	C_3_1 -> y_3_1
 	C_1_1 -> C_3_2
-	mu -> y_3_2
+	C_1_2 -> C_3_2
+	C_3_1 -> C_3_2
 	C_3_2 -> y_3_2
+	mu -> y_3_2
+	z -> y_3_2
 	sigma -> y_3_2
 	C_3_2 -> C_3_3
 	C_1_2 -> C_3_3
 	C_1_3 -> C_3_3
-	sigma -> y_3_3
 	mu -> y_3_3
+	z -> y_3_3
+	sigma -> y_3_3
 	C_3_3 -> y_3_3
 	C_1_4 -> C_3_4
-	C_3_3 -> C_3_4
 	C_1_3 -> C_3_4
-	mu -> y_3_4
+	C_3_3 -> C_3_4
 	C_3_4 -> y_3_4
+	mu -> y_3_4
+	z -> y_3_4
 	sigma -> y_3_4
 	C_1_0 -> C_4_0
 	mu -> y_4_0
+	z -> y_4_0
 	C_4_0 -> y_4_0
 	sigma -> y_4_0
 	C_4_0 -> C_4_1
-	C_1_0 -> C_4_1
 	C_1_1 -> C_4_1
+	C_1_0 -> C_4_1
 	C_4_1 -> y_4_1
 	mu -> y_4_1
 	sigma -> y_4_1
-	C_4_1 -> C_4_2
+	z -> y_4_1
 	C_1_2 -> C_4_2
 	C_1_1 -> C_4_2
-	mu -> y_4_2
-	C_4_2 -> y_4_2
+	C_4_1 -> C_4_2
 	sigma -> y_4_2
-	C_4_2 -> C_4_3
+	z -> y_4_2
+	C_4_2 -> y_4_2
+	mu -> y_4_2
 	C_1_2 -> C_4_3
 	C_1_3 -> C_4_3
-	mu -> y_4_3
+	C_4_2 -> C_4_3
 	C_4_3 -> y_4_3
+	z -> y_4_3
 	sigma -> y_4_3
+	mu -> y_4_3
 	C_4_3 -> C_4_4
 	C_1_4 -> C_4_4
 	C_1_3 -> C_4_4
-	C_4_4 -> y_4_4
 	mu -> y_4_4
+	C_4_4 -> y_4_4
+	z -> y_4_4
 	sigma -> y_4_4
 	C_0_0 -> C_2_0
 	mu -> y_2_0
+	z -> y_2_0
 	C_2_0 -> y_2_0
 	sigma -> y_2_0
-	C_0_1 -> C_2_1
 	C_0_0 -> C_2_1
+	C_0_1 -> C_2_1
 	C_2_0 -> C_2_1
 	C_2_1 -> y_2_1
 	mu -> y_2_1
+	z -> y_2_1
 	sigma -> y_2_1
-	C_0_1 -> C_2_2
 	C_2_1 -> C_2_2
 	C_0_2 -> C_2_2
-	sigma -> y_2_2
+	C_0_1 -> C_2_2
 	mu -> y_2_2
+	z -> y_2_2
+	sigma -> y_2_2
 	C_2_2 -> y_2_2
+	C_0_2 -> C_2_3
 	C_0_3 -> C_2_3
 	C_2_2 -> C_2_3
-	C_0_2 -> C_2_3
-	C_2_3 -> y_2_3
 	mu -> y_2_3
+	z -> y_2_3
 	sigma -> y_2_3
-	C_2_3 -> C_2_4
-	C_0_3 -> C_2_4
+	C_2_3 -> y_2_3
 	C_0_4 -> C_2_4
-	sigma -> y_2_4
+	C_0_3 -> C_2_4
+	C_2_3 -> C_2_4
 	mu -> y_2_4
+	z -> y_2_4
+	sigma -> y_2_4
 	C_2_4 -> y_2_4
 }
