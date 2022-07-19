@@ -142,6 +142,7 @@ def main(args):
     unconditioned_model = poutine.uncondition(model_tree_markov)
     #C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
     C, y, z = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
+    print(f"tree: {tree_to_newick(tree, 0)}")
     print(f"C: {C}")
     print(f"y: {y}")
     print(f"z: {z}")
