@@ -147,6 +147,27 @@ def main(args):
     print(f"z: {z}")
 
 
+def tree_to_newick(g: nx.DiGraph, root=None):
+    """
+    NetworkX tree topology to string in Newick format
+    edited code from https://stackoverflow.com/a/57393072/11880992
+    """
+    # make sure the graph is a tree
+    assert is_arborescence(g)
+    if root is None:
+        roots = list(filter(lambda p: p[1] == 0, g.in_degree()))
+        assert 1 == len(roots)
+        root = roots[0][0]
+
+    subgs = []
+    for child in g[root]:
+        if len(g[child]) > 0:
+            subgs.append(tree_to_newick(g, root=child))
+        else:
+            subgs.append(str(child))
+    return "(" + ','.join(subgs) + ")" + str(root)
+
+
 if __name__ == '__main__':
 
     # parse arguments
