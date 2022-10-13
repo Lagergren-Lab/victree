@@ -4,7 +4,9 @@ import torch
 
 class GenerativeModel():
 
-    def __init__(self, tree: nx.DiGraph, epsilon: torch.Tensor, cell_to_clone_assignment, copy_number_model):
+    # TODO: set the right parameters/defaults
+    def __init__(self, tree: nx.DiGraph = nx.DiGraph(), epsilon: torch.Tensor = torch.tensor(0.1),
+            cell_to_clone_assignment = torch.empty(1), copy_number_model = None):
         self.tree = tree
         self.epsilon = epsilon
         self.cell_to_clone_assignment = cell_to_clone_assignment
