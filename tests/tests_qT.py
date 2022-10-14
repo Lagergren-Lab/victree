@@ -3,7 +3,7 @@ import unittest
 import networkx as nx
 import torch
 
-from variational_distributions.q_T import q_T
+from src.variational_distributions.q_T import q_T
 
 
 class qTTestCase(unittest.TestCase):
