@@ -1,6 +1,6 @@
 import torch
 
-from utils import tree_utils
+from src.utils import tree_utils
 from variational_distributions.variational_distribution import VariationalDistribution
 
 
