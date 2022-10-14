@@ -8,10 +8,6 @@ class CopyTree():
         self.p = p
         self.q = q
 
-
-
-
-
     def run(self, n_iter):
 
         self.init_variational_variables()
