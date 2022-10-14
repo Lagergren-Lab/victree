@@ -2,3 +2,5 @@
 
 .idea/*
 __pycache__/*
+*.log
+.DS_Store

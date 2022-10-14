@@ -1,4 +1,9 @@
-#!/usr/bin/env python3
+"""
+Data simulation script.
+Uses Pyro-PPL for modelling the data only with data generation purposes.
+"""
+# FIXME: data simulation is not working, need to fix pair_cpd table,
+#   maybe C_dict needs to store plain python variables and not pyro variables
 
 import argparse
 import logging
@@ -87,14 +92,14 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
                 if m == 0:
                     # initial state case only depends on the parent initial state
                     # use pair_cpd as m-1 is not available
-                    zipping_dist = dist.Categorical(pair_cpd[:, C_p_m])
+                    zipping_dist = dist.Categorical([pair_cpd[i, C_p_m] for i in range(n_copy_states)])
                 else:
                     # previous copy numbers
                     C_p_m_1 = C_dict[p, m - 1]
                     C_u_m_1 = C_dict[u, m - 1]
 
                     # other states depend on 3 states
-                    zipping_dist = dist.Categorical(probs=cpd[:, C_u_m_1, C_p_m, C_p_m_1])
+                    zipping_dist = dist.Categorical(probs=[cpd[i, C_u_m_1, C_p_m, C_p_m_1] for i in range(n_copy_states)])
 
                 C_u_m = pyro.sample("C_{}_{}".format(u, m), zipping_dist)
 
@@ -130,11 +135,11 @@ def main(args):
     # draw tree topology
     f = plt.figure()
     nx.draw_networkx(tree, ax=f.add_subplot(111))
-    f.savefig("./fig/tree_topology.png")
+    f.savefig("../fig/tree_topology.png")
 
     # draw bayes net
     graph = pyro.render_model(model_tree_markov, model_args=(data, n_cells, n_sites, n_copy_states, tree,))
-    graph.render(outfile='./fig/graph.png')
+    graph.render(outfile='../fig/graph.png')
 
     logging.info("Simulate data")
     # simulate latent variable as well as observations (synthetic data generation)
