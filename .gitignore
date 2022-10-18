@@ -1,6 +1,6 @@
 # Pycharm stuff
 
 .idea/*
-__pycache__/*
+**/__pycache__/*
 *.log
 .DS_Store
