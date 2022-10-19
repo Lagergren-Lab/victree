@@ -11,7 +11,7 @@ def get_unique_edges(T_list: nx.DiGraph, N_nodes: int):
                 unique_edges_count[uv] = 1
                 unique_edges_list.append(uv)
             else:
-                unique_edges_count += 1
+                unique_edges_count[uv] += 1
 
     return unique_edges_list, unique_edges_count
 

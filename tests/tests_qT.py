@@ -14,10 +14,15 @@ class qTTestCase(unittest.TestCase):
         self.q_T = q_T(L)
 
     def test_simple_T(self):
-        T = nx.DiGraph()
-        T.add_edge(0, 1)
-        T.add_edge(0, 2)
-        M = 5
+        # Arange
+        T_1 = nx.DiGraph()
+        T_2 = nx.DiGraph()
+        T_1.add_edge(0, 1)
+        T_1.add_edge(0, 2)
+        T_2.add_edge(0, 1)
+        T_2.add_edge(1, 2)
+        T_list = [T_1, T_2]
+        M = 20
         A = 5
         N = 3
         q_C_0_init = torch.zeros(A)
@@ -36,5 +41,9 @@ class qTTestCase(unittest.TestCase):
         q_C_pairwise_marginals[2] = q_C_2_pairwise_marginals
 
         q_C = torch.tensor([1.0])
-        q_epsilon = torch.tensor([1.0])
-        self.q_T.update_CAVI([T], q_C_pairwise_marginals, q_C, q_epsilon)
+        q_epsilon = torch.tensor([2.0])
+        # Act
+        log_q_T = self.q_T.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
+
+        # Assert
+        print(log_q_T)
