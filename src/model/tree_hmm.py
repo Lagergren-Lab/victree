@@ -2,6 +2,8 @@ import itertools
 
 import torch
 
+from eps_utils import compute_n_cases
+
 
 class CopyNumberTreeHMM:
 
