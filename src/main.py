@@ -14,6 +14,15 @@ import torch
 
 from inference.run import run
 
+def set_seed(seed):
+    # torch rng
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # python rng
+    np.random.seed(seed)
+    random.seed(seed)
+
 
 def main(args):
 
@@ -36,18 +45,12 @@ if __name__ == '__main__':
     )
     parser.add_argument("--seed", default=42, type=int)
     parser.add_argument("--cuda", action="store_true")
-    parser.add_argument("--n-iter", default=10, action="store_true")
+    parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     # seed for reproducibility
-    # torch rng
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    # python rng
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    set_seed(args.seed)
 
     # logger setup
     logging.basicConfig(filename='out.log', encoding='utf-8', level=logging.DEBUG)
