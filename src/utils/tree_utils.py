@@ -2,17 +2,27 @@ import networkx as nx
 import torch
 
 
-def get_unique_edges(T_list: nx.Graph):
-    return None
+def get_unique_edges(T_list: nx.DiGraph, N_nodes: int):
+    unique_edges_list = []
+    unique_edges_count = torch.zeros((N_nodes, N_nodes), dtype=int)
+    for T in T_list:
+        for uv in T.edges:
+            if unique_edges_count[uv] == 0:
+                unique_edges_count[uv] = 1
+                unique_edges_list.append(uv)
+            else:
+                unique_edges_count += 1
+
+    return unique_edges_list, unique_edges_count
 
 
 def forward_messages_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
     # alpha = sum_{n-1}
     M = initial_state.size()[0]
-    alpha = torch.zeros((N - 1, M))  # Forward recursion variable
+    alpha = torch.zeros((N, M))  # Forward recursion variable
     alpha[0] = torch.einsum("ij, i -> j", transition_probabilities[0], initial_state)
 
-    for n in range(1, N - 1):
+    for n in range(1, N):
         alpha[n] = torch.einsum("ij, i -> j", transition_probabilities[n], alpha[n - 1])
     return alpha
 
