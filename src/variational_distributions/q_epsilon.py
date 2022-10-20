@@ -4,16 +4,17 @@ import torch.distributions as dist
 from utils import tree_utils
 
 
-class qEpsilon(dist.Beta):
+class qEpsilon():
 
     def __init__(self, alpha_0: torch.Tensor, beta_0: torch.Tensor):
-        super().__init__(alpha_0, beta_0)
         self.alpha_prior = alpha_0
         self.beta_prior = beta_0
+        self.alpha = alpha_0
+        self.beta = alpha_0
 
     def set_params(self, alpha, beta):
-        super().concentration0 = alpha
-        super().concentration1 = beta
+        self.alpha = alpha
+        self.beta = beta
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -49,7 +50,7 @@ class qEpsilon(dist.Beta):
                 alpha += w_T[k] * E_CuCv_a[u, v]
                 beta += w_T[k] * E_CuCv_b[u, v]
 
-        self.set_params()
+        self.set_params(alpha, beta)
         return alpha, beta
 
 
