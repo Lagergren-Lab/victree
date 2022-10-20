@@ -16,7 +16,7 @@ class qEpsilonTestCase(unittest.TestCase):
         b = 1
         self.q_epsilon = qEpsilon(a, b)
 
-    def test_simple_T(self):
+    def test_q_epsilon_running_for_two_simple_Ts_random_qC(self):
         # Arange
         M=20
         A=5

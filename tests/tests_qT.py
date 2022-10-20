@@ -14,7 +14,7 @@ class qTTestCase(unittest.TestCase):
         L = 5
         self.q_T = q_T(L)
 
-    def test_simple_T(self):
+    def test_q_T_running_for_two_simple_Ts_random_qC(self):
         M = 20
         A = 5
         T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A)
@@ -24,4 +24,4 @@ class qTTestCase(unittest.TestCase):
         log_q_T = self.q_T.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
 
         # Assert
-        print(log_q_T)
+        print(f"log_q_T of T_1 and T_2: {log_q_T}")
