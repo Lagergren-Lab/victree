@@ -14,6 +14,15 @@ import itertools
 from typing import Tuple
 
 
+def iter_pair_states(n_states):
+    # TODO: remove impossible cases from this iterable
+    for pair_state in itertools.combinations_with_replacement(range(n_states), 2):
+        yield pair_state
+
+def iter_quad_states(n_states):
+    for quad_state in itertools.combinations_with_replacement(range(n_states), 2):
+        yield quad_state
+
 def is_rare_case(jj, j, ii, i):
     return (j != 0 or jj == 0) and (i != 0 or ii == 0) and (jj - j != ii - i)
 
