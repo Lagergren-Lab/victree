@@ -2,9 +2,9 @@ import pytest
 import numpy as np
 import logging
 
-from variational_distributions.variational_distribution import VariationalDistribution
-from model.generative_model import GenerativeModel
-from inference.copy_tree import CopyTree
+from src.variational_distributions.variational_distribution import VariationalDistribution
+from src.model.generative_model import GenerativeModel
+from src.inference.copy_tree import CopyTree
 
 def test_elbo_decrease_exception():
     
