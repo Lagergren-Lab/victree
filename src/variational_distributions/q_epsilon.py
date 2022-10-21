@@ -1,5 +1,5 @@
+import itertools
 import torch
-import torch.distributions as dist
 
 from utils import tree_utils
 
@@ -20,14 +20,11 @@ class qEpsilon():
         co_mut_mask = torch.zeros((A, A, A, A))
         anti_sym_mask = torch.zeros((A, A, A, A))
         # TODO: Find effecient way of indexing i-j = k-l
-        for i in range(0, A):
-            for j in range(0, A):
-                for k in range(0, A):
-                    for l in range(0, A):
-                        if i - j == k - l:
-                            co_mut_mask[i, j, k, l] = 1
-                        else:
-                            anti_sym_mask[i, j, k, l] = 1
+        for i, j, k, l in itertools.combinations_with_replacement(range(A), 4):
+            if i - j == k - l:
+                co_mut_mask[i, j, k, l] = 1
+            else:
+                anti_sym_mask[i, j, k, l] = 1
         return co_mut_mask, anti_sym_mask
 
     def update_CAVI(self, T_list: list, w_T: torch.Tensor, q_C_pairwise_marginals: torch.Tensor):
