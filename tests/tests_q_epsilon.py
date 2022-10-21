@@ -1,10 +1,7 @@
 import unittest
-
-import networkx as nx
 import torch
 
 from tests import utils_testing
-from utils import tree_utils
 from variational_distributions.q_epsilon import qEpsilon
 
 
