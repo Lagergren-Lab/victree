@@ -1,12 +1,20 @@
+import networkx as nx
 import torch
 
-from src.utils import tree_utils
+from utils import tree_utils
+from variational_distributions.variational_distribution import VariationalDistribution
 
 
-class q_T():
+class q_T(VariationalDistribution):
 
-    def __init__(self, L):
+    # TODO: remove default n_nodes (without breaking the code)
+    def __init__(self, L, n_nodes = 10):
         self.L = L
+        self.n_nodes = n_nodes
+
+    # TODO: implement with initialization instruction from the doc
+    def initialize(self):
+        return super().initialize()
 
     def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
         q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
@@ -62,3 +70,15 @@ class q_T():
                 log_q_T_tensor[k] += E_CuCveps[u, v]
 
         return log_q_T_tensor
+
+    def get_trees_sample(self):
+        # TODO: generate trees with sampling algorithm
+        # e.g.:
+        # trees = edmonds_tree_gen(self.L)
+        # trees = csmc_tree_gen(self.L)
+        trees = [nx.random_tree(self.n_nodes, create_using = nx.DiGraph) 
+                    for _ in range(self.L)]
+
+        return trees
+
+

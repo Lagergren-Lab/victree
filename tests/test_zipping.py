@@ -24,8 +24,8 @@ class zippingTestCase(unittest.TestCase):
         t = time.time_ns() - start
         print(f"indexing-method time {t}")
 
-        assert(len(ll) == len(idx_ll))
-        assert(np.alltrue(idx_ll == ll))
+        self.assertEqual(len(ll), len(idx_ll))
+        self.assertTrue(np.alltrue(idx_ll == ll))
 
     def manual_mask(self, arr):
         ll = []

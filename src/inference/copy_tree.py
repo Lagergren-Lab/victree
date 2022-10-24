@@ -1,12 +1,13 @@
 from numpy import infty
+from variational_distributions.q_Z import qZ
 from variational_distributions.variational_distribution import VariationalDistribution
 
 
 class CopyTree():
 
-    def __init__(self, p, q, copy_number_model: VariationalDistribution):
+    def __init__(self, p, q, copy_number_model: VariationalDistribution, q_z: qZ):
         self.copy_number_model = copy_number_model
-        self.z_model: VariationalDistribution = VariationalDistribution()
+        self.z_model: qZ = q_z
         self.p = p
         self.q = q
 
