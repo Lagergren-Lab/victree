@@ -18,7 +18,7 @@ import pyro
 import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
-from eps_utils import TreeHMM
+from utils.eps_utils import TreeHMM
 
 
 def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):

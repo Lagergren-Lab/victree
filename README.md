@@ -29,12 +29,13 @@ options:
 To run the script, just execute it with `python3`
 
 ``` bash
-python3 main.py
+python main.py
 ```
 ## Tests
 
-To run tests, make sure you have `pytest` installed, then run:
+To run tests, make sure you have `unittest` installed, then
+from the project folder run:
 
 ```bash
-pytest -v # for verbose test results
+python -m unittest discover .
 ```

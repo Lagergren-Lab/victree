@@ -1,10 +1,8 @@
 import unittest
-
-import networkx as nx
 import torch
 
+from utils.config import Config
 from tests import utils_testing
-from utils import tree_utils
 from variational_distributions.q_epsilon import qEpsilon
 
 
@@ -14,7 +12,8 @@ class qEpsilonTestCase(unittest.TestCase):
         L = 5
         a = 1
         b = 1
-        self.q_epsilon = qEpsilon(a, b)
+        config = Config()
+        self.q_epsilon = qEpsilon(config, a, b)
 
     def test_q_epsilon_running_for_two_simple_Ts_random_qC(self):
         # Arange

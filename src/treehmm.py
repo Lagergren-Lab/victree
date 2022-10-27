@@ -7,5 +7,4 @@ class TreeHMM(torch.nn.Module):
     def __init__(self, tree: nx.DiGraph):
         assert(is_arborescence(tree))
 
-    def sample(self, T):
-        pass
+    def sample(self, T): pass

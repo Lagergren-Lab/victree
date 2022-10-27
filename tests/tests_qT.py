@@ -3,8 +3,8 @@ import unittest
 import networkx as nx
 import torch
 
-from tests import utils_testing
 from utils import tree_utils
+from tests import utils_testing
 from variational_distributions.q_T import q_T
 
 

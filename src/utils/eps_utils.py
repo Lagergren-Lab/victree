@@ -9,10 +9,67 @@ differentiating between
 """
 
 import torch
+import numpy as np
 import itertools
 
 from typing import Tuple
 
+
+def iter_pair_states(n_states):
+    # TODO: remove impossible cases from this iterable
+    for pair_state in itertools.combinations_with_replacement(range(n_states), 2):
+        yield pair_state
+
+def iter_quad_states(n_states):
+    for quad_state in itertools.combinations_with_replacement(range(n_states), 2):
+        yield quad_state
+
+# TODO: differentiate impossible cases to mask
+def get_zipping_mask(n_states) -> torch.Tensor:
+    """Build a mask on the i - i' == j - j' condition
+
+    Parameters
+    ----------
+    n_states :
+        Number of total copy number states (cn = 0, 1, ..., n_states - 1)
+    Returns
+    -------
+    Torch boolean tensor of shape (n_states, n_states, n_states, n_states),
+    true where the indices satisfy the condition
+    """
+    ind_arr = np.indices((n_states, n_states))
+    # i - j 
+    imj = ind_arr[0] - ind_arr[1]
+    # i - j == k - l
+    mask = imj == imj[:, :, np.newaxis, np.newaxis]
+    return torch.tensor(mask)
+
+def get_zipping_mask0(n_states) -> torch.Tensor:
+    """Build a mask on the i == j condition
+
+    Parameters
+    ----------
+    n_states :
+        Number of total copy number states (cn = 0, 1, ..., n_states - 1)
+    Returns
+    -------
+    Torch boolean tensor of shape (n_states, n_states),
+    true where the indices satisfy the condition
+    """
+    ind_arr = np.indices((n_states, n_states))
+    # i = j (diagonal)
+    mask = ind_arr[0] == ind_arr[1]
+    return torch.tensor(mask)
+
+def normalized_zipping_constant(n_states: int) -> torch.Tensor:
+    # FIXME: output shape has to be properly matched with zipping tensor
+    mask = get_zipping_mask(n_states)
+    return torch.sum(~mask, dim = 0, keepdim = True)
+
+def normalized_zipping_constant0(n_states: int) -> torch.Tensor:
+    # FIXME: output shape has to be properly matched with zipping tensor
+    mask = get_zipping_mask0(n_states)
+    return torch.sum(~mask, dim = 0, keepdim = True)
 
 def is_rare_case(jj, j, ii, i):
     return (j != 0 or jj == 0) and (i != 0 or ii == 0) and (jj - j != ii - i)
