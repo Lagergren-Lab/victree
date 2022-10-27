@@ -14,12 +14,12 @@ class CopyNumberHmm(VariationalDistribution):
 
     def __init__(self, config: Config):
 
+        super().__init__(config)
         self.single_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.couple_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
         self.eta1 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.eta2 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
-        super().__init__(config)
 
     def initialize(self):
         # TODO: implement initialization of parameters
@@ -71,21 +71,6 @@ class CopyNumberHmm(VariationalDistribution):
             
         return new_eta1, new_eta2
 
-    # TODO: move to mutau distribution class
-    def E_mu_sigma_of_rho_Y(self, mu, sigma, Y, C):
-        """
-        Evaluates the
-        :param mu: n_cells x 1 tensor
-        :param sigma: n_cells x 1 tensor
-        :param Y: n_cells x m_sites tensor
-        :param C: n_nodes x m_sites tensor
-        :return:
-        """
-        emission_dist = dist.Normal(mu*C, sigma)
-        p_Y = emission_dist.log_prob(Y)
-        E_mu_sigma_p_Y = torch.einsum('ij', 'ij-> ij', mu, p_Y)
-        return E_mu_sigma_p_Y
-
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph, 
             q_eps: qEpsilon,
             q_z: qZ,
@@ -121,7 +106,7 @@ class CopyNumberHmm(VariationalDistribution):
         # eta_1_iota(1, i)
         e_eta1[inner_nodes, 0, :] = torch.einsum('pj,ij->pi',
                 self.single_filtering_probs[
-                    [tree.predecessors(u)[0] for u in inner_nodes], 0, :],
+                    [next(tree.predecessors(u)) for u in inner_nodes], 0, :],
                 q_eps.h_eps0())
         # eta_1_iota(m, i)
         # TODO: define q_z and q_mutau functions
@@ -160,7 +145,7 @@ class CopyNumberHmm(VariationalDistribution):
 
         return e_alpha1, e_alpha2
 
-    def mc_filter(self, u, m, i: int | tuple[int, int]):
+    def mc_filter(self, u, m, i: Union[int, tuple[int, int]]):
         # TODO: implement/import forward-backward starting from eta params
         if isinstance(i, int):
             return self.single_filtering_probs[u, m, i]

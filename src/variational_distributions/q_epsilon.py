@@ -11,7 +11,7 @@ from variational_distributions.variational_distribution import VariationalDistri
 
 class qEpsilon(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: torch.Tensor, beta_0: torch.Tensor):
+    def __init__(self, config: Config, alpha_0: float, beta_0: float):
         self.alpha_prior = alpha_0
         self.beta_prior = beta_0
         self.alpha = alpha_0
@@ -88,7 +88,8 @@ class qEpsilon(VariationalDistribution):
         norm_const = self.config.n_states
 
         out_arr = torch.ones(copy_mask.shape) *\
-                (torch.digamma(self.beta) - torch.digamma(self.alpha + self.beta))
+                (torch.digamma(torch.tensor(self.beta)) -\
+                torch.digamma(torch.tensor(self.alpha + self.beta)))
         out_arr[~copy_mask] -= norm_const
         return out_arr
 

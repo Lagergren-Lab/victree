@@ -3,14 +3,13 @@ import torch
 
 from utils import tree_utils
 from variational_distributions.variational_distribution import VariationalDistribution
+from utils.config import Config
 
 
 class q_T(VariationalDistribution):
 
-    # TODO: remove default n_nodes (without breaking the code)
-    def __init__(self, L, n_nodes = 10):
-        self.L = L
-        self.n_nodes = n_nodes
+    def __init__(self, config: Config):
+        super().__init__(config)
 
     # TODO: implement with initialization instruction from the doc
     def initialize(self):
@@ -74,10 +73,10 @@ class q_T(VariationalDistribution):
     def get_trees_sample(self):
         # TODO: generate trees with sampling algorithm
         # e.g.:
-        # trees = edmonds_tree_gen(self.L)
-        # trees = csmc_tree_gen(self.L)
-        trees = [nx.random_tree(self.n_nodes, create_using = nx.DiGraph) 
-                    for _ in range(self.L)]
+        # trees = edmonds_tree_gen(self.config.is_sample_size)
+        # trees = csmc_tree_gen(self.config.is_sample_size)
+        trees = [nx.random_tree(self.config.n_nodes, create_using = nx.DiGraph) 
+                    for _ in range(self.config.is_sample_size)]
 
         return trees
 

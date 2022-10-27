@@ -1,4 +1,4 @@
-from pyro.distributions import torch
+import torch
 from utils.config import Config
 from variational_distributions.variational_distribution import VariationalDistribution
 
@@ -46,7 +46,8 @@ class qMuTau(VariationalDistribution):
                         obs, self.exp_tau()) +\
                 torch.einsum('i,mn,n->imn',
                         torch.arange(self.config.n_states),
-                        obs) -\
+                        obs,
+                        self.exp_mu_tau()) -\
                 .5 * torch.einsum('i,n->in',
                         torch.pow(torch.arange(self.config.n_states), 2),
                         self.exp_mu2_tau())
