@@ -1,11 +1,11 @@
 import networkx as nx
 import torch
-from typing import List
+from typing import List, Tuple
 
 
-def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int) -> (List, torch.Tensor):
+def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int) -> Tuple[List, torch.Tensor]:
     unique_edges_list = []
-    unique_edges_count = torch.zeros((N_nodes, N_nodes), dtype=int)
+    unique_edges_count = torch.zeros(N_nodes, N_nodes, dtype=torch.int)
     for T in T_list:
         for uv in T.edges:
             if unique_edges_count[uv] == 0:

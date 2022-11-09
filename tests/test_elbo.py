@@ -1,11 +1,15 @@
 import logging
 import unittest
 from utils.config import Config
+from variational_distributions.q_T import q_T
+from variational_distributions.q_epsilon import qEpsilon
 
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.q_Z import qZ
 from model.generative_model import GenerativeModel
 from inference.copy_tree import CopyTree
+from variational_distributions.variational_hmm import CopyNumberHmm
+from variational_distributions.variational_normal import qMuTau
 
 class TestElbo(unittest.TestCase):
 
@@ -13,9 +17,15 @@ class TestElbo(unittest.TestCase):
         
         config = Config()
         p = GenerativeModel()
-        q = VariationalDistribution(config)
+        q_c = CopyNumberHmm(config)
         q_z = qZ(config)
-        copy_tree = CopyTree(p, q, q, q_z)
+        q_t = q_T(config)
+        q_eps = qEpsilon(config, 1, 1)
+        q_mutau = qMuTau(config, loc = 100, precision = .1,
+                shape = 5, rate = 5)
+
+        copy_tree = CopyTree(p, config,
+                q_c, q_z, q_t, q_eps, q_mutau)
 
         copy_tree.elbo = -100. 
         # compute_elbo currently outputs -1000

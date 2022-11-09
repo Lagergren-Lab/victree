@@ -5,14 +5,15 @@ import torch
 
 from utils import tree_utils
 from tests import utils_testing
+from utils.config import Config
 from variational_distributions.q_T import q_T
 
 
 class qTTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        L = 5
-        self.q_T = q_T(L)
+        config = Config(wis_sample_size = 5)
+        self.q_T = q_T(config)
 
     def test_q_T_running_for_two_simple_Ts_random_qC(self):
         M = 20
