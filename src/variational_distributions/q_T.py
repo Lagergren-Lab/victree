@@ -76,7 +76,7 @@ class q_T(VariationalDistribution):
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
         trees = [nx.random_tree(self.config.n_nodes, create_using = nx.DiGraph) 
-                    for _ in range(self.config.is_sample_size)]
+                    for _ in range(self.config.wis_sample_size)]
 
         return trees
 
