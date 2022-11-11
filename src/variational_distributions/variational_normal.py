@@ -5,8 +5,8 @@ from variational_distributions.variational_distribution import VariationalDistri
 
 class qMuTau(VariationalDistribution):
 
-    def __init__(self, config: Config, loc: float, precision: float,
-            shape: float, rate: float):
+    def __init__(self, config: Config, loc: float = 100, precision: float = .1,
+            shape: float = 5, rate: float = 5):
         # params for each cell
         self._loc = loc * torch.ones(config.n_cells)
         self._precision = precision * torch.ones(config.n_cells)

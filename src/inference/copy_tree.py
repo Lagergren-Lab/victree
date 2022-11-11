@@ -1,6 +1,10 @@
 from typing import Dict
+
 from numpy import infty
+import torch
+
 from utils.config import Config
+from model.generative_model import GenerativeModel
 from variational_distributions.q_T import q_T
 from variational_distributions.q_Z import qZ
 from variational_distributions.q_epsilon import qEpsilon
@@ -9,19 +13,43 @@ from variational_distributions.variational_hmm import CopyNumberHmm
 from variational_distributions.variational_normal import qMuTau
 
 
+class JointVarDist(VariationalDistribution):
+    def __init__(self, config: Config,
+                 qc, qz, qt, qeps, qmt, obs: torch.Tensor):
+        super().__init__(config)
+        self.c: CopyNumberHmm = qc
+        self.z: qZ = qz
+        self.t: q_T = qt
+        self.eps: qEpsilon = qeps
+        self.mt: qMuTau = qmt
+        self.obs = obs
+
+    def update(self):
+        # T, C, eps, z, mt, pi
+        trees, weights = self.t.get_trees_sample()
+        self.t.update(trees, self.c.couple_filtering_probs, self.c, self.eps)
+        self.c.update(self.obs, self.t, self.eps, self.z, self.mt)
+        self.eps.update(trees, weights, self.c.couple_filtering_probs)
+        self.z.update()
+        self.mt.update()
+        # TODO: continue
+
+        return super().update()
+
+    def initialize(self):
+        return super().initialize()
+
 class CopyTree():
 
-    def __init__(self, p,
-            config: Config, 
-            qc: CopyNumberHmm,
-            qz: qZ,
-            qt: q_T,
-            qeps: qEpsilon,
-            qmt: qMuTau
-            ):
+    def __init__(self, config: Config,
+                 p: GenerativeModel,
+                 q: JointVarDist,
+                 obs: torch.Tensor):
+
         self.config = config
         self.p = p
-        self.q = JointVarDist(config, qc, qz, qt, qeps, qmt)
+        self.q = q
+        self.obs = obs
 
         # counts the number of steps performed
         self.it_counter = 0    
@@ -64,10 +92,9 @@ class CopyTree():
 
     def step(self):
         self.update_T()
-        self.update_C()
+        self.update_C(self.obs)
         self.update_z()
-        self.update_mu()
-        self.update_sigma()
+        self.update_mutau()
         self.update_epsilon()
         self.update_gamma()
 
@@ -92,33 +119,10 @@ class CopyTree():
         self.q.mt.update()
 
     def update_epsilon(self):
-        self.q.eps.update(trees, w_T, q_C_pairwise_marginals)
+        trees, weights = self.q.t.get_trees_sample()
+        self.q.eps.update(trees, weights, self.q.c.couple_filtering_probs)
 
     def update_gamma(self):
         pass
 
 
-class JointVarDist(VariationalDistribution):
-    def __init__(self, config: Config,
-            qc, qz, qt, qeps, qmt, obs = None):
-        super().__init__(config)
-        self.c: CopyNumberHmm = qc
-        self.z: qZ = qz
-        self.t: q_T = qt
-        self.eps: qEpsilon = qeps
-        self.mt: qMuTau = qmt
-        self.obs = obs
-
-    def update(self):
-        # T, C, eps, z, mt, pi
-        self.t.update()
-        self.c.update()
-        self.eps.update()
-        self.z.update()
-        self.mt.update()
-        # TODO: continue
-
-        return super().update()
-
-    def initialize(self):
-        return super().initialize()
