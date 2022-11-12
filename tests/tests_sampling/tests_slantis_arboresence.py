@@ -6,8 +6,8 @@ from sampling import slantis_arborescence
 class slantisArborescenceTestCase(unittest.TestCase):
 
     def test_slantis_random_weight_matrix(self):
-        n_nodes = 4
-        torch.manual_seed(2)
+        n_nodes = 20
+        torch.manual_seed(0)
         W = torch.rand((n_nodes, n_nodes))
         log_W = torch.log(W)
         log_W_root = torch.rand((n_nodes,))
