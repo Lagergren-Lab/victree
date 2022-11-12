@@ -1,5 +1,6 @@
 import copy
 import logging
+import random
 
 import networkx as nx
 import torch
@@ -90,10 +91,11 @@ def sample_arborescence(log_W: torch.Tensor, root: int, debug=False):
     including_weight = torch.max(log_W) + torch.log(torch.tensor(n_nodes))
 
     idx_0 = get_ordered_indexes(n_nodes)  # Arc proposal set
+    random.shuffle(idx_0)
 
-    n_tries = 0
-    while len(S) < n_nodes - 1 or n_tries > 100:
-        n_tries += 1
+    n_iterations = 0
+    while len(S) < n_nodes - 1 or n_iterations > 100:
+        n_iterations += 1
         for a in idx_0:
             # Create comparison tree T_0 with a and T_1 without 'a'. Both including S set.
             # T_0
@@ -159,6 +161,8 @@ def sample_arborescence(log_W: torch.Tensor, root: int, debug=False):
             else:
                 continue
 
+    if debug:
+        print(f"Number of proposal iterations: {n_iterations}")
     return S_arborescence, log_S
 
 def sample_arborescence_root(log_W: torch.Tensor, log_W_root: torch.Tensor):
