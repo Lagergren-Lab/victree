@@ -56,7 +56,8 @@ class CopyNumberHmm(VariationalDistribution):
         new_eta1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         new_eta2 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states)) 
 
-        for tree in q_t.get_trees_sample():
+        # FIXME: use weights for the importance sampling estimate of expectation
+        for tree, weight in zip(*q_t.get_trees_sample()):
             # compute all alpha quantities
             exp_alpha1, exp_alpha2 = self.exp_alpha(q_eps)
 

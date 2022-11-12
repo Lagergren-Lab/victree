@@ -11,7 +11,7 @@ from variational_distributions.variational_distribution import VariationalDistri
 
 class qEpsilon(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: float, beta_0: float):
+    def __init__(self, config: Config, alpha_0: float = 1, beta_0: float = 1):
         self.alpha_prior = alpha_0
         self.beta_prior = beta_0
         self.alpha = alpha_0

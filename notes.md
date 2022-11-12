@@ -22,3 +22,11 @@ Total variation for copy numbers (useful also for comparison)
 ### Comparison wrt other methods (state of the art)
 - don't use Robinson-Ford (not fair)
 
+## Tree sampling
+
+Start with edmonds
+- infinity for edge that must be included, 0 for edge over the cut (when not included)
+- use `Edmonds.find_optimum()` from `networkx`
+
+![lca](img/least_common_ancestors.png)
+

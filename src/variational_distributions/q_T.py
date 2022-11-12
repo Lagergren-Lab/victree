@@ -1,4 +1,7 @@
+import itertools
+from typing import List, Tuple
 import networkx as nx
+from sampling.slantis_arborescence import sample_arborescence
 import torch
 
 from utils import tree_utils
@@ -9,6 +12,7 @@ from utils.config import Config
 class q_T(VariationalDistribution):
 
     def __init__(self, config: Config):
+        self.weighted_graph = self.init_fc_graph()
         super().__init__(config)
 
     # TODO: implement with initialization instruction from the doc
@@ -70,14 +74,36 @@ class q_T(VariationalDistribution):
 
         return log_q_T_tensor
 
-    def get_trees_sample(self):
+    def init_fc_graph(self):
+        # random initialization of the fully connected graph over the clones
+        g = nx.DiGraph()
+        weighted_edges = [(u, v, torch.rand(1)) 
+                          for u, v in itertools.permutations(range(self.config.n_nodes, 2))]
+        g.add_weighted_edges_from(weighted_edges)
+        return g
+
+
+    def get_trees_sample(self, alg="random") -> Tuple[List, List]:
         # TODO: generate trees with sampling algorithm
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
-        trees = [nx.random_tree(self.config.n_nodes, create_using = nx.DiGraph) 
-                    for _ in range(self.config.is_sample_size)]
+        trees = []
+        weights = []
+        if alg == "random":
+            trees = [nx.random_tree(self.config.n_nodes, create_using = nx.DiGraph) 
+                    for _ in range(self.config.wis_sample_size)]
+            weights = [1] * self.config.wis_sample_size
 
-        return trees
+        elif alg == "dslantis":
+            for _ in range(self.config.wis_sample_size):
+                t, w = sample_arborescence(log_W=nx.adjacency_matrix(self.weighted_graph, weight="weight"))
+                trees.append(t)
+                weights.append(w)
+
+        else:
+            raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
+
+        return trees, weights
 
 
