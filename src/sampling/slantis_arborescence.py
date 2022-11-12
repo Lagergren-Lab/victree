@@ -57,7 +57,7 @@ def get_edmonds_arborescence(log_W: torch.Tensor, root: int):
 def get_ordered_indexes(n_nodes):
     idx = []
     for e1 in range(0, n_nodes):
-        for e2 in range(0, n_nodes):
+        for e2 in range(1, n_nodes):  # exclude node to root case
             if e1 != e2: idx.append((e1, e2))
 
     return idx
@@ -73,32 +73,48 @@ def draw_graph(G: nx.DiGraph):
     plt.show()
 
 
-def sample_arborescence(log_W: torch.Tensor, root: int):
+def is_root(param):
+    pass
+
+
+def sample_arborescence(log_W: torch.Tensor, root: int, debug=False):
     logger = logging.getLogger('sample_arborescence')
     n_nodes = log_W.shape[0]
     # T_init: nx.DiGraph = get_start_arborescence(log_W, log_W_root, alg="edmonds")
     # T = T_init
     S = []
-    log_S = copy.deepcopy(log_W)
+    S_nodes = set(())
+    roots = set(())
+    children = set(())
+    log_S = 0
+    S_arborescence = nx.DiGraph()
+    log_W_copy = copy.deepcopy(log_W)
+    including_weight = torch.max(log_W) + torch.log(torch.tensor(n_nodes))
 
     idx_0 = get_ordered_indexes(n_nodes)
-    # idx_1 = get_ordered_indexes(n_nodes)
 
     log_T = 0
     n_tries = 0
     while len(S) < n_nodes - 1 or n_tries > 100:
         n_tries += 1
         for e in idx_0:
-            log_W_0 = copy.deepcopy(log_S)  # guarantee S included
-            log_W_0[e] = torch.inf  # guarantee e included
+            log_W_0 = copy.deepcopy(log_W_copy)  # guarantee S included
+            #log_W_0[:, e[1]] = -torch.inf  # guarantee no co-parents <--- redundant?
+            log_W_0[e] = including_weight  # guarantee e included
             T_0 = get_edmonds_arborescence(log_W_0, root)
             T_0.edges[e]['weight'] = log_W[e]  # set W(e) to actual weight
+            if debug:
+                assert set(S) <= set(T_0.edges)
+                assert e in set(T_0.edges)
             for s in S:
                 T_0.edges[s]['weight'] = log_W[s]  # set W(s) to actual weight
 
-            log_W_1 = copy.deepcopy(log_S)  # guarantee S included
+            log_W_1 = copy.deepcopy(log_W_copy)  # guarantee S included
             log_W_1[e] = -torch.inf  # guarantee e excluded
             T_1: nx.DiGraph = get_edmonds_arborescence(log_W_1, root)
+            if debug:
+                assert set(S) <= set(T_1.edges)
+                assert e not in set(T_1.edges)
             for s in S:
                 T_1.edges[s]['weight'] = log_W[s]  # set W(s) to actual weight
 
@@ -110,10 +126,47 @@ def sample_arborescence(log_W: torch.Tensor, root: int):
             if theta > U:
                 # choose e
                 S.append(e)
-                log_S[e] = torch.inf  # guarantee e included
+                u, v = e
+                children.add(v)
+                if u not in children:
+                    roots.add(u)
+                roots.discard(v)
+                """
+                if u not in S_nodes:
+                    roots.append(u)
+                if v in roots:
+                    roots.remove(v)
+                """
+
+                S_nodes.add(u)
+                S_nodes.add(v)
+                S_arborescence.add_edge(u, v)
+
+                log_S += torch.log(theta)
+                log_W_copy[e] = including_weight  # guarantee e included
+                cycles_inducing_arcs = [(v, s) for s in children if s != v]  # filter out possible cycles
+
+                # filter out component root connection
+                components = nx.weakly_connected_components(S_arborescence)
+                sub_arbs = []
+                for comp in components:
+                    sub_arbs.append(comp)
+                    if v in comp:
+                        self_root = roots.intersection(comp).pop()
+                        for child in children.intersection(comp):
+                            cycles_inducing_arcs.append((child, self_root))
+
+                for a_cycle in cycles_inducing_arcs:
+                    if a_cycle in idx_0:    # replace if statements with faster system
+                        idx_0.remove(a_cycle)
+                    if (a_cycle[1], a_cycle[0]) in idx_0:
+                        idx_0.remove((a_cycle[1], a_cycle[0]))
+                idx_0[:] = [x for x in idx_0 if x[1] != v]  # filter out possible co-parent arcs
+
             else:
                 continue
 
+    return S_arborescence, log_S
 
 def sample_arborescence_root(log_W: torch.Tensor, log_W_root: torch.Tensor):
     logger = logging.getLogger('sample_arborescence')
