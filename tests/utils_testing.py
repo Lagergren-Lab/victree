@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import networkx as nx
 import torch
@@ -38,7 +38,7 @@ def get_root_q_C(M, A):
     return q_C_init, q_C_transitions
 
 
-def get_two_simple_trees_with_random_qCs(M, A) -> (List[nx.DiGraph], torch.Tensor):
+def get_two_simple_trees_with_random_qCs(M, A) -> Tuple[List[nx.DiGraph], torch.Tensor]:
     T_1 = get_tree_three_nodes_balanced()
     T_2 = get_tree_three_nodes_chain()
     T_list = [T_1, T_2]

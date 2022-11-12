@@ -5,13 +5,17 @@ class Config:
             eps0: float = 1e-3,
             n_cells: int = 20,
             chain_length: int = 200,
-            is_sample_size: int = 20) -> None:
+            wis_sample_size: int = 20,
+            elbo_tol: float = 1e-10,
+            max_close_runs: int = 10) -> None:
         self._n_nodes = n_nodes
         self._n_states = n_states
         self._eps0 = eps0
         self._n_cells = n_cells
         self._chain_length = chain_length
-        self._is_sample_size = is_sample_size # L in qT sampling
+        self._wis_sample_size = wis_sample_size # L in qT sampling
+        self._elbo_tol = elbo_tol
+        self._max_close_runs = max_close_runs
 
     @property
     def n_nodes(self):
@@ -34,6 +38,13 @@ class Config:
         return self._chain_length
 
     @property
-    def is_sample_size(self):
-        return self._is_sample_size
+    def wis_sample_size(self):
+        return self._wis_sample_size
         
+    @property
+    def elbo_tol(self):
+        return self._elbo_tol
+
+    @property
+    def max_close_runs(self):
+        return self._max_close_runs
