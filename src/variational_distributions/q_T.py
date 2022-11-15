@@ -3,6 +3,7 @@ from typing import List, Tuple
 import networkx as nx
 from sampling.slantis_arborescence import sample_arborescence
 import torch
+import numpy as np
 
 from utils import tree_utils
 from variational_distributions.variational_distribution import VariationalDistribution
@@ -12,8 +13,8 @@ from utils.config import Config
 class q_T(VariationalDistribution):
 
     def __init__(self, config: Config):
-        self.weighted_graph = self.init_fc_graph()
         super().__init__(config)
+        self.weighted_graph = self.init_fc_graph()
 
     # TODO: implement with initialization instruction from the doc
     def initialize(self):
@@ -78,7 +79,7 @@ class q_T(VariationalDistribution):
         # random initialization of the fully connected graph over the clones
         g = nx.DiGraph()
         weighted_edges = [(u, v, torch.rand(1)) 
-                          for u, v in itertools.permutations(range(self.config.n_nodes, 2))]
+                          for u, v in itertools.permutations(range(self.config.n_nodes), 2)]
         g.add_weighted_edges_from(weighted_edges)
         return g
 
@@ -94,10 +95,12 @@ class q_T(VariationalDistribution):
             trees = [nx.random_tree(self.config.n_nodes, create_using = nx.DiGraph) 
                     for _ in range(self.config.wis_sample_size)]
             weights = [1] * self.config.wis_sample_size
+            for t in trees:
+                nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight') 
 
         elif alg == "dslantis":
             for _ in range(self.config.wis_sample_size):
-                t, w = sample_arborescence(log_W=nx.adjacency_matrix(self.weighted_graph, weight="weight"))
+                t, w = sample_arborescence(log_W=nx.adjacency_matrix(self.weighted_graph, weight="weight"), root=0)
                 trees.append(t)
                 weights.append(w)
 

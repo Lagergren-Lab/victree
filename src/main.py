@@ -27,12 +27,13 @@ def set_seed(seed):
 def main(args):
 
     logging.debug("running main program")
-    try:
-        run(args)
-    except ValueError as ve:
-        logging.error(f"program stopped with ValueError: {ve}")
-    except Exception as e:
-        logging.error(f"Unknown error: {e}")
+    run(args)
+    # try:
+    #     run(args)
+    # except ValueError as ve:
+    #     logging.error(f"program stopped with ValueError: {ve}")
+    # except Exception as e:
+    #     logging.error(f"Unknown error: {e}")
 
     logging.debug("main is over")
 

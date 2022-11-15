@@ -39,7 +39,9 @@ class qMuTau(VariationalDistribution):
         return super().initialize()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
-        out_arr = torch.ones((self.config.n_cells, self.config.chain_length, self.config.n_states))
+        out_arr = torch.ones((self.config.n_cells, 
+                              self.config.chain_length,
+                              self.config.n_states))
         
         out_arr = .5 * self.exp_log_tau() -\
                 .5 * torch.einsum('mn,n->mn',
@@ -50,9 +52,9 @@ class qMuTau(VariationalDistribution):
                         self.exp_mu_tau()) -\
                 .5 * torch.einsum('i,n->in',
                         torch.pow(torch.arange(self.config.n_states), 2),
-                        self.exp_mu2_tau())
+                        self.exp_mu2_tau())[:, None, :]
 
-        return out_arr
+        return torch.einsum('imn->nmi', out_arr)
 
     def exp_tau(self):
         return self.shape / self.rate

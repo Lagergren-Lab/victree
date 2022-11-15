@@ -86,6 +86,7 @@ def sample_arborescence(log_W: torch.Tensor, root: int):
 
     log_T = 0
     n_tries = 0
+    # FIXME: check whether log_W[e] can actually be accessed as such. e is a tuple
     while len(S) < n_nodes - 1 or n_tries > 100:
         n_tries += 1
         for e in idx_0:

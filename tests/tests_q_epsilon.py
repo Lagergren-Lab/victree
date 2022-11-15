@@ -12,8 +12,8 @@ class qEpsilonTestCase(unittest.TestCase):
         L = 5
         a = 1
         b = 1
-        config = Config()
-        self.q_epsilon = qEpsilon(config, a, b)
+        self.config = Config()
+        self.qeps = qEpsilon(self.config, a, b)
 
     def test_q_epsilon_running_for_two_simple_Ts_random_qC(self):
         # Arange
@@ -23,8 +23,14 @@ class qEpsilonTestCase(unittest.TestCase):
         w_T = torch.tensor([0.3, 0.7])
 
         # Act
-        a, b = self.q_epsilon.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
+        a, b = self.qeps.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
 
         # Assert
         print(f"Beta param a: {a}")
         print(f"Beta param b: {b}")
+
+    def test_expectation_size(self):
+        exp_zipping = self.qeps.exp_zipping()
+        self.assertEqual(exp_zipping.shape, (self.config.n_states,) * 4)
+
+

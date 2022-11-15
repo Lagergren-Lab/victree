@@ -62,7 +62,6 @@ class CopyNumberHmm(VariationalDistribution):
             exp_alpha1, exp_alpha2 = self.exp_alpha(q_eps)
 
             new_eta1, new_eta2 = self.exp_eta(obs, tree, q_eps, q_z, q_mutau)
-            new_eta1 += torch.einsum('', exp_alpha1)
             for u in range(self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]
@@ -111,18 +110,18 @@ class CopyNumberHmm(VariationalDistribution):
                 q_eps.h_eps0())
         # eta_1_iota(m, i)
         # TODO: define q_z and q_mutau functions
-        e_eta1[inner_nodes, 1:, :] = torch.einsum('nv,nmi->vmi',
+        e_eta1 = torch.einsum('nv,nmi->vmi',
                 q_z.exp_assignment(),
                 q_mutau.exp_log_emission(obs))
 
         # eta_2_kappa(m, i, i')
-        e_eta2[inner_nodes, :, :, :] = torch.einsum('pmjk,hikj->pmih',
+        e_eta2 = torch.einsum('pmjk,hikj->pmih',
                 self.couple_filtering_probs,
                 q_eps.exp_zipping())
 
         # natural parameters for root node are fixed to healthy state
         e_eta1[root, 0, 2] = 1
-        e_eta1[root, :, :, 2] = 1
+        e_eta2[root, :, :, 2] = 1
 
         return e_eta1, e_eta2
             
@@ -140,7 +139,7 @@ class CopyNumberHmm(VariationalDistribution):
 
         # alpha_kappa(m, i, i')
         # similar to eta2 but with inverted indices in zipping
-        e_alpha2 = torch.einsum('wmjk,kjhi->wmi',
+        e_alpha2 = torch.einsum('wmjk,kjhi->wmih',
                 self.couple_filtering_probs,
                 q_eps.exp_zipping())
 
