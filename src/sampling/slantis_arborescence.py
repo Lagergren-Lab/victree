@@ -1,5 +1,6 @@
 import copy
 import logging
+import random
 
 import networkx as nx
 import torch
@@ -57,7 +58,7 @@ def get_edmonds_arborescence(log_W: torch.Tensor, root: int):
 def get_ordered_indexes(n_nodes):
     idx = []
     for e1 in range(0, n_nodes):
-        for e2 in range(0, n_nodes):
+        for e2 in range(1, n_nodes):  # exclude node to root case
             if e1 != e2: idx.append((e1, e2))
 
     return idx
@@ -73,48 +74,96 @@ def draw_graph(G: nx.DiGraph):
     plt.show()
 
 
-def sample_arborescence(log_W: torch.Tensor, root: int):
+def is_root(param):
+    pass
+
+
+def sample_arborescence(log_W: torch.Tensor, root: int, debug=False):
     logger = logging.getLogger('sample_arborescence')
     n_nodes = log_W.shape[0]
-    # T_init: nx.DiGraph = get_start_arborescence(log_W, log_W_root, alg="edmonds")
-    # T = T_init
-    S = []
-    log_S = copy.deepcopy(log_W)
+    S = []  # Selected arcs
+    S_nodes = set(())
+    roots = set(())
+    children = set(())
+    log_S = 0
+    S_arborescence = nx.DiGraph()
+    log_W_with_S = copy.deepcopy(log_W)
+    including_weight = torch.max(log_W) + torch.log(torch.tensor(n_nodes))
 
-    idx_0 = get_ordered_indexes(n_nodes)
-    # idx_1 = get_ordered_indexes(n_nodes)
+    idx_0 = get_ordered_indexes(n_nodes)  # Arc proposal set
+    random.shuffle(idx_0)
 
-    log_T = 0
-    n_tries = 0
-    # FIXME: check whether log_W[e] can actually be accessed as such. e is a tuple
-    while len(S) < n_nodes - 1 or n_tries > 100:
-        n_tries += 1
-        for e in idx_0:
-            log_W_0 = copy.deepcopy(log_S)  # guarantee S included
-            log_W_0[e] = torch.inf  # guarantee e included
+    n_iterations = 0
+    while len(S) < n_nodes - 1 or n_iterations > 100:
+        n_iterations += 1
+        for a in idx_0:
+            # Create comparison tree T_0 with a and T_1 without 'a'. Both including S set.
+            # T_0
+            log_W_0 = copy.deepcopy(log_W_with_S)       # guarantee S included
+            log_W_0[a] = including_weight               # guarantee 'a' included
             T_0 = get_edmonds_arborescence(log_W_0, root)
-            T_0.edges[e]['weight'] = log_W[e]  # set W(e) to actual weight
-            for s in S:
-                T_0.edges[s]['weight'] = log_W[s]  # set W(s) to actual weight
+            T_0.edges[a]['weight'] = log_W[a]           # set W(a) to actual weight
 
-            log_W_1 = copy.deepcopy(log_S)  # guarantee S included
-            log_W_1[e] = -torch.inf  # guarantee e excluded
+            # T_1
+            log_W_1 = copy.deepcopy(log_W_with_S)   # guarantee S included
+            log_W_1[a] = -torch.inf                 # guarantee 'a' excluded
             T_1: nx.DiGraph = get_edmonds_arborescence(log_W_1, root)
-            for s in S:
-                T_1.edges[s]['weight'] = log_W[s]  # set W(s) to actual weight
+            if debug:   # TODO: make debug system professional
+                assert set(S) <= set(T_0.edges)
+                assert a in set(T_0.edges)
+                assert set(S) <= set(T_1.edges)
+                assert a not in set(T_1.edges)
 
+            for s in S:
+                T_0.edges[s]['weight'] = log_W[s]   # reset weight of arc T_0(s) to actual weight
+                T_1.edges[s]['weight'] = log_W[s]   # reset weight of arc T_1(s) to actual weight
+
+            # Create selection probability theta
             log_T0 = T_0.size(weight="weight")
             log_T1 = T_1.size(weight="weight")
             log_sum_T0_T1 = torch.logaddexp(log_T0, log_T1)
             theta = torch.exp(log_T0 - log_sum_T0_T1)
+
+            # Bernoulli trial
             U = torch.rand(1)
             if theta > U:
-                # choose e
-                S.append(e)
-                log_S[e] = torch.inf  # guarantee e included
+                # select a
+                S.append(a)
+                u, v = a
+                children.add(v)
+                if u not in children:
+                    roots.add(u)
+                roots.discard(v)
+
+                S_nodes.add(u)
+                S_nodes.add(v)  # only used for debugging. Can be removed.
+                S_arborescence.add_edge(u, v)
+
+                log_S += torch.log(theta)
+                log_W_with_S[a] = including_weight  # guarantee 'a' included
+                cycles_inducing_arcs = [(v, s) for s in children if s != v]  # filter out possible cycles
+
+                # filter out children to root connections in sub_arboresence containing e.
+                sub_arboresences = nx.weakly_connected_components(S_arborescence)
+                for sub_arb in sub_arboresences:
+                    if v in sub_arb:
+                        self_root = roots.intersection(sub_arb).pop()
+                        for child in children.intersection(sub_arb):
+                            cycles_inducing_arcs.append((child, self_root))
+
+                for a_cycle in cycles_inducing_arcs:
+                    if a_cycle in idx_0:    # replace if statements with faster system
+                        idx_0.remove(a_cycle)
+                    if (a_cycle[1], a_cycle[0]) in idx_0:
+                        idx_0.remove((a_cycle[1], a_cycle[0]))
+                idx_0[:] = [x for x in idx_0 if x[1] != v]  # filter out possible co-parent arcs
+
             else:
                 continue
 
+    if debug:
+        print(f"Number of proposal iterations: {n_iterations}")
+    return S_arborescence, log_S
 
 def sample_arborescence_root(log_W: torch.Tensor, log_W_root: torch.Tensor):
     logger = logging.getLogger('sample_arborescence')
@@ -201,7 +250,6 @@ def sample_arborescence_old(log_W: torch.Tensor, log_W_root: torch.Tensor):
                         break
 
         else:  # Case: arc is not in T => cycle
-            continue
             # Add arc to S temporarily
             T_copy = T.copy()
             T_copy.add_edge(*e0, weight=log_W[e0])
