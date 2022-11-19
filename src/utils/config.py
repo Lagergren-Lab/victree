@@ -48,3 +48,12 @@ class Config:
     @property
     def max_close_runs(self):
         return self._max_close_runs
+
+    def __str__(self) -> str:
+        s = f"config: K={self.n_nodes}," +\
+            f"N={self.n_cells}," +\
+            f"M={self.chain_length}," +\
+            f"L={self.n_states}," +\
+            f"cn_states={self.n_states}"
+
+        return s

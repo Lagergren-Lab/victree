@@ -62,12 +62,19 @@ class CopyNumberHmm(VariationalDistribution):
             exp_alpha1, exp_alpha2 = self.exp_alpha(q_eps)
 
             new_eta1, new_eta2 = self.exp_eta(obs, tree, q_eps, q_z, q_mutau)
+            print(new_eta1.shape)
+            print(self.config)
             for u in range(self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]
                 # sum on each node's update all children alphas
-                new_eta1[u, :, :] += torch.einsum('wmi->mi', exp_alpha1[children, :, :])
-                new_eta2[u, :, :, :] += torch.einsum('wmij->mij', exp_alpha2[children, :, :, :])
+                alpha1sum = torch.einsum('wmi->mi', exp_alpha1[children, :, :])
+                # assert(alpha1sum.shape == (self.config.chain_length, self.config.n_states))
+                # print(new_eta1[u, :, :].shape)
+                new_eta1[u, :, :] += alpha1sum
+
+                alpha2sum = torch.einsum('wmij->mij', exp_alpha2[children, :, :, :])
+                new_eta2[u, :, :, :] += alpha2sum
             
         return new_eta1, new_eta2
 
