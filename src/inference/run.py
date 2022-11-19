@@ -2,6 +2,7 @@ import torch
 
 from inference.copy_tree import CopyTree, JointVarDist
 from utils.config import Config
+from utils.data_handling import read_sc_data
 from variational_distributions.q_T import q_T
 from variational_distributions.q_Z import qZ
 from variational_distributions.q_epsilon import qEpsilon
@@ -12,8 +13,9 @@ from variational_distributions.variational_normal import qMuTau
 
 def run(args):
     # TODO: write main code
-    config = Config()
-    obs = torch.ones((config.n_states, config.n_cells))
+    cell_names, gene_ids, obs = read_sc_data(args.filename)
+    n_states, n_cells = obs.shape
+    config = Config(n_states=n_states, n_cells=n_cells)
     # obs = read_data()
     p = GenerativeModel()
     
