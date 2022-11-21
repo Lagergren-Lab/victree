@@ -1,4 +1,4 @@
-import torch
+import logging
 
 from inference.copy_tree import CopyTree, JointVarDist
 from utils.config import Config
@@ -14,8 +14,10 @@ from variational_distributions.variational_normal import qMuTau
 def run(args):
     # TODO: write main code
     cell_names, gene_ids, obs = read_sc_data(args.filename)
-    n_states, n_cells = obs.shape
-    config = Config(n_states=n_states, n_cells=n_cells)
+    n_genes, n_cells = obs.shape
+    logging.debug(f"file {args.filename} read successfully [{n_genes} genes, {n_cells} cells]")
+
+    config = Config(chain_length=n_genes, n_cells=n_cells)
     # obs = read_data()
     p = GenerativeModel()
     

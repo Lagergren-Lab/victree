@@ -62,8 +62,6 @@ class CopyNumberHmm(VariationalDistribution):
             exp_alpha1, exp_alpha2 = self.exp_alpha(q_eps)
 
             new_eta1, new_eta2 = self.exp_eta(obs, tree, q_eps, q_z, q_mutau)
-            print(new_eta1.shape)
-            print(self.config)
             for u in range(self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]

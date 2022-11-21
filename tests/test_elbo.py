@@ -22,9 +22,9 @@ class TestElbo(unittest.TestCase):
         q_c = CopyNumberHmm(config)
         q_z = qZ(config)
         q_t = q_T(config)
-        q_eps = qEpsilon(config, 1, 1)
-        q_mutau = qMuTau(config, loc = 100, precision = .1,
-                shape = 5, rate = 5)
+        q_eps = qEpsilon(config, 1., 1.)
+        q_mutau = qMuTau(config, loc = 100., precision = .1,
+                shape = 5., rate = 5.)
         obs = torch.ones((config.n_states, config.n_cells))
         joint_dist = JointVarDist(config, q_c, q_z, q_t, q_eps, q_mutau, obs)
 
