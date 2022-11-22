@@ -4,6 +4,7 @@ from variational_distributions.variational_distribution import VariationalDistri
 import variational_distributions.q_pi as q_pi
 import variational_distributions.variational_normal as variational_normal
 
+
 class qZ(VariationalDistribution):
     def __init__(self, config: Config):
         self.K = config.n_nodes
@@ -15,29 +16,27 @@ class qZ(VariationalDistribution):
     def initialize(self):
         return torch.ones((self.N, self.K)) / self.K  # init to equal probabilites
 
-    def update(self, q_pi_dist: q_pi.qPi, q_mu_tau: variational_normal.qMuTau, q_C, obs: torch.Tensor):
-        return self.update_CAVI(q_pi_dist, q_mu_tau, q_C, obs)
+    def update(self, q_pi_dist: q_pi.qPi, q_mu_tau: variational_normal.qMuTau, q_C_marginal: torch.Tensor, obs: torch.Tensor):
+        return self.update_CAVI(q_pi_dist, q_mu_tau, q_C_marginal, obs)
 
-    def update_CAVI(self, q_pi_dist: q_pi.qPi, q_mu_tau: variational_normal.qMuTau, q_C, obs: torch.Tensor):
+    def update_CAVI(self, q_pi_dist: q_pi.qPi, q_mu_tau: variational_normal.qMuTau, q_C_marginal: torch.Tensor, Y: torch.Tensor):
         """
         q(Z) is a Categorical with probabilities pi^{*}, where pi_k^{*} = exp(gamma_k) / sum_K exp(gamma_k)
         gamma_k = E[log \pi_k] + sum_{m,j} q(C_m^k = j) E_{\mu, \tau}[D_{nmj}]
-        :param q_pi:
+        :param Y: observations
+        :param q_C_marginal:
+        :param q_pi_dist:
         :param q_mu_tau:
-        :param q_C:
         :return:
         """
         E_log_pi = q_pi_dist.exp_log_pi()
-        D = q_mu_tau.exp_log_emission(obs)
-        gamma = E_log_pi + torch.einsum("mj, nmj -> n", q_C, D)
+        D = q_mu_tau.exp_log_emission(Y)
+        gamma = E_log_pi + torch.einsum("mj, nmj -> n", q_C_marginal, D)
         self.pi = gamma / torch.exp(gamma)
 
     def exp_assignment(self) -> torch.Tensor:
         # TODO: implement
         # expectation of assignment
-        
+
         # temporarily uniform distribution
         return torch.ones((self.config.n_cells, self.config.n_nodes)) / self.config.n_nodes
-
-
-

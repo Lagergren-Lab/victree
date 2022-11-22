@@ -30,22 +30,22 @@ def forward_messages_markov_chain(initial_state: torch.Tensor, transition_probab
 
 def backward_messages_markov_chain(transition_probabilities: torch.Tensor, N: int):
     # alpha_m = sum_{n-1}
-    A, M = transition_probabilities.size()
-    beta = torch.zeros((N - 1, M))  # Forward recursion variable
-    beta_N = torch.ones((M, 1))
+    A, M, M = transition_probabilities.shape
+    beta = torch.zeros((N, M))  # Forward recursion variable
+    beta_N = torch.ones((M,))
 
     # backward
-    for n in reversed(range(0, N - 1)):
+    for n in reversed(range(0, N)):
         if n == N - 1:
-            beta[n] = torch.einsum(beta_N, transition_probabilities[n])
+            beta[n] = torch.einsum("j, ij -> i", beta_N, transition_probabilities[n])
         else:
             beta[n] = torch.einsum("j, ij -> i", beta[n + 1], transition_probabilities[n])
     return beta
 
 
-def two_slice_marginals_markov_chain(alpha: torch.Tensor, transition_probabilities: torch.Tensor,
+def two_slice_marginals_markov_chain_given_alpha_beta(alpha: torch.Tensor, transition_probabilities: torch.Tensor,
                                      beta: torch.Tensor) -> torch.Tensor:
-    N, M = alpha.size()
+    N, M = alpha.shape
     two_slice_marginals_tensor = torch.zeros((N - 1, M, M))
     for n in range(0, N - 1):
         unnormalized_two_slice_marginals = torch.einsum("i, ij, j -> ij", alpha[n], transition_probabilities[n],
@@ -54,7 +54,7 @@ def two_slice_marginals_markov_chain(alpha: torch.Tensor, transition_probabiliti
     return two_slice_marginals_tensor
 
 
-def forward_backward_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
+def two_slice_marginals_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
     """
     :param N: Chain length
     :param initial_state: markov model initial state probability tensor                 - (M x 1)
@@ -62,15 +62,19 @@ def forward_backward_markov_chain(initial_state: torch.Tensor, transition_probab
     :return: pairwise probability tensor [p(X_1, X_2), p(X_2, X_3) ... p(X_{N-1}, X_N)]    - (N-1 x M)
     """
     alpha = forward_messages_markov_chain(initial_state, transition_probabilities, N)
-    beta = forward_messages_markov_chain(initial_state, transition_probabilities, N)
+    beta = backward_messages_markov_chain(transition_probabilities, N)
 
-    return two_slice_marginals_markov_chain(alpha, transition_probabilities, beta)
+    return two_slice_marginals_markov_chain_given_alpha_beta(alpha, transition_probabilities, beta)
+
+
+def one_slice_marginals_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
+    return forward_messages_markov_chain(initial_state, transition_probabilities, N)
 
 
 if __name__ == '__main__':
     N_states = 2
     init_state = torch.ones(N_states) * 1.0 / N_states
     N_stages = 5
-    t = torch.ones((N_stages, N_states, N_states)) * 1.0 / N_states
-    pairwise_joint = forward_backward_markov_chain(init_state, t, N_stages)
+    transitions = torch.ones((N_stages, N_states, N_states)) * 1.0 / N_states
+    pairwise_joint = two_slice_marginals_markov_chain(init_state, transitions, N_stages)
     print(pairwise_joint)
