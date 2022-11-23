@@ -8,6 +8,7 @@ import argparse
 import logging
 import random
 import sys
+from networkx.lazy_imports import os
 
 import numpy as np
 import torch
@@ -38,6 +39,13 @@ def main(args):
     logging.debug("main is over")
 
 
+def validate_file(f):
+    if not os.path.exists(f):
+        # Argparse uses the ArgumentTypeError to give a rejection message like:
+        # error: argument input: x does not exist
+        raise argparse.ArgumentTypeError("{0} does not exist".format(f))
+    return f
+
 if __name__ == '__main__':
 
     # parse arguments
@@ -48,6 +56,9 @@ if __name__ == '__main__':
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
+    parser.add_argument("-i", "--input", dest="filename", 
+                        required=True, type=validate_file,
+                        help="input data file", metavar="FILE")
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     # seed for reproducibility
