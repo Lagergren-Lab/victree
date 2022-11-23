@@ -1,7 +1,9 @@
-from typing import Union
+from typing import Union, Tuple
 import networkx as nx
 import torch
 import torch.distributions as dist
+
+from utils import tree_utils
 from utils.config import Config
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.q_Z import qZ
@@ -18,7 +20,7 @@ class CopyNumberHmm(VariationalDistribution):
         self.single_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.couple_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
-        self.eta1 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        self.eta1 = torch.empty((self.config.n_nodes, self.config.n_states))
         self.eta2 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
     def initialize(self):
@@ -44,7 +46,7 @@ class CopyNumberHmm(VariationalDistribution):
             q_t: q_T,
             q_eps: qEpsilon,
             q_z: qZ,
-            q_mutau: qMuTau) -> tuple[torch.Tensor, torch.Tensor]:
+            q_mutau: qMuTau) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
         + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
@@ -79,7 +81,7 @@ class CopyNumberHmm(VariationalDistribution):
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph, 
             q_eps: qEpsilon,
             q_z: qZ,
-            q_mutau: qMuTau) -> tuple[torch.Tensor, torch.Tensor]:
+            q_mutau: qMuTau) -> Tuple[torch.Tensor, torch.Tensor]:
         """Expectation of natural parameter vector \eta
 
         Parameters
@@ -131,7 +133,7 @@ class CopyNumberHmm(VariationalDistribution):
         return e_eta1, e_eta2
             
 
-    def exp_alpha(self, q_eps: qEpsilon) -> tuple[torch.Tensor, torch.Tensor]:
+    def exp_alpha(self, q_eps: qEpsilon) -> Tuple[torch.Tensor, torch.Tensor]:
 
         e_alpha1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         e_alpha2 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
@@ -150,7 +152,7 @@ class CopyNumberHmm(VariationalDistribution):
 
         return e_alpha1, e_alpha2
 
-    def mc_filter(self, u, m, i: Union[int, tuple[int, int]]):
+    def mc_filter(self, u, m, i: Union[int, Tuple[int, int]]):
         # TODO: implement/import forward-backward starting from eta params
         if isinstance(i, int):
             return self.single_filtering_probs[u, m, i]
@@ -159,12 +161,26 @@ class CopyNumberHmm(VariationalDistribution):
 
     # iota/kappa
     # might be useless
-    def idx_map(self, m, i: Union[int, tuple[int, int]]) -> int:
+    def idx_map(self, m, i: Union[int, Tuple[int, int]]) -> int:
         if isinstance(i, int):
             return m * self.config.n_states + i
         else:
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
 
+
+    def get_two_slice_marginals(self, u):
+        return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+    def get_marginals(self, u):
+        return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+    def get_all_marginals(self):
+        # TODO: optimize replacing for-loop with einsum operations
+        q_C = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        for u in range(self.config.n_nodes):
+            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+        return q_C
 
 
 

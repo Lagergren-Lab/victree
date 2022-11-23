@@ -109,8 +109,7 @@ class CopyTree():
         pass
 
     def update_C(self, obs):
-        self.q.c.update(obs,
-                self.q.t, self.q.eps, self.q.z, self.q.mt)
+        self.q.c.update(obs, self.q.t, self.q.eps, self.q.z, self.q.mt)
 
     def update_z(self):
         self.q.z.update()
