@@ -31,8 +31,11 @@ class qZ(VariationalDistribution):
         """
         E_log_pi = q_pi_dist.exp_log_pi()
         D = q_mu_tau.exp_log_emission(Y)
-        gamma = E_log_pi + torch.einsum("mj, nmj -> n", q_C_marginal, D)
-        self.pi = gamma / torch.exp(gamma)
+        gamma = E_log_pi + torch.einsum("kmj, nmj -> nk", q_C_marginal, D)
+        gamma_norm = gamma - torch.logsumexp(gamma, dim=1, keepdim=True)
+        pi = torch.exp(gamma_norm)
+        self.pi = pi
+        return pi
 
     def exp_assignment(self) -> torch.Tensor:
         # TODO: implement

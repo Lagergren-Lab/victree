@@ -20,7 +20,7 @@ class CopyNumberHmm(VariationalDistribution):
         self.single_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.couple_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
-        self.eta1 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        self.eta1 = torch.empty((self.config.n_nodes, self.config.n_states))
         self.eta2 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
     def initialize(self):
@@ -163,9 +163,19 @@ class CopyNumberHmm(VariationalDistribution):
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
 
 
-    def get_two_sliced_marginals(self):
-        return tree_utils.two_slice_marginals_markov_chain()
+    def get_two_slice_marginals(self, u):
+        return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
 
+    def get_marginals(self, u):
+        return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+    def get_all_marginals(self):
+        # TODO: optimize replacing for-loop with einsum operations
+        q_C = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        for u in range(self.config.n_nodes):
+            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+        return q_C
 
 
 
