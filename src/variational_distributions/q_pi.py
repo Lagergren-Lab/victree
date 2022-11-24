@@ -30,8 +30,5 @@ class qPi(VariationalDistribution):
         return torch.digamma(self.concentration_param) -\
                 torch.digamma(torch.sum(self.concentration_param))
 
-        
-
-
-        
-
+    def elbo(self) -> torch.Tensor:
+        return super().elbo()

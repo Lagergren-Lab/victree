@@ -6,6 +6,7 @@ from model.generative_model import GenerativeModel
 from variational_distributions.q_T import q_T
 from variational_distributions.q_Z import qZ
 from variational_distributions.q_epsilon import qEpsilon
+from variational_distributions.q_pi import qPi
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.variational_hmm import CopyNumberHmm
 from variational_distributions.variational_normal import qMuTau
@@ -13,22 +14,24 @@ from variational_distributions.variational_normal import qMuTau
 
 class JointVarDist(VariationalDistribution):
     def __init__(self, config: Config,
-                 qc, qz, qt, qeps, qmt, obs: torch.Tensor):
+                 qc, qz, qt, qpi, qeps, qmt, obs: torch.Tensor):
         super().__init__(config)
         self.c: CopyNumberHmm = qc
         self.z: qZ = qz
         self.t: q_T = qt
+        self.pi: qPi = qpi
         self.eps: qEpsilon = qeps
         self.mt: qMuTau = qmt
         self.obs = obs
 
-    def update(self):
+    def update(self, p: GenerativeModel):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
         self.t.update(trees, self.c.couple_filtering_probs, self.c, self.eps)
         self.c.update(self.obs, self.t, self.eps, self.z, self.mt)
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
-        self.z.update()
+        self.pi.update(self.z, p.delta_pi)
+        self.z.update(self.mt, self.c, self.pi, self.obs)
         self.mt.update()
         # TODO: continue
 
@@ -38,6 +41,14 @@ class JointVarDist(VariationalDistribution):
         for q in [self.c, self.z, self.t, self.eps, self.mt]:
             q.initialize()
         return super().initialize()
+
+    def elbo(self):
+        return self.c.elbo() +\
+                self.z.elbo() +\
+                self.mt.elbo() +\
+                self.pi.elbo() +\
+                self.eps.elbo() +\
+                self.t.elbo()
 
 class CopyTree():
 
@@ -87,8 +98,11 @@ class CopyTree():
         # TODO: elbo could also be a custom object, containing the main elbo parts separately
         #   so we can monitor all components of the elbo (variational and model part)
 
-        # ...quite costly operation...
-        return -1000.
+        # TODO: maybe parallelize elbos computations
+        elbo_q = self.q.elbo()
+
+        self.elbo = elbo_q + elbo_p
+        return self.elbo
 
     def step(self):
         self.update_T()

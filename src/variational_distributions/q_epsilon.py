@@ -37,6 +37,9 @@ class qEpsilon(VariationalDistribution):
                 anti_sym_mask[i, j, k, l] = 1
         return co_mut_mask, anti_sym_mask
 
+    def elbo(self) -> torch.Tensor:
+        return super().elbo()
+
     def update(self, T_list, w_T, q_C_pairwise_marginals):
         self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
         super().update()

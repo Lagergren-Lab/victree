@@ -39,6 +39,8 @@ class CopyNumberHmm(VariationalDistribution):
             pass
         return 0.
 
+    def elbo(self) -> torch.Tensor:
+        return super().elbo()
 
     def update(self, obs: torch.Tensor, 
             q_t: q_T,

@@ -24,6 +24,9 @@ class q_T(VariationalDistribution):
         q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
         return q_T
 
+    def elbo(self) -> torch.Tensor:
+        return super().elbo()
+
     def update_CAVI(self, T_list: list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
         """
         log q(T) =

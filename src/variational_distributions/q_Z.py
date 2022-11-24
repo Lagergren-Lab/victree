@@ -33,6 +33,9 @@ class qZ(VariationalDistribution):
 
         return super().update()
 
+    def elbo(self) -> torch.Tensor:
+        return super().elbo()
+
     def exp_assignment(self) -> torch.Tensor:
         # simply the pi probabilities
         return self.pi

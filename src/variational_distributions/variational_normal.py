@@ -38,6 +38,9 @@ class qMuTau(VariationalDistribution):
     def initialize(self):
         return super().initialize()
 
+    def elbo(self) -> torch.Tensor:
+        return super().elbo()
+
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_arr = torch.ones((self.config.n_cells, 
                               self.config.chain_length,
