@@ -12,10 +12,10 @@ from variational_distributions.variational_distribution import VariationalDistri
 class qEpsilon(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.):
-        self.alpha_prior = torch.tensor(alpha_0)
-        self.beta_prior = torch.tensor(beta_0)
-        self.alpha = torch.tensor(alpha_0)
-        self.beta = torch.tensor(beta_0)
+        self.alpha_prior = torch.tensor(alpha_0, dtype=torch.float32)
+        self.beta_prior = torch.tensor(beta_0, dtype=torch.float32)
+        self.alpha = torch.tensor(alpha_0, dtype=torch.float32)
+        self.beta = torch.tensor(beta_0, dtype=torch.float32)
         super().__init__(config)
 
     def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
@@ -55,8 +55,8 @@ class qEpsilon(VariationalDistribution):
             E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v], co_mut_mask)
             E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v], anti_sym_mask)
 
-        for (k, T) in enumerate(T_list):
-            for uv in T.edges:
+        for k, T in enumerate(T_list):
+            for uv in [e for e in T.edges]:
                 u, v = uv
                 alpha += w_T[k] * E_CuCv_a[u, v]
                 beta += w_T[k] * E_CuCv_b[u, v]

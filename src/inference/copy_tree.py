@@ -1,5 +1,3 @@
-from typing import Dict
-
 from numpy import infty
 import torch
 
@@ -37,6 +35,8 @@ class JointVarDist(VariationalDistribution):
         return super().update()
 
     def initialize(self):
+        for q in [self.c, self.z, self.t, self.eps, self.mt]:
+            q.initialize()
         return super().initialize()
 
 class CopyTree():

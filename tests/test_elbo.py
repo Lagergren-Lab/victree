@@ -36,5 +36,5 @@ class TestElbo(unittest.TestCase):
 
         with self.assertRaises(ValueError) as ve_info:
             logging.info(str(ve_info))
-            copy_tree.run(10)
+            copy_tree.run(5)
 

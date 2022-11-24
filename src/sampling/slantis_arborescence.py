@@ -1,10 +1,15 @@
 import copy
 import logging
 import random
+from typing import Tuple
 
 import networkx as nx
 import torch
-from matplotlib import pyplot as plt
+
+import matplotlib
+matplotlib.use("Agg") # to avoid interactive plots
+import matplotlib.pyplot as plt
+
 from networkx.algorithms.tree import Edmonds
 from networkx.drawing.nx_pydot import graphviz_layout
 
@@ -68,9 +73,13 @@ def check_cycles(T_copy):
     pass
 
 
-def draw_graph(G: nx.DiGraph):
+def draw_graph(G: nx.DiGraph, to_file=None):
     pos = graphviz_layout(G, prog="dot")
-    nx.draw(G, pos=pos, with_labels=True)
+
+    f = plt.figure()
+    nx.draw(G, pos=pos, with_labels=True, ax=f.add_subplot(111))
+    if to_file is not None:
+        f.savefig(to_file, format="png")
     plt.show()
 
 
@@ -78,7 +87,9 @@ def is_root(param):
     pass
 
 
-def sample_arborescence(log_W: torch.Tensor, root: int, debug=False):
+def sample_arborescence(log_W: torch.Tensor, 
+                        root: int,
+                        debug=False) -> Tuple[nx.DiGraph, torch.Tensor]:
     logger = logging.getLogger('sample_arborescence')
     n_nodes = log_W.shape[0]
     S = []  # Selected arcs
@@ -162,7 +173,7 @@ def sample_arborescence(log_W: torch.Tensor, root: int, debug=False):
                 continue
 
     if debug:
-        print(f"Number of proposal iterations: {n_iterations}")
+        logger.debug(f"Number of proposal iterations: {n_iterations}")
     return S_arborescence, log_S
 
 def sample_arborescence_root(log_W: torch.Tensor, log_W_root: torch.Tensor):
