@@ -5,6 +5,7 @@ import torch
 from utils.config import Config
 from variational_distributions.q_T import q_T
 from variational_distributions.q_epsilon import qEpsilon
+from variational_distributions.q_pi import qPi
 
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.q_Z import qZ
@@ -21,12 +22,13 @@ class TestElbo(unittest.TestCase):
         p = GenerativeModel()
         q_c = CopyNumberHmm(config)
         q_z = qZ(config)
+        q_pi = qPi(config)
         q_t = q_T(config)
         q_eps = qEpsilon(config, 1., 1.)
         q_mutau = qMuTau(config, loc = 100., precision = .1,
                 shape = 5., rate = 5.)
         obs = torch.ones((config.n_states, config.n_cells))
-        joint_dist = JointVarDist(config, q_c, q_z, q_t, q_eps, q_mutau, obs)
+        joint_dist = JointVarDist(config, q_c, q_z, q_pi, q_t, q_eps, q_mutau, obs)
 
         copy_tree = CopyTree(config, p, joint_dist, obs)
 

@@ -7,6 +7,7 @@ from utils.config import Config
 from model.generative_model import GenerativeModel
 from variational_distributions.q_T import q_T
 from variational_distributions.q_Z import qZ
+from variational_distributions.q_pi import qPi
 from variational_distributions.q_epsilon import qEpsilon
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.variational_hmm import CopyNumberHmm
@@ -15,10 +16,11 @@ from variational_distributions.variational_normal import qMuTau
 
 class JointVarDist(VariationalDistribution):
     def __init__(self, config: Config,
-                 qc, qz, qt, qeps, qmt, obs: torch.Tensor):
+                 qc, qz, qpi, qt, qeps, qmt, obs: torch.Tensor):
         super().__init__(config)
         self.c: CopyNumberHmm = qc
         self.z: qZ = qz
+        self.pi: qPi = qpi
         self.t: q_T = qt
         self.eps: qEpsilon = qeps
         self.mt: qMuTau = qmt
@@ -93,7 +95,7 @@ class CopyTree():
     def step(self):
         self.update_T()
         self.update_C(self.obs)
-        self.update_z()
+        self.update_z(self.obs, q_C_marg=None)
         self.update_mutau()
         self.update_epsilon()
         self.update_gamma()
@@ -111,8 +113,8 @@ class CopyTree():
     def update_C(self, obs):
         self.q.c.update(obs, self.q.t, self.q.eps, self.q.z, self.q.mt)
 
-    def update_z(self):
-        self.q.z.update()
+    def update_z(self, obs, q_C_marg):
+        self.q.z.update(self.q.pi, self.q.mt, q_C_marginal=q_C_marg, obs=obs)
 
     def update_mutau(self):
         self.q.mt.update()
