@@ -37,7 +37,7 @@ class JointVarDist(VariationalDistribution):
             q.initialize()
         return super().initialize()
 
-    def elbo(self):
+    def elbo(self) -> float:
         return self.c.elbo() +\
                 self.z.elbo() +\
                 self.mt.elbo() +\
@@ -59,8 +59,7 @@ class CopyTree():
 
         # counts the number of steps performed
         self.it_counter = 0    
-        self.elbo = -infty     
-
+        self.elbo = -infty
 
     def run(self, n_iter):
 
@@ -73,21 +72,20 @@ class CopyTree():
             # do the updates
             self.step()
 
-            new_elbo = self.compute_elbo()
-            if abs(new_elbo - self.elbo) < self.config.elbo_tol:
+            old_elbo = self.elbo
+            self.compute_elbo()
+            if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     break
-            elif new_elbo < self.elbo:
+            elif self.elbo < old_elbo:
                 # elbo should only increase
                 raise ValueError("Elbo is decreasing")
-            elif new_elbo > 0:
+            elif self.elbo > 0:
                 # elbo must be negative
                 raise ValueError("Elbo is non-negative")
             else:
                 close_runs = 0
-
-
 
     def compute_elbo(self) -> float:
         # TODO: elbo could also be a custom object, containing the main elbo parts separately
@@ -95,6 +93,8 @@ class CopyTree():
 
         # TODO: maybe parallelize elbos computations
         elbo_q = self.q.elbo()
+        # FIXME: entropy not implemented yet
+        elbo_p = 0. # entropy 
 
         self.elbo = elbo_q + elbo_p
         return self.elbo

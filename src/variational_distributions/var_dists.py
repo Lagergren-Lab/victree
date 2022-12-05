@@ -40,7 +40,7 @@ class qC(VariationalDistribution):
             pass
         return 0.
 
-    def elbo(self) -> torch.Tensor:
+    def elbo(self) -> float:
         return super().elbo()
 
     def update(self, obs: torch.Tensor, 
@@ -191,7 +191,7 @@ class qZ(VariationalDistribution):
         dnmj = qmt.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
-        gamma = e_logpi + torch.einsum('mkj,nmj->nk', qcmkj, dnmj) 
+        gamma = e_logpi + torch.einsum('kmj,nmj->nk', qcmkj, dnmj) 
         # TODO: remove asserts
         assert(gamma.shape == (self.config.n_cells, self.config.n_nodes))
         self.pi = torch.softmax(gamma, dim=1)
@@ -199,7 +199,7 @@ class qZ(VariationalDistribution):
 
         return super().update()
 
-    def elbo(self) -> torch.Tensor:
+    def elbo(self) -> float:
         return super().elbo()
 
     def exp_assignment(self) -> torch.Tensor:
@@ -221,7 +221,7 @@ class qT(VariationalDistribution):
         q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
         return q_T
 
-    def elbo(self) -> torch.Tensor:
+    def elbo(self) -> float:
         return super().elbo()
 
     def update_CAVI(self, T_list: list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
@@ -338,7 +338,7 @@ class qEpsilon(VariationalDistribution):
                 anti_sym_mask[i, j, k, l] = 1
         return co_mut_mask, anti_sym_mask
 
-    def elbo(self) -> torch.Tensor:
+    def elbo(self) -> float:
         return super().elbo()
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
@@ -433,7 +433,7 @@ class qMuTau(VariationalDistribution):
     def initialize(self):
         return super().initialize()
 
-    def elbo(self) -> torch.Tensor:
+    def elbo(self) -> float:
         return super().elbo()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
@@ -492,7 +492,7 @@ class qPi(VariationalDistribution):
         return torch.digamma(self.concentration_param) -\
                 torch.digamma(torch.sum(self.concentration_param))
 
-    def elbo(self) -> torch.Tensor:
+    def elbo(self) -> float:
         return super().elbo()
 
 

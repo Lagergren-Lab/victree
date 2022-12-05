@@ -1,9 +1,6 @@
 """
 Interface class for Variational distributions
 """
-
-
-import torch
 from utils.config import Config
 
 
@@ -19,5 +16,5 @@ class VariationalDistribution:
     def update(self):
         pass
 
-    def elbo(self) -> torch.Tensor:
-        return torch.empty(0)
+    def elbo(self) -> float:
+        return 0.
