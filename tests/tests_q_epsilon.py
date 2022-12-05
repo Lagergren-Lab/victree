@@ -3,7 +3,7 @@ import torch
 
 from utils.config import Config
 from tests import utils_testing
-from variational_distributions.q_epsilon import qEpsilon
+from variational_distributions.var_dists import qEpsilon
 
 
 class qEpsilonTestCase(unittest.TestCase):

@@ -3,14 +3,8 @@ import unittest
 import networkx as nx
 import torch
 
-from utils import tree_utils
-from tests import utils_testing
 from utils.config import Config
-from variational_distributions.q_T import q_T
-from variational_distributions.q_Z import qZ
-from variational_distributions.q_epsilon import qEpsilon
-from variational_distributions.variational_hmm import CopyNumberHmm
-from variational_distributions.variational_normal import qMuTau
+from variational_distributions.var_dists import qT, qEpsilon, qZ, qMuTau, qC
 
 
 class qCTestCase(unittest.TestCase):
@@ -18,8 +12,8 @@ class qCTestCase(unittest.TestCase):
     def setUp(self) -> None:
         # build config
         self.config = Config()
-        self.qc = CopyNumberHmm(self.config)
-        self.qt = q_T(self.config)
+        self.qc = qC(self.config)
+        self.qt = qT(self.config)
         self.qeps = qEpsilon(self.config, 2, 5) # skewed towards 0
         self.qz = qZ(self.config)
         self.qmt = qMuTau(self.config, loc = 100, precision = .1,

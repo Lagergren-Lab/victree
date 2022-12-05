@@ -76,7 +76,7 @@ def check_cycles(T_copy):
 def draw_graph(G: nx.DiGraph, to_file=None):
     pos = graphviz_layout(G, prog="dot")
 
-    f = plt.figure()
+    f: plt.figure.Figure = plt.figure(figsize=(5,5))
     nx.draw(G, pos=pos, with_labels=True, ax=f.add_subplot(111))
     if to_file is not None:
         f.savefig(to_file, format="png")
@@ -96,7 +96,7 @@ def sample_arborescence(log_W: torch.Tensor,
     S_nodes = set(())
     roots = set(())
     children = set(())
-    log_S = 0
+    log_S = torch.zeros(1)
     S_arborescence = nx.DiGraph()
     log_W_with_S = copy.deepcopy(log_W)
     including_weight = torch.max(log_W) + torch.log(torch.tensor(n_nodes))

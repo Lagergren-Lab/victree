@@ -1,7 +1,6 @@
 import unittest
 
 import networkx as nx
-import torch
 
 from utils import tree_utils
 

@@ -3,14 +3,9 @@ import logging
 from inference.copy_tree import CopyTree, JointVarDist
 from utils.config import Config
 from utils.data_handling import read_sc_data
-from variational_distributions.q_T import q_T
-from variational_distributions.q_Z import qZ
-from variational_distributions.q_epsilon import qEpsilon
-from variational_distributions.q_pi import qPi
+from variational_distributions.var_dists import qT, qEpsilon, qMuTau, qPi, qZ, qC
 from variational_distributions.variational_distribution import VariationalDistribution
 from model.generative_model import GenerativeModel
-from variational_distributions.variational_hmm import CopyNumberHmm
-from variational_distributions.variational_normal import qMuTau
 
 def run(args):
     # TODO: write main code
@@ -23,14 +18,14 @@ def run(args):
     p = GenerativeModel(config)
     
     # instantiate all distributions 
-    qc = CopyNumberHmm(config)
+    qc = qC(config)
     qz = qZ(config)
-    qt = q_T(config)
+    qt = qT(config)
     qeps = qEpsilon(config)
     qmt = qMuTau(config)
     qpi = qPi(config)
 
-    q = JointVarDist(config, qc, qz, qt, qpi, qeps, qmt, obs)
+    q = JointVarDist(config, qc, qz, qt, qeps, qmt, qpi, obs)
     copy_tree = CopyTree(config, p, q, obs)
     
     copy_tree.run(args.n_iter)

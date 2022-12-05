@@ -3,17 +3,16 @@ import unittest
 import networkx as nx
 import torch
 
-from utils import tree_utils
 from tests import utils_testing
 from utils.config import Config
-from variational_distributions.q_T import q_T
+from variational_distributions.var_dists import qT
 
 
 class qTTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         config = Config(wis_sample_size = 5)
-        self.q_T = q_T(config)
+        self.q_T = qT(config)
 
     def test_q_T_running_for_two_simple_Ts_random_qC(self):
         M = 20
