@@ -5,7 +5,7 @@ from variational_distributions.variational_distribution import VariationalDistri
 
 class qPi(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_prior):
+    def __init__(self, config: Config, alpha_prior=1):
         super().__init__(config)
         self.concentration_param_prior = torch.ones(config.n_nodes) * alpha_prior
         self.concentration_param = self.concentration_param_prior
