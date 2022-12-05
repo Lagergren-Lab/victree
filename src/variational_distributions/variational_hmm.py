@@ -41,6 +41,9 @@ class CopyNumberHmm(VariationalDistribution):
             pass
         return 0.
 
+    def calculate_filtering_probs(self):
+        self.single_filtering_probs = self.get_all_marginals()
+        self.couple_filtering_probs = self.get_all_two_sliced_marginals()
 
     def update(self, obs: torch.Tensor, 
             q_t: q_T,
@@ -181,6 +184,14 @@ class CopyNumberHmm(VariationalDistribution):
             q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
 
         return q_C
+
+    def get_all_two_sliced_marginals(self):
+        # TODO: optimize replacing for-loop with einsum operations
+        q_C_pairs = torch.zeros((self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))
+        for u in range(self.config.n_nodes):
+            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+        return q_C_pairs
 
 
 

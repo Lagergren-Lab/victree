@@ -8,6 +8,7 @@ import numpy as np
 from utils import tree_utils
 from variational_distributions.variational_distribution import VariationalDistribution
 from utils.config import Config
+import variational_distributions.q_epsilon as q_epsilon
 
 
 class q_T(VariationalDistribution):
@@ -20,11 +21,11 @@ class q_T(VariationalDistribution):
     def initialize(self):
         return super().initialize()
 
-    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
+    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon: q_epsilon.qEpsilon):
         q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
         return q_T
 
-    def update_CAVI(self, T_list: list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
+    def update_CAVI(self, T_list: list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon: q_epsilon.qEpsilon):
         """
         log q(T) =
         (1) E_{C^r}[log p(C^r)] +
@@ -47,20 +48,7 @@ class q_T(VariationalDistribution):
         # Constant w.r.t T, can be omitted
 
         # Term (2)
-        # TODO: Move to q_epsilon and make u, v specific
-        E_eps_h_comut = torch.digamma(q_epsilon) - torch.digamma(q_C + q_epsilon)
-        E_eps_h_diff = torch.digamma(q_epsilon) - torch.digamma(q_C + q_epsilon) - torch.log(torch.tensor(A))
-        E_eps_h = torch.ones((A, A, A, A)) * E_eps_h_diff
-        # idx = torch.ones((A, A, A, A)) * E_eps_h_diff
-        # torch.range(0, A)
-        # E_eps_h.fill_diagonal_(E_eps_h_comut)
-        # TODO: Find effecient way of indexing i-j = k-l
-        for i in range(0, A):
-            for j in range(0, A):
-                for k in range(0, A):
-                    for l in range(0, A):
-                        if i - j == k - l:
-                            E_eps_h[i, j, k, l] = E_eps_h_comut
+        E_eps_h = q_epsilon.exp_zipping()
 
         E_CuCveps = torch.zeros((N, N))
         for uv in unique_edges:

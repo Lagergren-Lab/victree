@@ -95,7 +95,8 @@ class CopyTree():
     def step(self):
         self.update_T()
         self.update_C(self.obs)
-        self.update_z(self.obs, q_C_marg=None)
+        self.q.c.calculate_filtering_probs()
+        self.update_z(self.obs, q_C_marg=self.q.c.single_filtering_probs)
         self.update_mutau()
         self.update_epsilon()
         self.update_gamma()
