@@ -179,6 +179,15 @@ class qZ(VariationalDistribution):
         return super().initialize()
 
     def update(self, qmt: 'qMuTau', qc: 'qC', qpi: 'qPi', obs: torch.Tensor):
+        """
+        q(Z) is a Categorical with probabilities pi^{*}, where pi_k^{*} = exp(gamma_k) / sum_K exp(gamma_k)
+        gamma_k = E[log \pi_k] + sum_{m,j} q(C_m^k = j) E_{\mu, \tau}[D_{nmj}]
+        :param Y: observations
+        :param q_C_marginal:
+        :param q_pi_dist:
+        :param q_mu_tau:
+        :return:
+        """
         # single_filtering_probs: q(Cmk = j), shape: K x M x J
         qcmkj = qc.single_filtering_probs
         # expected log pi
