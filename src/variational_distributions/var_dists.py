@@ -255,11 +255,11 @@ class qT(VariationalDistribution):
     def elbo(self) -> float:
         return super().elbo()
 
-    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C: qC, q_epsilon: "qEpsilon"):
+    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C: qC, q_epsilon: 'qEpsilon'):
         q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
         return q_T
 
-    def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: "qEpsilon"):
+    def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: 'qEpsilon'):
         """
         log q(T) =
         (1) E_{C^r}[log p(C^r)] +
@@ -338,8 +338,9 @@ class qEpsilon(VariationalDistribution):
     def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.):
         self.alpha_prior = torch.tensor(alpha_0, dtype=torch.float32)
         self.beta_prior = torch.tensor(beta_0, dtype=torch.float32)
-        self.alpha = torch.tensor(alpha_0, dtype=torch.float32)
-        self.beta = torch.tensor(beta_0, dtype=torch.float32)
+        # one param for every arc except self referenced (diag set to -infty)
+        self.alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
+        self.beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
         super().__init__(config)
 
     def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
@@ -379,14 +380,22 @@ class qEpsilon(VariationalDistribution):
         co_mut_mask, anti_sym_mask = self.create_masks(A)
         for uv in unique_edges:
             u, v = uv
-            E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v], co_mut_mask)
-            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v], anti_sym_mask)
+            E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', 
+                                          q_C_pairwise_marginals[u],
+                                          q_C_pairwise_marginals[v],
+                                          co_mut_mask)
+            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
+                                          q_C_pairwise_marginals[u],
+                                          q_C_pairwise_marginals[v],
+                                          anti_sym_mask)
 
         for k, T in enumerate(T_list):
-            for uv in [e for e in T.edges]:
-                u, v = uv
-                alpha += w_T[k] * E_CuCv_a[u, v]
-                beta += w_T[k] * E_CuCv_b[u, v]
+            for u, v in [e for e in T.edges]:
+                # FIXME: here we need to use alpha/beta from the generative model/prior
+                #   alpha_q = E_T[ E_CuCv_a ] + alpha_p
+                #   not the current alpha
+                alpha[u, v] += w_T[k] * E_CuCv_a[u, v]
+                beta[u, v] += w_T[k] * E_CuCv_b[u, v]
 
         self.set_params(alpha, beta)
         return alpha, beta
