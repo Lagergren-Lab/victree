@@ -1,7 +1,6 @@
 from typing import List, Tuple
 import torch
 
-# TODO: read data and make config read data input specs
 def read_sc_data(file_path: str) -> Tuple[List, List, torch.Tensor]:
     with open(file_path, 'r') as f:
         cell_names = f.readline().strip().split(" ")

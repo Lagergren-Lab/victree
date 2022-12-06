@@ -8,7 +8,7 @@ import argparse
 import logging
 import random
 import sys
-from networkx.lazy_imports import os
+import os
 
 import numpy as np
 import torch

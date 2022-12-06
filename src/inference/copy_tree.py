@@ -1,45 +1,49 @@
-from typing import Dict
-
 from numpy import infty
 import torch
 
 from utils.config import Config
 from model.generative_model import GenerativeModel
-from variational_distributions.q_T import q_T
-from variational_distributions.q_Z import qZ
-from variational_distributions.q_pi import qPi
-from variational_distributions.q_epsilon import qEpsilon
 from variational_distributions.variational_distribution import VariationalDistribution
-from variational_distributions.variational_hmm import CopyNumberHmm
-from variational_distributions.variational_normal import qMuTau
+from variational_distributions.var_dists import qT, qEpsilon, qMuTau, qPi, qZ, qC
 
 
 class JointVarDist(VariationalDistribution):
     def __init__(self, config: Config,
-                 qc, qz, qpi, qt, qeps, qmt, obs: torch.Tensor):
+                 qc, qz, qt, qeps, qmt, qpi, obs: torch.Tensor):
         super().__init__(config)
-        self.c: CopyNumberHmm = qc
+        self.c: qC = qc
         self.z: qZ = qz
-        self.pi: qPi = qpi
-        self.t: q_T = qt
+        self.t: qT = qt
         self.eps: qEpsilon = qeps
         self.mt: qMuTau = qmt
+        self.pi: qPi = qpi
         self.obs = obs
 
-    def update(self):
+    def update(self, p: GenerativeModel):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
         self.t.update(trees, self.c.couple_filtering_probs, self.c, self.eps)
         self.c.update(self.obs, self.t, self.eps, self.z, self.mt)
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
-        self.z.update()
+        self.pi.update(self.z, p.delta_pi)
+        self.z.update(self.mt, self.c, self.pi, self.obs)
         self.mt.update()
         # TODO: continue
 
         return super().update()
 
     def initialize(self):
+        for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
+            q.initialize()
         return super().initialize()
+
+    def elbo(self) -> float:
+        return self.c.elbo() +\
+                self.z.elbo() +\
+                self.mt.elbo() +\
+                self.pi.elbo() +\
+                self.eps.elbo() +\
+                self.t.elbo()
 
 class CopyTree():
 
@@ -55,8 +59,7 @@ class CopyTree():
 
         # counts the number of steps performed
         self.it_counter = 0    
-        self.elbo = -infty     
-
+        self.elbo = -infty
 
     def run(self, n_iter):
 
@@ -69,34 +72,38 @@ class CopyTree():
             # do the updates
             self.step()
 
-            new_elbo = self.compute_elbo()
-            if abs(new_elbo - self.elbo) < self.config.elbo_tol:
+            old_elbo = self.elbo
+            self.compute_elbo()
+            if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     break
-            elif new_elbo < self.elbo:
+            elif self.elbo < old_elbo:
                 # elbo should only increase
                 raise ValueError("Elbo is decreasing")
-            elif new_elbo > 0:
+            elif self.elbo > 0:
                 # elbo must be negative
                 raise ValueError("Elbo is non-negative")
             else:
                 close_runs = 0
 
-
-
     def compute_elbo(self) -> float:
         # TODO: elbo could also be a custom object, containing the main elbo parts separately
         #   so we can monitor all components of the elbo (variational and model part)
 
-        # ...quite costly operation...
-        return -1000.
+        # TODO: maybe parallelize elbos computations
+        elbo_q = self.q.elbo()
+        # FIXME: entropy not implemented yet
+        elbo_p = 0. # entropy
+
+        self.elbo = elbo_q + elbo_p
+        return self.elbo
 
     def step(self):
         self.update_T()
         self.update_C(self.obs)
         self.q.c.calculate_filtering_probs()
-        self.update_z(self.obs, q_C_marg=self.q.c.single_filtering_probs)
+        self.update_z()
         self.update_mutau()
         self.update_epsilon()
         self.update_gamma()
@@ -114,8 +121,8 @@ class CopyTree():
     def update_C(self, obs):
         self.q.c.update(obs, self.q.t, self.q.eps, self.q.z, self.q.mt)
 
-    def update_z(self, obs, q_C_marg):
-        self.q.z.update(self.q.pi, self.q.mt, q_C_marginal=q_C_marg, obs=obs)
+    def update_z(self):
+        self.q.z.update(self.q.mt, self.q.c, self.q.pi, self.obs)
 
     def update_mutau(self):
         self.q.mt.update()

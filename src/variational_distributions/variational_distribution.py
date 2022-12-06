@@ -1,8 +1,6 @@
 """
 Interface class for Variational distributions
 """
-
-
 from utils.config import Config
 
 
@@ -17,3 +15,6 @@ class VariationalDistribution:
 
     def update(self):
         pass
+
+    def elbo(self) -> float:
+        return 0.
