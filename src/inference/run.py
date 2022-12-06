@@ -4,7 +4,6 @@ from inference.copy_tree import CopyTree, JointVarDist
 from utils.config import Config
 from utils.data_handling import read_sc_data
 from variational_distributions.var_dists import qT, qEpsilon, qMuTau, qPi, qZ, qC
-from variational_distributions.variational_distribution import VariationalDistribution
 from model.generative_model import GenerativeModel
 
 def run(args):

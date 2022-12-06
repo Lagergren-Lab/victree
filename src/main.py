@@ -65,7 +65,7 @@ if __name__ == '__main__':
     set_seed(args.seed)
 
     # logger setup
-    logging.basicConfig(filename='out.log', encoding='utf-8', level=logging.DEBUG)
+    logging.basicConfig(filename='out.log', level=logging.DEBUG)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     getattr(logging, args.log)
 
