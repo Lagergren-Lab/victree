@@ -94,7 +94,7 @@ class CopyTree():
         # TODO: maybe parallelize elbos computations
         elbo_q = self.q.elbo()
         # FIXME: entropy not implemented yet
-        elbo_p = 0. # entropy 
+        elbo_p = 0. # entropy
 
         self.elbo = elbo_q + elbo_p
         return self.elbo
@@ -102,6 +102,7 @@ class CopyTree():
     def step(self):
         self.update_T()
         self.update_C(self.obs)
+        self.q.c.calculate_filtering_probs()
         self.update_z()
         self.update_mutau()
         self.update_epsilon()

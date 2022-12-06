@@ -20,6 +20,7 @@ def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int) -> Tuple[List, torc
 def forward_messages_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
     A = initial_state.size()[0]
     alpha = torch.zeros((N, A))  # Forward recursion variable
+    # TODO: handle update with full eta1 input
     alpha[0] = torch.einsum("ij, i -> j", transition_probabilities[0], initial_state)
 
     for n in range(1, N):

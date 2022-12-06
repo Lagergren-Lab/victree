@@ -47,7 +47,7 @@ class qC(VariationalDistribution):
             q_t: 'qT',
             q_eps: 'qEpsilon',
             q_z: 'qZ',
-            q_mutau: 'qMuTau') -> tuple[torch.Tensor, torch.Tensor]:
+            q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
         """
         log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
         + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
@@ -82,7 +82,7 @@ class qC(VariationalDistribution):
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph, 
             q_eps: 'qEpsilon',
             q_z: 'qZ',
-            q_mutau: 'qMuTau') -> tuple[torch.Tensor, torch.Tensor]:
+            q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
         """Expectation of natural parameter vector \\eta
 
         Parameters
@@ -136,7 +136,7 @@ class qC(VariationalDistribution):
         return e_eta1, e_eta2
             
 
-    def exp_alpha(self, q_eps: 'qEpsilon') -> tuple[torch.Tensor, torch.Tensor]:
+    def exp_alpha(self, q_eps: 'qEpsilon') -> Tuple[torch.Tensor, torch.Tensor]:
 
         e_alpha1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         e_alpha2 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
@@ -152,7 +152,7 @@ class qC(VariationalDistribution):
 
         return e_alpha1, e_alpha2
 
-    def mc_filter(self, u, m, i: Union[int, tuple[int, int]]):
+    def mc_filter(self, u, m, i: Union[int, Tuple[int, int]]):
         # TODO: implement/import forward-backward starting from eta params
         if isinstance(i, int):
             return self.single_filtering_probs[u, m, i]
@@ -161,11 +161,41 @@ class qC(VariationalDistribution):
 
     # iota/kappa
     # might be useless
-    def idx_map(self, m, i: Union[int, tuple[int, int]]) -> int:
+    def idx_map(self, m, i: Union[int, Tuple[int, int]]) -> int:
         if isinstance(i, int):
             return m * self.config.n_states + i
         else:
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
+
+    def calculate_filtering_probs(self):
+        self.single_filtering_probs = self.get_all_marginals()
+        self.couple_filtering_probs = self.get_all_two_sliced_marginals()
+
+    def get_two_slice_marginals(self, u):
+        return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+    def get_marginals(self, u):
+        return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+
+    def get_all_marginals(self):
+        # TODO: optimize replacing for-loop with einsum operations
+        q_C = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        for u in range(self.config.n_nodes):
+            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
+                                                                       self.config.chain_length)
+
+        return q_C
+
+    def get_all_two_sliced_marginals(self):
+        # TODO: optimize replacing for-loop with einsum operations
+        q_C_pairs = torch.zeros(
+            (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
+        for u in range(self.config.n_nodes):
+            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
+                                                                                self.config.chain_length)
+
+        return q_C_pairs
+
 
 # cell assignments
 class qZ(VariationalDistribution):
@@ -222,14 +252,14 @@ class qT(VariationalDistribution):
     def initialize(self):
         return super().initialize()
 
-    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
-        q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
-        return q_T
-
     def elbo(self) -> float:
         return super().elbo()
 
-    def update_CAVI(self, T_list: list, q_C_pairwise_marginals: torch.Tensor, q_C, q_epsilon):
+    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C: qC, q_epsilon: "qEpsilon"):
+        q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
+        return q_T
+
+    def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: "qEpsilon"):
         """
         log q(T) =
         (1) E_{C^r}[log p(C^r)] +
@@ -242,6 +272,7 @@ class qT(VariationalDistribution):
         :return: log_q_T_tensor
         """
         K = len(T_list)
+        q_C_pairwise_marginals = q_C.couple_filtering_probs
         N, M, A, A = q_C_pairwise_marginals.size()
         log_q_T_tensor = torch.zeros((K,))
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_list, N)
@@ -252,20 +283,7 @@ class qT(VariationalDistribution):
         # Constant w.r.t T, can be omitted
 
         # Term (2)
-        # TODO: Move to q_epsilon and make u, v specific
-        E_eps_h_comut = torch.digamma(q_epsilon) - torch.digamma(q_C + q_epsilon)
-        E_eps_h_diff = torch.digamma(q_epsilon) - torch.digamma(q_C + q_epsilon) - torch.log(torch.tensor(A))
-        E_eps_h = torch.ones((A, A, A, A)) * E_eps_h_diff
-        # idx = torch.ones((A, A, A, A)) * E_eps_h_diff
-        # torch.range(0, A)
-        # E_eps_h.fill_diagonal_(E_eps_h_comut)
-        # TODO: Find effecient way of indexing i-j = k-l
-        for i in range(0, A):
-            for j in range(0, A):
-                for k in range(0, A):
-                    for l in range(0, A):
-                        if i - j == k - l:
-                            E_eps_h[i, j, k, l] = E_eps_h_comut
+        E_eps_h = q_epsilon.exp_zipping()
 
         E_CuCveps = torch.zeros((N, N))
         for uv in unique_edges:
