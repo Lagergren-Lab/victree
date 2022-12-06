@@ -1,8 +1,8 @@
 import logging
 import unittest
 
-import torch
 from utils.config import Config
+from utils.data_handling import read_sc_data
 
 from variational_distributions.var_dists import qZ, qC, qMuTau, qEpsilon, qPi, qT
 from model.generative_model import GenerativeModel
@@ -21,8 +21,9 @@ class TestElbo(unittest.TestCase):
         q_eps = qEpsilon(config, 1., 1.)
         q_mutau = qMuTau(config, loc = 100., precision = .1,
                 shape = 5., rate = 5.)
-        obs = torch.ones((config.n_states, config.n_cells))
-        joint_dist = JointVarDist(config, q_c, q_z, q_t, q_eps, q_mutau, q_pi, obs)
+        _, _, obs = read_sc_data("./obs_example.txt")
+        joint_dist = JointVarDist(config, 
+                                  q_c, q_z, q_t, q_eps, q_mutau, q_pi, obs)
 
         copy_tree = CopyTree(config, p, joint_dist, obs)
 

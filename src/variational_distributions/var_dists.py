@@ -72,13 +72,6 @@ class qC(VariationalDistribution):
                 alpha1sum = torch.einsum('wmi->mi', exp_alpha1[children, :, :])
                 # assert(alpha1sum.shape == (self.config.chain_length, self.config.n_states))
                 # print(new_eta1[u, :, :].shape)
-                if new_eta1[u, :, :].shape != alpha1sum.shape:
-                    print(tree)
-                    print(u)
-                    print(new_eta1.shape)
-                    print(alpha1sum.shape)
-                    print(new_eta2.shape)
-                    print(self.config)
                 new_eta1[u, :, :] += alpha1sum
 
                 alpha2sum = torch.einsum('wmij->mij', exp_alpha2[children, :, :, :])
@@ -127,6 +120,9 @@ class qC(VariationalDistribution):
         e_eta1 = torch.einsum('nv,nmi->vmi',
                 q_z.exp_assignment(),
                 q_mutau.exp_log_emission(obs))
+        # print(e_eta1.shape)
+        # TODO: remove assert
+        assert(e_eta1.shape == (self.config.n_nodes, self.config.chain_length, self.config.n_states))
 
         # eta_2_kappa(m, i, i')
         e_eta2 = torch.einsum('pmjk,hikj->pmih',
@@ -441,6 +437,7 @@ class qMuTau(VariationalDistribution):
                               self.config.chain_length,
                               self.config.n_states))
         
+        # FIXME: the output is not always of shape NxMxS
         out_arr = .5 * self.exp_log_tau() -\
                 .5 * torch.einsum('mn,n->mn',
                         obs, self.exp_tau()) +\
