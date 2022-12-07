@@ -273,8 +273,16 @@ class qT(VariationalDistribution):
     def initialize(self):
         return super().initialize()
 
+    def cross_entropy(self):
+        K = self.config.n_nodes
+        return 1 / math_utils.cayleys_formula(K)
+
+    def entropy(self):
+        #TODO: product over edges in tree
+        return 0
+
     def elbo(self) -> float:
-        return 
+        return self.cross_entropy() - self.entropy()
 
     def update(self, T_list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
         q_T = self.update_CAVI(T_list, q_C, q_epsilon)
