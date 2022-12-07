@@ -3,7 +3,7 @@ import torch
 
 from utils.config import Config
 from tests import utils_testing
-from variational_distributions.var_dists import qEpsilon
+from variational_distributions.var_dists import qEpsilon, qEpsilonMulti
 
 
 class qEpsilonTestCase(unittest.TestCase):
@@ -13,7 +13,8 @@ class qEpsilonTestCase(unittest.TestCase):
         a = 1
         b = 1
         self.config = Config()
-        self.qeps = qEpsilon(self.config, a, b)
+        # self.qeps = qEpsilon(self.config, a, b)
+        self.qeps = qEpsilonMulti(self.config, a, b)
 
     def test_q_epsilon_running_for_two_simple_Ts_random_qC(self):
         # Arange
@@ -30,7 +31,10 @@ class qEpsilonTestCase(unittest.TestCase):
         print(f"Beta param b: {b}")
 
     def test_expectation_size(self):
-        exp_zipping = self.qeps.exp_zipping()
-        self.assertEqual(exp_zipping.shape, (self.config.n_states,) * 4)
+        for u in range(self.config.n_nodes):
+            for v in range(self.config.n_nodes):
+                if u != v:
+                    exp_zipping = self.qeps.exp_zipping((u,v))
+                    self.assertEqual(exp_zipping.shape, (self.config.n_states,) * 4)
 
 

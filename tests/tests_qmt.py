@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from utils.config import Config
-from variational_distributions.var_dists import qT, qEpsilon, qZ, qMuTau, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
 
 class qmtTestCase(unittest.TestCase):
 
@@ -12,7 +12,7 @@ class qmtTestCase(unittest.TestCase):
         self.config = Config()
         self.qc = qC(self.config)
         self.qt = qT(self.config)
-        self.qeps = qEpsilon(self.config, 2, 5) # skewed towards 0
+        self.qeps = qEpsilonMulti(self.config, 2, 5) # skewed towards 0
         self.qz = qZ(self.config)
         self.qmt = qMuTau(self.config, loc = 100, precision = .1,
                 shape = 5, rate = 5)

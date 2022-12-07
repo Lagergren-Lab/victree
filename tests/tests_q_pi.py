@@ -5,7 +5,7 @@ from model.generative_model import GenerativeModel
 from utils.config import Config
 from variational_distributions.var_dists import qZ, qPi
 
-class qEpsilonTestCase(unittest.TestCase):
+class qPiTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         self.K = 5

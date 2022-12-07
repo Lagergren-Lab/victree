@@ -1,7 +1,8 @@
-from typing import List, Tuple
+from typing import List, Tuple, Union
+from pathlib import Path
 import torch
 
-def read_sc_data(file_path: str) -> Tuple[List, List, torch.Tensor]:
+def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]:
     with open(file_path, 'r') as f:
         cell_names = f.readline().strip().split(" ")
         gene_ids = []

@@ -1,5 +1,7 @@
 import logging
 import unittest
+import os
+from pathlib import Path
 
 from utils.config import Config
 from utils.data_handling import read_sc_data
@@ -9,6 +11,10 @@ from model.generative_model import GenerativeModel
 from inference.copy_tree import CopyTree, JointVarDist
 
 class TestElbo(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.proj_dir = Path(__file__).parent.parent
+        return super().setUp()
 
     def test_elbo_decrease_exception(self):
         
@@ -21,7 +27,7 @@ class TestElbo(unittest.TestCase):
         q_eps = qEpsilon(config, 1., 1.)
         q_mutau = qMuTau(config, loc = 100., precision = .1,
                 shape = 5., rate = 5.)
-        _, _, obs = read_sc_data("../obs_example.txt")
+        _, _, obs = read_sc_data(self.proj_dir / 'obs_example.txt')
         joint_dist = JointVarDist(config, 
                                   q_c, q_z, q_t, q_eps, q_mutau, q_pi, obs)
 

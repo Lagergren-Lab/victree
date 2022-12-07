@@ -1,6 +1,6 @@
 import unittest
 import time
-from networkx.convert_matrix import itertools
+import itertools
 import numpy as np
 
 from utils import eps_utils

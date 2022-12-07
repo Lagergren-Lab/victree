@@ -5,7 +5,7 @@ import torch
 
 from tests import utils_testing
 from utils.config import Config
-from variational_distributions.var_dists import qT, qC, qEpsilon
+from variational_distributions.var_dists import qEpsilonMulti, qT, qC, qEpsilon
 
 
 class qTTestCase(unittest.TestCase):
@@ -21,7 +21,7 @@ class qTTestCase(unittest.TestCase):
         T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A)
         q_C = qC(config=self.config)
         q_C.couple_filtering_probs = q_C_pairwise_marginals
-        q_epsilon = qEpsilon(config=self.config)
+        q_epsilon = qEpsilonMulti(config=self.config)
         # Act
         log_q_T = self.q_T.update_CAVI(T_list, q_C, q_epsilon)
 
