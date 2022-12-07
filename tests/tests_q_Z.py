@@ -32,6 +32,5 @@ class qZTestCase(unittest.TestCase):
 
 
     def test_ELBO(self):
-        #self.q_Z_test.pi = torch.ones(self.K)*2
         res = self.q_Z_test.elbo(self.q_pi_test)
         print(f"ELBO: {res}")

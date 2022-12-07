@@ -236,13 +236,19 @@ class qZ(VariationalDistribution):
 
         return super().update()
 
-    def elbo(self, qpi: 'qPi') -> float:
-        e_logpi = qpi.exp_log_pi()
-        return torch.einsum("nk, k -> ", self.pi, e_logpi)
-
     def exp_assignment(self) -> torch.Tensor:
         # simply the pi probabilities
         return self.pi
+
+    def cross_entropy(self, qpi: 'qPi') -> float:
+        e_logpi = qpi.exp_log_pi()
+        return torch.einsum("nk, k -> ", self.pi, e_logpi)
+
+    def entropy(self) -> float:
+        return torch.einsum("nk, nk -> ", self.pi, torch.log(self.pi))
+
+    def elbo(self, qpi: 'qPi') -> float:
+        return self.cross_entropy(qpi) - self.entropy()
 
 # topology
 class qT(VariationalDistribution):
