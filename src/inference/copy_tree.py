@@ -39,8 +39,8 @@ class JointVarDist(VariationalDistribution):
         return super().initialize()
 
     def elbo(self) -> float:
-        return self.c.elbo() +\
-                self.z.elbo() +\
+        return self.c.elbo() + \
+               self.z.cross_entropy() +\
                 self.mt.elbo() +\
                 self.pi.elbo() +\
                 self.eps.elbo() +\

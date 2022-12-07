@@ -8,7 +8,9 @@ from variational_distributions.var_dists import qZ, qPi
 class qPiTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.alpha_prior = 1
+        self.K = 5
+        self.config = Config(n_nodes=self.K)
+        self.q_pi = qPi(self.config)
 
     def test_q_pi_params_increase_with_more_uniform_data(self):
         # Arrange
@@ -79,3 +81,18 @@ class qPiTestCase(unittest.TestCase):
 
         # Assert
         assert all(alpha[1] >= alpha)
+
+    def test_cross_entropy(self):
+        self.q_pi.concentration_param = torch.ones(self.K)*2
+        res = self.q_pi.cross_entropy()
+        print(f"Cross entropy: {res}")
+
+    def test_entropy(self):
+        self.q_pi.concentration_param = torch.ones(self.K)*2
+        res = self.q_pi.entropy()
+        print(f"Entropy: {res}")
+
+    def test_ELBO(self):
+        self.q_pi.concentration_param = torch.ones(self.K)*2
+        res = self.q_pi.elbo()
+        print(f"ELBO: {res}")

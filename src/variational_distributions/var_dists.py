@@ -3,6 +3,8 @@ import networkx as nx
 import itertools
 import numpy as np
 from typing import List, Tuple, Union, Optional
+
+from utils import math_utils
 from utils.eps_utils import get_zipping_mask, get_zipping_mask0
 
 import utils.tree_utils as tree_utils
@@ -246,12 +248,19 @@ class qZ(VariationalDistribution):
 
         return super().update()
 
-    def elbo(self) -> float:
-        return super().elbo()
-
     def exp_assignment(self) -> torch.Tensor:
         # simply the pi probabilities
         return self.pi
+
+    def cross_entropy(self, qpi: 'qPi') -> float:
+        e_logpi = qpi.exp_log_pi()
+        return torch.einsum("nk, k -> ", self.pi, e_logpi)
+
+    def entropy(self) -> float:
+        return torch.einsum("nk, nk -> ", self.pi, torch.log(self.pi))
+
+    def elbo(self, qpi: 'qPi') -> float:
+        return self.cross_entropy(qpi) - self.entropy()
 
 # topology
 class qT(VariationalDistribution):
@@ -264,8 +273,16 @@ class qT(VariationalDistribution):
     def initialize(self):
         return super().initialize()
 
+    def cross_entropy(self):
+        K = self.config.n_nodes
+        return 1 / math_utils.cayleys_formula(K)
+
+    def entropy(self):
+        #TODO: product over edges in tree
+        return 0
+
     def elbo(self) -> float:
-        return super().elbo()
+        return self.cross_entropy() - self.entropy()
 
     def update(self, T_list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
         q_T = self.update_CAVI(T_list, q_C, q_epsilon)
@@ -636,7 +653,35 @@ class qPi(VariationalDistribution):
         return torch.digamma(self.concentration_param) -\
                 torch.digamma(torch.sum(self.concentration_param))
 
+    def exp_log_p_pi(self):
+        delta = self.concentration_param
+        delta_0 = self.concentration_param_prior
+        asd = (delta - 1) * torch.digamma()
+
+    def cross_entropy(self):
+        delta_p = self.concentration_param_prior
+        delta_q = self.concentration_param
+        delta_p_0 = torch.sum(delta_p)
+        delta_q_0 = torch.sum(delta_q)
+        K = delta_p.shape[0]
+        digamma_q = np.exp(torch.lgamma(delta_q))
+        digamma_q_0 = np.exp(torch.lgamma(delta_q_0))
+        log_B_p = math_utils.log_beta_function(delta_p)
+        return log_B_p + (K - delta_p_0) * digamma_q_0 + torch.sum((delta_p - 1) * digamma_q)
+
+    def entropy(self):
+        delta_q = self.concentration_param
+        delta_q_0 = torch.sum(delta_q)
+        K = delta_q.shape[0]
+        digamma_q = torch.lgamma(delta_q)
+        digamma_q_0 = torch.lgamma(delta_q_0)
+        log_B_q = math_utils.log_beta_function(delta_q)
+        return log_B_q + (delta_q_0 - K) * digamma_q_0 - torch.sum((delta_q - 1) * digamma_q)
+
+
     def elbo(self) -> float:
-        return super().elbo()
+        cross_entropy = self.cross_entropy()
+        entropy = self.entropy()
+        return cross_entropy - entropy
 
 
