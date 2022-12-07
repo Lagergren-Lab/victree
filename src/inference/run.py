@@ -3,7 +3,7 @@ import logging
 from inference.copy_tree import CopyTree, JointVarDist
 from utils.config import Config
 from utils.data_handling import read_sc_data
-from variational_distributions.var_dists import qT, qEpsilon, qMuTau, qPi, qZ, qC
+from variational_distributions.var_dists import qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qZ, qC
 from model.generative_model import GenerativeModel
 
 def run(args):
@@ -20,7 +20,7 @@ def run(args):
     qc = qC(config)
     qz = qZ(config)
     qt = qT(config)
-    qeps = qEpsilon(config)
+    qeps = qEpsilonMulti(config)
     qmt = qMuTau(config)
     qpi = qPi(config)
 

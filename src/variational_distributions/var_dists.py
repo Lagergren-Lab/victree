@@ -17,7 +17,7 @@ class qC(VariationalDistribution):
 
         super().__init__(config)
         self.single_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
-        self.couple_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        self.couple_filtering_probs = torch.empty((self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
 
         self.eta1 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.eta2 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
@@ -45,7 +45,7 @@ class qC(VariationalDistribution):
 
     def update(self, obs: torch.Tensor, 
             q_t: 'qT',
-            q_eps: 'qEpsilon',
+            q_eps: Union['qEpsilon', 'qEpsilonMulti'],
             q_z: 'qZ',
             q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -62,7 +62,7 @@ class qC(VariationalDistribution):
         # FIXME: use weights for the importance sampling estimate of expectation
         for tree, weight in zip(*q_t.get_trees_sample()):
             # compute all alpha quantities
-            exp_alpha1, exp_alpha2 = self.exp_alpha(q_eps)
+            exp_alpha1, exp_alpha2 = self.exp_alpha(tree, q_eps)
 
             new_eta1, new_eta2 = self.exp_eta(obs, tree, q_eps, q_z, q_mutau)
             for u in range(self.config.n_nodes):
@@ -80,7 +80,7 @@ class qC(VariationalDistribution):
         return new_eta1, new_eta2
 
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph, 
-            q_eps: 'qEpsilon',
+            q_eps: Union['qEpsilon', 'qEpsilonMulti'],
             q_z: 'qZ',
             q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
         """Expectation of natural parameter vector \\eta
@@ -125,9 +125,15 @@ class qC(VariationalDistribution):
         assert(e_eta1.shape == (self.config.n_nodes, self.config.chain_length, self.config.n_states))
 
         # eta_2_kappa(m, i, i')
-        e_eta2 = torch.einsum('pmjk,hikj->pmih',
-                self.couple_filtering_probs,
-                q_eps.exp_zipping())
+        if not isinstance(q_eps, qEpsilonMulti): 
+            e_eta2[:, 1:, ...] = torch.einsum('pmjk,hikj->pmih',
+                    self.couple_filtering_probs,
+                    q_eps.exp_zipping())
+        else:
+            edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
+            e_eta2[edges_mask[1], 1:, ...] = torch.einsum('pmjk,phikj->pmih',
+                    self.couple_filtering_probs[edges_mask[0], ...],
+                    torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         # natural parameters for root node are fixed to healthy state
         e_eta1[root, 0, 2] = 1
@@ -136,7 +142,7 @@ class qC(VariationalDistribution):
         return e_eta1, e_eta2
             
 
-    def exp_alpha(self, q_eps: 'qEpsilon') -> Tuple[torch.Tensor, torch.Tensor]:
+    def exp_alpha(self, tree: nx.DiGraph, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> Tuple[torch.Tensor, torch.Tensor]:
 
         e_alpha1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         e_alpha2 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
@@ -146,9 +152,15 @@ class qC(VariationalDistribution):
 
         # alpha_kappa(m, i, i')
         # similar to eta2 but with inverted indices in zipping
-        e_alpha2 = torch.einsum('wmjk,kjhi->wmih',
-                self.couple_filtering_probs,
-                q_eps.exp_zipping())
+        if not isinstance(q_eps, qEpsilonMulti): 
+            e_alpha2[:, 1:, ...] = torch.einsum('wmjk,kjhi->wmih',
+                    self.couple_filtering_probs,
+                    q_eps.exp_zipping((0, 0)))
+        else:
+            edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
+            e_alpha2[edges_mask[1], 1:, ...] = torch.einsum('wmjk,wkjhi->wmih',
+                    self.couple_filtering_probs[edges_mask[1], ...],
+                    torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         return e_alpha1, e_alpha2
 
@@ -255,11 +267,11 @@ class qT(VariationalDistribution):
     def elbo(self) -> float:
         return super().elbo()
 
-    def update(self, T_list, q_C_pairwise_marginals: torch.Tensor, q_C: qC, q_epsilon: "qEpsilon"):
-        q_T = self.update_CAVI(T_list, q_C_pairwise_marginals, q_C, q_epsilon)
+    def update(self, T_list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
+        q_T = self.update_CAVI(T_list, q_C, q_epsilon)
         return q_T
 
-    def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: "qEpsilon"):
+    def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
         """
         log q(T) =
         (1) E_{C^r}[log p(C^r)] +
@@ -283,17 +295,15 @@ class qT(VariationalDistribution):
         # Constant w.r.t T, can be omitted
 
         # Term (2)
-        E_eps_h = q_epsilon.exp_zipping()
 
         E_CuCveps = torch.zeros((N, N))
-        for uv in unique_edges:
-            u, v = uv
+        for (u, v) in unique_edges:
+            E_eps_h = q_epsilon.exp_zipping((u, v))
             E_CuCveps[u, v] = torch.einsum('mij, mkl, ijkl  -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
                                            E_eps_h)
 
         for (k, T) in enumerate(T_list):
-            for uv in T.edges:
-                u, v = uv
+            for (u, v) in T.edges:
                 log_q_T_tensor[k] += E_CuCveps[u, v]
 
         return log_q_T_tensor
@@ -332,7 +342,7 @@ class qT(VariationalDistribution):
 
         return trees, weights
 
-# edge distance (eps)
+# edge distance (single eps for all nodes)
 class qEpsilon(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.):
@@ -340,11 +350,13 @@ class qEpsilon(VariationalDistribution):
         self.beta_prior = torch.tensor(beta_0, dtype=torch.float32)
         self.alpha = torch.tensor(alpha_0, dtype=torch.float32)
         self.beta = torch.tensor(beta_0, dtype=torch.float32)
+        self._exp_zipping = None
         super().__init__(config)
 
     def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
         self.alpha = alpha
         self.beta = beta
+        self._exp_zipping = None # reset previously computed expected zipping
 
     def initialize(self):
         # TODO: implement (over set params)
@@ -407,7 +419,112 @@ class qEpsilon(VariationalDistribution):
             else:
                 return heps0_arr
 
-    def exp_zipping(self):
+    def exp_zipping(self, _: Optional[Tuple[int, int]] = None):
+        if self._exp_zipping is None:
+            # TODO: implement
+            copy_mask = get_zipping_mask(self.config.n_states)
+
+            # FIXME: add normalization (division by A constant)
+            norm_const = self.config.n_states
+
+            out_arr = torch.ones(copy_mask.shape) *\
+                    (torch.digamma(self.beta) -\
+                    torch.digamma(self.alpha + self.beta))
+            out_arr[~copy_mask] -= norm_const
+            self._exp_zipping = out_arr
+
+        return self._exp_zipping
+
+# edge distance (multiple eps, one for each arc)
+class qEpsilonMulti(VariationalDistribution):
+
+    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.):
+        self.alpha_prior = torch.tensor(alpha_0)
+        self.beta_prior = torch.tensor(beta_0)
+        # one param for every arc except self referenced (diag set to -infty)
+        self.alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
+        self.beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
+        super().__init__(config)
+
+    def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
+        self.alpha = alpha
+        self.beta = beta
+
+    def initialize(self):
+        # TODO: implement (over set params)
+        return super().initialize()
+
+    def create_masks(self, A):
+        co_mut_mask = torch.zeros((A, A, A, A))
+        anti_sym_mask = torch.zeros((A, A, A, A))
+        # TODO: Find effecient way of indexing i-j = k-l
+        for i, j, k, l in itertools.combinations_with_replacement(range(A), 4):
+            if i - j == k - l:
+                co_mut_mask[i, j, k, l] = 1
+            else:
+                anti_sym_mask[i, j, k, l] = 1
+        return co_mut_mask, anti_sym_mask
+
+    def elbo(self) -> float:
+        return super().elbo()
+
+    def update(self, T_list, w_T, q_C_pairwise_marginals):
+        self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
+    
+    def update_CAVI(self, T_list: list, w_T: torch.Tensor, q_C_pairwise_marginals: torch.Tensor):
+        K, M, A, A = q_C_pairwise_marginals.shape
+        alpha = torch.zeros(self.alpha.shape) + self.alpha_prior
+        beta = torch.zeros(self.beta.shape) + self.beta_prior
+        unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_list, N_nodes=K)
+
+        E_CuCv_a = torch.zeros((K, K))
+        E_CuCv_b = torch.zeros((K, K))
+        co_mut_mask, anti_sym_mask = self.create_masks(A)
+        for uv in unique_edges:
+            u, v = uv
+            E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', 
+                                          q_C_pairwise_marginals[u],
+                                          q_C_pairwise_marginals[v],
+                                          co_mut_mask)
+            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
+                                          q_C_pairwise_marginals[u],
+                                          q_C_pairwise_marginals[v],
+                                          anti_sym_mask)
+
+        for k, T in enumerate(T_list):
+            edges_mask = [[i for i, _ in T.edges], [j for _, j in T.edges]]
+            # only change the values related to the tree edges
+            alpha[edges_mask] += w_T[k] * E_CuCv_a[edges_mask]
+            beta[edges_mask] += w_T[k] * E_CuCv_b[edges_mask]
+
+        self.set_params(alpha, beta)
+        return alpha, beta
+
+
+    def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
+        # FIXME: add normalization constant A0
+        if i is not None and j is not None:
+            return 1. - self.config.eps0 if i == j else self.config.eps0
+        else:
+            heps0_arr = self.config.eps0 * torch.ones((self.config.n_states, self.config.n_states))
+            diag_mask = get_zipping_mask0(self.config.n_states)
+            heps0_arr[diag_mask] = 1 - self.config.eps0
+            if i is None and j is not None:
+                return heps0_arr[:, j]
+            elif i is not None and j is None:
+                return heps0_arr[i, :]
+            else:
+                return heps0_arr
+
+    def exp_zipping(self, e: Tuple[int, int]):
+        """Expected zipping function
+
+        Parameters
+        ----------
+        e : Tuple[int, int]
+            edge associated to the distance epsilon
+        """
+        u, v = e
         # TODO: implement
         copy_mask = get_zipping_mask(self.config.n_states)
 
@@ -415,8 +532,10 @@ class qEpsilon(VariationalDistribution):
         norm_const = self.config.n_states
 
         out_arr = torch.ones(copy_mask.shape) *\
-                (torch.digamma(self.beta) -\
-                torch.digamma(self.alpha + self.beta))
+                (torch.digamma(self.beta[u, v]) -\
+                torch.digamma(self.alpha[u, v] + self.beta[u, v]))
+        # select the combinations that do not satisfy i-i'=j-j'
+        # and normalize
         out_arr[~copy_mask] -= norm_const
         return out_arr
 
