@@ -30,6 +30,9 @@ Start with edmonds
 
 ![lca](img/least_common_ancestors.png)
 
+## EM algorithm
+![em](img/em.png)
+
 ## Meeting 9/12
 
 - visit
