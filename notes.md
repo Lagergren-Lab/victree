@@ -30,3 +30,13 @@ Start with edmonds
 
 ![lca](img/least_common_ancestors.png)
 
+## Meeting 9/12
+
+- visit
+- data
+- work
+  1. VI-C-Tree
+    - markov models over trees
+  2. sc-EM-Tree
+    - EM algorithm to estimate $\epsilon$
+    - tree reconstruction algorithm (recursive)
