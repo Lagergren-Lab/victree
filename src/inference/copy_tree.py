@@ -1,10 +1,11 @@
+from typing import Union
 from numpy import infty
 import torch
 
 from utils.config import Config
 from model.generative_model import GenerativeModel
 from variational_distributions.variational_distribution import VariationalDistribution
-from variational_distributions.var_dists import qT, qEpsilon, qMuTau, qPi, qZ, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC
 
 
 class JointVarDist(VariationalDistribution):
@@ -14,7 +15,7 @@ class JointVarDist(VariationalDistribution):
         self.c: qC = qc
         self.z: qZ = qz
         self.t: qT = qt
-        self.eps: qEpsilon = qeps
+        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
         self.mt: qMuTau = qmt
         self.pi: qPi = qpi
         self.obs = obs
@@ -22,7 +23,7 @@ class JointVarDist(VariationalDistribution):
     def update(self, p: GenerativeModel):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
-        self.t.update(trees, self.c.couple_filtering_probs, self.c, self.eps)
+        self.t.update(trees, self.c, self.eps)
         self.c.update(self.obs, self.t, self.eps, self.z, self.mt)
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
         self.pi.update(self.z, p.delta_pi)
