@@ -350,7 +350,7 @@ class qT(VariationalDistribution):
         g.add_weighted_edges_from(weighted_edges)
         return g
 
-    def get_trees_sample(self, alg="random") -> Tuple[List, List]:
+    def get_trees_sample(self, alg="dslantis") -> Tuple[List, List]:
         # TODO: generate trees with sampling algorithm
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
@@ -365,8 +365,11 @@ class qT(VariationalDistribution):
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
         elif alg == "dslantis":
+            # nx.adjacency_matrix(self.weighted_graph, weight="weight") # doesn't work
+            adj_matrix = nx.to_numpy_matrix(self.weighted_graph, weight="weight")
+            log_W = torch.log(torch.tensor(adj_matrix))
             for _ in range(self.config.wis_sample_size):
-                t, w = sample_arborescence(log_W=nx.adjacency_matrix(self.weighted_graph, weight="weight"), root=0)
+                t, w = sample_arborescence(log_W=log_W, root=0)
                 trees.append(t)
                 weights.append(w)
 
@@ -689,11 +692,11 @@ class qPi(VariationalDistribution):
         self.concentration_param = torch.ones(self.concentration_param.shape)
         return super().initialize()
 
-    def update(self, qz: qZ, delta_pi_model):
+    def update(self, qz: qZ):
         # pi_model = p(pi), parametrized by delta_k
         # generative model for pi
 
-        self.concentration_param = delta_pi_model + \
+        self.concentration_param = self.concentration_param_prior + \
                                    torch.sum(qz.exp_assignment(), dim=0)
 
         return super().update()

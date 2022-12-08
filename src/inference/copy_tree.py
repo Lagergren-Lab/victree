@@ -72,6 +72,8 @@ class CopyTree():
         close_runs = 0
 
         self.init_variational_variables()
+        self.compute_elbo()
+        print(f"ELBO after init: {self.elbo}")
 
         for _ in range(n_iter):
             # do the updates
@@ -86,7 +88,8 @@ class CopyTree():
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
-                raise ValueError("Elbo is decreasing")
+                #raise ValueError("Elbo is decreasing")
+                print("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
                 raise ValueError("Elbo is non-negative")
@@ -106,13 +109,14 @@ class CopyTree():
         return self.elbo
 
     def step(self):
+        trees, weights = self.q.t.get_trees_sample()
         self.update_T()
         self.update_C(self.obs)
         self.q.c.calculate_filtering_probs()
         self.update_z()
         self.update_mutau()
-        self.update_epsilon()
-        self.update_gamma()
+        self.update_epsilon(trees, weights)
+        self.update_pi()
 
         self.it_counter += 1
 
@@ -131,9 +135,8 @@ class CopyTree():
     def update_mutau(self):
         self.q.mt.update(self.q.c, self.q.z, self.obs, self.sum_over_m_y_squared)
 
-    def update_epsilon(self):
-        trees, weights = self.q.t.get_trees_sample()
+    def update_epsilon(self, trees, weights):
         self.q.eps.update(trees, weights, self.q.c.couple_filtering_probs)
 
-    def update_gamma(self):
-        pass
+    def update_pi(self):
+        self.q.pi.update(self.q.z)
