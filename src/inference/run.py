@@ -10,6 +10,7 @@ def run(args):
     # TODO: write main code
     cell_names, gene_ids, obs = read_sc_data(args.filename)
     n_genes, n_cells = obs.shape
+    obs = obs.float()
     logging.debug(f"file {args.filename} read successfully [{n_genes} genes, {n_cells} cells]")
 
     config = Config(chain_length=n_genes, n_cells=n_cells)

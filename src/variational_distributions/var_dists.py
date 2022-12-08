@@ -282,7 +282,7 @@ class qT(VariationalDistribution):
         return super().initialize()
 
     def cross_entropy(self):
-        K = self.config.n_nodes
+        K = torch.tensor(self.config.n_nodes)
         return -torch.log(math_utils.cayleys_formula(K))
 
     def entropy(self):
