@@ -701,8 +701,8 @@ class qPi(VariationalDistribution):
         delta_p_0 = torch.sum(delta_p)
         delta_q_0 = torch.sum(delta_q)
         K = delta_p.shape[0]
-        digamma_q = np.exp(torch.lgamma(delta_q))
-        digamma_q_0 = np.exp(torch.lgamma(delta_q_0))
+        digamma_q = torch.digamma(delta_q)
+        digamma_q_0 = torch.digamma(delta_q_0)
         log_B_p = math_utils.log_beta_function(delta_p)
         return log_B_p + (K - delta_p_0) * digamma_q_0 + torch.sum((delta_p - 1) * digamma_q)
 
@@ -710,8 +710,8 @@ class qPi(VariationalDistribution):
         delta_q = self.concentration_param
         delta_q_0 = torch.sum(delta_q)
         K = delta_q.shape[0]
-        digamma_q = torch.lgamma(delta_q)
-        digamma_q_0 = torch.lgamma(delta_q_0)
+        digamma_q = torch.digamma(delta_q)
+        digamma_q_0 = torch.digamma(delta_q_0)
         log_B_q = math_utils.log_beta_function(delta_q)
         return log_B_q + (delta_q_0 - K) * digamma_q_0 - torch.sum((delta_q - 1) * digamma_q)
 

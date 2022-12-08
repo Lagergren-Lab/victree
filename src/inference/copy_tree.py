@@ -40,11 +40,12 @@ class JointVarDist(VariationalDistribution):
 
     def elbo(self) -> float:
         return self.c.elbo() + \
-               self.z.elbo(self.pi) +\
-                self.mt.elbo() +\
-                self.pi.elbo() +\
-                self.eps.elbo() +\
-                self.t.elbo()
+               self.z.elbo(self.pi) + \
+               self.mt.elbo() + \
+               self.pi.elbo() + \
+               self.eps.elbo() + \
+               self.t.elbo()
+
 
 class CopyTree():
 
@@ -62,7 +63,7 @@ class CopyTree():
         self.sum_over_m_y_squared = torch.sum(self.obs ** 2)
 
         # counts the number of steps performed
-        self.it_counter = 0    
+        self.it_counter = 0
         self.elbo = -infty
 
     def run(self, n_iter):
@@ -99,7 +100,7 @@ class CopyTree():
         # TODO: maybe parallelize elbos computations
         elbo_q = self.q.elbo()
         # FIXME: entropy not implemented yet
-        elbo_p = 0. # entropy
+        elbo_p = 0.  # entropy
 
         self.elbo = elbo_q + elbo_p
         return self.elbo
@@ -116,9 +117,7 @@ class CopyTree():
         self.it_counter += 1
 
     def init_variational_variables(self):
-        # random initialization of variational parameters
-
-        pass
+        self.q.initialize()
 
     def update_T(self):
         pass
@@ -138,5 +137,3 @@ class CopyTree():
 
     def update_gamma(self):
         pass
-
-
