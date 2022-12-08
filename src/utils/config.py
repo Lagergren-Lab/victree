@@ -5,7 +5,7 @@ class Config:
             eps0: float = 1e-3,
             n_cells: int = 20,
             chain_length: int = 200,
-            wis_sample_size: int = 20,
+            wis_sample_size: int = 5,
             elbo_tol: float = 1e-10,
             max_close_runs: int = 10) -> None:
         self._n_nodes = n_nodes

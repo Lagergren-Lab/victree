@@ -40,11 +40,12 @@ class JointVarDist(VariationalDistribution):
 
     def elbo(self) -> float:
         return self.c.elbo() + \
-               self.z.elbo(self.pi) +\
-                self.mt.elbo() +\
-                self.pi.elbo() +\
-                self.eps.elbo() +\
-                self.t.elbo()
+               self.z.elbo(self.pi) + \
+               self.mt.elbo() + \
+               self.pi.elbo() + \
+               self.eps.elbo() + \
+               self.t.elbo()
+
 
 class CopyTree():
 
@@ -62,7 +63,7 @@ class CopyTree():
         self.sum_over_m_y_squared = torch.sum(self.obs ** 2)
 
         # counts the number of steps performed
-        self.it_counter = 0    
+        self.it_counter = 0
         self.elbo = -infty
 
     def run(self, n_iter):
@@ -71,6 +72,8 @@ class CopyTree():
         close_runs = 0
 
         self.init_variational_variables()
+        self.compute_elbo()
+        print(f"ELBO after init: {self.elbo}")
 
         for _ in range(n_iter):
             # do the updates
@@ -85,7 +88,8 @@ class CopyTree():
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
-                raise ValueError("Elbo is decreasing")
+                #raise ValueError("Elbo is decreasing")
+                print("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
                 raise ValueError("Elbo is non-negative")
@@ -99,26 +103,25 @@ class CopyTree():
         # TODO: maybe parallelize elbos computations
         elbo_q = self.q.elbo()
         # FIXME: entropy not implemented yet
-        elbo_p = 0. # entropy
+        elbo_p = 0.  # entropy
 
         self.elbo = elbo_q + elbo_p
         return self.elbo
 
     def step(self):
+        trees, weights = self.q.t.get_trees_sample()
         self.update_T()
         self.update_C(self.obs)
         self.q.c.calculate_filtering_probs()
         self.update_z()
         self.update_mutau()
-        self.update_epsilon()
-        self.update_gamma()
+        self.update_epsilon(trees, weights)
+        self.update_pi()
 
         self.it_counter += 1
 
     def init_variational_variables(self):
-        # random initialization of variational parameters
-
-        pass
+        self.q.initialize()
 
     def update_T(self):
         pass
@@ -132,11 +135,8 @@ class CopyTree():
     def update_mutau(self):
         self.q.mt.update(self.q.c, self.q.z, self.obs, self.sum_over_m_y_squared)
 
-    def update_epsilon(self):
-        trees, weights = self.q.t.get_trees_sample()
+    def update_epsilon(self, trees, weights):
         self.q.eps.update(trees, weights, self.q.c.couple_filtering_probs)
 
-    def update_gamma(self):
-        pass
-
-
+    def update_pi(self):
+        self.q.pi.update(self.q.z)

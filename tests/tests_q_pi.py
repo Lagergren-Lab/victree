@@ -27,8 +27,8 @@ class qPiTestCase(unittest.TestCase):
         q_z_2 = qZ(config_2)  # uniform
 
         # Act
-        q_pi_1.update(q_z_1, p_1.delta_pi)
-        q_pi_2.update(q_z_2, p_2.delta_pi)
+        q_pi_1.update(q_z_1)
+        q_pi_2.update(q_z_2)
 
         # Assert
         assert [a1 < a2 for (a1, a2) in zip(q_pi_1.concentration_param, 
@@ -51,8 +51,8 @@ class qPiTestCase(unittest.TestCase):
         q_z_2.pi = q_z_probs_2
 
         # Act
-        q_pi_1.update(q_z_1, p.delta_pi)
-        q_pi_2.update(q_z_2, p.delta_pi)
+        q_pi_1.update(q_z_1)
+        q_pi_2.update(q_z_2)
 
         ent_1 = -torch.sum(q_pi_1.exp_log_pi())
         ent_2 = -torch.sum(q_pi_2.exp_log_pi())
@@ -76,7 +76,7 @@ class qPiTestCase(unittest.TestCase):
         q_z.pi = q_z_probs
 
         # Act
-        q_pi.update(q_z, p.delta_pi)
+        q_pi.update(q_z)
         alpha = q_pi.concentration_param
 
         # Assert
