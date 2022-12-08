@@ -26,8 +26,16 @@ class qC(VariationalDistribution):
 
     def initialize(self):
         # TODO: implement initialization of parameters
+        self.random_init()
         return super().initialize()
 
+    def random_init(self):
+        self.eta1 = torch.rand((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
+        self.eta2 = torch.rand((self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
+
+        self.calculate_filtering_probs()
 
     def log_density(self, copy_numbers: torch.Tensor, nodes: list = []) -> float:
         # compute probability of a copy number sequence over a set of nodes
@@ -217,7 +225,7 @@ class qZ(VariationalDistribution):
         self.pi = torch.empty((config.n_cells, config.n_nodes))
         super().__init__(config)
 
-    def initialize(self, ):
+    def initialize(self):
         # initialize to uniform
         self.pi = torch.ones((self.config.n_cells, self.config.n_nodes)) / self.config.n_nodes
         return super().initialize()
@@ -275,7 +283,7 @@ class qT(VariationalDistribution):
 
     def cross_entropy(self):
         K = self.config.n_nodes
-        return 1 / math_utils.cayleys_formula(K)
+        return -torch.log(math_utils.cayleys_formula(K))
 
     def entropy(self):
         #TODO: product over edges in tree
@@ -563,9 +571,14 @@ class qMuTau(VariationalDistribution):
             shape: float = 5, rate: float = 5):
         # params for each cell
         self._loc = loc * torch.ones(config.n_cells)
-        self._precision = precision * torch.ones(config.n_cells)
+        self._precision_factor = precision * torch.ones(config.n_cells)
         self._shape = shape * torch.ones(config.n_cells)
         self._rate = rate * torch.ones(config.n_cells)
+        self.mu_prior = self._loc
+        self.lambda_prior = self._precision_factor
+        self.alpha_prior = self._shape
+        self.alpha = self.alpha_prior + config.chain_length / 2  # alpha never updated
+        self.beta_prior = self._rate
         super().__init__(config)
 
     # getter ensures that params are only updated in
@@ -576,7 +589,7 @@ class qMuTau(VariationalDistribution):
 
     @property
     def precision(self):
-        return self._precision
+        return self._precision_factor
 
     @property
     def shape(self):
@@ -586,14 +599,38 @@ class qMuTau(VariationalDistribution):
     def rate(self):
         return self._rate
 
-    def update(self):
-        return super().update()
+    def update(self, qc: qC, qz: qZ, obs, sum_M_y2):
+        """
+        Updates mu_n, tau_n for each cell n \in {1,...,N}.
+        :param qc:
+        :param qz:
+        :param obs:
+        :param sum_M_y2:
+        :return:
+        """
+        A = self.config.n_states
+        c_tensor = torch.arange(A, dtype=torch.float)
+        sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, qz.pi, c_tensor**2)
+        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, qz.pi, c_tensor, obs)
+        M = self.config.chain_length
+        alpha = self.alpha_prior + M/2  # Never updated
+        lmbda = self.lambda_prior + sum_MCZ_c2
+        mu = (self.mu_prior * self.lambda_prior + sum_MCZ_cy) / lmbda
+        beta = self.beta_prior + 1/2 * (self.mu_prior**2 * self.lambda_prior + sum_M_y2) +\
+               (self.mu_prior * self.lambda_prior + sum_MCZ_cy)**2 / (2*lmbda)
+        return mu, lmbda, alpha, beta
 
     def initialize(self):
         return super().initialize()
 
-    def elbo(self) -> float:
+    def cross_entropy(self) -> float:
         return super().elbo()
+
+    def entropy(self) -> float:
+        return super().elbo()
+
+    def elbo(self) -> float:
+        return self.cross_entropy() - self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_arr = torch.ones((self.config.n_cells, 
