@@ -15,6 +15,7 @@ import torch
 
 from inference.run import run
 
+
 def set_seed(seed):
     # torch rng
     torch.manual_seed(seed)
@@ -26,7 +27,6 @@ def set_seed(seed):
 
 
 def main(args):
-
     logging.debug("running main program")
     run(args)
     # try:
@@ -46,8 +46,8 @@ def validate_file(f):
         raise argparse.ArgumentTypeError("{0} does not exist".format(f))
     return f
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
         description="CopyTree"
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
-    parser.add_argument("-i", "--input", dest="filename", 
-                        required=True, type=validate_file,
+    parser.add_argument("-i", "--input", dest="filename",
+                        type=validate_file, default='../obs_example.txt',
                         help="input data file", metavar="FILE")
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()

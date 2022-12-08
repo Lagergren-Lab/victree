@@ -40,7 +40,7 @@ class JointVarDist(VariationalDistribution):
 
     def elbo(self) -> float:
         return self.c.elbo() + \
-               self.z.cross_entropy() +\
+               self.z.elbo(self.pi) +\
                 self.mt.elbo() +\
                 self.pi.elbo() +\
                 self.eps.elbo() +\
@@ -75,6 +75,7 @@ class CopyTree():
 
             old_elbo = self.elbo
             self.compute_elbo()
+            print(f"ELBO: {self.elbo}")
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
