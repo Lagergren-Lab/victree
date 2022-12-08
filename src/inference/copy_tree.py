@@ -58,6 +58,9 @@ class CopyTree():
         self.q = q
         self.obs = obs
 
+        # non-mutable
+        self.sum_over_m_y_squared = torch.sum(self.obs ** 2)
+
         # counts the number of steps performed
         self.it_counter = 0    
         self.elbo = -infty
@@ -127,7 +130,7 @@ class CopyTree():
         self.q.z.update(self.q.mt, self.q.c, self.q.pi, self.obs)
 
     def update_mutau(self):
-        self.q.mt.update()
+        self.q.mt.update(self.q.c, self.q.z, self.obs, self.sum_over_m_y_squared)
 
     def update_epsilon(self):
         trees, weights = self.q.t.get_trees_sample()
