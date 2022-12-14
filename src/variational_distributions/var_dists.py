@@ -48,7 +48,7 @@ class qC(VariationalDistribution):
         self.eta1 = torch.ones((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.ones(
-            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+            (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
         self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
 
         self.calculate_filtering_probs()
