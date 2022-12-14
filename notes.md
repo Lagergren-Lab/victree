@@ -43,3 +43,6 @@ Start with edmonds
   2. sc-EM-Tree
     - EM algorithm to estimate $\epsilon$
     - tree reconstruction algorithm (recursive)
+[DATA ARTICLE IN MEETING](https://www.nature.com/articles/s41586-022-05249-0)
+
+- allele specific copy numbers is important (look up for incorporating this)
