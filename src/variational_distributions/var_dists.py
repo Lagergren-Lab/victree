@@ -25,7 +25,7 @@ class qC(VariationalDistribution):
 
         self.eta1 = torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.eta2 = torch.empty(
-            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+            (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
 
     def initialize(self):
         # TODO: implement initialization of parameters
@@ -36,7 +36,7 @@ class qC(VariationalDistribution):
         self.eta1 = torch.rand((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.rand(
-            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+            (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
         self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
 
         self.calculate_filtering_probs()
@@ -61,7 +61,7 @@ class qC(VariationalDistribution):
                q_t: 'qT',
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                q_z: 'qZ',
-               q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
+               q_mutau: 'qMuTau'):
         """
         log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
         + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
@@ -70,29 +70,31 @@ class qC(VariationalDistribution):
         HMM and simplified expected value over the natural parameter.
         :return:
         """
-        new_eta1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
-        new_eta2 = torch.zeros(
-            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        new_eta1 = torch.zeros(self.eta1.shape)
+        new_eta2 = torch.zeros(self.eta2.shape)
 
-        # FIXME: use weights for the importance sampling estimate of expectation
         for tree, weight in zip(*q_t.get_trees_sample()):
             # compute all alpha quantities
             exp_alpha1, exp_alpha2 = self.exp_alpha(tree, q_eps)
 
-            new_eta1, new_eta2 = self.exp_eta(obs, tree, q_eps, q_z, q_mutau)
+            # init tree-specific update
+            tree_eta1, tree_eta2 = self.exp_eta(obs, tree, q_eps, q_z, q_mutau)
             for u in range(self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]
                 # sum on each node's update all children alphas
                 alpha1sum = torch.einsum('wmi->mi', exp_alpha1[children, :, :])
-                # assert(alpha1sum.shape == (self.config.chain_length, self.config.n_states))
-                # print(new_eta1[u, :, :].shape)
-                new_eta1[u, :, :] += alpha1sum
+                tree_eta1[u, :, :] += alpha1sum
 
                 alpha2sum = torch.einsum('wmij->mij', exp_alpha2[children, :, :, :])
-                new_eta2[u, :, :, :] += alpha2sum
+                tree_eta2[u, :, :, :] += alpha2sum
 
-        return new_eta1, new_eta2
+            new_eta1 = new_eta1 + tree_eta1 * weight
+            new_eta2 = new_eta2 + tree_eta2 * weight
+
+        self.eta1 = new_eta1
+        self.eta2 = new_eta2
+        return super().update()
 
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                 q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -123,9 +125,8 @@ class qC(VariationalDistribution):
         root = sorted_nodes[0]
         inner_nodes = sorted_nodes[1:]
 
-        e_eta1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
-        e_eta2 = torch.zeros(
-            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        e_eta1 = torch.zeros(self.eta1.shape)
+        e_eta2 = torch.zeros(self.eta2.shape)
 
         # eta_1_iota(1, i)
         e_eta1[inner_nodes, 0, :] = torch.einsum('pj,ij->pi',
@@ -136,18 +137,14 @@ class qC(VariationalDistribution):
         e_eta1 = torch.einsum('nv,nmi->vmi',
                               q_z.exp_assignment(),
                               q_mutau.exp_log_emission(obs))
-        # print(e_eta1.shape)
-        # TODO: remove assert
-        assert (e_eta1.shape == (self.config.n_nodes, self.config.chain_length, self.config.n_states))
-
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
-            e_eta2[:, 1:, ...] = torch.einsum('pmjk,hikj->pmih',
+            e_eta2 = torch.einsum('pmjk,hikj->pmih',
                                               self.couple_filtering_probs,
                                               q_eps.exp_zipping())
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
-            e_eta2[edges_mask[1], 1:, ...] = torch.einsum('pmjk,phikj->pmih',
+            e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih',
                                                           self.couple_filtering_probs[edges_mask[0], ...],
                                                           torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
@@ -160,9 +157,8 @@ class qC(VariationalDistribution):
     def exp_alpha(self, tree: nx.DiGraph, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> Tuple[
         torch.Tensor, torch.Tensor]:
 
-        e_alpha1 = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
-        e_alpha2 = torch.zeros(
-            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        e_alpha1 = torch.zeros(self.eta1.shape)
+        e_alpha2 = torch.zeros(self.eta2.shape)
 
         # alpha_iota(m, i)
         e_alpha1 = torch.einsum('wmj,ji->wmi', self.single_filtering_probs, q_eps.h_eps0())
@@ -170,12 +166,12 @@ class qC(VariationalDistribution):
         # alpha_kappa(m, i, i')
         # similar to eta2 but with inverted indices in zipping
         if not isinstance(q_eps, qEpsilonMulti):
-            e_alpha2[:, 1:, ...] = torch.einsum('wmjk,kjhi->wmih',
+            e_alpha2 = torch.einsum('wmjk,kjhi->wmih',
                                                 self.couple_filtering_probs,
-                                                q_eps.exp_zipping((0, 0)))
+                                                q_eps.exp_zipping())
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
-            e_alpha2[edges_mask[1], 1:, ...] = torch.einsum('wmjk,wkjhi->wmih',
+            e_alpha2[edges_mask[1], ...] = torch.einsum('wmjk,wkjhi->wmih',
                                                             self.couple_filtering_probs[edges_mask[1], ...],
                                                             torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
@@ -217,8 +213,7 @@ class qC(VariationalDistribution):
 
     def get_all_two_sliced_marginals(self):
         # TODO: optimize replacing for-loop with einsum operations
-        q_C_pairs = torch.zeros(
-            (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
+        q_C_pairs = torch.zeros(self.couple_filtering_probs.shape)
         for u in range(self.config.n_nodes):
             q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
                                                                                 self.config.chain_length)
@@ -256,11 +251,7 @@ class qZ(VariationalDistribution):
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qcmkj, dnmj)
-        # TODO: remove asserts
-        assert (gamma.shape == (self.config.n_cells, self.config.n_nodes))
         self.pi = torch.softmax(gamma, dim=1)
-        assert (self.pi.shape == (self.config.n_cells, self.config.n_nodes))
-
         return super().update()
 
     def exp_assignment(self) -> torch.Tensor:
