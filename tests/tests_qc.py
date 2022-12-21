@@ -35,6 +35,8 @@ class qCTestCase(unittest.TestCase):
         self.assertEqual(exp_eta1.shape, (self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.assertEqual(exp_eta2.shape, (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
+    def test_ELBO(self):
+        
         
 
 

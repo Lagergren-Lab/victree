@@ -54,8 +54,16 @@ class qC(VariationalDistribution):
             pass
         return 0.
 
-    def elbo(self) -> float:
-        return super().elbo()
+    def elbo(self, T_list, w_T_list, q_eps) -> float:
+        #unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
+        #for (a, a_count) in zip(unique_arcs, unique_arcs_count):
+            #alpha_1, alpha_2 = self.exp_alpha()
+        E_T = 0
+        K = len(T_list)
+        for k in range(K):
+            alpha_1, alpha_2 = self.exp_alpha(T_list[k], q_eps)
+            E_T += torch.exp(w_T_list[k]) * (torch.sum(alpha_1) + torch.sum(alpha_2))
+        return E_T
 
     def update(self, obs: torch.Tensor,
                q_t: 'qT',
@@ -273,7 +281,6 @@ class qZ(VariationalDistribution):
 
     def entropy(self) -> float:
         return torch.special.entr(self.pi).sum()
-        # return torch.einsum("nk, nk -> ", self.pi, torch.log(self.pi))
 
     def elbo(self, qpi: 'qPi') -> float:
         return self.cross_entropy(qpi) + self.entropy()
@@ -504,7 +511,14 @@ class qEpsilonMulti(VariationalDistribution):
                 anti_sym_mask[i, j, k, l] = 1
         return co_mut_mask, anti_sym_mask
 
+    def cross_entropy(self):
+        return 0
+
+    def entropy(self):
+        return 0
+
     def elbo(self) -> float:
+        self.entropy()
         return super().elbo()
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
@@ -632,6 +646,10 @@ class qMuTau(VariationalDistribution):
         mu = (self.mu_prior * self.lambda_prior + sum_MCZ_cy) / lmbda
         beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) + \
                (self.mu_prior * self.lambda_prior + sum_MCZ_cy) ** 2 / (2 * lmbda)
+        self._loc = mu
+        self._precision_factor = lmbda
+        self._shape = alpha
+        self._rate = beta
         return mu, lmbda, alpha, beta
 
     def initialize(self):

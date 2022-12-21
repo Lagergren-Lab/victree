@@ -13,7 +13,7 @@ def run(args):
     obs = obs.float()
     logging.debug(f"file {args.filename} read successfully [{n_genes} genes, {n_cells} cells]")
 
-    config = Config(chain_length=n_genes, n_cells=n_cells)
+    config = Config(chain_length=n_genes, n_cells=n_cells, wis_sample_size=50)
     # obs = read_data()
     p = GenerativeModel(config)
     
