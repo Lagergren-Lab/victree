@@ -13,6 +13,7 @@ class qCTestCase(unittest.TestCase):
         # build config
         self.config = Config()
         self.qc = qC(self.config)
+        self.qc.initialize()
         self.qt = qT(self.config)
         self.qeps = qEpsilonMulti(self.config, 2, 5) # skewed towards 0
         self.qz = qZ(self.config)
@@ -36,8 +37,18 @@ class qCTestCase(unittest.TestCase):
         self.assertEqual(exp_eta2.shape, (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
     def test_ELBO(self):
-        
-        
+        L_list = [1, 2, 5, 10, 20]
+        trees = []
+        weights = []
+        L_prev = 0
+        for L in L_list:
+            new_trees, new_weights = self.qt.get_trees_sample(L=(L - L_prev))
+            trees = trees + new_trees
+            weights = weights + new_weights
+            res_1 = self.qc.elbo(trees, weights, self.qeps)
+            print(f" {res_1}")
+            L_prev = L
+
 
 
 

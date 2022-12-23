@@ -54,15 +54,18 @@ class qC(VariationalDistribution):
             pass
         return 0.
 
-    def elbo(self, T_list, w_T_list, q_eps) -> float:
+    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         #unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
         #for (a, a_count) in zip(unique_arcs, unique_arcs_count):
             #alpha_1, alpha_2 = self.exp_alpha()
         E_T = 0
-        K = len(T_list)
-        for k in range(K):
-            alpha_1, alpha_2 = self.exp_alpha(T_list[k], q_eps)
-            E_T += torch.exp(w_T_list[k]) * (torch.sum(alpha_1) + torch.sum(alpha_2))
+        L = len(T_list)
+        normalising_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
+        for l in range(L):
+            alpha_1, alpha_2 = self.exp_alpha(T_list[l], q_eps)
+            cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], alpha_1[:, 0, :])
+            cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2[:, 1:, :, :])
+            E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
         return E_T
 
     def update(self, obs: torch.Tensor,
@@ -357,25 +360,26 @@ class qT(VariationalDistribution):
         g.add_weighted_edges_from(weighted_edges)
         return g
 
-    def get_trees_sample(self, alg="dslantis") -> Tuple[List, List]:
+    def get_trees_sample(self, alg="dslantis", L=None) -> Tuple[List, List]:
         # TODO: generate trees with sampling algorithm
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
         trees = []
         weights = []
+        L = self.config.wis_sample_size if L is None else L
         if alg == "random":
             trees = [nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
-                     for _ in range(self.config.wis_sample_size)]
-            weights = [1] * self.config.wis_sample_size
+                     for _ in range(L)]
+            weights = [1] * L
             for t in trees:
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
         elif alg == "dslantis":
             # nx.adjacency_matrix(self.weighted_graph, weight="weight") # doesn't work
-            adj_matrix = nx.to_numpy_matrix(self.weighted_graph, weight="weight")
+            adj_matrix = nx.to_numpy_array(self.weighted_graph, weight="weight")
             log_W = torch.log(torch.tensor(adj_matrix))
-            for _ in range(self.config.wis_sample_size):
+            for _ in range(L):
                 t, w = sample_arborescence(log_W=log_W, root=0)
                 trees.append(t)
                 weights.append(w)
