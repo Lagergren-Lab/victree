@@ -41,6 +41,18 @@ class qC(VariationalDistribution):
 
         self.calculate_filtering_probs()
 
+    def uniform_init(self):
+        """
+        Mainly used for testing.
+        """
+        self.eta1 = torch.ones((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
+        self.eta2 = torch.ones(
+            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
+
+        self.calculate_filtering_probs()
+
     def log_density(self, copy_numbers: torch.Tensor, nodes: list = []) -> float:
         # compute probability of a copy number sequence over a set of nodes
         # if the nodes are not specified, whole q_c is evaluated (all nodes)
@@ -54,10 +66,18 @@ class qC(VariationalDistribution):
             pass
         return 0.
 
+    def entropy(self):
+        qC_init = torch.distributions.Categorical(self.eta1)
+        init_entropy = qC_init.entropy().sum()
+        qC = torch.distributions.Categorical(self.eta2)
+        transitions_entropy = qC.entropy().sum()
+        #transitions_entropy = -torch.einsum("kmij, kmij ->", self.eta2, torch.log(self.eta2))
+        return init_entropy + transitions_entropy
+
     def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
-        #unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
-        #for (a, a_count) in zip(unique_arcs, unique_arcs_count):
-            #alpha_1, alpha_2 = self.exp_alpha()
+        # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
+        # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
+        # alpha_1, alpha_2 = self.exp_alpha()
         E_T = 0
         L = len(T_list)
         normalising_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
@@ -66,7 +86,9 @@ class qC(VariationalDistribution):
             cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], alpha_1[:, 0, :])
             cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2[:, 1:, :, :])
             E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
-        return E_T
+
+        elbo = E_T + self.entropy()
+        return elbo
 
     def update(self, obs: torch.Tensor,
                q_t: 'qT',

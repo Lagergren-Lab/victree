@@ -44,7 +44,7 @@ def backward_messages_markov_chain(transition_probabilities: torch.Tensor, N: in
 
 
 def two_slice_marginals_markov_chain_given_alpha_beta(alpha: torch.Tensor, transition_probabilities: torch.Tensor,
-                                     beta: torch.Tensor) -> torch.Tensor:
+                                                      beta: torch.Tensor) -> torch.Tensor:
     N, M = alpha.shape
     two_slice_marginals_tensor = torch.zeros((N - 1, M, M))
     for n in range(0, N - 1):

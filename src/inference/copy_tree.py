@@ -92,7 +92,8 @@ class CopyTree():
                 print("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
-                raise ValueError("Elbo is non-negative")
+                #raise ValueError("Elbo is non-negative")
+                print("Warning: Elbo is non-negative")
             else:
                 close_runs = 0
 
