@@ -14,7 +14,7 @@ def run(args):
     logging.debug(f"file {args.filename} read successfully [{n_genes} genes, {n_cells} cells]")
 
     config = Config(chain_length=n_genes, n_cells=n_cells, n_nodes=args.K, n_states=args.A, wis_sample_size=args.L)
-    logging.debug(f"Config: n_states:  ")
+    logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
     # obs = read_data()
     p = GenerativeModel(config)
     
