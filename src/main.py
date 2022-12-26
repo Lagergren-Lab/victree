@@ -59,6 +59,9 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", dest="filename",
                         type=validate_file, default='../obs_example.txt',
                         help="input data file", metavar="FILE")
+    parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")
+    parser.add_argument("--A", default=7, type=int, help="Number of characters/copy number states")
+    parser.add_argument("--L", default=10, type=int, help="Number of sampled arborescences")
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     # seed for reproducibility
