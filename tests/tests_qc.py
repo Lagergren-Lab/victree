@@ -5,6 +5,7 @@ import torch
 
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
+from inference.copy_tree import JointVarDist
 
 
 class qCTestCase(unittest.TestCase):
@@ -14,7 +15,7 @@ class qCTestCase(unittest.TestCase):
         self.config = Config()
         self.qc = qC(self.config)
         self.qt = qT(self.config)
-        self.qeps = qEpsilonMulti(self.config, 2, 5) # skewed towards 0
+        self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
         self.qmt = qMuTau(self.config, loc = 100, precision = .1,
                 shape = 5, rate = 5)
@@ -23,6 +24,19 @@ class qCTestCase(unittest.TestCase):
                 
 
     def test_update(self):
+        # design simple test: fix all other variables
+        # and update the q_c params
+        cfg = Config(n_nodes=3, n_states=5, n_cells=15, chain_length=10,
+                     wis_sample_size=2)
+        # obs with 15 cells, 5 each to different clone
+        obs = torch.tensor([
+            [[200] * 10] * 5 +
+            [[200] * 4 + [300] * 6] * 5 +
+            [[100] * 8 + [200] * 2] * 5
+        ]).T
+        self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
+
+        joint_var = JointVarDist(cfg)
         self.qc.update(self.obs, self.qt, self.qeps, self.qz, self.qmt)
 
     def test_expectation_size(self):
