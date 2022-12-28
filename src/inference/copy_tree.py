@@ -38,8 +38,8 @@ class JointVarDist(VariationalDistribution):
             q.initialize()
         return super().initialize()
 
-    def elbo(self) -> float:
-        return self.c.elbo() + \
+    def elbo(self, T_eval, w_T_eval) -> float:
+        return self.c.elbo(T_eval, w_T_eval, self.eps) + \
                self.z.elbo(self.pi) + \
                self.mt.elbo() + \
                self.pi.elbo() + \
@@ -92,20 +92,17 @@ class CopyTree():
                 print("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
-                raise ValueError("Elbo is non-negative")
+                #raise ValueError("Elbo is non-negative")
+                print("Warning: Elbo is non-negative")
             else:
                 close_runs = 0
 
     def compute_elbo(self) -> float:
         # TODO: elbo could also be a custom object, containing the main elbo parts separately
         #   so we can monitor all components of the elbo (variational and model part)
-
+        T_eval, w_T_eval = self.q.t.get_trees_sample()
         # TODO: maybe parallelize elbos computations
-        elbo_q = self.q.elbo()
-        # FIXME: entropy not implemented yet
-        elbo_p = 0.  # entropy
-
-        self.elbo = elbo_q + elbo_p
+        self.elbo = self.q.elbo(T_eval, w_T_eval)
         return self.elbo
 
     def step(self):

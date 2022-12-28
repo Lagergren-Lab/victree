@@ -41,6 +41,18 @@ class qC(VariationalDistribution):
 
         self.calculate_filtering_probs()
 
+    def uniform_init(self):
+        """
+        Mainly used for testing.
+        """
+        self.eta1 = torch.ones((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
+        self.eta2 = torch.ones(
+            (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+        self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
+
+        self.calculate_filtering_probs()
+
     def log_density(self, copy_numbers: torch.Tensor, nodes: list = []) -> float:
         # compute probability of a copy number sequence over a set of nodes
         # if the nodes are not specified, whole q_c is evaluated (all nodes)
@@ -54,8 +66,29 @@ class qC(VariationalDistribution):
             pass
         return 0.
 
-    def elbo(self) -> float:
-        return super().elbo()
+    def entropy(self):
+        qC_init = torch.distributions.Categorical(self.eta1)
+        init_entropy = qC_init.entropy().sum()
+        qC = torch.distributions.Categorical(self.eta2)
+        transitions_entropy = qC.entropy().sum()
+        #transitions_entropy = -torch.einsum("kmij, kmij ->", self.eta2, torch.log(self.eta2))
+        return init_entropy + transitions_entropy
+
+    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+        # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
+        # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
+        # alpha_1, alpha_2 = self.exp_alpha()
+        E_T = 0
+        L = len(T_list)
+        normalising_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
+        for l in range(L):
+            alpha_1, alpha_2 = self.exp_alpha(T_list[l], q_eps)
+            cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], alpha_1[:, 0, :])
+            cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2[:, 1:, :, :])
+            E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
+
+        elbo = E_T + self.entropy()
+        return elbo
 
     def update(self, obs: torch.Tensor,
                q_t: 'qT',
@@ -264,7 +297,6 @@ class qZ(VariationalDistribution):
 
     def entropy(self) -> float:
         return torch.special.entr(self.pi).sum()
-        # return torch.einsum("nk, nk -> ", self.pi, torch.log(self.pi))
 
     def elbo(self, qpi: 'qPi') -> float:
         return self.cross_entropy(qpi) + self.entropy()
@@ -341,25 +373,26 @@ class qT(VariationalDistribution):
         g.add_weighted_edges_from(weighted_edges)
         return g
 
-    def get_trees_sample(self, alg="dslantis") -> Tuple[List, List]:
+    def get_trees_sample(self, alg="dslantis", L=None) -> Tuple[List, List]:
         # TODO: generate trees with sampling algorithm
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
         trees = []
         weights = []
+        L = self.config.wis_sample_size if L is None else L
         if alg == "random":
             trees = [nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
-                     for _ in range(self.config.wis_sample_size)]
-            weights = [1] * self.config.wis_sample_size
+                     for _ in range(L)]
+            weights = [1] * L
             for t in trees:
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
         elif alg == "dslantis":
             # nx.adjacency_matrix(self.weighted_graph, weight="weight") # doesn't work
-            adj_matrix = nx.to_numpy_matrix(self.weighted_graph, weight="weight")
+            adj_matrix = nx.to_numpy_array(self.weighted_graph, weight="weight")
             log_W = torch.log(torch.tensor(adj_matrix))
-            for _ in range(self.config.wis_sample_size):
+            for _ in range(L):
                 t, w = sample_arborescence(log_W=log_W, root=0)
                 trees.append(t)
                 weights.append(w)
@@ -494,7 +527,14 @@ class qEpsilonMulti(VariationalDistribution):
                 anti_sym_mask[i, j, k, l] = 1
         return co_mut_mask, anti_sym_mask
 
+    def cross_entropy(self):
+        return 0
+
+    def entropy(self):
+        return 0
+
     def elbo(self) -> float:
+        self.entropy()
         return super().elbo()
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
@@ -622,6 +662,10 @@ class qMuTau(VariationalDistribution):
         mu = (self.mu_prior * self.lambda_prior + sum_MCZ_cy) / lmbda
         beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) + \
                (self.mu_prior * self.lambda_prior + sum_MCZ_cy) ** 2 / (2 * lmbda)
+        self._loc = mu
+        self._precision_factor = lmbda
+        self._shape = alpha
+        self._rate = beta
         return mu, lmbda, alpha, beta
 
     def initialize(self):
