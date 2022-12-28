@@ -288,7 +288,11 @@ class qZ(VariationalDistribution):
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qcmkj, dnmj)
+        # TODO: remove asserts
+        assert (gamma.shape == (self.config.n_cells, self.config.n_nodes))
         self.pi = torch.softmax(gamma, dim=1)
+        assert (self.pi.shape == (self.config.n_cells, self.config.n_nodes))
+
         return super().update()
 
     def exp_assignment(self) -> torch.Tensor:

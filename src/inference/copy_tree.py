@@ -26,12 +26,11 @@ class JointVarDist(VariationalDistribution):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
         self.t.update(trees, self.c, self.eps)
-        self.c.update(self.obs, self.t, self.eps, self.z, self.mt)
+        self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update()
-        # TODO: continue
+        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
 
         return super().update()
 
@@ -137,10 +136,6 @@ class CopyTree():
                 close_runs = 0
 
     def compute_elbo(self) -> float:
-        # TODO: elbo could also be a custom object, containing the main elbo parts separately
-        #   so we can monitor all components of the elbo (variational and model part)
-        # TODO: maybe parallelize elbos computations
-
         if type(self.q) is JointVarDist:
             T_eval, w_T_eval = self.q.t.get_trees_sample()
             self.elbo = self.q.elbo(T_eval, w_T_eval)
@@ -149,36 +144,8 @@ class CopyTree():
         return self.elbo
 
     def step(self):
-        #self.q.update(self.p)
-        #return
-        trees, weights = self.q.t.get_trees_sample()
-        self.update_T()
-        self.update_C(self.obs)
-        self.q.c.calculate_filtering_probs()
-        self.update_z()
-        self.update_mutau()
-        self.update_epsilon(trees, weights)
-        self.update_pi()
-
+        self.q.update(self.p)
         self.it_counter += 1
 
     def init_variational_variables(self):
         self.q.initialize()
-
-    def update_T(self):
-        pass
-
-    def update_C(self, obs):
-        self.q.c.update(obs, self.q.t, self.q.eps, self.q.z, self.q.mt)
-
-    def update_z(self):
-        self.q.z.update(self.q.mt, self.q.c, self.q.pi, self.obs)
-
-    def update_mutau(self):
-        self.q.mt.update(self.q.c, self.q.z, self.obs, self.sum_over_m_y_squared)
-
-    def update_epsilon(self, trees, weights):
-        self.q.eps.update(trees, weights, self.q.c.couple_filtering_probs)
-
-    def update_pi(self):
-        self.q.pi.update(self.q.z)

@@ -96,7 +96,7 @@ def sample_arborescence(log_W: torch.Tensor,
     S_nodes = set(())
     roots = set(())
     children = set(())
-    log_S = torch.zeros(1)
+    log_S = torch.tensor(0.)
     S_arborescence = nx.DiGraph()
     log_W_with_S = copy.deepcopy(log_W)
     including_weight = torch.max(log_W) + torch.log(torch.tensor(n_nodes))

@@ -57,10 +57,10 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(10)
 
     def test_large_tree(self):
-        K = 10
+        K = 3
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 20
-        n_sites = 100
+        n_sites = 10
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         C, y, z, pi, mu, sigma2, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
@@ -72,7 +72,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         copy_tree = CopyTree(config, p, q, y)
 
-        copy_tree.run(100)
+        copy_tree.run(10)
         q_C = copy_tree.q.c.single_filtering_probs
         q_pi = copy_tree.q.pi.concentration_param
         print(f"True pi: {pi} \n q(pi): {q_pi}")
