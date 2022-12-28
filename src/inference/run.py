@@ -15,7 +15,6 @@ def run(args):
 
     config = Config(chain_length=n_genes, n_cells=n_cells, n_nodes=args.K, n_states=args.A, wis_sample_size=args.L)
     logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
-    config = Config(chain_length=n_genes, n_cells=n_cells)
     p = GenerativeModel(config)
     
     # instantiate all distributions 
