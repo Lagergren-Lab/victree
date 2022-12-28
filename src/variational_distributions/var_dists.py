@@ -84,7 +84,7 @@ class qC(VariationalDistribution):
         for l in range(L):
             alpha_1, alpha_2 = self.exp_alpha(T_list[l], q_eps)
             cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], alpha_1[:, 0, :])
-            cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2[:, 1:, :, :])
+            cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2)
             E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
 
         elbo = E_T + self.entropy()
