@@ -44,12 +44,12 @@ class qCTestCase(unittest.TestCase):
         exp_alpha1, exp_alpha2 = self.qc.exp_alpha(tree, self.qeps)
         self.assertEqual(exp_alpha1.shape, (self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.assertEqual(exp_alpha2.shape,
-                         (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+                         (self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))
 
         exp_eta1, exp_eta2 = self.qc.exp_eta(self.obs, tree, self.qeps, self.qz, self.qmt)
         self.assertEqual(exp_eta1.shape, (self.config.n_nodes, self.config.chain_length, self.config.n_states))
         self.assertEqual(exp_eta2.shape,
-                         (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
+                         (self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))
 
     def test_ELBO(self):
         L_list = [1, 2, 5, 10, 20]
@@ -76,7 +76,7 @@ class qCTestCase(unittest.TestCase):
         print(f"Random: {entropy_rand}")
         qc_2 = qC(config_1)
         for k in range(K):
-            for m in range(M):
+            for m in range(M-1):
                 qc_2.eta2[k, m] = torch.diag(torch.ones(A, ))
         entropy_rand_deterministic = qc_2.entropy()
         print(f"Deterministic: {entropy_rand_deterministic}")

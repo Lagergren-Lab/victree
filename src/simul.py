@@ -21,27 +21,21 @@ from matplotlib import pyplot as plt
 from utils.eps_utils import TreeHMM
 
 
-def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
+def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+                      mu_0=torch.tensor(0.),
+                      sigma_0=torch.tensor(1.),
+                      a0=torch.tensor(1.0),
+                      b0=torch.tensor(1.0),
+                      alpha0=torch.tensor(10.),
+                      beta0=torch.tensor(40.),
+                      ):
     # check that tree is with maximum in-degree =1
     if not is_arborescence(tree):
         raise NotATree("The provided graph is not a tree/arborescence")
 
-
     n_nodes = len(tree.nodes)
 
     # PRIORS PARAMETERS
-    # normal params
-    # location and scale
-    mu_0 = torch.tensor(0.)
-    sigma_0 = torch.tensor(1.)
-
-    # inverse gamma params
-    # concentration and rate
-    a0, b0 = torch.tensor(.001), torch.tensor(.001)
-
-    # beta params
-    # shape alpha, shape beta
-    alpha0, beta0 = torch.tensor(10.), torch.tensor(40.)
 
     mu = pyro.sample("mu", dist.Normal(mu_0, sigma_0).expand([n_cells]))
     sigma2 = pyro.sample("sigma", dist.InverseGamma(a0, b0))
@@ -77,7 +71,7 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
 
                 C_dict[0, m] = C_r_m
                 y[m, z == u] = pyro.sample("y_{}_{}".format(0, m), dist.Normal(mu[z == u] * C_r_m, sigma2.sqrt()),
-                                    obs=data[m, z == u])
+                                           obs=data[m, z == u])
         # inner nodes
         else:
             p = [pred for pred in tree.predecessors(u)][0]
@@ -86,33 +80,34 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph):
             # ref: https://pyro.ai/examples/svi_part_ii.html#Sequential-plate
             for m in range(n_sites):
                 # current site, parent copy number is always available
-                C_p_m = C_dict[p, m]
+                C_p_m = int(C_dict[p, m])
 
                 zipping_dist = None
                 if m == 0:
                     # initial state case only depends on the parent initial state
                     # use pair_cpd as m-1 is not available
-                    zipping_dist = dist.Categorical([pair_cpd[i, C_p_m] for i in range(n_copy_states)])
+                    zipping_dist = dist.Categorical(torch.tensor([pair_cpd[i, C_p_m] for i in range(n_copy_states)]))
                 else:
                     # previous copy numbers
-                    C_p_m_1 = C_dict[p, m - 1]
-                    C_u_m_1 = C_dict[u, m - 1]
+                    C_p_m_1 = int(C_dict[p, m - 1])
+                    C_u_m_1 = int(C_dict[u, m - 1])
 
                     # other states depend on 3 states
-                    zipping_dist = dist.Categorical(probs=[cpd[i, C_u_m_1, C_p_m, C_p_m_1] for i in range(n_copy_states)])
+                    zipping_dist = dist.Categorical(
+                        probs=torch.tensor([cpd[i, C_u_m_1, C_p_m, C_p_m_1] for i in range(n_copy_states)]))
 
                 C_u_m = pyro.sample("C_{}_{}".format(u, m), zipping_dist)
 
                 # save values in dict
                 C_dict[u, m] = C_u_m
                 y[m, z == u] = pyro.sample("y_{}_{}".format(u, m), dist.Normal(mu[z == u] * C_u_m, sigma2.sqrt()),
-                                      obs=data[m, z == u])
+                                           obs=data[m, z == u])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():
-        C[u, m] = C_dict[u,m]
+        C[u, m] = C_dict[u, m]
 
-    return C, y, z
+    return C, y, z, pi, mu, sigma2, eps
 
 
 def main(args):
@@ -145,7 +140,7 @@ def main(args):
     # simulate latent variable as well as observations (synthetic data generation)
     # using "uncondition" handler
     unconditioned_model = poutine.uncondition(model_tree_markov)
-    #C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
+    # C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
     C, y, z = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
     print(f"tree: {tree_to_newick(tree, 0)}")
     print(f"C: {C}")
@@ -175,7 +170,6 @@ def tree_to_newick(g: nx.DiGraph, root=None):
 
 
 if __name__ == '__main__':
-
     # parse arguments
     parser = argparse.ArgumentParser(
         description="Tree HMM test"

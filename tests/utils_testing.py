@@ -1,6 +1,7 @@
 from typing import List, Tuple
 
 import networkx as nx
+import numpy as np
 import torch
 import torch.nn.functional as f
 
@@ -19,6 +20,21 @@ def get_tree_three_nodes_chain():
     T_2.add_edge(0, 1)
     T_2.add_edge(1, 2)
     return T_2
+
+
+def get_tree_K_nodes_random(K):
+    T = nx.DiGraph()
+    T.add_edge(0, 1)
+    nodes_in_T = [0, 1]
+    nodes_not_in_T = list(range(2, K))
+    for i in range(len(nodes_not_in_T)):
+        parent = np.random.choice(nodes_in_T)
+        child = np.random.choice(nodes_not_in_T)
+        T.add_edge(parent, child)
+        nodes_in_T.append(child)
+        nodes_not_in_T.remove(child)
+
+    return T
 
 
 def get_random_q_C(M, A):

@@ -1,4 +1,6 @@
 from typing import Union
+
+import networkx as nx
 from numpy import infty
 import torch
 
@@ -24,12 +26,11 @@ class JointVarDist(VariationalDistribution):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
         self.t.update(trees, self.c, self.eps)
-        self.c.update(self.obs, self.t, self.eps, self.z, self.mt)
+        self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
-        self.pi.update(self.z, p.delta_pi)
+        self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update()
-        # TODO: continue
+        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
 
         return super().update()
 
@@ -47,11 +48,48 @@ class JointVarDist(VariationalDistribution):
                self.t.elbo()
 
 
+class VarDistFixedTree(VariationalDistribution):
+    def __init__(self, config: Config,
+                 qc, qz, qeps, qmt, qpi, T: nx.DiGraph, obs: torch.Tensor):
+        super().__init__(config)
+        self.c: qC = qc
+        self.z: qZ = qz
+        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
+        self.mt: qMuTau = qmt
+        self.pi: qPi = qpi
+        self.obs = obs
+        self.T = T
+        self.w_T = [1.0]
+
+    def update(self, p: GenerativeModel):
+        # T, C, eps, z, mt, pi
+        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
+        self.eps.update([self.T], self.w_T, self.c.couple_filtering_probs)
+        self.pi.update(self.z)
+        self.z.update(self.mt, self.c, self.pi, self.obs)
+        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
+
+        return super().update()
+
+    def initialize(self):
+        for q in [self.c, self.eps, self.pi, self.z, self.mt]:
+            q.initialize()
+        return super().initialize()
+
+    def elbo(self) -> float:
+        q_C_elbo = self.c.elbo([self.T], self.w_T, self.eps)
+        q_Z_elbo = self.z.elbo(self.pi)
+        q_MuTau_elbo = self.mt.elbo()
+        q_pi_elbo = self.pi.elbo()
+        q_eps_elbo = self.eps.elbo()
+        return q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo + q_C_elbo
+
+
 class CopyTree():
 
     def __init__(self, config: Config,
                  p: GenerativeModel,
-                 q: JointVarDist,
+                 q: Union[JointVarDist, VarDistFixedTree],
                  obs: torch.Tensor):
 
         self.config = config
@@ -88,52 +126,26 @@ class CopyTree():
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
-                #raise ValueError("Elbo is decreasing")
+                # raise ValueError("Elbo is decreasing")
                 print("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
-                #raise ValueError("Elbo is non-negative")
+                # raise ValueError("Elbo is non-negative")
                 print("Warning: Elbo is non-negative")
             else:
                 close_runs = 0
 
     def compute_elbo(self) -> float:
-        # TODO: elbo could also be a custom object, containing the main elbo parts separately
-        #   so we can monitor all components of the elbo (variational and model part)
-        T_eval, w_T_eval = self.q.t.get_trees_sample()
-        # TODO: maybe parallelize elbos computations
-        self.elbo = self.q.elbo(T_eval, w_T_eval)
+        if type(self.q) is JointVarDist:
+            T_eval, w_T_eval = self.q.t.get_trees_sample()
+            self.elbo = self.q.elbo(T_eval, w_T_eval)
+        else:
+            self.elbo = self.q.elbo()
         return self.elbo
 
     def step(self):
-        trees, weights = self.q.t.get_trees_sample()
-        self.update_T()
-        self.update_C(self.obs)
-        self.q.c.calculate_filtering_probs()
-        self.update_z()
-        self.update_mutau()
-        self.update_epsilon(trees, weights)
-        self.update_pi()
-
+        self.q.update(self.p)
         self.it_counter += 1
 
     def init_variational_variables(self):
         self.q.initialize()
-
-    def update_T(self):
-        pass
-
-    def update_C(self, obs):
-        self.q.c.update(obs, self.q.t, self.q.eps, self.q.z, self.q.mt)
-
-    def update_z(self):
-        self.q.z.update(self.q.mt, self.q.c, self.q.pi, self.obs)
-
-    def update_mutau(self):
-        self.q.mt.update(self.q.c, self.q.z, self.obs, self.sum_over_m_y_squared)
-
-    def update_epsilon(self, trees, weights):
-        self.q.eps.update(trees, weights, self.q.c.couple_filtering_probs)
-
-    def update_pi(self):
-        self.q.pi.update(self.q.z)
