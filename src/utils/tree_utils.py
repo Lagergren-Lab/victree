@@ -17,14 +17,14 @@ def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int) -> Tuple[List, torc
     return unique_edges_list, unique_edges_count
 
 
-def forward_messages_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
-    A = initial_state.size()[0]
+def forward_messages_markov_chain(initial_probs: torch.Tensor, transition_probabilities: torch.Tensor, N: int):
+    A = initial_probs.shape[0]
     alpha = torch.zeros((N, A))  # Forward recursion variable
     # TODO: handle update with full eta1 input
-    alpha[0] = torch.einsum("ij, i -> j", transition_probabilities[0], initial_state)
+    alpha[0] = initial_probs
 
     for n in range(1, N):
-        alpha[n] = torch.einsum("ij, i -> j", transition_probabilities[n], alpha[n - 1])
+        alpha[n] = torch.einsum("ij, i -> j", transition_probabilities[n - 1], alpha[n - 1])
     return alpha
 
 
@@ -32,14 +32,11 @@ def backward_messages_markov_chain(transition_probabilities: torch.Tensor, N: in
     # alpha_m = sum_{n-1}
     A, M, M = transition_probabilities.shape
     beta = torch.zeros((N, M))  # Forward recursion variable
-    beta_N = torch.ones((M,))
 
     # backward
-    for n in reversed(range(0, N)):
-        if n == N - 1:
-            beta[n] = torch.einsum("j, ij -> i", beta_N, transition_probabilities[n])
-        else:
-            beta[n] = torch.einsum("j, ij -> i", beta[n + 1], transition_probabilities[n])
+    beta[N - 1] = 1
+    for rn in range(1, N):
+        beta[N - rn - 1] = torch.einsum("j, ij -> i", beta[N - rn], transition_probabilities[N - rn - 1])
     return beta
 
 
