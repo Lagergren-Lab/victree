@@ -2,6 +2,7 @@ import unittest
 import time
 import itertools
 import numpy as np
+import torch
 
 from utils import eps_utils
 
@@ -37,5 +38,8 @@ class zippingTestCase(unittest.TestCase):
     def indexing_mask(self, arr):
         mask = eps_utils.get_zipping_mask(self.A)
         return arr[mask]
-    
+
+    def test_normalization(self):
+        h_eps = eps_utils.h_eps(self.A, eps=.1)
+        self.assertTrue(torch.allclose(h_eps.sum(dim=0), torch.ones((self.A, ) * 3)))
 
