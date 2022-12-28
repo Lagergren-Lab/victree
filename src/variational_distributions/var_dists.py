@@ -74,6 +74,9 @@ class qC(VariationalDistribution):
         #transitions_entropy = -torch.einsum("kmij, kmij ->", self.eta2, torch.log(self.eta2))
         return init_entropy + transitions_entropy
 
+    def marginal_entropy(self):
+        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, torch.log(self.single_filtering_probs))
+
     def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
         # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
@@ -87,14 +90,15 @@ class qC(VariationalDistribution):
             cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2[:, 1:, :, :])
             E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
 
-        elbo = E_T + self.entropy()
+        elbo = E_T + self.marginal_entropy()
         return elbo
 
     def update(self, obs: torch.Tensor,
-               q_t: 'qT',
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                q_z: 'qZ',
-               q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
+               q_mutau: 'qMuTau',
+               trees,
+               tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
         + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
@@ -108,7 +112,7 @@ class qC(VariationalDistribution):
             (self.config.n_nodes, self.config.chain_length, self.config.n_states, self.config.n_states))
 
         # FIXME: use weights for the importance sampling estimate of expectation
-        for tree, weight in zip(*q_t.get_trees_sample()):
+        for tree, weight in zip(trees, tree_weights):
             # compute all alpha quantities
             exp_alpha1, exp_alpha2 = self.exp_alpha(tree, q_eps)
 
