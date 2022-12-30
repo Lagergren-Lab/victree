@@ -122,7 +122,7 @@ class qC(VariationalDistribution):
                 # sum on each node's update all children alphas
                 alpha1sum = torch.einsum('wmi->mi', exp_alpha1[children, :, :])
                 tree_eta1[u, :, :] += alpha1sum
-
+                
                 alpha2sum = torch.einsum('wmij->mij', exp_alpha2[children, :, :, :])
                 tree_eta2[u, :, :, :] += alpha2sum
 
@@ -131,6 +131,8 @@ class qC(VariationalDistribution):
 
         self.eta1 = new_eta1
         self.eta2 = new_eta2
+        # update the filtering probs
+        self.calculate_filtering_probs()
         return super().update()
 
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
@@ -260,8 +262,11 @@ class qC(VariationalDistribution):
 
 # cell assignments
 class qZ(VariationalDistribution):
-    def __init__(self, config: Config):
-        self.pi = torch.empty((config.n_cells, config.n_nodes))
+    def __init__(self, config: Config, pi=None):
+        if pi is None:
+            self.pi = torch.empty((config.n_cells, config.n_nodes))
+        else:
+            self.pi = pi
         super().__init__(config)
 
     def initialize(self):
