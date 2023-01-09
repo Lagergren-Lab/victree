@@ -16,7 +16,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         # build config
-        self.config = Config(n_nodes=3, n_states=7, n_cells=20, chain_length=10)
+        self.config = Config(n_nodes=3, n_states=7, n_cells=20, chain_length=10, debug=True)
         self.qc = qC(self.config)
         self.qc.initialize()
         self.qt = qT(self.config)

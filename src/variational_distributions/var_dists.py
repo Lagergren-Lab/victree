@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as torch_functional
 import networkx as nx
 import itertools
 import numpy as np
@@ -34,10 +35,10 @@ class qC(VariationalDistribution):
 
     def random_init(self):
         self.eta1 = torch.rand((self.config.n_nodes, self.config.chain_length, self.config.n_states))
-        self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
+        self.eta1 = torch.log(self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True))
         self.eta2 = torch.rand(
             (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
-        self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
+        self.eta2 = torch.log(self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True))
 
         self.calculate_filtering_probs()
 
@@ -245,7 +246,18 @@ class qC(VariationalDistribution):
         # TODO: optimize replacing for-loop with einsum operations
         q_C = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         for u in range(self.config.n_nodes):
-            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
+            init_probs_qu = torch.exp(self.eta1[u, 0, :])
+            init_probs_qu = init_probs_qu / torch.sum(init_probs_qu)
+            transition_probs = torch.exp(self.eta2[u])
+            transition_probs = torch_functional.normalize(transition_probs, p=1, dim=2)
+            if self.config.debug:
+                assert torch.isclose(init_probs_qu.sum(), torch.tensor(1.0))
+                M, A, A = transition_probs.shape
+                for m in range(M):
+                    tot_trans_prob = torch.sum(transition_probs[m], dim=1)
+                    assert torch.allclose(tot_trans_prob, torch.ones(A))
+
+            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(init_probs_qu, transition_probs,
                                                                        self.config.chain_length)
 
         return q_C
@@ -254,7 +266,11 @@ class qC(VariationalDistribution):
         # TODO: optimize replacing for-loop with einsum operations
         q_C_pairs = torch.zeros(self.couple_filtering_probs.shape)
         for u in range(self.config.n_nodes):
-            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
+            init_probs_qu = torch.exp(self.eta1[u, 0, :])
+            init_probs_qu = init_probs_qu / torch.sum(init_probs_qu)
+            transition_probs = torch.exp(self.eta2[u])
+            transition_probs = torch_functional.normalize(transition_probs, p=1, dim=2)
+            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs,
                                                                                 self.config.chain_length)
 
         return q_C_pairs
