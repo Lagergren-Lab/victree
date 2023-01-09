@@ -76,22 +76,28 @@ class qC(VariationalDistribution):
         return init_entropy + transitions_entropy
 
     def marginal_entropy(self):
-        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, torch.log(self.single_filtering_probs))
+        eps = 0.00001  # To avoid log_marginals having entries of -inf
+        log_marginals = torch.log(self.single_filtering_probs + eps)
+        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, log_marginals)
 
-    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
-        # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
-        # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
-        # alpha_1, alpha_2 = self.exp_alpha()
+    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         E_T = 0
         L = len(T_list)
         normalising_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
             alpha_1, alpha_2 = self.exp_alpha(T_list[l], q_eps)
-            cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], alpha_1[:, 0, :])
+            cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], torch.log(alpha_1[:, 0, :]))
             cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2)
             E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
 
-        elbo = E_T + self.marginal_entropy()
+        return E_T
+
+    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+        # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
+        # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
+        # alpha_1, alpha_2 = self.exp_alpha()
+
+        elbo = self.cross_entropy(T_list, w_T_list, q_eps) + self.marginal_entropy()
         return elbo
 
     def update(self, obs: torch.Tensor,

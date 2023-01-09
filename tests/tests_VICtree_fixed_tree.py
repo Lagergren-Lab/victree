@@ -57,10 +57,10 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(10)
 
     def test_large_tree(self):
-        K = 3
+        K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 20
-        n_sites = 10
+        n_cells = 200
+        n_sites = 100
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         C, y, z, pi, mu, sigma2, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
@@ -69,10 +69,11 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-        q.initialize()
         copy_tree = CopyTree(config, p, q, y)
 
         copy_tree.run(10)
         q_C = copy_tree.q.c.single_filtering_probs
-        q_pi = copy_tree.q.pi.concentration_param
-        print(f"True pi: {pi} \n q(pi): {q_pi}")
+        q_pi = copy_tree.q.z.pi
+        delta = copy_tree.q.pi.concentration_param
+        print(f"True pi: {pi} \n variational concentration param: {delta}")
+        print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
