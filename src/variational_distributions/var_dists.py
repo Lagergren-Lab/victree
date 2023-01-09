@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as torch_functional
 import networkx as nx
 import itertools
 import numpy as np
@@ -34,10 +35,10 @@ class qC(VariationalDistribution):
 
     def random_init(self):
         self.eta1 = torch.rand((self.config.n_nodes, self.config.chain_length, self.config.n_states))
-        self.eta1 = self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True)
+        self.eta1 = torch.log(self.eta1 / torch.sum(self.eta1, dim=-1, keepdim=True))
         self.eta2 = torch.rand(
             (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
-        self.eta2 = self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True)
+        self.eta2 = torch.log(self.eta2 / torch.sum(self.eta2, dim=-1, keepdim=True))
 
         self.calculate_filtering_probs()
 
@@ -75,22 +76,28 @@ class qC(VariationalDistribution):
         return init_entropy + transitions_entropy
 
     def marginal_entropy(self):
-        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, torch.log(self.single_filtering_probs))
+        eps = 0.00001  # To avoid log_marginals having entries of -inf
+        log_marginals = torch.log(self.single_filtering_probs + eps)
+        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, log_marginals)
 
-    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
-        # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
-        # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
-        # alpha_1, alpha_2 = self.exp_alpha()
+    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         E_T = 0
         L = len(T_list)
         normalising_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
             alpha_1, alpha_2 = self.exp_alpha(T_list[l], q_eps)
-            cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], alpha_1[:, 0, :])
+            cross_ent_pos_0 = torch.einsum("ki, ki -> ", self.single_filtering_probs[:, 0, :], torch.log(alpha_1[:, 0, :]))
             cross_ent_pos_2_to_M = torch.einsum("kmij, kmij -> ", self.couple_filtering_probs, alpha_2)
             E_T += torch.exp(w_T_list[l] - normalising_weight) * (cross_ent_pos_0 + cross_ent_pos_2_to_M)
 
-        elbo = E_T + self.marginal_entropy()
+        return E_T
+
+    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+        # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
+        # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
+        # alpha_1, alpha_2 = self.exp_alpha()
+
+        elbo = self.cross_entropy(T_list, w_T_list, q_eps) + self.marginal_entropy()
         return elbo
 
     def update(self, obs: torch.Tensor,
@@ -245,7 +252,18 @@ class qC(VariationalDistribution):
         # TODO: optimize replacing for-loop with einsum operations
         q_C = torch.zeros((self.config.n_nodes, self.config.chain_length, self.config.n_states))
         for u in range(self.config.n_nodes):
-            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
+            init_eta = self.eta1[u, 0, :]
+            init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
+            transition_probs = torch.exp(self.eta2[u])
+            transition_probs = torch_functional.normalize(transition_probs, p=1, dim=2)
+            if self.config.debug:
+                assert torch.isclose(init_probs_qu.sum(), torch.tensor(1.0))
+                M, A, A = transition_probs.shape
+                for m in range(M):
+                    tot_trans_prob = torch.sum(transition_probs[m], dim=1)
+                    assert torch.allclose(tot_trans_prob, torch.ones(A))
+
+            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(init_probs_qu, transition_probs,
                                                                        self.config.chain_length)
 
         return q_C
@@ -254,7 +272,11 @@ class qC(VariationalDistribution):
         # TODO: optimize replacing for-loop with einsum operations
         q_C_pairs = torch.zeros(self.couple_filtering_probs.shape)
         for u in range(self.config.n_nodes):
-            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(self.eta1[u, 0, :], self.eta2[u],
+            init_eta = self.eta1[u, 0, :]
+            init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
+            transition_probs = torch.exp(self.eta2[u])
+            transition_probs = torch_functional.normalize(transition_probs, p=1, dim=2)
+            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs,
                                                                                 self.config.chain_length)
 
         return q_C_pairs
