@@ -85,7 +85,7 @@ class VarDistFixedTree(VariationalDistribution):
         return q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo + q_C_elbo
 
 
-class CopyTree():
+class CopyTree:
 
     def __init__(self, config: Config,
                  p: GenerativeModel,

@@ -3,6 +3,10 @@ import torch
 from typing import List, Tuple
 
 
+def generate_fixed_tree(n_nodes: int):
+    return nx.random_tree(n=n_nodes, seed=0, create_using=nx.DiGraph)
+
+
 def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int) -> Tuple[List, torch.Tensor]:
     unique_edges_list = []
     unique_edges_count = torch.zeros(N_nodes, N_nodes, dtype=torch.int)
