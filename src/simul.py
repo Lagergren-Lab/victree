@@ -22,8 +22,8 @@ from utils.eps_utils import TreeHMM
 
 
 def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                      mu_0=torch.tensor(0.),
-                      sigma_0=torch.tensor(1.),
+                      mu_0=torch.tensor(10.),
+                      nu=torch.tensor(.1),
                       a0=torch.tensor(1.0),
                       b0=torch.tensor(1.0),
                       alpha0=torch.tensor(10.),
@@ -37,8 +37,8 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
 
     # PRIORS PARAMETERS
 
-    mu = pyro.sample("mu", dist.Normal(mu_0, sigma_0).expand([n_cells]))
     sigma2 = pyro.sample("sigma", dist.InverseGamma(a0, b0))
+    mu = pyro.sample("mu", dist.Normal(mu_0, sigma2*nu).expand([n_cells]))
     eps = pyro.sample("eps", dist.Beta(alpha0, beta0))
 
     treeHMM = TreeHMM(n_copy_states, eps=eps)

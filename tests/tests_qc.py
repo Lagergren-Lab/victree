@@ -18,8 +18,7 @@ class qCTestCase(unittest.TestCase):
         self.qt = qT(self.config)
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
-        self.qmt = qMuTau(self.config, loc=100, precision=.1,
-                          shape=5, rate=5)
+        self.qmt = qMuTau(self.config, loc=100, precision_factor=.1, shape=5, rate=5)
         self.obs = torch.randint(low=50, high=150,
                                  size=(self.config.chain_length, self.config.n_cells))
 
@@ -42,7 +41,7 @@ class qCTestCase(unittest.TestCase):
         # fix epsilon to be with mean 1/9 and low variance
         # both clones only have one asymmetric transition out of 9
         fix_qeps = qEpsilonMulti(cfg, alpha_0=10., beta_0=90.)
-        fix_qmt = qMuTau(cfg, loc=100., precision=100., shape=1., rate=100.)
+        fix_qmt = qMuTau(cfg, loc=100., precision_factor=100., shape=1., rate=100.)
         # hard assignment of cells to clones
         fix_qz = qZ(cfg, pi=torch.tensor([
             [1.] * 5 + [0.] * 10,

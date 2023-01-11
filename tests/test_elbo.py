@@ -25,8 +25,7 @@ class TestElbo(unittest.TestCase):
         q_t = qT(config)
         q_pi = qPi(config)
         q_eps = qEpsilon(config, 1., 1.)
-        q_mutau = qMuTau(config, loc = 100., precision = .1,
-                shape = 5., rate = 5.)
+        q_mutau = qMuTau(config, loc=100., precision_factor=.1, shape=5., rate=5.)
         _, _, obs = read_sc_data(self.proj_dir / 'obs_example.txt')
         obs = obs.float()
         joint_dist = JointVarDist(config, 
