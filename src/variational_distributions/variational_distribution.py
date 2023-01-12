@@ -1,19 +1,23 @@
 """
 Interface class for Variational distributions
 """
+import logging
+
 from utils.config import Config
 
 
 class VariationalDistribution:
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, fixed: bool = False):
         self.config: Config = config
-        pass
+        self.fixed = fixed  # if true, don't update and exp-functions return fixed params
 
     def initialize(self):
         pass
 
     def update(self):
+        if self.fixed:
+            logging.warning("Warn: fixed dist is updated!")
         pass
 
     def elbo(self) -> float:

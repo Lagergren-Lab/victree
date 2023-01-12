@@ -1,3 +1,5 @@
+import logging
+
 import torch
 import torch.nn.functional as torch_functional
 import networkx as nx
@@ -6,7 +8,7 @@ import numpy as np
 from typing import List, Tuple, Union, Optional
 
 from utils import math_utils
-from utils.eps_utils import get_zipping_mask, get_zipping_mask0
+from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps
 
 import utils.tree_utils as tree_utils
 from sampling.slantis_arborescence import sample_arborescence
@@ -536,13 +538,14 @@ class qEpsilon(VariationalDistribution):
 # edge distance (multiple eps, one for each arc)
 class qEpsilonMulti(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.):
+    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.,
+                 fixed=False):
         self.alpha_prior = torch.tensor(alpha_0)
         self.beta_prior = torch.tensor(beta_0)
         # one param for every arc except self referenced (diag set to -infty)
         self.alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
         self.beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
-        super().__init__(config)
+        super().__init__(config, fixed)
 
     def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
         self.alpha = alpha
@@ -575,6 +578,7 @@ class qEpsilonMulti(VariationalDistribution):
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
         self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
+        super().update()
 
     def update_CAVI(self, T_list: list, w_T: torch.Tensor, q_C_pairwise_marginals: torch.Tensor):
         K, M, A, A = q_C_pairwise_marginals.shape
@@ -629,26 +633,36 @@ class qEpsilonMulti(VariationalDistribution):
             edge associated to the distance epsilon
         """
         u, v = e
-        # TODO: implement
-        copy_mask = get_zipping_mask(self.config.n_states)
+        if self.fixed:
+            # return the zipping function with true value of eps
+            # which is the mean of the fixed distribution
+            true_eps = self.mean()
+            out_arr = h_eps(self.config.n_states, true_eps[u, v])
+        else:
+            # TODO: implement
+            copy_mask = get_zipping_mask(self.config.n_states)
 
-        # FIXME: add normalization (division by A constant)
-        norm_const = self.config.n_states
+            # FIXME: add normalization (division by A constant)
+            norm_const = self.config.n_states
 
-        out_arr = torch.ones(copy_mask.shape) * \
-                  (torch.digamma(self.beta[u, v]) - \
-                   torch.digamma(self.alpha[u, v] + self.beta[u, v]))
-        # select the combinations that do not satisfy i-i'=j-j'
-        # and normalize
-        out_arr[~copy_mask] -= norm_const
+            out_arr = torch.ones(copy_mask.shape) * \
+                      (torch.digamma(self.beta[u, v]) - \
+                       torch.digamma(self.alpha[u, v] + self.beta[u, v]))
+            # select the combinations that do not satisfy i-i'=j-j'
+            # and normalize
+            out_arr[~copy_mask] -= norm_const
         return out_arr
+
+    def mean(self):
+        # beta mean
+        return self.alpha / (self.alpha + self.beta)
 
 
 # observations (mu-tau)
 class qMuTau(VariationalDistribution):
 
     def __init__(self, config: Config, loc: float = 100, precision: float = .1,
-                 shape: float = 5, rate: float = 5):
+                 shape: float = 5, rate: float = 5, true_params=None):
         # params for each cell
         self._loc = loc * torch.ones(config.n_cells)
         self._precision_factor = precision * torch.ones(config.n_cells)
@@ -659,7 +673,14 @@ class qMuTau(VariationalDistribution):
         self.alpha_prior = self._shape
         self.alpha = self.alpha_prior + config.chain_length / 2  # alpha never updated
         self.beta_prior = self._rate
-        super().__init__(config)
+        self.true_params = true_params
+
+        if true_params is not None:
+            # for each cell, mean and precision of the emission model
+            assert("mu" in true_params)
+            assert("tau" in true_params)
+
+        super().__init__(config, true_params is not None)
 
     # getter ensures that params are only updated in
     # the class' update method
@@ -702,6 +723,8 @@ class qMuTau(VariationalDistribution):
         self._precision_factor = lmbda
         self._shape = alpha
         self._rate = beta
+
+        super().update()
         return mu, lmbda, alpha, beta
 
     def initialize(self):
@@ -717,23 +740,35 @@ class qMuTau(VariationalDistribution):
         return self.cross_entropy() + self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
-        out_arr = torch.ones((self.config.n_cells,
-                              self.config.chain_length,
-                              self.config.n_states))
+        out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
+        out_arr = torch.ones(out_shape)
+        # obs is (m x n)
+        if self.fixed:
+            mu = self.true_params["mu"]
+            tau = self.true_params["tau"]
 
-        # FIXME: the output is not always of shape NxMxS
-        out_arr = .5 * self.exp_log_tau() - \
-                  .5 * torch.einsum('mn,n->mn',
-                                    obs, self.exp_tau()) + \
-                  torch.einsum('i,mn,n->imn',
-                               torch.arange(self.config.n_states),
-                               obs,
-                               self.exp_mu_tau()) - \
-                  .5 * torch.einsum('i,n->in',
-                                    torch.pow(torch.arange(self.config.n_states), 2),
-                                    self.exp_mu2_tau())[:, None, :]
+            # log emission is log normal with
+            # mean=mu*cn_state, var=1/tau
+            means = torch.outer(mu,
+                        torch.arange(self.config.n_states))
+            true_dist = torch.distributions.Normal(loc=means,
+                                       scale=torch.ones(means.shape) / torch.sqrt(tau)[:, None])
+            out_arr = torch.permute(true_dist.log_prob(obs[..., None]), (1, 0, 2))
+        else:
+            out_arr = .5 * self.exp_log_tau() - \
+                      .5 * torch.einsum('mn,n->mn',
+                                        obs, self.exp_tau()) + \
+                      torch.einsum('i,mn,n->imn',
+                                   torch.arange(self.config.n_states),
+                                   obs,
+                                   self.exp_mu_tau()) - \
+                      .5 * torch.einsum('i,n->in',
+                                        torch.pow(torch.arange(self.config.n_states), 2),
+                                        self.exp_mu2_tau())[:, None, :]
+            out_arr = torch.einsum('imn->nmi', out_arr)
 
-        return torch.einsum('imn->nmi', out_arr)
+        assert out_arr.shape == out_shape
+        return out_arr
 
     def exp_tau(self):
         return self.shape / self.rate
