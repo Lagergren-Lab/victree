@@ -26,33 +26,34 @@ class qCTestCase(unittest.TestCase):
     def test_update(self):
         # design simple test: fix all other variables
         # and update the q_c params
-        cfg = Config(n_nodes=3, n_states=5, n_cells=15, chain_length=10,
+        cells_per_clone = 100
+        cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=10,
                      wis_sample_size=2)
         qc = qC(cfg)
         qc.initialize()
 
-        # TOD0: increase cells
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         obs = torch.tensor(
-            [[200] * 10] * 5 +
-            [[200] * 4 + [300] * 6] * 5 +
-            [[100] * 8 + [200] * 2] * 5
+            [[200] * 10] * cells_per_clone +
+            [[200] * 4 + [300] * 6] * cells_per_clone +
+            [[100] * 8 + [200] * 2] * cells_per_clone
         ).T
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
         # fix epsilon to be with mean 1/9 and low variance
         # both clones only have one asymmetric transition out of 9
-        fix_qeps = qEpsilonMulti(cfg, alpha_0=10., beta_0=90., fixed=True)
-        fix_qmt = qMuTau(cfg, loc=100., precision=100., shape=1., rate=100., true_params={
+        true_eps = torch.ones((cfg.n_nodes, cfg.n_nodes))
+        true_eps[[0, 0], [1, 2]] = 1./9.
+        fix_qeps = qEpsilonMulti(cfg, true_params={"eps": true_eps})
+        fix_qmt = qMuTau(cfg, true_params={
             "mu": 100 * torch.ones(cfg.n_cells),
             "tau": 1 * torch.ones(cfg.n_cells)
         })
         # hard assignment of cells to clones
-        fix_qz = qZ(cfg, pi=torch.tensor([
-            [1.] * 5 + [0.] * 10,
-            [0.] * 5 + [1.] * 5 + [0.] * 5,
-            [0.] * 10 + [1.] * 5
-        ]).T)
+        true_z = [0] * cells_per_clone +\
+                 [1] * cells_per_clone +\
+                 [2] * cells_per_clone  # cell assignments
+        fix_qz = qZ(cfg, true_params={"z": true_z})
 
         fix_tree = nx.DiGraph()
         fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
@@ -68,12 +69,17 @@ class qCTestCase(unittest.TestCase):
         # print(qc.couple_filtering_probs)
         self.assertTrue(torch.all(qc.couple_filtering_probs[0, :, 2, 2] > qc.couple_filtering_probs[0, :, 2, 0]))
 
+        print(qc.single_filtering_probs)
         print(qc.couple_filtering_probs)
         # self.assertGreater(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, 2])
         # self.assertGreater(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 5, 2, 3])
 
         # self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 7, 1, 1])
         # self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 4, 1, 2])
+
+    def test_filtering_probs_update(self):
+
+        pass
 
     def test_expectation_size(self):
         tree = nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
