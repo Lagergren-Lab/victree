@@ -661,11 +661,11 @@ class qEpsilonMulti(VariationalDistribution):
 # observations (mu-tau)
 class qMuTau(VariationalDistribution):
 
-    def __init__(self, config: Config, loc: float = 100, precision: float = .1,
+    def __init__(self, config: Config, loc: float = 100, precision_factor: float = .1,
                  shape: float = 5, rate: float = 5, true_params=None):
         # params for each cell
         self._loc = loc * torch.ones(config.n_cells)
-        self._precision_factor = precision * torch.ones(config.n_cells)
+        self._precision_factor = precision_factor * torch.ones(config.n_cells)
         self._shape = shape * torch.ones(config.n_cells)
         self._rate = rate * torch.ones(config.n_cells)
         self.mu_prior = self._loc
