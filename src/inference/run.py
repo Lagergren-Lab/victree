@@ -1,8 +1,9 @@
 import logging
 
-from inference.copy_tree import CopyTree, JointVarDist
+from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
 from utils.config import Config
 from utils.data_handling import read_sc_data
+from utils.tree_utils import generate_fixed_tree
 from variational_distributions.var_dists import qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qZ, qC
 from model.generative_model import GenerativeModel
 
@@ -25,7 +26,9 @@ def run(args):
     qmt = qMuTau(config)
     qpi = qPi(config)
 
-    q = JointVarDist(config, qc, qz, qt, qeps, qmt, qpi, obs)
+    # q = JointVarDist(config, qc, qz, qt, qeps, qmt, qpi, obs)
+    tree = generate_fixed_tree(config.n_nodes)
+    q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, obs)
     copy_tree = CopyTree(config, p, q, obs)
     
     copy_tree.run(args.n_iter)
