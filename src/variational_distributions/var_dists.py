@@ -33,7 +33,6 @@ class qC(VariationalDistribution):
             (self.config.n_nodes, self.config.chain_length - 1, self.config.n_states, self.config.n_states))
 
     def initialize(self):
-        # TODO: implement initialization of parameters
         self.random_init()
         return super().initialize()
 
@@ -43,7 +42,7 @@ class qC(VariationalDistribution):
         self.eta2[...] = torch.rand(self.eta2.shape)
         self.eta2[...] = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
-        self.calculate_filtering_probs()
+        self.compute_filtering_probs()
 
     def uniform_init(self):
         """
@@ -54,7 +53,7 @@ class qC(VariationalDistribution):
         self.eta2[...] = torch.ones(self.eta2.shape)
         self.eta2[...] = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
-        self.calculate_filtering_probs()
+        self.compute_filtering_probs()
 
     def log_density(self, copy_numbers: torch.Tensor, nodes: list = []) -> float:
         # compute probability of a copy number sequence over a set of nodes
@@ -149,8 +148,9 @@ class qC(VariationalDistribution):
 
         self.eta1 = new_eta1
         self.eta2 = new_eta2
+        # FIXME: eta1 and eta2 don't come out normalized (in exp scale)
         # update the filtering probs
-        self.calculate_filtering_probs()
+        self.compute_filtering_probs()
         return super().update()
 
     def exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
@@ -245,7 +245,6 @@ class qC(VariationalDistribution):
         return e_alpha1, e_alpha2
 
     def mc_filter(self, u, m, i: Union[int, Tuple[int, int]]):
-        # TODO: implement/import forward-backward starting from eta params
         if isinstance(i, int):
             return self.single_filtering_probs[u, m, i]
         else:
@@ -259,24 +258,52 @@ class qC(VariationalDistribution):
         else:
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
 
+    def compute_filtering_probs(self):
+        # shape K x S (K is batch size / clones)
+        initial_probs = torch.exp(self.eta1)
+        # shape K x M x S x S
+        transition_probs = torch.exp(self.eta2)
+        if self.config.debug:
+            assert(np.allclose(initial_probs.sum(dim=1), 1.))
+            assert(np.allclose(transition_probs.sum(dim=3), 1.))
+
+        single = torch.empty(self.single_filtering_probs.shape)
+        couple = torch.empty(self.couple_filtering_probs.shape)
+        single[:, 0, :] = initial_probs
+        for m in range(self.config.chain_length - 1):
+            # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
+            couple[:, m, ...] = single[:, m, :, None] * transition_probs[:, m, ...]
+            # then marginalize over X_m to obtain P(X_m+1)
+            single[:, m + 1, :] = torch.sum(couple[:, m, ...], dim=1)
+
+        if self.config.debug:
+            assert(np.allclose(single.sum(dim=2), 1.))
+            assert(np.allclose(couple.sum(dim=(2, 3)), 1.))
+
+        self.single_filtering_probs = single
+        self.couple_filtering_probs = couple
+        return self.single_filtering_probs, self.couple_filtering_probs
+
     def calculate_filtering_probs(self):
         self.single_filtering_probs = self.get_all_marginals()
         self.couple_filtering_probs = self.get_all_two_sliced_marginals()
 
     def get_two_slice_marginals(self, u):
-        return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+        return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
 
     def get_marginals(self, u):
-        return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u], self.config.chain_length)
+        return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
 
     def get_all_marginals(self):
         # TODO: optimize replacing for-loop with einsum operations
         q_C = torch.zeros(self.single_filtering_probs.shape)
         for u in range(self.config.n_nodes):
             init_eta = self.eta1[u, :]
+            # FIXME: normalization shouldn't be necessary. check if it's already normlzd
             init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
-            transition_probs = torch.exp(self.eta2[u])
-            transition_probs = torch_functional.normalize(transition_probs, p=1, dim=2)
+            log_transition_probs = torch.exp(self.eta2[u])
+            transition_probs = torch.exp(log_transition_probs -
+                                         torch.logsumexp(log_transition_probs, dim=2, keepdim=True))
             if self.config.debug:
                 assert torch.isclose(init_probs_qu.sum(), torch.tensor(1.0))
                 M, A, A = transition_probs.shape
@@ -284,8 +311,7 @@ class qC(VariationalDistribution):
                     tot_trans_prob = torch.sum(transition_probs[m], dim=1)
                     assert torch.allclose(tot_trans_prob, torch.ones(A))
 
-            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(init_probs_qu, transition_probs,
-                                                                       self.config.chain_length)
+            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(init_probs_qu, transition_probs)
 
         return q_C
 
@@ -299,8 +325,7 @@ class qC(VariationalDistribution):
             # FIXME: normalization shouldn't be necessary
             transition_probs = torch.exp(log_transition_probs -
                                          torch.logsumexp(log_transition_probs, dim=2, keepdim=True))
-            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs,
-                                                                                self.config.chain_length)
+            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs)
 
         return q_C_pairs
 

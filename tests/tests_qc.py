@@ -27,7 +27,7 @@ class qCTestCase(unittest.TestCase):
         # and update the q_c params
         cells_per_clone = 100
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=10,
-                     wis_sample_size=2)
+                     wis_sample_size=2, debug=True)
         qc = qC(cfg)
         qc.initialize()
 
