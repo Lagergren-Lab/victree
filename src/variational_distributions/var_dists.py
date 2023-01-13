@@ -720,7 +720,7 @@ class qMuTau(VariationalDistribution):
         alpha = self.alpha_prior + M / 2  # Never updated
         lmbda = self.lambda_prior + sum_MCZ_c2
         mu = (self.mu_prior * self.lambda_prior + sum_MCZ_cy) / lmbda
-        beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) + \
+        beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) - \
                (self.mu_prior * self.lambda_prior + sum_MCZ_cy) ** 2 / (2 * lmbda)
         self._loc = mu
         self._precision_factor = lmbda
