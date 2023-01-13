@@ -286,12 +286,10 @@ class qC(VariationalDistribution):
 
 # cell assignments
 class qZ(VariationalDistribution):
-    def __init__(self, config: Config, pi=None):
-        if pi is None:
-            self.pi = torch.empty((config.n_cells, config.n_nodes))
-        else:
-            self.pi = pi
-        super().__init__(config)
+    def __init__(self, config: Config, true_params=None):
+        self.pi = torch.empty((config.n_cells, config.n_nodes))
+        self.true_params = true_params
+        super().__init__(config, true_params is not None)
 
     def initialize(self):
         # initialize to uniform
@@ -325,8 +323,15 @@ class qZ(VariationalDistribution):
         return super().update()
 
     def exp_assignment(self) -> torch.Tensor:
-        # simply the pi probabilities
-        return self.pi
+        out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
+        if self.fixed:
+            true_z = self.true_params["z"]
+            # set prob of a true assignment to 1
+            out_qz[torch.arange(self.config.n_cells), true_z] = 1.
+        else:
+            # simply the pi probabilities
+            out_qz[...] = self.pi
+        return out_qz
 
     def cross_entropy(self, qpi: 'qPi') -> float:
         e_logpi = qpi.exp_log_pi()
@@ -539,13 +544,15 @@ class qEpsilon(VariationalDistribution):
 class qEpsilonMulti(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.,
-                 fixed=False):
+                 true_params=None):
         self.alpha_prior = torch.tensor(alpha_0)
         self.beta_prior = torch.tensor(beta_0)
         # one param for every arc except self referenced (diag set to -infty)
         self.alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
         self.beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
-        super().__init__(config, fixed)
+        self.true_params = true_params
+
+        super().__init__(config, true_params is not None)
 
     def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
         self.alpha = alpha
@@ -636,7 +643,7 @@ class qEpsilonMulti(VariationalDistribution):
         if self.fixed:
             # return the zipping function with true value of eps
             # which is the mean of the fixed distribution
-            true_eps = self.mean()
+            true_eps = self.true_params["eps"]
             out_arr = h_eps(self.config.n_states, true_eps[u, v])
         else:
             # TODO: implement
@@ -652,10 +659,6 @@ class qEpsilonMulti(VariationalDistribution):
             # and normalize
             out_arr[~copy_mask] -= norm_const
         return out_arr
-
-    def mean(self):
-        # beta mean
-        return self.alpha / (self.alpha + self.beta)
 
 
 # observations (mu-tau)
