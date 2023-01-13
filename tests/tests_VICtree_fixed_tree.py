@@ -44,8 +44,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                         b0=torch.tensor(1.0),
                         dir_alpha0=torch.tensor(1.0)
                         ):
-        model_tree_markov = simul.model_tree_markov_full
-        unconditioned_model = poutine.uncondition(model_tree_markov)
+        model_tree_markov_full = simul.model_tree_markov_full
+        unconditioned_model = poutine.uncondition(model_tree_markov_full)
         C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
                                                            mu_0,
                                                            nu_0,
@@ -125,5 +125,4 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q_pi = copy_tree.q.z.pi
         delta = copy_tree.q.pi.concentration_param
         print(f"True pi: {pi} \n variational concentration param: {delta}")
-        print(
-            f"True C: {f.one_hot(torch.tensor(C[1, 5:10], dtype=int), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
+        print(f"True C: {f.one_hot(torch.tensor(C[1, 5:10], dtype=int), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
