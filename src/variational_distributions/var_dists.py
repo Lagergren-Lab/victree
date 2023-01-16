@@ -145,9 +145,10 @@ class qC(VariationalDistribution):
             new_eta1 = new_eta1 + tree_eta1 * weight
             new_eta2 = new_eta2 + tree_eta2 * weight
 
-        self.eta1 = new_eta1
-        self.eta2 = new_eta2
-        # FIXME: eta1 and eta2 don't come out normalized (in exp scale)
+        # eta1 and eta2 don't come out normalized (in exp scale)
+        # need normalization
+        self.eta1[...] = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
+        self.eta2[...] = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
         # update the filtering probs
         self.compute_filtering_probs()
         return super().update()
@@ -181,8 +182,8 @@ class qC(VariationalDistribution):
         root = sorted_nodes[0]
         inner_nodes = sorted_nodes[1:]
 
-        e_eta1 = torch.zeros(self.eta1.shape)
-        e_eta2 = torch.zeros(self.eta2.shape)
+        e_eta1 = torch.empty_like(self.eta1)
+        e_eta2 = torch.empty_like(self.eta2)
 
         # eta_1_iota(1, i)
         e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
@@ -195,7 +196,7 @@ class qC(VariationalDistribution):
                               q_mutau.exp_log_emission(obs))
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
-            e_eta2 = torch.einsum('pmjk,hikj,pmh->pmih',
+            e_eta2[...] = torch.einsum('pmjk,hikj,pmh->pmih',
                                               self.couple_filtering_probs,
                                               q_eps.exp_zipping(),
                                               e_eta1_m[:, 1:, :])
@@ -219,8 +220,8 @@ class qC(VariationalDistribution):
     def exp_alpha(self, tree: nx.DiGraph, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> Tuple[
         torch.Tensor, torch.Tensor]:
 
-        e_alpha1 = torch.zeros(self.eta1.shape)
-        e_alpha2 = torch.zeros(self.eta2.shape)
+        e_alpha1 = torch.empty_like(self.eta1)
+        e_alpha2 = torch.empty_like(self.eta2)
 
         # alpha_iota(m, i)
         # as in the write-up, then it's split and e_alpha12[:, 1:, :] is
@@ -261,28 +262,25 @@ class qC(VariationalDistribution):
 
     def compute_filtering_probs(self):
         # shape K x S (K is batch size / clones)
-        initial_probs = torch.exp(self.eta1)
+        initial_log_probs = self.eta1
         # shape K x M x S x S
-        transition_probs = torch.exp(self.eta2)
-        if self.config.debug:
-            assert(np.allclose(initial_probs.sum(dim=1), 1.))
-            assert(np.allclose(transition_probs.sum(dim=3), 1.))
+        transition_log_probs = self.eta2
 
-        single = torch.empty(self.single_filtering_probs.shape)
-        couple = torch.empty(self.couple_filtering_probs.shape)
-        single[:, 0, :] = initial_probs
+        log_single = torch.empty(self.single_filtering_probs.shape)
+        log_couple = torch.empty(self.couple_filtering_probs.shape)
+        log_single[:, 0, :] = initial_log_probs
         for m in range(self.config.chain_length - 1):
             # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
-            couple[:, m, ...] = single[:, m, :, None] * transition_probs[:, m, ...]
+            log_couple[:, m, ...] = log_single[:, m, :, None] + transition_log_probs[:, m, ...]
             # then marginalize over X_m to obtain P(X_m+1)
-            single[:, m + 1, :] = torch.sum(couple[:, m, ...], dim=1)
+            log_single[:, m + 1, :] = torch.logsumexp(log_couple[:, m, ...], dim=1)
 
         if self.config.debug:
-            assert(np.allclose(single.sum(dim=2), 1.))
-            assert(np.allclose(couple.sum(dim=(2, 3)), 1.))
+            assert(np.allclose(log_single.logsumexp(dim=2).exp(), 1.))
+            assert(np.allclose(log_couple.logsumexp(dim=(2, 3)).exp(), 1.))
 
-        self.single_filtering_probs = single
-        self.couple_filtering_probs = couple
+        self.single_filtering_probs = torch.exp(log_single)
+        self.couple_filtering_probs = torch.exp(log_couple)
         return self.single_filtering_probs, self.couple_filtering_probs
 
     def calculate_filtering_probs(self):

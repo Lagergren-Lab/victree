@@ -25,7 +25,7 @@ class qCTestCase(unittest.TestCase):
     def test_update(self):
         # design simple test: fix all other variables
         # and update the q_c params
-        cells_per_clone = 100
+        cells_per_clone = 10
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=10,
                      wis_sample_size=2, debug=True)
         qc = qC(cfg)
@@ -38,6 +38,9 @@ class qCTestCase(unittest.TestCase):
             [[200] * 4 + [300] * 6] * cells_per_clone +
             [[100] * 8 + [200] * 2] * cells_per_clone
         ).T
+        # introduce some randomness
+        obs += torch.distributions.normal.Normal(0, 10).sample(obs.shape).int()
+
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
         # fix epsilon to be with mean 1/9 and low variance
         # both clones only have one asymmetric transition out of 9
@@ -59,7 +62,7 @@ class qCTestCase(unittest.TestCase):
         trees = [fix_tree] * cfg.wis_sample_size
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
-        for i in range(100):
+        for i in range(10):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
             # print(qc.elbo(trees, wis_weights, fix_qeps))
@@ -70,11 +73,12 @@ class qCTestCase(unittest.TestCase):
 
         print(qc.single_filtering_probs)
         print(qc.couple_filtering_probs)
-        # self.assertGreater(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, 2])
-        # self.assertGreater(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 5, 2, 3])
 
-        # self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 7, 1, 1])
-        # self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 4, 1, 2])
+        self.assertGreater(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, 2])
+        self.assertGreater(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 5, 2, 3])
+
+        self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 7, 1, 1])
+        self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 4, 1, 2])
 
     def test_filtering_probs_update(self):
 

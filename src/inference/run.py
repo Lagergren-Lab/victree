@@ -7,6 +7,7 @@ from utils.tree_utils import generate_fixed_tree
 from variational_distributions.var_dists import qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qZ, qC
 from model.generative_model import GenerativeModel
 
+
 def run(args):
     # TODO: write main code
     cell_names, gene_ids, obs = read_sc_data(args.filename)
