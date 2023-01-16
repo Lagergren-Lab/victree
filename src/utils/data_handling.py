@@ -1,6 +1,8 @@
 from typing import List, Tuple, Union
 from pathlib import Path
 import torch
+import h5py
+
 
 def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]:
     with open(file_path, 'r') as f:
@@ -23,3 +25,17 @@ def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]
 
         obs = torch.tensor(obs_lst)
         return cell_names, gene_ids, obs
+
+
+def load_h5_anndata(file_path):
+    return h5py.File(file_path, 'r')
+
+
+def read_X_counts_from_h5(file_path):
+    f = h5py.File(file_path, 'r')
+    return f['X']
+
+
+def read_hmmcopy_state_from_h5(file_path):
+    f = h5py.File(file_path, 'r')
+    return f['layers']['state']

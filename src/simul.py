@@ -9,6 +9,7 @@ import argparse
 import logging
 import random
 
+import h5py
 import networkx as nx
 from networkx.algorithms.tree.coding import NotATree
 from networkx.algorithms.tree.recognition import is_arborescence
@@ -19,6 +20,7 @@ import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
 from utils.eps_utils import TreeHMM
+from utils.tree_utils import generate_fixed_tree
 
 
 def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -204,6 +206,33 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     return C, y, z, pi, mu, tau, eps
 
 
+def write_sample_dataset_h5(dest_path):
+    n_cells = 300
+    n_sites = 100
+    n_copy_states = 5
+    n_nodes = 4
+    tree = generate_fixed_tree(n_nodes)
+    mu_0 = 100.0
+    nu_0 = 0.1
+    alpha0 = 10.
+    beta0 = 40.
+    a0 = .5
+    b0 = .5
+    dir_alpha0 = 1.
+    data = torch.ones((n_sites, n_cells))
+    unconditioned_model = poutine.uncondition(model_tree_markov_full)
+    C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, mu_0, nu_0, alpha0,
+                                                    beta0, a0, b0, dir_alpha0)
+    # write cn for each cell separately
+    f = h5py.File(dest_path, 'w')
+    x_ds = f.create_dataset('X', data=y.int().clamp(min=0))
+    layers_grp = f.create_group('layers')
+    cn_state = C[z, :].T
+    assert(cn_state.shape == x_ds.shape)
+    layers_grp.create_dataset('state', data=cn_state)
+    f.close()
+
+
 def main(args):
     if args.cuda:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
@@ -264,21 +293,24 @@ def tree_to_newick(g: nx.DiGraph, root=None):
 
 
 if __name__ == '__main__':
-    # parse arguments
-    parser = argparse.ArgumentParser(
-        description="Tree HMM test"
-    )
-    parser.add_argument("--seed", default=42, type=int)
-    parser.add_argument("--cuda", action="store_true")
-    # parser.add_argument("--tmc-num-samples", default=10, type=int)
-    args = parser.parse_args()
-    # seed for reproducibility
-    # torch rng
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
-    # python rng
-    np.random.seed(args.seed)
-    random.seed(args.seed)
+    # save data to h5 file
+    write_sample_dataset_h5('../data_example.h5')
 
-    main(args)
+    ## parse arguments
+    #parser = argparse.ArgumentParser(
+    #    description="Tree HMM test"
+    #)
+    #parser.add_argument("--seed", default=42, type=int)
+    #parser.add_argument("--cuda", action="store_true")
+    ## parser.add_argument("--tmc-num-samples", default=10, type=int)
+    #args = parser.parse_args()
+    ## seed for reproducibility
+    ## torch rng
+    #torch.manual_seed(args.seed)
+    #torch.cuda.manual_seed(args.seed)
+    #torch.cuda.manual_seed_all(args.seed)
+    ## python rng
+    #np.random.seed(args.seed)
+    #random.seed(args.seed)
+
+    #main(args)
