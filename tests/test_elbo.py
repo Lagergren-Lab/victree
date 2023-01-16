@@ -16,7 +16,7 @@ class TestElbo(unittest.TestCase):
         self.proj_dir = Path(__file__).parent.parent
         return super().setUp()
 
-    def test_elbo_decrease_exception(self):
+    def _test_elbo_decrease_exception(self):
         #TODO: Obsolete test for sampling estimated ELBO
         config = Config()
         p = GenerativeModel(config)

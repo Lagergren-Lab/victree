@@ -39,7 +39,7 @@ def get_tree_K_nodes_random(K):
 
 def get_random_q_C(M, A):
     q_C_init = torch.rand(A)
-    q_C_transitions_unnormalized = torch.rand((M, A, A))
+    q_C_transitions_unnormalized = torch.rand((M-1, A, A))
     q_C_transitions = f.normalize(q_C_transitions_unnormalized, p=1, dim=2)
     return q_C_init, q_C_transitions
 
@@ -47,9 +47,9 @@ def get_random_q_C(M, A):
 def get_root_q_C(M, A):
     q_C_init = torch.zeros(A)
     q_C_init[2] = 1
-    q_C_transitions = torch.zeros((M, A, A))
+    q_C_transitions = torch.zeros((M-1, A, A))
     diag_A = torch.ones(A)
-    for m in range(M):
+    for m in range(M-1):
         q_C_transitions[m] = torch.diag(diag_A, 0)
     return q_C_init, q_C_transitions
 

@@ -93,10 +93,9 @@ class qC(VariationalDistribution):
             cross_ent_pos_1 = torch.einsum("ki,ki->",
                                            self.single_filtering_probs[:, 0, :],
                                            torch.log(alpha_1[:, :]))
-            cross_ent_pos_2_to_M = torch.einsum("kmij,kmij,kmj->",
+            cross_ent_pos_2_to_M = torch.einsum("kmij,kmij->",
                                                 self.couple_filtering_probs,
-                                                alpha_2,
-                                                alpha_1[:, 1:, :])
+                                                alpha_2)
             E_T += torch.exp(w_T_list[l] - normalizing_weight) *\
                    (cross_ent_pos_1 + cross_ent_pos_2_to_M)
 
@@ -199,7 +198,7 @@ class qC(VariationalDistribution):
             e_eta2 = torch.einsum('pmjk,hikj,pmh->pmih',
                                               self.couple_filtering_probs,
                                               q_eps.exp_zipping(),
-                                              e_eta1_m)
+                                              e_eta1_m[:, 1:, :])
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
             e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj,pmh->pmih',
@@ -224,6 +223,8 @@ class qC(VariationalDistribution):
         e_alpha2 = torch.zeros(self.eta2.shape)
 
         # alpha_iota(m, i)
+        # as in the write-up, then it's split and e_alpha12[:, 1:, :] is
+        # incorporated into e_alpha2
         e_alpha12 = torch.einsum('wmj,ji->wmi', self.single_filtering_probs, q_eps.h_eps0())
 
         e_alpha1[...] = e_alpha12[:, 0, :]  # first site goes to initial state
