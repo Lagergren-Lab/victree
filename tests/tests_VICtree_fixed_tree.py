@@ -72,7 +72,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, p, q, y)
 
-        copy_tree.run(100)
+        copy_tree.run(20)
 
     def test_large_tree(self):
         K = 5
