@@ -39,7 +39,7 @@ def get_tree_K_nodes_random(K):
 
 def get_random_q_C(M, A):
     q_C_init = torch.rand(A)
-    q_C_transitions_unnormalized = torch.rand((M, A, A))
+    q_C_transitions_unnormalized = torch.rand((M-1, A, A))
     q_C_transitions = f.normalize(q_C_transitions_unnormalized, p=1, dim=2)
     return q_C_init, q_C_transitions
 
@@ -47,9 +47,9 @@ def get_random_q_C(M, A):
 def get_root_q_C(M, A):
     q_C_init = torch.zeros(A)
     q_C_init[2] = 1
-    q_C_transitions = torch.zeros((M, A, A))
+    q_C_transitions = torch.zeros((M-1, A, A))
     diag_A = torch.ones(A)
-    for m in range(M):
+    for m in range(M-1):
         q_C_transitions[m] = torch.diag(diag_A, 0)
     return q_C_init, q_C_transitions
 
@@ -60,11 +60,11 @@ def get_two_simple_trees_with_random_qCs(M, A) -> Tuple[List[nx.DiGraph], torch.
     T_list = [T_1, T_2]
     N = 3
     q_C_0_init, q_C_0_transitions = get_root_q_C(M, A)
-    q_C_0_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_0_init, q_C_0_transitions, M)
+    q_C_0_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_0_init, q_C_0_transitions)
     q_C_1_init, q_C_1_transitions = get_random_q_C(M, A)
-    q_C_1_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_1_init, q_C_1_transitions, M)
+    q_C_1_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_1_init, q_C_1_transitions)
     q_C_2_init, q_C_2_transitions = get_random_q_C(M, A)
-    q_C_2_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_2_init, q_C_2_transitions, M)
+    q_C_2_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_2_init, q_C_2_transitions)
     q_C_pairwise_marginals = torch.zeros(N, M - 1, A, A)
     q_C_pairwise_marginals[0] = q_C_0_pairwise_marginals
     q_C_pairwise_marginals[1] = q_C_1_pairwise_marginals

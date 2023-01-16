@@ -25,7 +25,7 @@ class treeUtilsTestCase(unittest.TestCase):
         no_trans = torch.diag(torch.ones((K)))
         for n in range(N):
             trans_prob[n] = no_trans
-        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob, N)
+        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob)
 
         for n in range(N):
             self.assertAlmostEqual(state_probs[n, :].sum(), 1.0, msg=f"state probs don't sum to 1.0 at position {n}")
@@ -43,7 +43,7 @@ class treeUtilsTestCase(unittest.TestCase):
         uniform_trans = torch.ones((K, K)) / K
         for n in range(N):
             trans_prob[n] = uniform_trans
-        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob, N)
+        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob)
 
         for n in range(N):
             self.assertAlmostEqual(state_probs[n, :].sum(), 1.0, msg=f"state probs don't sum to 1.0 at position {n}")
@@ -69,7 +69,7 @@ class treeUtilsTestCase(unittest.TestCase):
             trans_prob[n, 1, 1] = 0.5
             trans_prob[n, 1, 0] = 0.5
 
-        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob, N)
+        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob)
 
         for n in range(N):
             self.assertAlmostEqual(state_probs[n, :].sum(), 1.0, msg=f"state probs don't sum to 1.0 at position {n}")
@@ -95,7 +95,7 @@ class treeUtilsTestCase(unittest.TestCase):
             #trans_prob[n] = trans_prob[n] / (torch.sum(trans_prob[n], 1).unsqueeze(-1))
             trans_prob[n] = f.normalize(trans_prob[n], dim=1, p=1)
 
-        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob, N)
+        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob)
 
         for n in range(int(N/3), N):
             self.assertAlmostEqual(state_probs[n, :].sum().item(), 1.0, places=5, msg=f"state probs don't sum to 1.0 at position {n}")
@@ -121,7 +121,7 @@ class treeUtilsTestCase(unittest.TestCase):
             trans_prob[n, :, biased_state] = 1.
             trans_prob[n] = f.normalize(trans_prob[n], dim=1, p=1)
 
-        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob, N)
+        state_probs = tree_utils.one_slice_marginals_markov_chain(init_prob, trans_prob)
 
         for n in range(int(N/3), N):
             self.assertAlmostEqual(state_probs[n, :].sum().item(), 1.0, places=5, msg=f"state probs don't sum to 1.0 at position {n}")
