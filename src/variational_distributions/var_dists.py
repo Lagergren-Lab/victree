@@ -26,9 +26,9 @@ class qC(VariationalDistribution):
             (config.n_nodes, config.chain_length - 1, config.n_states, config.n_states))
 
         # eta1 = log(pi) - log initial states probs
-        self.eta1 = torch.empty_like(self._single_filtering_probs)
+        self._eta1 = torch.empty((config.n_nodes, config.n_states))
         # eta2 = log(phi) - log transition probs
-        self.eta2 = torch.empty_like(self._couple_filtering_probs)
+        self._eta2 = torch.empty_like(self._couple_filtering_probs)
 
         # validate true params
         if true_params is not None:
@@ -74,15 +74,31 @@ class qC(VariationalDistribution):
 
         self._couple_filtering_probs[...] = cfp
 
-    def initialize(self):
+    @property
+    def eta1(self):
+        return self._eta1
+
+    @eta1.setter
+    def eta1(self, e1):
+        self._eta1[...] = e1
+
+    @property
+    def eta2(self):
+        return self._eta2
+
+    @eta2.setter
+    def eta2(self, e2):
+        self._eta2[...] = e2
+
+    def initialize(self, **kwargs):
         self.random_init()
-        return super().initialize()
+        return super().initialize(**kwargs)
 
     def random_init(self):
-        self.eta1[...] = torch.rand(self.eta1.shape)
-        self.eta1[...] = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
-        self.eta2[...] = torch.rand(self.eta2.shape)
-        self.eta2[...] = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+        self.eta1 = torch.rand(self.eta1.shape)
+        self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
+        self.eta2 = torch.rand(self.eta2.shape)
+        self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
         self.compute_filtering_probs()
 
@@ -90,10 +106,10 @@ class qC(VariationalDistribution):
         """
         Mainly used for testing.
         """
-        self.eta1[...] = torch.ones(self.eta1.shape)
-        self.eta1[...] = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
-        self.eta2[...] = torch.ones(self.eta2.shape)
-        self.eta2[...] = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+        self.eta1 = torch.ones(self.eta1.shape)
+        self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
+        self.eta2 = torch.ones(self.eta2.shape)
+        self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
         self.compute_filtering_probs()
 
@@ -308,8 +324,8 @@ class qC(VariationalDistribution):
         # shape K x M x S x S
         transition_log_probs = self.eta2
 
-        log_single = torch.empty(self.single_filtering_probs.shape)
-        log_couple = torch.empty(self.couple_filtering_probs.shape)
+        log_single = torch.empty_like(self.single_filtering_probs)
+        log_couple = torch.empty_like(self.couple_filtering_probs)
         log_single[:, 0, :] = initial_log_probs
         for m in range(self.config.chain_length - 1):
             # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
@@ -383,14 +399,14 @@ class qZ(VariationalDistribution):
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
-    def initialize(self, method: str = 'random'):
+    def initialize(self, method: str = 'random', **kwargs):
         if method == 'random':
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
         else:
             raise ValueError(f'method `{method}` for qZ initialization is not implemented')
-        return super().initialize()
+        return super().initialize(**kwargs)
 
     def _random_init(self):
         # sample from a Dirichlet
@@ -420,9 +436,9 @@ class qZ(VariationalDistribution):
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qcmkj, dnmj)
         # TODO: remove asserts
-        assert (gamma.shape == (self.config.n_cells, self.config.n_nodes))
-        self.pi = torch.softmax(gamma, dim=1)
-        assert (self.pi.shape == (self.config.n_cells, self.config.n_nodes))
+        assert gamma.shape == (self.config.n_cells, self.config.n_nodes)
+        self.pi[...] = torch.softmax(gamma, dim=1)
+        assert self.pi.shape == (self.config.n_cells, self.config.n_nodes)
 
         return super().update()
 
@@ -456,8 +472,8 @@ class qT(VariationalDistribution):
         self.weighted_graph = self.init_fc_graph()
 
     # TODO: implement with initialization instruction from the doc
-    def initialize(self):
-        return super().initialize()
+    def initialize(self, **kwargs):
+        return super().initialize(**kwargs)
 
     def cross_entropy(self):
         K = torch.tensor(self.config.n_nodes)
@@ -565,9 +581,9 @@ class qEpsilon(VariationalDistribution):
         self.beta = beta
         self._exp_zipping = None  # reset previously computed expected zipping
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         # TODO: implement (over set params)
-        return super().initialize()
+        return super().initialize(**kwargs)
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -664,9 +680,9 @@ class qEpsilonMulti(VariationalDistribution):
         self.alpha = alpha
         self.beta = beta
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         # TODO: implement (over set params)
-        return super().initialize()
+        return super().initialize(**kwargs)
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -770,25 +786,23 @@ class qEpsilonMulti(VariationalDistribution):
 # observations (mu-tau)
 class qMuTau(VariationalDistribution):
 
-    def __init__(self, config: Config, loc: float = 100, precision_factor: float = .1,
-                 shape: float = 5, rate: float = 5, true_params=None):
+    def __init__(self, config: Config, true_params=None):
         # params for each cell
-        self._loc = loc * torch.ones(config.n_cells)
-        self._precision_factor = precision_factor * torch.ones(config.n_cells)
-        self._shape = shape * torch.ones(config.n_cells)
-        self._rate = rate * torch.ones(config.n_cells)
-        self.mu_prior = self._loc
-        self.lambda_prior = self._precision_factor
-        self.alpha_prior = self._shape
-        self.alpha = self.alpha_prior + config.chain_length / 2  # alpha never updated
-        self.beta_prior = self._rate
-        self.true_params = true_params
+        self._loc = torch.empty(config.n_cells)
+        self._precision_factor = torch.empty(config.n_cells)
+        self._shape = torch.empty(config.n_cells)
+        self._rate = torch.empty(config.n_cells)
+        self.mu_prior = torch.empty_like(self._loc)
+        self.lambda_prior = torch.empty_like(self._precision_factor)
+        self.alpha_prior = torch.empty_like(self._shape)
+        self.alpha = torch.empty_like(self.alpha_prior)
+        self.beta_prior = torch.empty_like(self._rate)
 
         if true_params is not None:
             # for each cell, mean and precision of the emission model
             assert "mu" in true_params
             assert "tau" in true_params
-
+        self.true_params = true_params
         super().__init__(config, true_params is not None)
 
     # getter ensures that params are only updated in
@@ -836,8 +850,18 @@ class qMuTau(VariationalDistribution):
         super().update()
         return mu, lmbda, alpha, beta
 
-    def initialize(self):
-        return super().initialize()
+    def initialize(self, loc: float = 100, precision_factor: float = .1,
+                 shape: float = 5, rate: float = 5, **kwargs):
+        self._loc[...] = loc * torch.ones(self.config.n_cells)
+        self._precision_factor[...] = precision_factor * torch.ones(self.config.n_cells)
+        self._shape[...] = shape * torch.ones(self.config.n_cells)
+        self._rate[...] = rate * torch.ones(self.config.n_cells)
+        self.mu_prior[...] = self._loc
+        self.lambda_prior[...] = self._precision_factor
+        self.alpha_prior[...] = self._shape
+        self.alpha[...] = self.alpha_prior + self.config.chain_length / 2  # alpha never updated
+        self.beta_prior[...] = self._rate
+        return super().initialize(**kwargs)
 
     def cross_entropy(self) -> float:
         return super().elbo()
@@ -905,10 +929,10 @@ class qPi(VariationalDistribution):
         self.true_params = true_params
         super().__init__(config, fixed=true_params is not None)
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         # initialize to balanced concentration (all ones)
         self.concentration_param = torch.ones_like(self.concentration_param)
-        return super().initialize()
+        return super().initialize(**kwargs)
 
     def update(self, qz: qZ):
         # pi_model = p(pi), parametrized by delta_k

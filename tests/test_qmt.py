@@ -25,8 +25,9 @@ class qmtTestCase(unittest.TestCase):
         self.prec_factor_init = .1
         self.alpha_init = 100
         self.beta_init = 100
-        self.qmt = qMuTau(self.config, loc=self.mu_init, precision_factor=self.prec_factor_init, shape=self.alpha_init,
-                          rate=self.beta_init)
+        self.qmt = qMuTau(self.config)
+        self.qmt.initialize(loc=self.mu_init, precision_factor=self.prec_factor_init,
+                            shape=self.alpha_init, rate=self.beta_init)
 
     def test_update_mu_greater_than_init_for_observations_greater_than_init(self):
         obs = torch.randint(low=200, high=250, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)

@@ -24,7 +24,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
         self.qpi = qPi(self.config)
-        self.qmt = qMuTau(self.config, loc=100, precision_factor=.1, shape=5, rate=5)
+        self.qmt = qMuTau(self.config)
+        self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
 
     def set_up_q(self, config):
         qc = qC(config)
@@ -32,7 +33,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
         qpi = qPi(config)
-        qmt = qMuTau(config, loc=1, precision_factor=.1, shape=5, rate=5)
+        qmt = qMuTau(config)
+        qmt.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
         return qc, qt, qeps, qz, qpi, qmt
 
     def simul_data_pyro(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -115,7 +117,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, p, q, y)
         copy_tree.q.pi.concentration_param = pi
-        copy_tree.q.z.pi = f.one_hot(z, num_classes=K)
+        copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.eps.alpha = torch.diag(-torch.ones(config.n_nodes) * torch.inf) + 10.
         copy_tree.q.eps.beta = torch.diag(-torch.ones(config.n_nodes) * torch.inf) + 40.
         copy_tree.q.mt._loc = torch.ones(n_cells) * mu

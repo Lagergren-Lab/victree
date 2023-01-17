@@ -34,9 +34,9 @@ class JointVarDist(VariationalDistribution):
 
         return super().update()
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
-            q.initialize()
+            q.initialize(kwargs)
         return super().initialize()
 
     def elbo(self, T_eval, w_T_eval) -> float:

@@ -19,17 +19,24 @@ class TestElbo(unittest.TestCase):
     def _test_elbo_decrease_exception(self):
         #TODO: Obsolete test for sampling estimated ELBO
         config = Config()
+        init_params = {
+            'loc': 100,
+            'precision_factor': .1,
+            'shape': 5.,
+            'rate': 5.
+        }
         p = GenerativeModel(config)
         q_c = qC(config)
         q_z = qZ(config)
         q_t = qT(config)
         q_pi = qPi(config)
         q_eps = qEpsilon(config, 1., 1.)
-        q_mutau = qMuTau(config, loc=100., precision_factor=.1, shape=5., rate=5.)
+        q_mutau = qMuTau(config)
         _, _, obs = read_sc_data(self.proj_dir / 'obs_example.txt')
         obs = obs.float()
         joint_dist = JointVarDist(config, 
                                   q_c, q_z, q_t, q_eps, q_mutau, q_pi, obs)
+        joint_dist.initialize(**init_params)
 
         copy_tree = CopyTree(config, p, joint_dist, obs)
 
