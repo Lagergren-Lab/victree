@@ -31,6 +31,7 @@ def run(args):
     # q = JointVarDist(config, qc, qz, qt, qeps, qmt, qpi, obs)
     tree = generate_fixed_tree(config.n_nodes)
     q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, obs)
+    q.initialize()
     copy_tree = CopyTree(config, p, q, obs)
     
     copy_tree.run(args.n_iter)

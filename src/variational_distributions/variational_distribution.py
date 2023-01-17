@@ -12,7 +12,7 @@ class VariationalDistribution:
         self.config: Config = config
         self.fixed = fixed  # if true, don't update and exp-functions return fixed params
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         pass
 
     def update(self):

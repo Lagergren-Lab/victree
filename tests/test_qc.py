@@ -18,7 +18,8 @@ class qCTestCase(unittest.TestCase):
         self.qt = qT(self.config)
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
-        self.qmt = qMuTau(self.config, loc=100, precision_factor=.1, shape=5, rate=5)
+        self.qmt = qMuTau(self.config)
+        self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
         self.obs = torch.randint(low=50, high=150,
                                  size=(self.config.chain_length, self.config.n_cells))
 
@@ -86,12 +87,12 @@ class qCTestCase(unittest.TestCase):
 
     def test_expectation_size(self):
         tree = nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
-        exp_alpha1, exp_alpha2 = self.qc.exp_alpha(tree, self.qeps)
+        exp_alpha1, exp_alpha2 = self.qc._exp_alpha(tree, self.qeps)
         self.assertEqual(exp_alpha1.shape, (self.config.n_nodes, self.config.n_states))
         self.assertEqual(exp_alpha2.shape,
                          (self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))
 
-        exp_eta1, exp_eta2 = self.qc.exp_eta(self.obs, tree, self.qeps, self.qz, self.qmt)
+        exp_eta1, exp_eta2 = self.qc._exp_eta(self.obs, tree, self.qeps, self.qz, self.qmt)
         self.assertEqual(exp_eta1.shape, (self.config.n_nodes, self.config.n_states))
         self.assertEqual(exp_eta2.shape,
                          (self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))

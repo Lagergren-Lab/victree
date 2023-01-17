@@ -30,13 +30,13 @@ class JointVarDist(VariationalDistribution):
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
+        self.mt.update(self.c, self.z, self.obs)
 
         return super().update()
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
-            q.initialize()
+            q.initialize(kwargs)
         return super().initialize()
 
     def elbo(self, T_eval, w_T_eval) -> float:
@@ -64,10 +64,10 @@ class VarDistFixedTree(VariationalDistribution):
     def update(self, p: GenerativeModel):
         # T, C, eps, z, mt, pi
         self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
-        self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
         self.eps.update([self.T], self.w_T, self.c.couple_filtering_probs)
         self.pi.update(self.z)
+        self.z.update(self.mt, self.c, self.pi, self.obs)
+        self.mt.update(self.c, self.z, self.obs)
 
         return super().update()
 
