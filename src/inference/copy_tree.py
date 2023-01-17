@@ -118,9 +118,6 @@ class CopyTree:
         self.q = q
         self.obs = obs
 
-        # non-mutable
-        self.sum_over_m_y_squared = torch.sum(self.obs ** 2)
-
         # counts the number of steps performed
         self.it_counter = 0
         self.elbo = -infty
