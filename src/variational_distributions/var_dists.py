@@ -81,7 +81,7 @@ class qC(VariationalDistribution):
         log_marginals = torch.log(self.single_filtering_probs + eps)
         return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, log_marginals)
 
-    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+    def cross_entropy_old(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # E_q[log p(C|...)]
         E_T = 0
         L = len(T_list)
@@ -100,6 +100,35 @@ class qC(VariationalDistribution):
                    (cross_ent_pos_1 + cross_ent_pos_2_to_M)
 
         return E_T
+
+    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+        # E_q[log p(C|...)]
+        E_T = 0
+        L = len(T_list)
+        normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
+        for l in range(L):
+            tree_CE = 0
+            for a in T_list[l].edges:
+                u, v = a
+                arc_CE = self.cross_entropy_arc(q_eps, u, v)
+                tree_CE += arc_CE
+
+            E_T += torch.exp(w_T_list[l] - normalizing_weight) * tree_CE
+        return E_T
+
+    def cross_entropy_arc(self, q_eps, u, v):
+        E_h_eps_0 = q_eps.h_eps0()
+        E_h_eps = q_eps.exp_zipping((u, v))
+        cross_ent_pos_1 = torch.einsum("i,j,ij->",
+                                       self.single_filtering_probs[u, 0, :],
+                                       self.single_filtering_probs[v, 0, :],
+                                       E_h_eps_0)
+        cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ikjl->",
+                                            self.couple_filtering_probs[u, :, :, :],
+                                            self.couple_filtering_probs[v, :, :, :],
+                                            E_h_eps)
+
+        return cross_ent_pos_1 + cross_ent_pos_2_to_M
 
     def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)

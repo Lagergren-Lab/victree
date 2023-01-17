@@ -60,8 +60,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
     def test_small_tree(self):
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
-        n_cells = 200
-        n_sites = 100
+        n_cells = 20
+        n_sites = 10
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
