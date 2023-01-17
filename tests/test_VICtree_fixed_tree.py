@@ -66,7 +66,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         data = torch.ones((n_sites, n_cells))
         C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=True)
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)

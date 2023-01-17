@@ -211,8 +211,8 @@ class qC(VariationalDistribution):
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
         all_but_2 = torch.arange(self.config.n_states) != 2
-        e_eta1[root, all_but_2] = -np.infty
-        e_eta2[root, :, :, all_but_2] = -np.infty
+        e_eta1[root, all_but_2] = -torch.inf
+        e_eta2[root, :, :, all_but_2] = -torch.inf
 
         return e_eta1, e_eta2
 
