@@ -377,13 +377,28 @@ class qC(VariationalDistribution):
 class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
         self.pi = torch.empty((config.n_cells, config.n_nodes))
+
+        if true_params is not None:
+            assert "z" in true_params
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
-    def initialize(self):
-        # initialize to uniform
-        self.pi = torch.ones((self.config.n_cells, self.config.n_nodes)) / self.config.n_nodes
+    def initialize(self, method: str = 'random'):
+        if method == 'random':
+            self._random_init()
+        elif method == 'uniform':
+            self._uniform_init()
+        else:
+            raise ValueError(f'method `{method}` for qZ initialization is not implemented')
         return super().initialize()
+
+    def _random_init(self):
+        # sample from a Dirichlet
+        self.pi[...] = torch.distributions.Dirichlet(torch.ones_like(self.pi)).sample()
+
+    def _uniform_init(self):
+        # initialize to uniform probs among nodes
+        self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
 
     def update(self, qmt: 'qMuTau', qc: 'qC', qpi: 'qPi', obs: torch.Tensor):
         """
@@ -881,14 +896,18 @@ class qMuTau(VariationalDistribution):
 # dirichlet concentration
 class qPi(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_prior=1):
-        super().__init__(config)
+    def __init__(self, config: Config, alpha_prior=1, true_params=None):
         self.concentration_param_prior = torch.ones(config.n_nodes) * alpha_prior
         self.concentration_param = self.concentration_param_prior
 
+        if true_params is not None:
+            assert "pi" in true_params
+        self.true_params = true_params
+        super().__init__(config, fixed=true_params is not None)
+
     def initialize(self):
         # initialize to balanced concentration (all ones)
-        self.concentration_param = torch.ones(self.concentration_param.shape)
+        self.concentration_param = torch.ones_like(self.concentration_param)
         return super().initialize()
 
     def update(self, qz: qZ):
@@ -901,8 +920,14 @@ class qPi(VariationalDistribution):
         return super().update()
 
     def exp_log_pi(self):
-        return torch.digamma(self.concentration_param) - \
+        e_log_pi = torch.empty_like(self.concentration_param)
+        if self.fixed:
+            e_log_pi[...] = torch.log(self.true_params["pi"])
+        else:
+            e_log_pi[...] = torch.digamma(self.concentration_param) - \
                torch.digamma(torch.sum(self.concentration_param))
+
+        return e_log_pi
 
     def cross_entropy(self):
         delta_p = self.concentration_param_prior

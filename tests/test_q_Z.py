@@ -80,3 +80,53 @@ class qZTestCase(unittest.TestCase):
         print(f"Uniform: {res_1} \n Skewed: {res_2}")
         self.assertLess(res_1, res_2, f"ELBO for uniform assignment over clusters greater than all probability to one cluster")
 
+    def test_update(self):
+        # design simple test: fix all other variables
+        # and update the q_z params
+        cells_per_clone = 10
+        cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=10,
+                     wis_sample_size=2, debug=True)
+        qz = qZ(cfg)
+        # uniform initialization of pi
+        qz.initialize(method='random')
+
+        # obs with 15 cells, 5 each to different clone
+        # in order, clone 0, 1, 2
+        cn_profile = torch.tensor(
+            [[2] * 10,
+             [2] * 4 + [3] * 6,
+             [1] * 8 + [2] * 2]
+        )
+        # cell assignments
+        true_z = torch.tensor([0] * cells_per_clone +
+                              [1] * cells_per_clone +
+                              [2] * cells_per_clone)
+        true_pi = torch.nn.functional.one_hot(true_z, num_classes=cfg.n_nodes).float()
+
+        cell_cn_profile = cn_profile[true_z, :]
+        self.assertEqual(cell_cn_profile.shape, (cfg.n_cells, cfg.chain_length))
+
+        obs = (cell_cn_profile * 100).T
+        # introduce some randomness
+        obs += torch.distributions.normal.Normal(0, 10).sample(obs.shape).int()
+
+        # give true values to the other required dists
+        # i.e. qmt, qc, qpi
+        fix_qmt = qMuTau(cfg, true_params={
+            "mu": 100 * torch.ones(cfg.n_cells),
+            "tau": 1 * torch.ones(cfg.n_cells)
+        })
+
+        fix_qc = qC(cfg, true_params={
+            "c": cn_profile
+        })
+
+        fix_qpi = qPi(cfg, true_params={
+            "pi": torch.ones(cfg.n_nodes) / 3.
+        })
+
+        for i in range(3):
+            qz.update(fix_qmt, fix_qc, fix_qpi, obs)
+
+        self.assertTrue(torch.allclose(true_pi, qz.pi))
+
