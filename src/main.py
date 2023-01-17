@@ -59,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", dest="filename",
                         type=validate_file, default='../obs_example.txt',
                         help="input data file", metavar="FILE")
+    parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
     parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")
     parser.add_argument("--A", default=7, type=int, help="Number of characters/copy number states")
     parser.add_argument("--L", default=10, type=int, help="Number of sampled arborescences")
