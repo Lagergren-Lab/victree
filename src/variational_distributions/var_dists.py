@@ -139,7 +139,7 @@ class qC(VariationalDistribution):
         log_marginals = torch.log(self.single_filtering_probs + eps)
         return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, log_marginals)
 
-    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+    def cross_entropy_old(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # E_q[log p(C|...)]
         E_T = 0
         L = len(T_list)
@@ -158,6 +158,35 @@ class qC(VariationalDistribution):
                    (cross_ent_pos_1 + cross_ent_pos_2_to_M)
 
         return E_T
+
+    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+        # E_q[log p(C|...)]
+        E_T = 0
+        L = len(T_list)
+        normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
+        for l in range(L):
+            tree_CE = 0
+            for a in T_list[l].edges:
+                u, v = a
+                arc_CE = self.cross_entropy_arc(q_eps, u, v)
+                tree_CE += arc_CE
+
+            E_T += torch.exp(w_T_list[l] - normalizing_weight) * tree_CE
+        return E_T
+
+    def cross_entropy_arc(self, q_eps, u, v):
+        E_h_eps_0 = q_eps.h_eps0()
+        E_h_eps = q_eps.exp_zipping((u, v))
+        cross_ent_pos_1 = torch.einsum("i,j,ij->",
+                                       self.single_filtering_probs[u, 0, :],
+                                       self.single_filtering_probs[v, 0, :],
+                                       E_h_eps_0)
+        cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ikjl->",
+                                            self.couple_filtering_probs[u, :, :, :],
+                                            self.couple_filtering_probs[v, :, :, :],
+                                            E_h_eps)
+
+        return cross_ent_pos_1 + cross_ent_pos_2_to_M
 
     def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
@@ -270,8 +299,8 @@ class qC(VariationalDistribution):
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
         all_but_2 = torch.arange(self.config.n_states) != 2
-        e_eta1[root, all_but_2] = -np.infty
-        e_eta2[root, :, :, all_but_2] = -np.infty
+        e_eta1[root, all_but_2] = -torch.inf
+        e_eta2[root, :, :, all_but_2] = -torch.inf
 
         return e_eta1, e_eta2
 
@@ -837,12 +866,12 @@ class qMuTau(VariationalDistribution):
         c_tensor = torch.arange(A, dtype=torch.float)
         sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, qz.pi, c_tensor ** 2)
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, qz.pi, c_tensor, obs)
+        sum_MCZ_y2 = torch.einsum("kma, nk, mn -> n", qc.single_filtering_probs, qz.pi, obs**2)
         M = self.config.chain_length
         alpha = self.alpha_prior + M / 2  # Never updated
         lmbda = self.lambda_prior + sum_MCZ_c2
         mu = (self.mu_prior * self.lambda_prior + sum_MCZ_cy) / lmbda
-        beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) - \
-               (self.mu_prior * self.lambda_prior + sum_MCZ_cy) ** 2 / (2 * lmbda)
+        beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) - mu**2 / (2 * lmbda)
         self._loc = mu
         self._precision_factor = lmbda
         self._shape = alpha

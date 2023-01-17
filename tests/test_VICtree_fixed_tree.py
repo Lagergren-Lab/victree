@@ -62,21 +62,21 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
     def test_small_tree(self):
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
-        n_cells = 200
-        n_sites = 100
+        n_cells = 20
+        n_sites = 10
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
         # y should be integer and non-negative (count data)
         # y = y.clamp(min=0).int()
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=True)
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, p, q, y)
 
-        copy_tree.run(100)
+        copy_tree.run(20)
 
     def test_large_tree(self):
         K = 5

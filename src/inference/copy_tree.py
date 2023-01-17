@@ -82,8 +82,29 @@ class VarDistFixedTree(VariationalDistribution):
         q_MuTau_elbo = self.mt.elbo()
         q_pi_elbo = self.pi.elbo()
         q_eps_elbo = self.eps.elbo()
-        return q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo + q_C_elbo
+        elbo_obs = self.elbo_observations()
+        return elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
 
+    def elbo_observations(self):
+        E_log_tau = self.mt.exp_log_tau()
+        E_tau = self.mt.exp_tau()
+        E_mu_tau = self.mt.exp_mu_tau()
+        E_mu2_tau = self.mt.exp_mu2_tau()
+
+        qC = self.c.single_filtering_probs
+        qZ = self.z.pi
+        y = self.obs
+        A = self.config.n_states
+        c = torch.arange(0, A, dtype=torch.float)
+        c2 = c ** 2
+        M, N = y.shape
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau)
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2)
+        E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
+        E_CZ_mu2_tau = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
+        #elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)
+        elbo = 1/2*(E_CZ_log_tau - E_CZ_tau_y2 + 2*E_CZ_mu_tau_cy - E_CZ_mu2_tau - torch.log(torch.tensor(2*torch.pi)))
+        return elbo
 
 class CopyTree:
 
@@ -96,9 +117,6 @@ class CopyTree:
         self.p = p
         self.q = q
         self.obs = obs
-
-        # non-mutable
-        self.sum_over_m_y_squared = torch.sum(self.obs ** 2)
 
         # counts the number of steps performed
         self.it_counter = 0
