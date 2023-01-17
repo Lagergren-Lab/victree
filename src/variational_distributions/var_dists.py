@@ -823,15 +823,16 @@ class qMuTau(VariationalDistribution):
     def rate(self):
         return self._rate
 
-    def update(self, qc: qC, qz: qZ, obs, sum_M_y2):
+    def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
         """
         Updates mu_n, tau_n for each cell n \in {1,...,N}.
         :param qc:
         :param qz:
-        :param obs:
+        :param obs: tensor of shape (M, N)
         :param sum_M_y2:
         :return:
         """
+        sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
         A = self.config.n_states
         c_tensor = torch.arange(A, dtype=torch.float)
         sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, qz.pi, c_tensor ** 2)

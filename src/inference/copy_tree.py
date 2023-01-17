@@ -30,7 +30,7 @@ class JointVarDist(VariationalDistribution):
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
+        self.mt.update(self.c, self.z, self.obs)
 
         return super().update()
 
@@ -67,7 +67,7 @@ class VarDistFixedTree(VariationalDistribution):
         self.eps.update([self.T], self.w_T, self.c.couple_filtering_probs)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update(self.c, self.z, self.obs, torch.sum(self.obs ** 2))
+        self.mt.update(self.c, self.z, self.obs)
 
         return super().update()
 
