@@ -60,6 +60,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         return C, y, z, pi, mu, tau, eps
 
     def test_small_tree(self):
+        torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
         n_cells = 20
@@ -70,7 +71,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         # y should be integer and non-negative (count data)
         # y = y.clamp(min=0).int()
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=False)
+        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
@@ -79,6 +80,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(20)
 
     def test_large_tree(self):
+        torch.manual_seed(0)
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 200
