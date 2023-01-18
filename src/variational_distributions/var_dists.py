@@ -889,7 +889,6 @@ class qMuTau(VariationalDistribution):
         self.nu_0[...] = self._nu
         self.lmbda_0[...] = self._lmbda
         self.alpha_0[...] = self._alpha
-        self.alpha[...] = self.alpha_0 + self.config.chain_length / 2  # alpha never updated
         self.beta_0[...] = self._beta
         return super().initialize(**kwargs)
 

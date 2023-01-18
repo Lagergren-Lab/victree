@@ -71,9 +71,9 @@ class VarDistFixedTree(VariationalDistribution):
 
         return super().update()
 
-    def initialize(self):
+    def initialize(self, **kwargs):
         for q in [self.c, self.eps, self.pi, self.z, self.mt]:
-            q.initialize()
+            q.initialize(**kwargs)
         return super().initialize()
 
     def elbo(self) -> float:

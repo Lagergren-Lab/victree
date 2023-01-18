@@ -34,7 +34,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
-        qmt.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
         return qc, qt, qeps, qz, qpi, qmt
 
     def simul_data_pyro(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -74,6 +73,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+        # initialize all var dists
+        q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
         copy_tree = CopyTree(config, p, q, y)
 
         copy_tree.run(20)
@@ -89,7 +90,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         dir_alpha0[3] = 100.
         C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree, dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+        config = Config(n_nodes=K, chain_length=n_sites,
+                        n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
