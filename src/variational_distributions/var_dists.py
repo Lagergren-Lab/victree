@@ -864,9 +864,10 @@ class qMuTau(VariationalDistribution):
         sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
         A = self.config.n_states
         c_tensor = torch.arange(A, dtype=torch.float)
-        sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, qz.pi, c_tensor ** 2)
-        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, qz.pi, c_tensor, obs)
-        sum_MCZ_y2 = torch.einsum("kma, nk, mn -> n", qc.single_filtering_probs, qz.pi, obs**2)
+        q_Z = qz.exp_assignment()
+        sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2)
+        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, obs)
+        sum_MCZ_y2 = torch.einsum("kma, nk, mn -> n", qc.single_filtering_probs, q_Z, obs**2)
         M = self.config.chain_length
         alpha = self.alpha_prior + M / 2  # Never updated
         lmbda = self.lambda_prior + sum_MCZ_c2
