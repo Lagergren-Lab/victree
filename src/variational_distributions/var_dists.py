@@ -817,15 +817,14 @@ class qMuTau(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
         # params for each cell
-        self._loc = torch.empty(config.n_cells)
-        self._precision_factor = torch.empty(config.n_cells)
-        self._shape = torch.empty(config.n_cells)
-        self._rate = torch.empty(config.n_cells)
-        self.mu_prior = torch.empty_like(self._loc)
-        self.lambda_prior = torch.empty_like(self._precision_factor)
-        self.alpha_prior = torch.empty_like(self._shape)
-        self.alpha = torch.empty_like(self.alpha_prior)
-        self.beta_prior = torch.empty_like(self._rate)
+        self._nu = torch.empty(config.n_cells)
+        self._lmbda = torch.empty(config.n_cells)
+        self._alpha = torch.empty(config.n_cells)
+        self._beta = torch.empty(config.n_cells)
+        self.nu_0 = torch.empty_like(self._nu)
+        self.lmbda_0 = torch.empty_like(self._lmbda)
+        self.alpha_0 = torch.empty_like(self._alpha)
+        self.beta_0 = torch.empty_like(self._beta)
 
         if true_params is not None:
             # for each cell, mean and precision of the emission model
@@ -837,20 +836,20 @@ class qMuTau(VariationalDistribution):
     # getter ensures that params are only updated in
     # the class' update method
     @property
-    def loc(self):
-        return self._loc
+    def nu(self):
+        return self._nu
 
     @property
-    def precision(self):
-        return self._precision_factor
+    def lmbda(self):
+        return self._lmbda
 
     @property
-    def shape(self):
-        return self._shape
+    def alpha(self):
+        return self._alpha
 
     @property
-    def rate(self):
-        return self._rate
+    def beta(self):
+        return self._beta
 
     def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
         """
@@ -869,29 +868,29 @@ class qMuTau(VariationalDistribution):
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, obs)
         sum_MCZ_y2 = torch.einsum("kma, nk, mn -> n", qc.single_filtering_probs, q_Z, obs**2)
         M = self.config.chain_length
-        alpha = self.alpha_prior + M / 2  # Never updated
-        lmbda = self.lambda_prior + sum_MCZ_c2
-        mu = (self.mu_prior * self.lambda_prior + sum_MCZ_cy) / lmbda
-        beta = self.beta_prior + 1 / 2 * (self.mu_prior ** 2 * self.lambda_prior + sum_M_y2) - mu**2 / (2 * lmbda)
-        self._loc = mu
-        self._precision_factor = lmbda
-        self._shape = alpha
-        self._rate = beta
+        alpha = self.alpha_0 + M / 2  # Never updated
+        lmbda = self.lmbda_0 + sum_MCZ_c2
+        mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
+        beta = self.beta_0 + 1 / 2 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2) - mu ** 2 / (2 * lmbda)
+        self._nu = mu
+        self._lmbda = lmbda
+        self._alpha = alpha
+        self._beta = beta
 
         super().update()
         return mu, lmbda, alpha, beta
 
     def initialize(self, loc: float = 100, precision_factor: float = .1,
                  shape: float = 5, rate: float = 5, **kwargs):
-        self._loc[...] = loc * torch.ones(self.config.n_cells)
-        self._precision_factor[...] = precision_factor * torch.ones(self.config.n_cells)
-        self._shape[...] = shape * torch.ones(self.config.n_cells)
-        self._rate[...] = rate * torch.ones(self.config.n_cells)
-        self.mu_prior[...] = self._loc
-        self.lambda_prior[...] = self._precision_factor
-        self.alpha_prior[...] = self._shape
-        self.alpha[...] = self.alpha_prior + self.config.chain_length / 2  # alpha never updated
-        self.beta_prior[...] = self._rate
+        self._nu[...] = loc * torch.ones(self.config.n_cells)
+        self._lmbda[...] = precision_factor * torch.ones(self.config.n_cells)
+        self._alpha[...] = shape * torch.ones(self.config.n_cells)
+        self._beta[...] = rate * torch.ones(self.config.n_cells)
+        self.nu_0[...] = self._nu
+        self.lmbda_0[...] = self._lmbda
+        self.alpha_0[...] = self._alpha
+        self.alpha[...] = self.alpha_0 + self.config.chain_length / 2  # alpha never updated
+        self.beta_0[...] = self._beta
         return super().initialize(**kwargs)
 
     def cross_entropy(self) -> float:
@@ -935,17 +934,17 @@ class qMuTau(VariationalDistribution):
         return out_arr
 
     def exp_tau(self):
-        return self.shape / self.rate
+        return self.alpha / self.beta
 
     def exp_log_tau(self):
-        return torch.digamma(self.shape) - torch.log(self.rate)
+        return torch.digamma(self.alpha) - torch.log(self.beta)
 
     def exp_mu_tau(self):
-        return self.loc * self.shape / self.rate
+        return self.nu * self.alpha / self.beta
 
     def exp_mu2_tau(self):
-        return 1. / self.precision + \
-               torch.pow(self.loc, 2) * self.shape / self.rate
+        return 1. / self.lmbda + \
+               torch.pow(self.nu, 2) * self.alpha / self.beta
 
 
 # dirichlet concentration

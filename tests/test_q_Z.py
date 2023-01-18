@@ -19,6 +19,7 @@ class qZTestCase(unittest.TestCase):
         self.q_Z_test.initialize()
         self.q_pi_test = qPi(self.config)
         self.q_mu_tau_test = qMuTau(self.config)
+        self.q_mu_tau_test.initialize()
         self.q_C_test = qC(self.config)
         self.q_C_test.eta1 = torch.zeros_like(self.q_C_test.eta1) - torch.log(torch.tensor(self.A))
         self.q_C_test.eta2 = torch.zeros_like(self.q_C_test.eta2) - torch.log(torch.tensor(self.A))

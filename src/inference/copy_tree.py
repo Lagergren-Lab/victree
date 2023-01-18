@@ -127,7 +127,7 @@ class CopyTree:
         # counts the number of irrelevant updates
         close_runs = 0
 
-        self.init_variational_variables()
+        #self.init_variational_variables()
         self.compute_elbo()
         print(f"ELBO after init: {self.elbo}")
 

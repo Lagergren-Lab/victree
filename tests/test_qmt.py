@@ -107,7 +107,7 @@ class qmtTestCase(unittest.TestCase):
             qmt.update(fix_qc, fix_qz, obs)
 
         # this should be equal (or close) to 100.
-        print(qmt.loc)
+        print(qmt.nu)
         # this should be very high (there is almost no variance in the emissions)
         print(qmt.exp_tau())
 

@@ -20,7 +20,7 @@ class TestElbo(unittest.TestCase):
         #TODO: Obsolete test for sampling estimated ELBO
         config = Config()
         init_params = {
-            'loc': 100,
+            'nu': 100,
             'precision_factor': .1,
             'shape': 5.,
             'rate': 5.
