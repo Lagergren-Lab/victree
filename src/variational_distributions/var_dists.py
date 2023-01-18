@@ -437,12 +437,6 @@ class qZ(VariationalDistribution):
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
-    def update_params(self, pi: torch.Tensor):
-        rho = self.config.step_size
-        new_pi = (1 - rho) * self.pi + rho * pi
-        self.pi = new_pi
-        return new_pi
-
     def initialize(self, method: str = 'random', **kwargs):
         if method == 'random':
             self._random_init()
@@ -485,6 +479,12 @@ class qZ(VariationalDistribution):
         assert self.pi.shape == (self.config.n_cells, self.config.n_nodes)
         new_pi = self.update_params(pi)
         return super().update()
+
+    def update_params(self, pi: torch.Tensor):
+        rho = self.config.step_size
+        new_pi = (1 - rho) * self.pi + rho * pi
+        self.pi[...] = new_pi
+        return new_pi
 
     def exp_assignment(self) -> torch.Tensor:
         out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
@@ -624,8 +624,8 @@ class qEpsilon(VariationalDistribution):
         rho = self.config.step_size
         new_alpha = (1 - rho) * self.alpha + rho * alpha
         new_beta = (1 - rho) * self.beta + rho * beta
-        self.alpha = new_alpha
-        self.beta = new_beta
+        self.alpha[...] = new_alpha
+        self.beta[...] = new_beta
         self._exp_zipping = None  # reset previously computed expected zipping
         return new_alpha, new_beta
 
@@ -728,8 +728,8 @@ class qEpsilonMulti(VariationalDistribution):
         rho = self.config.step_size
         new_alpha = (1 - rho) * self.alpha + rho * alpha
         new_beta = (1 - rho) * self.beta + rho * beta
-        self.alpha = new_alpha
-        self.beta = new_beta
+        self.alpha[...] = new_alpha
+        self.beta[...] = new_beta
         return new_alpha, new_beta
 
     def initialize(self, **kwargs):
@@ -906,10 +906,10 @@ class qMuTau(VariationalDistribution):
         new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
         new_alpha = (1 - rho) * self._alpha + rho * alpha
         new_beta = (1 - rho) * self._beta + rho * beta
-        self._nu = new_nu
-        self._lmbda = new_lmbda
-        self._alpha = new_alpha
-        self._beta = new_beta
+        self._nu[...] = new_nu
+        self._lmbda[...] = new_lmbda
+        self._alpha[...] = new_alpha
+        self._beta[...] = new_beta
         return new_nu, new_lmbda, new_alpha, new_beta
 
     def initialize(self, loc: float = 100, precision_factor: float = .1,
@@ -994,7 +994,7 @@ class qPi(VariationalDistribution):
     def update_params(self, concentration_param: torch.Tensor):
         rho = self.config.step_size
         new_concentration_param = (1 - rho) * self.concentration_param + rho * concentration_param
-        self.concentration_param = new_concentration_param
+        self.concentration_param[...] = new_concentration_param
         return new_concentration_param
 
     def initialize(self, **kwargs):
