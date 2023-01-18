@@ -110,23 +110,27 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 10
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
+        dir_alpha0 = 1.
+        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree,
+                                                         dir_alpha0=dir_alpha0)
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, p, q, y)
-        copy_tree.q.pi.concentration_param = pi
+        copy_tree.init_variational_variables()
+        copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.eps.alpha = torch.diag(-torch.ones(config.n_nodes) * torch.inf) + 10.
         copy_tree.q.eps.beta = torch.diag(-torch.ones(config.n_nodes) * torch.inf) + 40.
-        copy_tree.q.mt._loc = torch.ones(n_cells) * mu
-        copy_tree.q.mt._precision_factor = torch.ones(n_cells) * 0.1
+        copy_tree.q.mt._nu = torch.ones(n_cells) * mu
+        copy_tree.q.mt._lmbda = torch.ones(n_cells) * 0.1
         copy_tree.q.c.single_filtering_probs = f.one_hot(torch.tensor(C, dtype=int), num_classes=n_copy_states)
 
         copy_tree.run(20)
         q_C = copy_tree.q.c.single_filtering_probs
         q_pi = copy_tree.q.z.pi
         delta = copy_tree.q.pi.concentration_param
-        print(f"True pi: {pi} \n variational concentration param: {delta}")
+        print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
+        print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
         print(f"True C: {f.one_hot(torch.tensor(C[1, 5:10], dtype=int), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
