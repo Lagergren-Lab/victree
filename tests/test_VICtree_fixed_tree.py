@@ -77,7 +77,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, p, q, y)
 
-        copy_tree.run(20)
+        copy_tree.run(30)
+
+        q_C = copy_tree.q.c.single_filtering_probs
+        q_z_pi = copy_tree.q.z.pi
+        print(f"True pi: {pi} \n variational pi_n: {q_z_pi[0:5]}")
+        print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
 
     def test_large_tree(self):
         torch.manual_seed(0)

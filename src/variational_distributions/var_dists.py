@@ -465,14 +465,14 @@ class qZ(VariationalDistribution):
         :return:
         """
         # single_filtering_probs: q(Cmk = j), shape: K x M x J
-        qcmkj = qc.single_filtering_probs
+        qc_kmj = qc.single_filtering_probs
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        dnmj = qmt.exp_log_emission(obs)
+        d_nmj = qmt.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
-        gamma = e_logpi + torch.einsum('kmj,nmj->nk', qcmkj, dnmj)
+        gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
         # TODO: remove asserts
         assert gamma.shape == (self.config.n_cells, self.config.n_nodes)
         pi = torch.softmax(gamma, dim=1)
@@ -950,16 +950,11 @@ class qMuTau(VariationalDistribution):
                                        scale=torch.ones(means.shape) / torch.sqrt(tau)[:, None])
             out_arr = torch.permute(true_dist.log_prob(obs[..., None]), (1, 0, 2))
         else:
-            out_arr = .5 * self.exp_log_tau() - \
-                      .5 * torch.einsum('mn,n->mn',
-                                        obs, self.exp_tau()) + \
-                      torch.einsum('i,mn,n->imn',
-                                   torch.arange(self.config.n_states),
-                                   obs,
-                                   self.exp_mu_tau()) - \
-                      .5 * torch.einsum('i,n->in',
-                                        torch.pow(torch.arange(self.config.n_states), 2),
-                                        self.exp_mu2_tau())[:, None, :]
+            E_log_tau = self.exp_log_tau()
+            E_tau = torch.einsum('mn,n->mn', obs**2, self.exp_tau())
+            E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
+            E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:, None, :]
+            out_arr = .5 * (E_log_tau - E_tau + 2.*E_mu_tau - E_mu2_tau)
             out_arr = torch.einsum('imn->nmi', out_arr)
 
         assert out_arr.shape == out_shape
@@ -1011,7 +1006,7 @@ class qPi(VariationalDistribution):
 
         new_concentration_param = self.update_params(concentration_param)
 
-        return concentration_param
+        return new_concentration_param
 
     def exp_log_pi(self):
         e_log_pi = torch.empty_like(self.concentration_param)
