@@ -39,7 +39,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
     def simul_data_pyro(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                         mu_0=torch.tensor(10.),
-                        nu_0=torch.tensor(.1),
+                        lambda_0=torch.tensor(.1),
                         alpha0=torch.tensor(10.),
                         beta0=torch.tensor(40.),
                         a0=torch.tensor(1.0),
@@ -49,13 +49,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         model_tree_markov_full = simul.model_tree_markov_full
         unconditioned_model = poutine.uncondition(model_tree_markov_full)
         C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                           mu_0,
-                                                           nu_0,
-                                                           alpha0,
-                                                           beta0,
-                                                           a0,
-                                                           b0,
-                                                           dir_alpha0)
+                                                        mu_0,
+                                                        lambda_0,
+                                                        alpha0,
+                                                        beta0,
+                                                        a0,
+                                                        b0,
+                                                        dir_alpha0)
 
         return C, y, z, pi, mu, tau, eps
 
@@ -94,7 +94,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = torch.ones(K)
         dir_alpha0[3] = 100.
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree, dir_alpha0=dir_alpha0)
+        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree,
+                                                         dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
