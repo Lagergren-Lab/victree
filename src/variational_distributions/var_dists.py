@@ -654,15 +654,15 @@ class qEpsilon(VariationalDistribution):
                 alpha += w_T[k] * E_CuCv_a[u, v]
                 beta += w_T[k] * E_CuCv_b[u, v]
 
-        self.set_params(alpha, beta)
+        self.alpha = alpha
+        self.beta = beta
         return alpha, beta
 
     def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
-        # FIXME: add normalization constant A0
         if i is not None and j is not None:
-            return 1. - self.config.eps0 if i == j else self.config.eps0
+            return 1. - self.config.eps0 if i == j else self.config.eps0 / (self.config.n_states - 1)
         else:
-            heps0_arr = self.config.eps0 * torch.ones((self.config.n_states, self.config.n_states))
+            heps0_arr = self.config.eps0 / (self.config.n_states - 1) * torch.ones((self.config.n_states, self.config.n_states))
             diag_mask = get_zipping_mask0(self.config.n_states)
             heps0_arr[diag_mask] = 1 - self.config.eps0
             if i is None and j is not None:
@@ -694,24 +694,59 @@ class qEpsilonMulti(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.,
                  true_params=None):
+        # FIXME: alpha and beta should not be tensors, but rather dictionaries
+        # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_0)
         self.beta_prior = torch.tensor(beta_0)
         # one param for every arc except self referenced (diag set to -infty)
-        self.alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
-        self.beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
+        self._alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
+        self._beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
 
         if true_params is not None:
             assert "eps" in true_params
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
-    def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
-        self.alpha = alpha
-        self.beta = beta
+    @property
+    def alpha(self):
+        return self._alpha
 
-    def initialize(self, **kwargs):
-        # TODO: implement (over set params)
+    @alpha.setter
+    def alpha(self, a):
+        self._alpha[...] = a
+
+    @property
+    def beta(self):
+        return self._beta
+
+    @beta.setter
+    def beta(self, b):
+        self._beta[...] = b
+
+    def set_all_equal_params(self, alpha: float, beta: float):
+        self.alpha = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + alpha
+        self.beta = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + beta
+
+    def initialize(self, method='uniform', **kwargs):
+        if 'eps_alpha' in kwargs and 'eps_beta' in kwargs:
+            self.set_all_equal_params(kwargs['eps_alpha'], kwargs['eps_beta'])
+        elif method == 'uniform':
+            self._uniform_init()
+        elif method == 'random':
+            self._random_init(**kwargs)
+        else:
+            raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
+
+    def _uniform_init(self):
+        # results in uniform (0,1)
+        self.alpha = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + 1.
+        self.beta = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + 1.
+
+    def _random_init(self, gamma_shape=2., gamma_rate=2.):
+        a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample(2)
+        self.alpha = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + a
+        self.beta = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + b
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -764,15 +799,15 @@ class qEpsilonMulti(VariationalDistribution):
             alpha[edges_mask] += w_T[k] * E_CuCv_a[edges_mask]
             beta[edges_mask] += w_T[k] * E_CuCv_b[edges_mask]
 
-        self.set_params(alpha, beta)
+        self.alpha = alpha
+        self.beta = beta
         return alpha, beta
 
     def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
-        # FIXME: add normalization constant A0
         if i is not None and j is not None:
-            return 1. - self.config.eps0 if i == j else self.config.eps0
+            return 1. - self.config.eps0 if i == j else self.config.eps0 / (self.config.n_states - 1)
         else:
-            heps0_arr = self.config.eps0 * torch.ones((self.config.n_states, self.config.n_states))
+            heps0_arr = self.config.eps0 / (self.config.n_states - 1) * torch.ones((self.config.n_states, self.config.n_states))
             diag_mask = get_zipping_mask0(self.config.n_states)
             heps0_arr[diag_mask] = 1 - self.config.eps0
             if i is None and j is not None:
@@ -804,12 +839,15 @@ class qEpsilonMulti(VariationalDistribution):
             norm_const = self.config.n_states
 
             out_arr = torch.ones(copy_mask.shape) * \
-                      (torch.digamma(self.beta[u, v]) - \
+                      (torch.digamma(self.beta[u, v]) -
                        torch.digamma(self.alpha[u, v] + self.beta[u, v]))
             # select the combinations that do not satisfy i-i'=j-j'
             # and normalize
             out_arr[~copy_mask] -= norm_const
         return out_arr
+
+    def mean(self):
+        return self.alpha / (self.alpha + self.beta)
 
 
 # observations (mu-tau)
