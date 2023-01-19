@@ -159,6 +159,7 @@ class qCTestCase(unittest.TestCase):
                 for m in range(M - 1):
                     qc_2.eta2[k, m] = torch.log(torch.diag(torch.ones(A, )))
 
+        qc_2.compute_filtering_probs()
         cross_entropy_deterministic = qc_2.cross_entropy_arc(q_eps, 0, 1)
         print(f"Deterministic: {cross_entropy_deterministic}")
         self.assertLess(cross_entropy_rand, cross_entropy_deterministic)

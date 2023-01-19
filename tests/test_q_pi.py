@@ -36,7 +36,7 @@ class qPiTestCase(unittest.TestCase):
 
     def test_q_pi_higher_entropy_for_uniform_data_vs_random(self):
         # Arrange
-        N = 20
+        N = 200
         K = 10
         config = Config(n_cells=N, n_nodes=K)
         p = GenerativeModel(config)
@@ -44,7 +44,7 @@ class qPiTestCase(unittest.TestCase):
         q_pi_2 = qPi(config)
 
         q_z_1 = qZ(config)  # uniform
-        q_z_1.initialize()
+        q_z_1.initialize(method='uniform')
         q_z_probs_2 = torch.rand((N, K))
         q_z_probs_2 = q_z_probs_2 / torch.sum(q_z_probs_2, dim=-1).unsqueeze(-1)
         q_z_2 = qZ(config)
@@ -54,13 +54,13 @@ class qPiTestCase(unittest.TestCase):
         q_pi_1.update(q_z_1)
         q_pi_2.update(q_z_2)
 
-        ent_1 = -torch.sum(q_pi_1.exp_log_pi())
-        ent_2 = -torch.sum(q_pi_2.exp_log_pi())
+        ent_1 = q_pi_1.entropy()
+        ent_2 = q_pi_2.entropy()
 
         # Assert
-        print(f"ent_1: {ent_1}")
-        print(f"ent_2: {ent_2}")
-        assert ent_1 < ent_2
+        print(f"ent_1 (uniform): {ent_1}")
+        print(f"ent_2 (random): {ent_2}")
+        assert ent_1 > ent_2
 
     def test_q_pi_increased_weight_for_observed_k(self):
         # Arrange
