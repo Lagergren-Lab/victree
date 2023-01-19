@@ -22,6 +22,7 @@ class qCTestCase(unittest.TestCase):
         self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
         self.obs = torch.randint(low=50, high=150,
                                  size=(self.config.chain_length, self.config.n_cells))
+        torch.manual_seed(101)
 
     def test_update(self):
         # design simple test: fix all other variables

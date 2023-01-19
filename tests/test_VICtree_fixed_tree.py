@@ -26,6 +26,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         self.qpi = qPi(self.config)
         self.qmt = qMuTau(self.config)
         self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
+        torch.manual_seed(101)
 
     def set_up_q(self, config):
         qc = qC(config)
@@ -119,20 +120,19 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q.initialize(eps_alpha=10., eps_beta=40.,
+                     loc=mu, precision_factor=.1, shape=5, rate=5)
+
         copy_tree = CopyTree(config, p, q, y)
-        copy_tree.init_variational_variables()
         copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
-        copy_tree.q.eps.alpha = torch.diag(-torch.ones(config.n_nodes) * torch.inf) + 10.
-        copy_tree.q.eps.beta = torch.diag(-torch.ones(config.n_nodes) * torch.inf) + 40.
-        copy_tree.q.mt._nu = torch.ones(n_cells) * mu
-        copy_tree.q.mt._lmbda = torch.ones(n_cells) * 0.1
-        copy_tree.q.c.single_filtering_probs = f.one_hot(torch.tensor(C, dtype=int), num_classes=n_copy_states)
+        copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
         copy_tree.run(20)
         q_C = copy_tree.q.c.single_filtering_probs
         q_pi = copy_tree.q.z.pi
         delta = copy_tree.q.pi.concentration_param
+
         print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
         print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
-        print(f"True C: {f.one_hot(torch.tensor(C[1, 5:10], dtype=int), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
+        print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
