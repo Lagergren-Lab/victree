@@ -644,9 +644,9 @@ class qEpsilon(VariationalDistribution):
         for uv in unique_edges:
             u, v = uv
             E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
-                                          co_mut_mask)
-            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
                                           anti_sym_mask)
+            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+                                          co_mut_mask)
 
         for k, T in enumerate(T_list):
             for uv in [e for e in T.edges]:
@@ -909,7 +909,7 @@ class qMuTau(VariationalDistribution):
         alpha = self.alpha_0 + M / 2  # Never updated
         lmbda = self.lmbda_0 + sum_MCZ_c2
         mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
-        beta = self.beta_0 + 1 / 2 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2) - mu ** 2 / (2 * lmbda)
+        beta = self.beta_0 + 1 / 2 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2) - .5 * lmbda * mu ** 2
         self._nu = mu
         self._lmbda = lmbda
         self._alpha = alpha
@@ -957,7 +957,8 @@ class qMuTau(VariationalDistribution):
         else:
             out_arr = .5 * self.exp_log_tau() - \
                       .5 * torch.einsum('mn,n->mn',
-                                        obs, self.exp_tau()) + \
+                                        torch.pow(obs, 2),
+                                        self.exp_tau()) + \
                       torch.einsum('i,mn,n->imn',
                                    torch.arange(self.config.n_states),
                                    obs,
