@@ -57,7 +57,7 @@ class qC(VariationalDistribution):
             # map node specific copy number profile to pair marginal probabilities
             # almost all prob mass is given to the true copy number combinations
             true_cfp = torch.zeros_like(self._couple_filtering_probs) + 1e-2 / (self.config.n_states ** 2 - 1)
-            for u in self.config.n_nodes:
+            for u in range(self.config.n_nodes):
                 true_cfp[u, torch.arange(self.config.chain_length - 1),
                          cn_profile[u, :-1], cn_profile[u, 1:]] = 1. - 1e-2
             self._couple_filtering_probs[...] = true_cfp
@@ -225,7 +225,7 @@ class qC(VariationalDistribution):
                 # sum on each node's update all children alphas
                 alpha1sum = torch.einsum('wi->i', exp_alpha1[children, :])
                 tree_eta1[u, :] += alpha1sum
-                
+
                 alpha2sum = torch.einsum('wmij->mij', exp_alpha2[children, :, :, :])
                 tree_eta2[u, :, :, :] += alpha2sum
 
@@ -752,11 +752,11 @@ class qEpsilonMulti(VariationalDistribution):
             E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ',
                                           q_C_pairwise_marginals[u],
                                           q_C_pairwise_marginals[v],
-                                          co_mut_mask)
+                                          anti_sym_mask)
             E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
                                           q_C_pairwise_marginals[u],
                                           q_C_pairwise_marginals[v],
-                                          anti_sym_mask)
+                                          co_mut_mask)
 
         for k, T in enumerate(T_list):
             edges_mask = [[i for i, _ in T.edges], [j for _, j in T.edges]]
