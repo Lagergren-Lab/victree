@@ -32,7 +32,7 @@ class qZTestCase(unittest.TestCase):
         # print(self.q_Z_test.pi)
         # FIXME: nans in pi for some cells
         self.assertTrue(torch.allclose(self.q_Z_test.pi, self.q_Z_test.pi[0, :]),
-                        msg="Categorical probabilites of Z not equal for uniform prior and observations")
+                        msg=f"Categorical probabilites of Z not equal for uniform prior and observations: {self.q_Z_test.pi}")
 
     def test_ELBO_greater_for_uniform_qZ_than_skewed_qZ_when_pi_uniform(self):
         res_1 = self.q_Z_test.elbo(self.q_pi_test)

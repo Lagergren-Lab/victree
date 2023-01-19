@@ -114,7 +114,7 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
 
 def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                            mu_0=torch.tensor(10.),
-                           nu_0=torch.tensor(.1),
+                           lambda_0=torch.tensor(.1),
                            alpha0=torch.tensor(10.),
                            beta0=torch.tensor(40.),
                            a0=torch.tensor(1.0),
@@ -137,7 +137,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     # Per cell variables
     with pyro.plate("cells", n_cells) as n:
         tau = pyro.sample("tau_{}".format(n), dist.Gamma(a0, b0))
-        mu = pyro.sample("mu_{}".format(n), dist.Normal(mu_0, 1. / (nu_0 * tau.sqrt())))
+        mu = pyro.sample("mu_{}".format(n), dist.Normal(mu_0, 1. / (lambda_0 * tau.sqrt())))
         z = pyro.sample("z_{}".format(n), dist.Categorical(pi))
 
     eps = pyro.sample("eps", dist.Beta(alpha0, beta0))
@@ -167,7 +167,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
                 C_dict[0, m] = C_r_m
                 ind = torch.where(z == u)[0]
                 for n in ind:
-                    y[m, n] = pyro.sample("y_{}_{}".format(m, n), dist.Normal(mu[n] * C_r_m, 1.0 / (nu_0 * tau[n].sqrt())), obs=data[m, n])
+                    y[m, n] = pyro.sample("y_{}_{}".format(m, n), dist.Normal(mu[n] * C_r_m, 1.0 / (lambda_0 * tau[n].sqrt())), obs=data[m, n])
         # inner nodes
         else:
             p = [pred for pred in tree.predecessors(u)][0]
@@ -197,7 +197,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
                 # save values in dict
                 C_dict[u, m] = C_u_m
                 ind = torch.where(z == u)[0]
-                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (nu_0 * tau[ind].sqrt())), obs=data[m, ind])
+                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (lambda_0 * tau[ind].sqrt())), obs=data[m, ind])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():

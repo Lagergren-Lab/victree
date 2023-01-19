@@ -234,11 +234,20 @@ class qC(VariationalDistribution):
 
         # eta1 and eta2 don't come out normalized (in exp scale)
         # need normalization
-        self.eta1[...] = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
-        self.eta2[...] = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
+        new_eta1_norm = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
+        new_eta2_norm = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
         # update the filtering probs
+        self.update_params(new_eta1_norm, new_eta2_norm)
         self.compute_filtering_probs()
         return super().update()
+
+    def update_params(self, eta1, eta2):
+        rho = self.config.step_size
+        new_eta1 = (1 - rho) * torch.exp(self.eta1) + rho * torch.exp(eta1)
+        new_eta2 = (1 - rho) * torch.exp(self.eta2) + rho * torch.exp(eta2)
+        self.eta1 = torch.log(new_eta1)
+        self.eta2 = torch.log(new_eta2)
+        return new_eta1, new_eta2
 
     def _exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                  q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -456,20 +465,26 @@ class qZ(VariationalDistribution):
         :return:
         """
         # single_filtering_probs: q(Cmk = j), shape: K x M x J
-        qcmkj = qc.single_filtering_probs
+        qc_kmj = qc.single_filtering_probs
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        dnmj = qmt.exp_log_emission(obs)
+        d_nmj = qmt.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
-        gamma = e_logpi + torch.einsum('kmj,nmj->nk', qcmkj, dnmj)
+        gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
         # TODO: remove asserts
         assert gamma.shape == (self.config.n_cells, self.config.n_nodes)
-        self.pi[...] = torch.softmax(gamma, dim=1)
+        pi = torch.softmax(gamma, dim=1)
         assert self.pi.shape == (self.config.n_cells, self.config.n_nodes)
-
+        new_pi = self.update_params(pi)
         return super().update()
+
+    def update_params(self, pi: torch.Tensor):
+        rho = self.config.step_size
+        new_pi = (1 - rho) * self.pi + rho * pi
+        self.pi[...] = new_pi
+        return new_pi
 
     def exp_assignment(self) -> torch.Tensor:
         out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
@@ -605,10 +620,14 @@ class qEpsilon(VariationalDistribution):
         self._exp_zipping = None
         super().__init__(config)
 
-    def set_params(self, alpha: torch.Tensor, beta: torch.Tensor):
-        self.alpha = alpha
-        self.beta = beta
+    def update_params(self, alpha: torch.Tensor, beta: torch.Tensor):
+        rho = self.config.step_size
+        new_alpha = (1 - rho) * self.alpha + rho * alpha
+        new_beta = (1 - rho) * self.beta + rho * beta
+        self.alpha[...] = new_alpha
+        self.beta[...] = new_beta
         self._exp_zipping = None  # reset previously computed expected zipping
+        return new_alpha, new_beta
 
     def initialize(self, **kwargs):
         # TODO: implement (over set params)
@@ -654,8 +673,7 @@ class qEpsilon(VariationalDistribution):
                 alpha += w_T[k] * E_CuCv_a[u, v]
                 beta += w_T[k] * E_CuCv_b[u, v]
 
-        self.alpha = alpha
-        self.beta = beta
+        self.update_params(alpha, beta)
         return alpha, beta
 
     def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
@@ -707,6 +725,14 @@ class qEpsilonMulti(VariationalDistribution):
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
+    def update_params(self, alpha: torch.Tensor, beta: torch.Tensor):
+        rho = self.config.step_size
+        new_alpha = (1 - rho) * self.alpha + rho * alpha
+        new_beta = (1 - rho) * self.beta + rho * beta
+        self.alpha = new_alpha
+        self.beta = new_beta
+        return new_alpha, new_beta
+    
     @property
     def alpha(self):
         return self._alpha
@@ -799,8 +825,7 @@ class qEpsilonMulti(VariationalDistribution):
             alpha[edges_mask] += w_T[k] * E_CuCv_a[edges_mask]
             beta[edges_mask] += w_T[k] * E_CuCv_b[edges_mask]
 
-        self.alpha = alpha
-        self.beta = beta
+        self.update_params(alpha, beta)
         return alpha, beta
 
     def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
@@ -888,6 +913,22 @@ class qMuTau(VariationalDistribution):
     @property
     def beta(self):
         return self._beta
+    
+    @nu.setter
+    def nu(self, n):
+        self._nu[...] = n
+
+    @lmbda.setter
+    def lmbda(self, l):
+        self._lmbda[...] = l
+
+    @alpha.setter
+    def alpha(self, a):
+        self._alpha[...] = a
+
+    @beta.setter
+    def beta(self, b):
+        self._beta[...] = b
 
     def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
         """
@@ -898,32 +939,40 @@ class qMuTau(VariationalDistribution):
         :param sum_M_y2:
         :return:
         """
-        sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
         A = self.config.n_states
         c_tensor = torch.arange(A, dtype=torch.float)
         q_Z = qz.exp_assignment()
         sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2)
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, obs)
-        sum_MCZ_y2 = torch.einsum("kma, nk, mn -> n", qc.single_filtering_probs, q_Z, obs**2)
+        sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
         M = self.config.chain_length
-        alpha = self.alpha_0 + M / 2  # Never updated
+        alpha = self.alpha_0 + M * .5  # Never updated
         lmbda = self.lmbda_0 + sum_MCZ_c2
         mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
-        beta = self.beta_0 + 1 / 2 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2) - .5 * lmbda * mu ** 2
-        self._nu = mu
-        self._lmbda = lmbda
-        self._alpha = alpha
-        self._beta = beta
+        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
+        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
 
         super().update()
-        return mu, lmbda, alpha, beta
+        return new_mu, new_lmbda, new_alpha, new_beta
+
+    def update_params(self, mu, lmbda, alpha, beta):
+        rho = self.config.step_size
+        new_nu = (1 - rho) * self._nu + rho * mu
+        new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
+        new_alpha = (1 - rho) * self._alpha + rho * alpha
+        new_beta = (1 - rho) * self._beta + rho * beta
+        self.nu = new_nu
+        self.lmbda = new_lmbda
+        self.alpha = new_alpha
+        self.beta = new_beta
+        return new_nu, new_lmbda, new_alpha, new_beta
 
     def initialize(self, loc: float = 100, precision_factor: float = .1,
                  shape: float = 5, rate: float = 5, **kwargs):
-        self._nu[...] = loc * torch.ones(self.config.n_cells)
-        self._lmbda[...] = precision_factor * torch.ones(self.config.n_cells)
-        self._alpha[...] = shape * torch.ones(self.config.n_cells)
-        self._beta[...] = rate * torch.ones(self.config.n_cells)
+        self.nu = loc * torch.ones(self.config.n_cells)
+        self.lmbda = precision_factor * torch.ones(self.config.n_cells)
+        self.alpha = shape * torch.ones(self.config.n_cells)
+        self.beta = rate * torch.ones(self.config.n_cells)
         self.nu_0[...] = self._nu
         self.lmbda_0[...] = self._lmbda
         self.alpha_0[...] = self._alpha
@@ -955,17 +1004,11 @@ class qMuTau(VariationalDistribution):
                                        scale=torch.ones(means.shape) / torch.sqrt(tau)[:, None])
             out_arr = torch.permute(true_dist.log_prob(obs[..., None]), (1, 0, 2))
         else:
-            out_arr = .5 * self.exp_log_tau() - \
-                      .5 * torch.einsum('mn,n->mn',
-                                        torch.pow(obs, 2),
-                                        self.exp_tau()) + \
-                      torch.einsum('i,mn,n->imn',
-                                   torch.arange(self.config.n_states),
-                                   obs,
-                                   self.exp_mu_tau()) - \
-                      .5 * torch.einsum('i,n->in',
-                                        torch.pow(torch.arange(self.config.n_states), 2),
-                                        self.exp_mu2_tau())[:, None, :]
+            E_log_tau = self.exp_log_tau()
+            E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
+            E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
+            E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:, None, :]
+            out_arr = .5 * (E_log_tau - E_tau + 2.*E_mu_tau - E_mu2_tau)
             out_arr = torch.einsum('imn->nmi', out_arr)
 
         assert out_arr.shape == out_shape
@@ -990,26 +1033,43 @@ class qPi(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_prior=1, true_params=None):
         self.concentration_param_prior = torch.ones(config.n_nodes) * alpha_prior
-        self.concentration_param = self.concentration_param_prior
+        self._concentration_param = self.concentration_param_prior
 
         if true_params is not None:
             assert "pi" in true_params
         self.true_params = true_params
         super().__init__(config, fixed=true_params is not None)
 
+    def update_params(self, concentration_param: torch.Tensor):
+        rho = self.config.step_size
+        new_concentration_param = (1 - rho) * self.concentration_param + rho * concentration_param
+        self.concentration_param = new_concentration_param
+        return new_concentration_param
+
     def initialize(self, **kwargs):
         # initialize to balanced concentration (all ones)
         self.concentration_param = torch.ones_like(self.concentration_param)
         return super().initialize(**kwargs)
 
+    @property
+    def concentration_param(self):
+        return self._concentration_param
+    
+    @concentration_param.setter
+    def concentration_param(self, cp):
+        self._concentration_param[...] = cp
+        
     def update(self, qz: qZ):
         # pi_model = p(pi), parametrized by delta_k
         # generative model for pi
 
-        self.concentration_param = self.concentration_param_prior + \
+        concentration_param = self.concentration_param_prior + \
                                    torch.sum(qz.exp_assignment(), dim=0)
 
-        return super().update()
+        new_concentration_param = self.update_params(concentration_param)
+
+        super().update()
+        return new_concentration_param
 
     def exp_log_pi(self):
         e_log_pi = torch.empty_like(self.concentration_param)
