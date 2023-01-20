@@ -4,7 +4,7 @@ import networkx as nx
 import torch
 
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qPi
 from inference.copy_tree import JointVarDist
 
 
@@ -22,6 +22,7 @@ class qCTestCase(unittest.TestCase):
         self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
         self.obs = torch.randint(low=50, high=150,
                                  size=(self.config.chain_length, self.config.n_cells))
+        torch.manual_seed(101)
 
     def test_update(self):
         # design simple test: fix all other variables
@@ -80,6 +81,60 @@ class qCTestCase(unittest.TestCase):
 
         self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 7, 1, 1])
         self.assertGreater(qc.couple_filtering_probs[2, 7, 1, 2], qc.couple_filtering_probs[2, 4, 1, 2])
+
+    def test_update_qc_qz(self):
+        # fix all q but qc and qz
+        cells_per_clone = 10
+        cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=10,
+                     wis_sample_size=2, debug=True)
+        qc = qC(cfg)
+        qz = qZ(cfg)
+
+        qc.initialize()
+        qz.initialize()
+
+        # obs with 15 cells, 5 each to different clone
+        # in order, clone 0, 1, 2
+        obs = torch.tensor(
+            [[200] * 10] * cells_per_clone +
+            [[200] * 4 + [300] * 6] * cells_per_clone +
+            [[100] * 8 + [200] * 2] * cells_per_clone
+        ).T
+        # introduce some randomness
+        obs += torch.distributions.normal.Normal(0, 10).sample(obs.shape).int()
+        # hard assignment of cells to clones
+        true_z = [0] * cells_per_clone + \
+                 [1] * cells_per_clone + \
+                 [2] * cells_per_clone  # cell assignments
+
+        # fix epsilon to be with mean 1/9 and low variance
+        # both clones only have one asymmetric transition out of 9
+        true_eps = torch.ones((cfg.n_nodes, cfg.n_nodes))
+        true_eps[[0, 0], [1, 2]] = 1./9.
+        fix_qeps = qEpsilonMulti(cfg, true_params={"eps": true_eps})
+        fix_qmt = qMuTau(cfg, true_params={
+            "mu": 100 * torch.ones(cfg.n_cells),
+            "tau": 1 * torch.ones(cfg.n_cells)
+        })
+        fix_qpi = qPi(cfg, true_params={
+            "pi": torch.ones(cfg.n_nodes) / 3.
+        })
+
+        fix_tree = nx.DiGraph()
+        fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
+        trees = [fix_tree] * cfg.wis_sample_size
+        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+
+        for i in range(10):
+            # TODO: check why if qz and qc are updated in
+            #   the opposite order, then all cells are assigned to
+            #   node 0
+            qz.update(fix_qmt, qc, fix_qpi, obs)
+            qc.update(obs, fix_qeps, qz, fix_qmt,
+                      trees=trees, tree_weights=wis_weights)
+
+        print(qz.exp_assignment())
+        print(qc.single_filtering_probs)
 
     def test_filtering_probs_update(self):
 
