@@ -46,3 +46,11 @@ Start with edmonds
 [DATA ARTICLE IN MEETING](https://www.nature.com/articles/s41586-022-05249-0)
 
 - allele specific copy numbers is important (look up for incorporating this)
+
+# Meeting 20/01
+
+- stop assigning cells to root node (all cells then go there)
+- visualize results in a ordered matter
+- try increase statistical power (n. cells) and decrease step-size
+- qz/qc together
+- check `exp_log_emission` which is way too large
