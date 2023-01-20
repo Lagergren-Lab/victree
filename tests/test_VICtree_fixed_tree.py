@@ -117,8 +117,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
     def test_large_tree_init_true_params(self):
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 20
-        n_sites = 10
+        n_cells = 1000
+        n_sites = 100
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = 1.
