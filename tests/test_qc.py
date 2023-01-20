@@ -86,7 +86,7 @@ class qCTestCase(unittest.TestCase):
         # fix all q but qc and qz
         cells_per_clone = 10
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=10,
-                     wis_sample_size=2, debug=True)
+                     wis_sample_size=2, debug=True, step_size=.05)
         qc = qC(cfg)
         qz = qZ(cfg)
 
@@ -125,13 +125,14 @@ class qCTestCase(unittest.TestCase):
         trees = [fix_tree] * cfg.wis_sample_size
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
-        for i in range(10):
+        for i in range(100):
             # TODO: check why if qz and qc are updated in
             #   the opposite order, then all cells are assigned to
             #   node 0
             qz.update(fix_qmt, qc, fix_qpi, obs)
             qc.update(obs, fix_qeps, qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
+            print(qc.elbo(trees, wis_weights, fix_qeps))
 
         print(qz.exp_assignment())
         print(qc.single_filtering_probs)

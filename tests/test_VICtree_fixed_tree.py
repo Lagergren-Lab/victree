@@ -144,3 +144,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
         print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
         print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
+        print(f"True C: {f.one_hot(C[3, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[3, 5:10, :]}")
+        # print(qmt.exp_tau())
+
+        print(f'tree: {tree.edges}')

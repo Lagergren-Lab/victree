@@ -71,11 +71,6 @@ class qEpsilonTestCase(unittest.TestCase):
         cell_cn_profile = cn_profile[true_z, :]
         self.assertEqual(cell_cn_profile.shape, (cfg.n_cells, cfg.chain_length))
 
-        obs = (cell_cn_profile * 100).T
-        # introduce some randomness
-        obs += torch.distributions.normal.Normal(0, 10).sample(obs.shape).int()
-
-        self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
         true_eps = torch.ones((cfg.n_nodes, cfg.n_nodes))
         true_eps[0, 1] = 1./(cfg.chain_length-1)
         true_eps[0, 2] = 3./(cfg.chain_length-1)

@@ -90,9 +90,11 @@ class qmtTestCase(unittest.TestCase):
 
         cell_cn_profile = cn_profile[true_z, :].float()
         self.assertEqual(cell_cn_profile.shape, (cfg.n_cells, cfg.chain_length))
-        obs = (cell_cn_profile * 100.).T
-        # introduce some randomness
-        obs += torch.distributions.normal.Normal(0, 1).sample(obs.shape)
+
+        true_mu = torch.distributions.Normal(1, .1).rsample((cfg.n_cells, 1))
+        obs = (cell_cn_profile * true_mu).T
+
+        self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
 
         # give true values to the other required dists
         # i.e. qc, qz
@@ -107,8 +109,10 @@ class qmtTestCase(unittest.TestCase):
             qmt.update(fix_qc, fix_qz, obs)
 
         # this should be equal (or close) to 100.
+        print(f'beta: {qmt.beta}')
         print(qmt.nu)
         # this should be very high (there is almost no variance in the emissions)
         print(qmt.exp_tau())
+        print(true_mu)
 
 
