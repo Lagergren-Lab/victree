@@ -6,24 +6,11 @@ Outputs K MAP trees, with cell assignments and copy number profiles for each clo
 """
 import argparse
 import logging
-import random
 import sys
 import os
 
-import numpy as np
-import torch
-
 from inference.run import run
-
-
-def set_seed(seed):
-    # torch rng
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    # python rng
-    np.random.seed(seed)
-    random.seed(seed)
+from utils.config import set_seed
 
 
 def main(args):

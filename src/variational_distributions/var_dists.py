@@ -364,6 +364,9 @@ class qC(VariationalDistribution):
         initial_log_probs = self.eta1
         # shape K x M x S x S
         transition_log_probs = self.eta2
+        if self.config.debug:
+            assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
+            assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
 
         log_single = torch.empty_like(self.single_filtering_probs)
         log_couple = torch.empty_like(self.couple_filtering_probs)
