@@ -16,7 +16,7 @@ class CopyNumberTreeHMM:
 
         # h(jj, j, ii, i) = p(c_u_m | c_u_m-1, c_p_m, c_p_m-1)
         self.cpd_table = torch.empty((n_copy_states,) * 4)
-        # h(j, i) = p(c_u_0 | c_p_0)
+        # h(j, i) = p(c_u_0 = j | c_p_0 = i)
         self.cpd_pair_table = torch.empty((n_copy_states,) * 2)
         self.compute_cpds()
 
