@@ -115,10 +115,10 @@ def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
 def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                            mu_0=torch.tensor(10.),
                            lambda_0=torch.tensor(.1),
-                           alpha0=torch.tensor(10.),
-                           beta0=torch.tensor(40.),
+                           alpha0=torch.tensor(1.),
+                           beta0=torch.tensor(1.),
                            a0=torch.tensor(1.0),
-                           b0=torch.tensor(1.0),
+                           b0=torch.tensor(20.0),
                            dir_alpha0=torch.tensor(1.0),
                            ):
     # check that tree is with maximum in-degree =1
@@ -136,11 +136,11 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
 
     # Per cell variables
     with pyro.plate("cells", n_cells) as n:
-        tau = pyro.sample("tau_{}".format(n), dist.Gamma(a0, b0))
+        tau = pyro.sample("tau_{}".format(n), dist.Gamma(alpha0, beta0))
         mu = pyro.sample("mu_{}".format(n), dist.Normal(mu_0, 1. / (lambda_0 * tau.sqrt())))
         z = pyro.sample("z_{}".format(n), dist.Categorical(pi))
 
-    eps = pyro.sample("eps", dist.Beta(alpha0, beta0))
+    eps = pyro.sample("eps", dist.Beta(a0, b0))
 
     treeHMM = TreeHMM(n_copy_states, eps=eps)
     cpd = treeHMM.cpd_table
@@ -198,6 +198,95 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
                 C_dict[u, m] = C_u_m
                 ind = torch.where(z == u)[0]
                 y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (lambda_0 * tau[ind].sqrt())), obs=data[m, ind])
+
+    C = torch.empty((n_nodes, n_sites))
+    for u, m in C_dict.keys():
+        C[u, m] = C_dict[u, m]
+
+    return C, y, z, pi, mu, tau, eps
+
+
+def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+                                       mu: torch.Tensor,
+                                       tau: torch.Tensor,
+                                       pi: torch.Tensor,
+                                       eps: torch.Tensor
+                                       ):
+    # check that tree is with maximum in-degree =1
+    if not is_arborescence(tree):
+        raise NotATree("The provided graph is not a tree/arborescence")
+
+    n_nodes = len(tree.nodes)
+
+    # PRIORS PARAMETERS
+
+    # cell assignments
+    # dirichlet param vector (uniform)
+    pi_param = pyro.param("pi", pi)
+
+    # Per cell variables
+    with pyro.plate("cells", n_cells) as n:
+        tau_param = pyro.param("tau_{}".format(n), mu[n])
+        mu_param = pyro.param("mu_{}".format(n), tau[n])
+        z = pyro.sample("z_{}".format(n), dist.Categorical(pi))
+
+    eps_param = pyro.param("eps", eps)
+
+    treeHMM = TreeHMM(n_copy_states, eps=eps)
+    cpd = treeHMM.cpd_table
+    pair_cpd = treeHMM.cpd_pair_table
+
+    # variables to store complete data in
+    C_dict = {}
+    y = torch.zeros(n_sites, n_cells)
+
+    # dist for root note (dirac on C_r_m)
+    prior_tensor = torch.eye(n_copy_states)
+    # C_r_m determines the value of the root copy number
+    # which is the same for each site
+    C_r_m = 2
+
+    for u in nx.dfs_preorder_nodes(tree):
+        # root node
+        if u == 0:
+            for m in range(n_sites):
+                # root node is always 2
+                C_r_m = pyro.sample("C_{}_{}".format(0, m), dist.Categorical(prior_tensor[C_r_m, :]))
+
+                C_dict[0, m] = C_r_m
+                ind = torch.where(z == u)[0]
+                for n in ind:
+                    y[m, n] = pyro.sample("y_{}_{}".format(m, n), dist.Normal(mu[n] * C_r_m, 1.0 / tau[n].sqrt()), obs=data[m, n])
+        # inner nodes
+        else:
+            p = [pred for pred in tree.predecessors(u)][0]
+            # no need for pyro.markov, range is equivalent
+            # a simple for loop is used in the tutorials for sequential dependencies
+            # ref: https://pyro.ai/examples/svi_part_ii.html#Sequential-plate
+            for m in range(n_sites):
+                # current site, parent copy number is always available
+                C_p_m = int(C_dict[p, m])
+
+                zipping_dist = None
+                if m == 0:
+                    # initial state case only depends on the parent initial state
+                    # use pair_cpd as m-1 is not available
+                    zipping_dist = dist.Categorical(torch.tensor([pair_cpd[i, C_p_m] for i in range(n_copy_states)]))
+                else:
+                    # previous copy numbers
+                    C_p_m_1 = int(C_dict[p, m - 1])
+                    C_u_m_1 = int(C_dict[u, m - 1])
+
+                    # other states depend on 3 states
+                    zipping_dist = dist.Categorical(
+                        probs=torch.tensor([cpd[i, C_u_m_1, C_p_m, C_p_m_1] for i in range(n_copy_states)]))
+
+                C_u_m = pyro.sample("C_{}_{}".format(u, m), zipping_dist)
+
+                # save values in dict
+                C_dict[u, m] = C_u_m
+                ind = torch.where(z == u)[0]
+                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (tau[ind].sqrt())), obs=data[m, ind])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():

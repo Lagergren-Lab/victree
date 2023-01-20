@@ -1,3 +1,4 @@
+import random
 import unittest
 
 import networkx as nx
@@ -25,7 +26,9 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         self.qz = qZ(self.config)
         self.qpi = qPi(self.config)
         self.qmt = qMuTau(self.config)
-        self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
+        self.qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
+        torch.manual_seed(0)
+        random.seed(0)
 
     def set_up_q(self, config):
         qc = qC(config)
@@ -34,10 +37,32 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
-        qmt.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
+        qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
-    def simul_data_pyro(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+    def simul_data_pyro_full_model(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+                                   mu_0=torch.tensor(1.),
+                                   lambda_0=torch.tensor(1.),
+                                   alpha0=torch.tensor(1.),
+                                   beta0=torch.tensor(1.),
+                                   a0=torch.tensor(1.0),
+                                   b0=torch.tensor(10.0),
+                                   dir_alpha0=torch.tensor(1.0)
+                                   ):
+        model_tree_markov_full = simul.model_tree_markov_full
+        unconditioned_model = poutine.uncondition(model_tree_markov_full)
+        C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                        mu_0,
+                                                        lambda_0,
+                                                        alpha0,
+                                                        beta0,
+                                                        a0,
+                                                        b0,
+                                                        dir_alpha0)
+
+        return C, y, z, pi, mu, tau, eps
+
+    def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                         mu_0=torch.tensor(10.),
                         lambda_0=torch.tensor(.1),
                         alpha0=torch.tensor(10.),
@@ -63,26 +88,33 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
-        n_cells = 20
-        n_sites = 10
+        n_cells = 500
+        n_sites = 100
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree)
+        C, y, z, pi, mu, tau, eps = self.simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree, mu_0=1., dir_alpha0=3.)
         # y should be integer and non-negative (count data)
         # y = y.clamp(min=0).int()
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, debug=False)
+        print(f"Epsilon: {eps}")
+        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+                        debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q.initialize()
         copy_tree = CopyTree(config, p, q, y)
 
-        copy_tree.run(30)
+        copy_tree.run(20)
 
         q_C = copy_tree.q.c.single_filtering_probs
         q_z_pi = copy_tree.q.z.pi
-        print(f"True pi: {pi} \n variational pi_n: {q_z_pi[0:5]}")
+        torch.set_printoptions(precision=2)
+        print(f"True pi: {pi} \n variational pi_n: {q_z_pi[0:10]}")
         print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
+        print(f"True C: {C[1, 45:50]} \n q(C): {q_C[1, 45:50, :]}")
+        print(f"True C: {C[2, 5:10]} \n q(C): {q_C[2, 5:10, :]}")
+        print(f"True C: {C[2, 45:50]} \n q(C): {q_C[2, 45:50, :]}")
 
     def test_large_tree(self):
         torch.manual_seed(0)
@@ -94,8 +126,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = torch.ones(K)
         dir_alpha0[3] = 100.
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree,
-                                                         dir_alpha0=dir_alpha0)
+        C, y, z, pi, mu, tau, eps = self.simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                                    dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
@@ -119,8 +151,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = 1.
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro(data, n_cells, n_sites, n_copy_states, tree,
-                                                         dir_alpha0=dir_alpha0)
+        C, y, z, pi, mu, tau, eps = self.simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                                    dir_alpha0=dir_alpha0)
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
@@ -141,4 +173,5 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         delta = copy_tree.q.pi.concentration_param
         print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
         print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
-        print(f"True C: {f.one_hot(torch.tensor(C[1, 5:10], dtype=int), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
+        print(
+            f"True C: {f.one_hot(torch.tensor(C[1, 5:10], dtype=int), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
