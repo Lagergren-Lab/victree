@@ -302,6 +302,9 @@ class qC(VariationalDistribution):
                                                           self.couple_filtering_probs[edges_mask[0], ...],
                                                           torch.stack([q_eps.exp_zipping(e) for e in tree.edges]),
                                                           e_eta1_m[edges_mask[1], 1:, :])
+            #e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih', TODO: CHECK THIS
+            #                                              self.couple_filtering_probs[edges_mask[0], ...],
+            #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         # natural parameters for root node are fixed to healthy state
         e_eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
@@ -469,7 +472,7 @@ class qZ(VariationalDistribution):
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        d_nmj = qmt.exp_log_emission(obs)
+        d_nmj = qmt.exp_log_emission(obs) # TODO: CHECK THIS *0.00001
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
@@ -967,7 +970,7 @@ class qMuTau(VariationalDistribution):
         self.beta = new_beta
         return new_nu, new_lmbda, new_alpha, new_beta
 
-    def initialize(self, loc: float = 100, precision_factor: float = .1,
+    def initialize(self, loc: float = 1, precision_factor: float = .1,
                  shape: float = 5, rate: float = 5, **kwargs):
         self.nu = loc * torch.ones(self.config.n_cells)
         self.lmbda = precision_factor * torch.ones(self.config.n_cells)

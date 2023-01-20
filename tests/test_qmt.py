@@ -66,6 +66,27 @@ class qmtTestCase(unittest.TestCase):
                                                   self.config.chain_length,
                                                   self.config.n_states))
 
+    def test_log_emissions(self):
+        C = torch.ones(self.M) * 2.
+        C[0:50] = 6.
+        mu = torch.ones(self.N) * 1
+        tau = 1
+        obs_rv = torch.distributions.Normal(loc=torch.outer(C, mu), scale=1/tau)
+        #obs_gc_scaled = torch.empty((self.M, self.N))
+        #torch.nn.init.trunc_normal_(obs_gc_scaled, mean=torch.outer(C, mu), std=1/tau)
+        obs = obs_rv.sample()
+        qmt = qMuTau(config=self.config)
+        mu_init = 1
+        prec_factor_init = 1
+        alpha_init = 10
+        beta_init = 10
+        qmt.initialize(loc=mu_init, precision_factor=prec_factor_init,
+                       shape=alpha_init, rate=beta_init)
+        exp_log_emission = qmt.exp_log_emission(obs)
+        print(f"E[log p(y|C)] {exp_log_emission[0,0,:]}")
+        print(f"E[log p(y|C)] {exp_log_emission[0,51,:]}")
+        # Log emission always largest for C=0 - is that correct?
+
     def test_update(self):
         # design simple test: fix all other variables
         # and update the q_mutau params
