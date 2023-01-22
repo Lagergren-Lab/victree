@@ -43,7 +43,7 @@ class updatesTestCase(unittest.TestCase):
         self.assertEqual(cell_cn_profile.shape, (cfg.n_cells, cfg.chain_length))
 
         # mean and precision
-        nu, lmbda = torch.tensor([1, 1])  # randomize mu for each cell with these hyperparameters
+        nu, lmbda = torch.tensor([1, 10])  # randomize mu for each cell with these hyperparameters
         true_mu = torch.randn(cfg.n_cells) / torch.sqrt(lmbda) + nu
         obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
@@ -101,14 +101,12 @@ class updatesTestCase(unittest.TestCase):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
 
+        # compare estimated single filtering probs against true copy number profile
+        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+
         self.assertTrue(torch.all(qc.couple_filtering_probs[0, :, 2, 2] > qc.couple_filtering_probs[0, :, 2, 0]))
-
-        print(qc.single_filtering_probs)
-        print(torch.argmax(qc.couple_filtering_probs.flatten(-2), dim=-1))
-
         self.assertEqual(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, :].max())
-
-        self.assertEqual(qc.couple_filtering_probs[2, 7, 2, 3], qc.couple_filtering_probs[2, 7, 1, :].max())
+        self.assertEqual(qc.couple_filtering_probs[2, 7, 2, 3], qc.couple_filtering_probs[2, 7, 2, :].max())
 
 
 if __name__ == '__main__':
