@@ -281,15 +281,16 @@ class qC(VariationalDistribution):
         e_eta1 = torch.empty_like(self.eta1)
         e_eta2 = torch.empty_like(self.eta2)
 
-        # eta_1_iota(1, i)
-        e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
-                                                 self.single_filtering_probs[
-                                                 [next(tree.predecessors(u)) for u in inner_nodes], 0, :],
-                                                 q_eps.h_eps0())
         # eta_1_iota(m, i)
         e_eta1_m = torch.einsum('nv,nmi->vmi',
                               q_z.exp_assignment(),
                               q_mutau.exp_log_emission(obs))
+        # eta_1_iota(1, i)
+        e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
+                                              self.single_filtering_probs[
+                                              [next(tree.predecessors(u)) for u in inner_nodes], 0, :],
+                                              q_eps.h_eps0()) +\
+                                e_eta1_m[inner_nodes, 0, :]
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
             e_eta2[...] = torch.einsum('pmjk,hikj,pmh->pmih',
