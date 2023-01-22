@@ -126,34 +126,6 @@ class updatesTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
                                        torch.argmax(qz.exp_assignment(), dim=-1)))
 
-    def test_update_qc_qz(self):
-
-        joint_q = self.generate_test_dataset_fixed_tree()
-        cfg = joint_q.config
-        obs = joint_q.obs
-        fix_tree = joint_q.T
-        fix_qpi = joint_q.pi
-        fix_qeps = joint_q.eps
-        fix_qmt = joint_q.mt
-
-        qz = qZ(cfg)
-        qc = qC(cfg)
-        qz.initialize(method='random')
-        qc.initialize()
-
-        trees = [fix_tree] * cfg.wis_sample_size
-        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
-
-        for i in range(10):
-            qc.update(obs, fix_qeps, qz, fix_qmt,
-                      trees=trees, tree_weights=wis_weights)
-            qz.update(fix_qmt, qc, fix_qpi, obs)
-
-        self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
-                                       torch.argmax(qz.exp_assignment(), dim=-1)))
-
-        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
-
     def test_qmt(self):
 
         joint_q = self.generate_test_dataset_fixed_tree()
@@ -189,7 +161,7 @@ class updatesTestCase(unittest.TestCase):
         for i in range(10):
             qeps.update(trees, wis_weights, fix_qc.couple_filtering_probs)
 
-        print(qeps.mean()[[0, 0], [1, 2]])
+        # print(qeps.mean()[[0, 0], [1, 2]])
         true_eps = joint_q.eps.true_params['eps']
         var_eps = qeps.mean()
         self.assertAlmostEqual(var_eps[0, 1],
@@ -218,6 +190,69 @@ class updatesTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(qpi.exp_log_pi().exp(),
                                        joint_q.pi.exp_log_pi().exp(), rtol=1e-2))
 
+    def test_update_qc_qz(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        obs = joint_q.obs
+        fix_tree = joint_q.T
+        fix_qpi = joint_q.pi
+        fix_qeps = joint_q.eps
+        fix_qmt = joint_q.mt
+
+        qz = qZ(cfg)
+        qc = qC(cfg)
+        qz.initialize(method='random')
+        qc.initialize()
+
+        trees = [fix_tree] * cfg.wis_sample_size
+        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+
+        for i in range(10):
+            qc.update(obs, fix_qeps, qz, fix_qmt,
+                      trees=trees, tree_weights=wis_weights)
+            qz.update(fix_qmt, qc, fix_qpi, obs)
+
+        self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
+                                       torch.argmax(qz.exp_assignment(), dim=-1)))
+
+        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+
+    def test_update_qc_qz_qmt(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        obs = joint_q.obs
+        fix_tree = joint_q.T
+        fix_qpi = joint_q.pi
+        fix_qeps = joint_q.eps
+
+        qmt = qMuTau(cfg)
+        qz = qZ(cfg)
+        qc = qC(cfg)
+        qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)
+        qz.initialize(method='random')
+        qc.initialize()
+
+        trees = [fix_tree] * cfg.wis_sample_size
+        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+
+        # change step_size
+        cfg.step_size = .2
+
+        for i in range(100):
+            qc.update(obs, fix_qeps, qz, qmt,
+                      trees=trees, tree_weights=wis_weights)
+            qz.update(qmt, qc, fix_qpi, obs)
+            print(qz.exp_assignment())
+            qmt.update(qc, qz, obs)
+
+        print(qmt.exp_tau())
+        print(joint_q.mt.true_params['tau'])
+        self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
+                                       torch.argmax(qz.exp_assignment(), dim=-1)))
+
+        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
 
 if __name__ == '__main__':
     unittest.main()

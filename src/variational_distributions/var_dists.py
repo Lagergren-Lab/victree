@@ -308,6 +308,7 @@ class qC(VariationalDistribution):
             #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         # natural parameters for root node are fixed to healthy state
+        # FIXME: cells shouldn't be assigned to this node
         e_eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
