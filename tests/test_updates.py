@@ -108,6 +108,116 @@ class updatesTestCase(unittest.TestCase):
         self.assertEqual(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, :].max())
         self.assertEqual(qc.couple_filtering_probs[2, 7, 2, 3], qc.couple_filtering_probs[2, 7, 2, :].max())
 
+    def test_update_qz(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        obs = joint_q.obs
+        fix_qmt = joint_q.mt
+        fix_qc = joint_q.c
+        fix_qpi = joint_q.pi
+
+        qz = qZ(cfg)
+        qz.initialize(method='random')
+
+        for i in range(3):
+            qz.update(fix_qmt, fix_qc, fix_qpi, obs)
+
+        self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
+                                       torch.argmax(qz.exp_assignment(), dim=-1)))
+
+    def test_update_qc_qz(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        obs = joint_q.obs
+        fix_tree = joint_q.T
+        fix_qpi = joint_q.pi
+        fix_qeps = joint_q.eps
+        fix_qmt = joint_q.mt
+
+        qz = qZ(cfg)
+        qc = qC(cfg)
+        qz.initialize(method='random')
+        qc.initialize()
+
+        trees = [fix_tree] * cfg.wis_sample_size
+        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+
+        for i in range(10):
+            qc.update(obs, fix_qeps, qz, fix_qmt,
+                      trees=trees, tree_weights=wis_weights)
+            qz.update(fix_qmt, qc, fix_qpi, obs)
+
+        self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
+                                       torch.argmax(qz.exp_assignment(), dim=-1)))
+
+        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+
+    def test_qmt(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        obs = joint_q.obs
+        fix_qc = joint_q.c
+        fix_qz = joint_q.z
+
+        qmt = qMuTau(cfg)
+        # uninformative initialization of mu0, tau0, alpha0, beta0
+        qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)
+        for i in range(10):
+            qmt.update(fix_qc, fix_qz, obs)
+
+        # print(qmt.exp_tau())
+        # print(joint_q.mt.true_params['tau'])
+        self.assertTrue(torch.allclose(qmt.nu, joint_q.mt.true_params['mu'], rtol=1e-2))
+        self.assertTrue(torch.allclose(qmt.exp_tau(), joint_q.mt.true_params['tau'], rtol=.2))
+
+    def test_qeps(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        fix_tree = joint_q.T
+        fix_qc = joint_q.c
+
+        qeps = qEpsilonMulti(cfg)
+        qeps.initialize('uniform')
+
+        trees = [fix_tree] * cfg.wis_sample_size
+        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+
+        for i in range(10):
+            qeps.update(trees, wis_weights, fix_qc.couple_filtering_probs)
+
+        print(qeps.mean()[[0, 0], [1, 2]])
+        true_eps = joint_q.eps.true_params['eps']
+        var_eps = qeps.mean()
+        self.assertAlmostEqual(var_eps[0, 1],
+                               true_eps[0, 1], delta=.1)
+        self.assertAlmostEqual(var_eps[0, 2],
+                               true_eps[0, 2], delta=.1)
+
+        self.assertGreater(var_eps[0, 2], var_eps[0, 1])
+
+    def test_update_qpi(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        fix_qz = joint_q.z
+
+        qpi = qPi(cfg)
+        qpi.initialize('random')
+        # print(f'init exp pi: {qpi.exp_log_pi().exp()}')
+
+        n_iter = 100
+        for i in range(n_iter):
+            qpi.update(fix_qz)
+
+        # print(f'after {n_iter} iter - exp pi: {qpi.exp_log_pi().exp()}')
+        # print(f'true exp pi: {joint_q.pi.exp_log_pi().exp()}')
+        self.assertTrue(torch.allclose(qpi.exp_log_pi().exp(),
+                                       joint_q.pi.exp_log_pi().exp(), rtol=1e-2))
+
 
 if __name__ == '__main__':
     unittest.main()

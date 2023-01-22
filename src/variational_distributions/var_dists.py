@@ -1053,10 +1053,21 @@ class qPi(VariationalDistribution):
         self.concentration_param = new_concentration_param
         return new_concentration_param
 
-    def initialize(self, **kwargs):
+    def initialize(self, method: str = 'random', **kwargs):
+        if method == 'random':
+            self._random_init()
+        elif method == 'uniform':
+            self._uniform_init()
+        else:
+            raise ValueError(f'method `{method}` for qZ initialization is not implemented')
+        return super().initialize(**kwargs)
+
+    def _uniform_init(self):
         # initialize to balanced concentration (all ones)
         self.concentration_param = torch.ones_like(self.concentration_param)
-        return super().initialize(**kwargs)
+
+    def _random_init(self):
+        self.concentration_param = torch.distributions.Gamma(5., 1.).rsample(self.concentration_param.shape)
 
     @property
     def concentration_param(self):
