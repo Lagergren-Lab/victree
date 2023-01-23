@@ -521,7 +521,12 @@ class qT(VariationalDistribution):
 
     def __init__(self, config: Config):
         super().__init__(config)
-        self.weighted_graph = self.init_fc_graph()
+        # rooted graph
+        self._weighted_graph = self.init_fc_graph()
+
+    @property
+    def weighted_graph(self):
+        return self._weighted_graph
 
     # TODO: implement with initialization instruction from the doc
     def initialize(self, **kwargs):
@@ -568,37 +573,39 @@ class qT(VariationalDistribution):
         # Term (2)
 
         E_CuCveps = torch.zeros((N, N))
-        for (u, v) in unique_edges:
+        for u, v in unique_edges:
             E_eps_h = q_epsilon.exp_zipping((u, v))
             E_CuCveps[u, v] = torch.einsum('mij, mkl, ijkl  -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
                                            E_eps_h)
 
-        for (k, T) in enumerate(T_list):
-            for (u, v) in T.edges:
+        for k, T in enumerate(T_list):
+            for u, v in T.edges:
                 log_q_T_tensor[k] += E_CuCveps[u, v]
 
         return log_q_T_tensor
 
-    def init_fc_graph(self):
+    def init_fc_graph(self, root=0):
         # random initialization of the fully connected graph over the clones
         g = nx.DiGraph()
         weighted_edges = [(u, v, torch.rand(1))
                           for u, v in itertools.permutations(range(self.config.n_nodes), 2)]
         g.add_weighted_edges_from(weighted_edges)
+        # remove all edges going to the root
+        g.remove_edges_from(g.in_edges(root))
         return g
 
-    def get_trees_sample(self, alg="dslantis", L=None) -> Tuple[List, List]:
-        # TODO: generate trees with sampling algorithm
+    def get_trees_sample(self, alg="dslantis", sample_size=None) -> Tuple[List, List]:
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
+        l = sample_size
         trees = []
         weights = []
-        L = self.config.wis_sample_size if L is None else L
+        l = self.config.wis_sample_size if l is None else l
         if alg == "random":
             trees = [nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
-                     for _ in range(L)]
-            weights = [1] * L
+                     for _ in range(l)]
+            weights = [1] * l
             for t in trees:
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
@@ -606,7 +613,7 @@ class qT(VariationalDistribution):
             # nx.adjacency_matrix(self.weighted_graph, weight="weight") # doesn't work
             adj_matrix = nx.to_numpy_array(self.weighted_graph, weight="weight")
             log_W = torch.log(torch.tensor(adj_matrix))
-            for _ in range(L):
+            for _ in range(l):
                 t, w = sample_arborescence(log_W=log_W, root=0)
                 trees.append(t)
                 weights.append(w)
