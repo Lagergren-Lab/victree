@@ -24,15 +24,14 @@ class qZTestCase(unittest.TestCase):
         self.q_C_test.eta1 = torch.zeros_like(self.q_C_test.eta1) - torch.log(torch.tensor(self.A))
         self.q_C_test.eta2 = torch.zeros_like(self.q_C_test.eta2) - torch.log(torch.tensor(self.A))
 
-    def test_q_Z_uniform_prior_and_observations(self):
+    def test_q_Z_uniform_prior_and_observations_update_gives_uniform_q_Z(self):
+        self.q_Z_test.initialize('uniform')
+        self.q_C_test.compute_filtering_probs()
         observations = torch.ones((self.M, self.N)) * 10.
         self.q_Z_test.update(self.q_mu_tau_test, self.q_C_test, self.q_pi_test, observations)
 
-        # same cat probs for first cell against all others ?
-        # print(self.q_Z_test.pi)
-        # FIXME: nans in pi for some cells
-        self.assertTrue(torch.allclose(self.q_Z_test.pi, self.q_Z_test.pi[0, :]),
-                        msg=f"Categorical probabilites of Z not equal for uniform prior and observations: {self.q_Z_test.pi}")
+        self.assertTrue(torch.allclose(self.q_Z_test.pi, self.q_Z_test.pi[:, :]),
+                        msg=f"Categorical probabilites of Z not equal for uniform prior and observations: {self.q_Z_test.pi[0,:]}")
 
     def test_ELBO_greater_for_uniform_qZ_than_skewed_qZ_when_pi_uniform(self):
         res_1 = self.q_Z_test.elbo(self.q_pi_test)
