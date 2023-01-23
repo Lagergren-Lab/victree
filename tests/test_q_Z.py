@@ -25,7 +25,7 @@ class qZTestCase(unittest.TestCase):
         self.q_C_test.eta2 = torch.zeros_like(self.q_C_test.eta2) - torch.log(torch.tensor(self.A))
 
     def test_q_Z_uniform_prior_and_observations(self):
-        observations = torch.ones((self.M, self.N))
+        observations = torch.ones((self.M, self.N)) * 10.
         self.q_Z_test.update(self.q_mu_tau_test, self.q_C_test, self.q_pi_test, observations)
 
         # same cat probs for first cell against all others ?

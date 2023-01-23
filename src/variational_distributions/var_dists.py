@@ -302,7 +302,7 @@ class qC(VariationalDistribution):
                                                           self.couple_filtering_probs[edges_mask[0], ...],
                                                           torch.stack([q_eps.exp_zipping(e) for e in tree.edges]),
                                                           e_eta1_m[edges_mask[1], 1:, :])
-            #e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih', TODO: CHECK THIS
+            #e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih', #TODO: CHECK THIS
             #                                              self.couple_filtering_probs[edges_mask[0], ...],
             #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
