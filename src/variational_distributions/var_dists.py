@@ -281,15 +281,16 @@ class qC(VariationalDistribution):
         e_eta1 = torch.empty_like(self.eta1)
         e_eta2 = torch.empty_like(self.eta2)
 
-        # eta_1_iota(1, i)
-        e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
-                                                 self.single_filtering_probs[
-                                                 [next(tree.predecessors(u)) for u in inner_nodes], 0, :],
-                                                 q_eps.h_eps0())
         # eta_1_iota(m, i)
         e_eta1_m = torch.einsum('nv,nmi->vmi',
                               q_z.exp_assignment(),
                               q_mutau.exp_log_emission(obs))
+        # eta_1_iota(1, i)
+        e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
+                                              self.single_filtering_probs[
+                                              [next(tree.predecessors(u)) for u in inner_nodes], 0, :],
+                                              q_eps.h_eps0()) +\
+                                e_eta1_m[inner_nodes, 0, :]
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
             e_eta2[...] = torch.einsum('pmjk,hikj,pmh->pmih',
@@ -307,6 +308,7 @@ class qC(VariationalDistribution):
             #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         # natural parameters for root node are fixed to healthy state
+        # FIXME: cells shouldn't be assigned to this node
         e_eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
@@ -364,6 +366,9 @@ class qC(VariationalDistribution):
         initial_log_probs = self.eta1
         # shape K x M x S x S
         transition_log_probs = self.eta2
+        if self.config.debug:
+            assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
+            assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
 
         log_single = torch.empty_like(self.single_filtering_probs)
         log_couple = torch.empty_like(self.couple_filtering_probs)
@@ -1049,10 +1054,21 @@ class qPi(VariationalDistribution):
         self.concentration_param = new_concentration_param
         return new_concentration_param
 
-    def initialize(self, **kwargs):
+    def initialize(self, method: str = 'random', **kwargs):
+        if method == 'random':
+            self._random_init()
+        elif method == 'uniform':
+            self._uniform_init()
+        else:
+            raise ValueError(f'method `{method}` for qZ initialization is not implemented')
+        return super().initialize(**kwargs)
+
+    def _uniform_init(self):
         # initialize to balanced concentration (all ones)
         self.concentration_param = torch.ones_like(self.concentration_param)
-        return super().initialize(**kwargs)
+
+    def _random_init(self):
+        self.concentration_param = torch.distributions.Gamma(5., 1.).rsample(self.concentration_param.shape)
 
     @property
     def concentration_param(self):

@@ -1,3 +1,9 @@
+import random
+
+import numpy as np
+import torch
+
+
 class Config:
     def __init__(self,
                  n_nodes: int = 10,
@@ -64,3 +70,13 @@ class Config:
     @property
     def debug(self):
         return self._debug
+
+
+def set_seed(seed):
+    # torch rng
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # python rng
+    np.random.seed(seed)
+    random.seed(seed)

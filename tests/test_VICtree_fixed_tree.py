@@ -159,8 +159,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
     def test_large_tree_init_true_params(self):
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 20
-        n_sites = 10
+        n_cells = 1000
+        n_sites = 100
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = 1.
@@ -186,3 +186,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
         print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
         print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
+        print(f"True C: {f.one_hot(C[3, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[3, 5:10, :]}")
+        # print(qmt.exp_tau())
+
+        print(f'tree: {tree.edges}')
