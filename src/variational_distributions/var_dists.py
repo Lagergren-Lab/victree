@@ -1032,9 +1032,12 @@ class qMuTau(VariationalDistribution):
         return self.nu * self.alpha / self.beta
 
     def exp_mu2_tau(self):
+        return 1./self.lmbda + torch.pow(self.nu, 2) * self.alpha / self.beta
+    
+    def exp_mu2_tau_c(self):
         A = self.config.n_states
         N = self.config.n_cells
-        c = torch.arange(0, A, dtype=float)
+        c = torch.arange(0, A, dtype=torch.float)
         exp_c_lmbda = torch.einsum("i, n -> in", c, 1./self.lmbda)
         exp_mu2_tau = torch.pow(self.nu, 2) * self.alpha / self.beta
         exp_sum = exp_c_lmbda + exp_mu2_tau
