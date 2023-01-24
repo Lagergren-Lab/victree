@@ -10,6 +10,7 @@ import simul
 import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
 from model.generative_model import GenerativeModel
+from tests.utils_testing import simul_data_pyro_full_model
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
 
@@ -40,27 +41,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
-    def simul_data_pyro_full_model(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                                   mu_0=torch.tensor(1.),
-                                   lambda_0=torch.tensor(1.),
-                                   alpha0=torch.tensor(1.),
-                                   beta0=torch.tensor(1.),
-                                   a0=torch.tensor(1.0),
-                                   b0=torch.tensor(10.0),
-                                   dir_alpha0=torch.tensor(1.0)
-                                   ):
-        model_tree_markov_full = simul.model_tree_markov_full
-        unconditioned_model = poutine.uncondition(model_tree_markov_full)
-        C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                        mu_0,
-                                                        lambda_0,
-                                                        alpha0,
-                                                        beta0,
-                                                        a0,
-                                                        b0,
-                                                        dir_alpha0)
-
-        return C, y, z, pi, mu, tau, eps
 
     def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                         mu_0=torch.tensor(10.),
@@ -93,8 +73,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha = torch.tensor([3., 3., 3.])
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                    mu_0=10., dir_alpha0=dir_alpha)
+        C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                               mu_0=10., dir_alpha0=dir_alpha)
         # y should be integer and non-negative (count data)
         # y = y.clamp(min=0).int()
         print(f"C node 1 site 2: {C[1, 2]}")
@@ -138,8 +118,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = torch.ones(K)
         dir_alpha0[3] = 100.
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                    dir_alpha0=dir_alpha0)
+        C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                               dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
         config = Config(n_nodes=K, chain_length=n_sites,
                         n_cells=n_cells, n_states=n_copy_states)
@@ -164,8 +144,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = 1.
-        C, y, z, pi, mu, tau, eps = self.simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                    dir_alpha0=dir_alpha0)
+        C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                               dir_alpha0=dir_alpha0)
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
@@ -190,3 +170,4 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         # print(qmt.exp_tau())
 
         print(f'tree: {tree.edges}')
+
