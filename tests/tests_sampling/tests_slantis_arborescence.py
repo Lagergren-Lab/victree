@@ -102,11 +102,28 @@ class slantisArborescenceTestCase(unittest.TestCase):
         ]
         graph.add_weighted_edges_from(weighted_edges)
 
-        l = 10
+        l = 1000
         print('samples')
+        e03_cnt = 0
+        e31_cnt = 0
+        e32_cnt = 0
+        e13_cnt = 0
         for i in range(l):
             s, log_iws = sample_arborescence_from_weighted_graph(graph)
-            print(f'[{i}] {tree_to_newick(s)} -> {log_iws}')
+            if (0, 3) in s.edges:
+                e03_cnt += 1
+            if (3, 1) in s.edges:
+                e31_cnt += 1
+            if (1, 3) in s.edges:
+                e13_cnt += 1
+            if (3, 2) in s.edges:
+                e32_cnt += 1
+            # print(f'[{i}] {tree_to_newick(s)} -> {log_iws}')
+
+        print(f'(0,3): {e03_cnt / l}')
+        print(f'(3,1): {e31_cnt / l}')
+        print(f'(1,3): {e13_cnt / l}')
+        print(f'(3,2): {e32_cnt / l}')
 
 
     def test_tree_to_newick(self):

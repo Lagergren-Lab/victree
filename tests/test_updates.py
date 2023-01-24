@@ -5,7 +5,7 @@ import torch
 
 from inference.copy_tree import VarDistFixedTree
 from utils.config import set_seed, Config
-from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti
+from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti, qT
 
 
 class updatesTestCase(unittest.TestCase):
@@ -80,6 +80,26 @@ class updatesTestCase(unittest.TestCase):
         joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps,
                                    fix_qmt, fix_qpi, fix_tree, obs)
         return joint_q
+
+
+    def test_update_qt(self):
+
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        fix_tree = joint_q.T
+        fix_qeps = joint_q.eps
+        fix_qc = joint_q.c
+
+        trees = [fix_tree] * cfg.wis_sample_size
+
+        qt = qT(cfg)
+        qt.initialize()
+
+        for i in range(100):
+            trees_sample, iw = qt.get_trees_sample(sample_size=cfg.wis_sample_size)
+            qt.update(trees_sample, fix_qc, fix_qeps)
+
+        print(qt.weighted_graph.edges.data())
 
     def test_update_qc(self):
 
@@ -247,8 +267,8 @@ class updatesTestCase(unittest.TestCase):
             print(qz.exp_assignment())
             qmt.update(qc, qz, obs)
 
-        print(qmt.exp_tau())
-        print(joint_q.mt.true_params['tau'])
+        # print(qmt.exp_tau())
+        # print(joint_q.mt.true_params['tau'])
         self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
                                        torch.argmax(qz.exp_assignment(), dim=-1)))
 
