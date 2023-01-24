@@ -19,7 +19,9 @@ import pyro
 import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
-from utils.eps_utils import TreeHMM
+
+from utils.config import Config
+from utils.eps_utils import TreeHMM, h_eps, h_eps0
 from utils.tree_utils import generate_fixed_tree
 
 
@@ -204,6 +206,57 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
         C[u, m] = C_dict[u, m]
 
     return C, y, z, pi, mu, tau, eps
+
+
+def simulate_full_dataset(config: Config):
+    # generate random tree
+    tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph)
+    # generate eps from Beta(a, b)
+    eps_a, eps_b = 1, 4
+    eps = {}
+    for u, v in tree.edges:
+        eps[u, v] = torch.distributions.Beta(1, 8).sample()
+    eps0 = 1e-1
+    # generate copy numbers
+    c = torch.empty((config.n_nodes, config.chain_length), dtype=torch.int)
+    c[0, :] = 2 * torch.ones(config.chain_length)
+    h_eps0_cached = h_eps0(config.n_states, eps0)
+    for u, v in nx.bfs_edges(tree, source=0):
+        t0 = h_eps0_cached[c[u, 0], :]
+        c[v, 0] = torch.distributions.Categorical(probs=t0).sample()
+        h_eps_uv = h_eps(config.n_states, eps[u, v])
+        for m in range(1, config.chain_length):
+            # j', j, i', i
+            transition = h_eps_uv[:, c[v, m-1], c[u, m], c[u, m-1]]
+            c[v, m] = torch.distributions.Categorical(probs=transition).sample()
+
+    # sample mu_n, tau_n
+    mu0, lambda0, alpha0, beta0 = 1., 10., 100., 10.
+    tau = torch.distributions.Gamma(alpha0, beta0).sample_n(config.n_cells)
+    mu = torch.distributions.Normal(mu0, 1./torch.sqrt(lambda0 * tau)).sample()
+    assert mu.shape == tau.shape
+    # sample assignments
+    pi = torch.distributions.Dirichlet(torch.ones(config.n_nodes)).sample()
+    z = torch.distributions.Categorical(pi).sample_n(config.n_cells)
+    # sample observations
+    obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
+    scale_expanded = torch.pow(tau, -2).reshape(-1, 1).expand(-1, config.chain_length)
+    # (chain_length x n_cells)
+    obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
+    obs = obs.T
+    assert obs.shape == (config.chain_length, config.n_cells)
+    out_simul = {
+        'obs': obs,
+        'c': c,
+        'z': z,
+        'pi': pi,
+        'mu': mu,
+        'tau': tau,
+        'eps': eps,
+        'eps0': eps0,
+        'tree': tree
+    }
+    return out_simul
 
 
 def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
