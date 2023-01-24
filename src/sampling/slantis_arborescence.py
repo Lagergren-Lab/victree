@@ -128,20 +128,39 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
         candidate_arcs = get_ordered_arcs(skimmed_graph.edges)
         # new graph with all s arcs
         g_with_s = new_graph_with_arcs(s.edges, graph)
+        num_candidates_left = len(candidate_arcs)
+
+        feasible_arcs = []
         for u, v in candidate_arcs:
 
             g_w = new_graph_with_arc(u, v, g_with_s)
             g_wo = new_graph_without_arc(u, v, g_with_s)
+            t_w = t_wo = nx.DiGraph()  # empty graph
             try:
                 t_w = maximum_spanning_arborescence(g_w, preserve_attrs=True)
+                # save max feasible arcs
+                feasible_arcs.append((u, v, graph.edges[u, v]['weight']))
                 t_wo = maximum_spanning_arborescence(g_wo, preserve_attrs=True)
             except nx.NetworkXException as nxe:
                 # go to next arc if, once some arcs are removed, no spanning arborescence exists
                 miss_counter += 1
                 if miss_counter in [100, 1000, 2000, 10000]:
                     logging.log(logging.WARNING, f'DSlantis num misses: {miss_counter}')
-                continue
-            theta = t_w.size(weight='weight') / (t_w.size(weight='weight') + t_wo.size(weight='weight'))
+                num_candidates_left -= 1
+                if num_candidates_left > 0:
+                    continue
+
+            if num_candidates_left == 0:
+                # no arc allows for both t_w and t_wo to exist
+                # must choose one of the feasible ones (for which t_w exists)
+                # obliged choice -> theta = 1
+                theta = 1.
+                # randomize selection based on weights
+                u, v = _sample_feasible_arc(feasible_arcs)
+            else:
+                if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
+                    raise Exception('t_w and t_wo are empty but being called')
+                theta = t_w.size(weight='weight') / (t_w.size(weight='weight') + t_wo.size(weight='weight'))
 
             if np.random.rand() < theta:
                 s.add_edge(u, v, weight=graph.edges[u, v]['weight'])
@@ -153,6 +172,14 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 break
 
     return s, log_isw
+
+
+def _sample_feasible_arc(weighted_arcs):
+    # weighted_arcs is a list of 3-tuples (u, v, weight)
+    unnorm_probs = np.array([w for u, v, w in weighted_arcs])
+    probs = unnorm_probs / unnorm_probs.sum()
+    c = np.random.choice(np.arange(len(weighted_arcs)), p=probs)
+    return weighted_arcs[c][:2]
 
 
 def get_ordered_arcs(edges, method='random'):

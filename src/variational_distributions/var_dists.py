@@ -11,7 +11,7 @@ from utils import math_utils
 from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps
 
 import utils.tree_utils as tree_utils
-from sampling.slantis_arborescence import sample_arborescence
+from sampling.slantis_arborescence import sample_arborescence, sample_arborescence_from_weighted_graph
 from utils.config import Config
 from variational_distributions.variational_distribution import VariationalDistribution
 
@@ -521,8 +521,7 @@ class qT(VariationalDistribution):
 
     def __init__(self, config: Config):
         super().__init__(config)
-        # rooted graph
-        self._weighted_graph = self.init_fc_graph()
+        self._weighted_graph = nx.DiGraph()
 
     @property
     def weighted_graph(self):
@@ -530,6 +529,8 @@ class qT(VariationalDistribution):
 
     # TODO: implement with initialization instruction from the doc
     def initialize(self, **kwargs):
+        # rooted graph with random weights in (0, 1)
+        self._weighted_graph = self.init_fc_graph()
         return super().initialize(**kwargs)
 
     def cross_entropy(self):
@@ -543,9 +544,25 @@ class qT(VariationalDistribution):
     def elbo(self) -> float:
         return self.cross_entropy() - self.entropy()
 
-    def update(self, T_list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
-        q_T = self.update_CAVI(T_list, q_C, q_epsilon)
+    def update(self, T_list, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
+        q_T = self.update_CAVI(T_list, qc, qeps)
+        self.update_graph_weights(qc, qeps)
         return q_T
+
+    def update_graph_weights(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
+        all_edges = [(u, v) for u, v in self._weighted_graph.edges]
+        new_weights = {}
+        for u, v in all_edges:
+            # TODO: check that u, v order in einsum op is correct
+            new_weights[u, v] = torch.einsum('mij, mkl, ijkl->', qc.couple_filtering_probs[u],
+                                             qc.couple_filtering_probs[v], qeps.exp_zipping((u, v)))
+        w_tensor = torch.tensor(list(new_weights.values()))
+        # min-max scaling of weights
+        w_tensor -= torch.min(w_tensor)
+        w_tensor /= torch.max(w_tensor)
+        for i, (u, v) in enumerate(new_weights):
+            self._weighted_graph.edges[u, v]['weight'] = w_tensor[i]
+        return super().update()
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
         """
@@ -591,7 +608,8 @@ class qT(VariationalDistribution):
                           for u, v in itertools.permutations(range(self.config.n_nodes), 2)]
         g.add_weighted_edges_from(weighted_edges)
         # remove all edges going to the root
-        g.remove_edges_from(g.in_edges(root))
+        edges_in_root = [(u, v) for u, v in g.in_edges(root)]
+        g.remove_edges_from(edges_in_root)
         return g
 
     def get_trees_sample(self, alg="dslantis", sample_size=None) -> Tuple[List, List]:
@@ -600,12 +618,12 @@ class qT(VariationalDistribution):
         # trees = csmc_tree_gen(self.config.is_sample_size)
         l = sample_size
         trees = []
-        weights = []
+        log_weights = torch.empty(l)
         l = self.config.wis_sample_size if l is None else l
         if alg == "random":
             trees = [nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
                      for _ in range(l)]
-            weights = [1] * l
+            log_weights[...] = torch.ones(l)
             for t in trees:
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
@@ -613,15 +631,21 @@ class qT(VariationalDistribution):
             # nx.adjacency_matrix(self.weighted_graph, weight="weight") # doesn't work
             adj_matrix = nx.to_numpy_array(self.weighted_graph, weight="weight")
             log_W = torch.log(torch.tensor(adj_matrix))
-            for _ in range(l):
-                t, w = sample_arborescence(log_W=log_W, root=0)
+            for i in range(l):
+                # t, w = sample_arborescence(log_W=log_W, root=0)
+                t, log_w = sample_arborescence_from_weighted_graph(self.weighted_graph)
                 trees.append(t)
-                weights.append(w)
+                log_weights[i] = log_w
 
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
-        return trees, weights
+        # normalize weights and exponentiate
+        log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=0)
+        weights = torch.exp(log_weights)
+        if self.config.debug:
+            assert torch.isclose(torch.sum(weights), torch.tensor(1.))
+        return trees, weights.tolist()
 
 
 # edge distance (single eps for all nodes)
