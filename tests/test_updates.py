@@ -4,8 +4,10 @@ import networkx as nx
 import torch
 
 from inference.copy_tree import VarDistFixedTree
+from simul import tree_to_newick
 from utils.config import set_seed, Config
 from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti, qT
+from tests.utils_testing import simul_data_pyro_full_model
 
 
 class updatesTestCase(unittest.TestCase):
@@ -16,6 +18,18 @@ class updatesTestCase(unittest.TestCase):
 
         # set all seeds for reproducibility
         set_seed(101)
+
+    def generate_test_dataset_pyro(self, config: Config):
+        tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph)
+        fict_data = torch.ones((config.chain_length, config.n_cells))
+        data = simul_data_pyro_full_model(fict_data, config.n_cells,
+                                          config.chain_length,
+                                          config.n_states, tree,
+                                          mu_0=1., lambda_0=10.)
+        return data + (tree, )
+
+
+
 
     def generate_test_dataset_fixed_tree(self) -> VarDistFixedTree:
         # obs with 15 cells, 5 each to different clone
@@ -80,6 +94,14 @@ class updatesTestCase(unittest.TestCase):
         joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps,
                                    fix_qmt, fix_qpi, fix_tree, obs)
         return joint_q
+
+    def test_update_qt_pyro_data(self):
+        config = Config(5, 5, eps0=1e-3, n_cells=20, chain_length=10, wis_sample_size=10,
+                        debug=True)
+        c, obs, z, pi, mu, tau, eps, tree = self.generate_test_dataset_pyro(config)
+        print(obs)
+        print(c)
+        print(tree_to_newick(tree))
 
 
     def test_update_qt(self):
