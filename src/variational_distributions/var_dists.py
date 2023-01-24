@@ -1015,7 +1015,7 @@ class qMuTau(VariationalDistribution):
             E_log_tau = self.exp_log_tau()
             E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
             E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
-            E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:, None, :]
+            E_mu2_tau = torch.einsum('i,in->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:, None, :]
             out_arr = .5 * (E_log_tau - E_tau + 2.*E_mu_tau - E_mu2_tau)
             out_arr = torch.einsum('imn->nmi', out_arr)
 
@@ -1032,8 +1032,172 @@ class qMuTau(VariationalDistribution):
         return self.nu * self.alpha / self.beta
 
     def exp_mu2_tau(self):
-        return 1. / self.lmbda + \
-               torch.pow(self.nu, 2) * self.alpha / self.beta
+        A = self.config.n_states
+        N = self.config.n_cells
+        c = torch.arange(0, A, dtype=float)
+        exp_c_lmbda = torch.einsum("i, n -> in", c, 1./self.lmbda)
+        exp_mu2_tau = torch.pow(self.nu, 2) * self.alpha / self.beta
+        exp_sum = exp_c_lmbda + exp_mu2_tau
+        return exp_sum
+
+
+class qMuAndCellIndependentTau(VariationalDistribution):
+
+    def __init__(self, config: Config, true_params=None):
+        # params for each cell
+        self._nu = torch.empty(config.n_cells)
+        self._lmbda = torch.empty(config.n_cells)
+        self._alpha = torch.empty(1)
+        self._beta = torch.empty(1)
+        self.nu_0 = torch.empty_like(self._nu)
+        self.lmbda_0 = torch.empty_like(self._lmbda)
+        self.alpha_0 = torch.empty_like(self._alpha)
+        self.beta_0 = torch.empty_like(self._beta)
+
+        if true_params is not None:
+            # for each cell, mean and precision of the emission model
+            assert "mu" in true_params
+            assert "tau" in true_params
+        self.true_params = true_params
+        super().__init__(config, true_params is not None)
+
+    # getter ensures that params are only updated in
+    # the class' update method
+    @property
+    def nu(self):
+        return self._nu
+
+    @property
+    def lmbda(self):
+        return self._lmbda
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @property
+    def beta(self):
+        return self._beta
+
+    @nu.setter
+    def nu(self, n):
+        self._nu[...] = n
+
+    @lmbda.setter
+    def lmbda(self, l):
+        self._lmbda[...] = l
+
+    @alpha.setter
+    def alpha(self, a):
+        self._alpha = a
+
+    @beta.setter
+    def beta(self, b):
+        self._beta = b
+
+    def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
+        """
+        Updates mu_n, tau_n for each cell n \in {1,...,N}.
+        :param qc:
+        :param qz:
+        :param obs: tensor of shape (M, N)
+        :param sum_M_y2:
+        :return:
+        """
+        A = self.config.n_states
+        M = self.config.chain_length
+        N = self.config.n_cells
+        c_tensor = torch.arange(A, dtype=torch.float)
+        q_Z = qz.exp_assignment()
+        sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2)
+        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, obs)
+        sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
+        alpha = self.alpha_0 + (M + N) * .5  # Never updated
+        lmbda = self.lmbda_0 + sum_MCZ_c2
+        mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
+        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
+        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
+
+        super().update()
+        return new_mu, new_lmbda, new_alpha, new_beta
+
+    def update_params(self, mu, lmbda, alpha, beta):
+        rho = self.config.step_size
+        new_nu = (1 - rho) * self._nu + rho * mu
+        new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
+        new_alpha = (1 - rho) * self._alpha + rho * alpha
+        new_beta = (1 - rho) * self._beta + rho * beta
+        self.nu = new_nu
+        self.lmbda = new_lmbda
+        self.alpha = new_alpha
+        self.beta = new_beta
+        return new_nu, new_lmbda, new_alpha, new_beta
+
+    def initialize(self, loc: float = 1, precision_factor: float = .1,
+                   shape: float = 5, rate: float = 5, **kwargs):
+        self.nu = loc * torch.ones(self.config.n_cells)
+        self.lmbda = precision_factor * torch.ones(self.config.n_cells)
+        self.alpha = shape * torch.ones(self.config.n_cells)
+        self.beta = rate * torch.ones(self.config.n_cells)
+        self.nu_0[...] = self._nu
+        self.lmbda_0[...] = self._lmbda
+        self.alpha_0 = self._alpha
+        self.beta_0 = self._beta
+        return super().initialize(**kwargs)
+
+    def cross_entropy(self) -> float:
+        return super().elbo()
+
+    def entropy(self) -> float:
+        return super().elbo()
+
+    def elbo(self) -> float:
+        return self.cross_entropy() + self.entropy()
+
+    def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
+        out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
+        out_arr = torch.ones(out_shape)
+        # obs is (m x n)
+        if self.fixed:
+            mu = self.true_params["mu"]
+            tau = self.true_params["tau"]
+
+            # log emission is log normal with
+            # mean=mu*cn_state, var=1/tau
+            means = torch.outer(mu,
+                                torch.arange(self.config.n_states))
+            true_dist = torch.distributions.Normal(loc=means,
+                                                   scale=torch.ones(means.shape) / torch.sqrt(tau)[:, None])
+            out_arr = torch.permute(true_dist.log_prob(obs[..., None]), (1, 0, 2))
+        else:
+            E_log_tau = self.exp_log_tau()
+            E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
+            E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
+            E_mu2_tau = torch.einsum('i,in->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[
+                        :, None, :]
+            out_arr = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
+            out_arr = torch.einsum('imn->nmi', out_arr)
+
+        assert out_arr.shape == out_shape
+        return out_arr
+
+    def exp_tau(self):
+        return self.alpha / self.beta
+
+    def exp_log_tau(self):
+        return torch.digamma(self.alpha) - torch.log(self.beta)
+
+    def exp_mu_tau(self):
+        return self.nu * self.alpha / self.beta
+
+    def exp_mu2_tau(self):
+        A = self.config.n_states
+        N = self.config.n_cells
+        c = torch.arange(0, A, dtype=float)
+        exp_c_lmbda = torch.einsum("i, n -> in", c, 1. / self.lmbda)
+        exp_mu2_tau = torch.pow(self.nu, 2) * self.alpha / self.beta
+        exp_sum = exp_c_lmbda + exp_mu2_tau
+        return exp_sum
 
 
 # dirichlet concentration
