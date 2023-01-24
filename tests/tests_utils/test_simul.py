@@ -4,8 +4,9 @@ import unittest
 
 from pyro import poutine
 
-import simul
+from simul import simulate_full_dataset
 import tests.utils_testing
+from utils.config import Config
 
 
 class simulTestCase(unittest.TestCase):
@@ -56,3 +57,9 @@ class simulTestCase(unittest.TestCase):
             #print(f"avg_y_{m}: {avg_y_m} - expected average: {exp_res_m}")
             if n_cells >= 100:
                 self.assertTrue(torch.isclose(avg_y_m, exp_res_m, rtol=3*1e-01), msg=f"Diff larger than rel tolerance:- avg_y_{m}: {avg_y_m} - expected average: {exp_res_m}")
+
+
+    def test_simple_simulation(self):
+        config = Config(4, 5, n_cells=20, chain_length=10)
+        simul = simulate_full_dataset(config)
+        print(simul['obs'])
