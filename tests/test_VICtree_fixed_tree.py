@@ -11,7 +11,7 @@ import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
 from model.generative_model import GenerativeModel
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
 class VICtreeFixedTreeTestCase(unittest.TestCase):
@@ -37,7 +37,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
-        qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
+        qmt.initialize(loc=1, precision_factor=1., shape=10, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
     def simul_data_pyro_full_model(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -99,17 +99,18 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         # y = y.clamp(min=0).int()
         print(f"C node 1 site 2: {C[1, 2]}")
         print(f"Epsilon: {eps}")
-        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+        config = Config(step_size=1., n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+        qmt = qMuAndTauCellIndependent(config)
 
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
-        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
-                          alpha=torch.ones(n_cells) * 10,
-                          beta=torch.ones(n_cells) * 10)
+        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 1,
+                          alpha=torch.ones(n_cells) * 1,
+                          beta=torch.ones(n_cells) * 1)
         copy_tree = CopyTree(config, p, q, y)
 
         copy_tree.run(50)

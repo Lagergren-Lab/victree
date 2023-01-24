@@ -3,7 +3,7 @@ import unittest
 import torch
 
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qMuAndCellIndependentTau
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qMuAndTauCellIndependent
 
 
 class qmtTestCase(unittest.TestCase):
@@ -109,13 +109,18 @@ class qmtTestCase(unittest.TestCase):
         #obs_gc_scaled = torch.empty((self.M, self.N))
         #torch.nn.init.trunc_normal_(obs_gc_scaled, mean=torch.outer(C, mu), std=1/tau)
         obs = torch.ones((M, N))*6. #obs_rv.sample()
-        qmt = qMuAndCellIndependentTau(config=config)
+        qc = qC(config)
+        qc.initialize()
+        qz = qZ(config)
+        qz.initialize()
+        qmt = qMuAndTauCellIndependent(config=config)
         mu_init = 1
-        prec_factor_init = 10
-        alpha_init = 20
-        beta_init = 10
+        prec_factor_init = 1
+        alpha_init = 1
+        beta_init = 1
         qmt.initialize(loc=mu_init, precision_factor=prec_factor_init,
                        shape=alpha_init, rate=beta_init)
+        #qmt.update(qc, qz, obs)
         exp_log_emission = qmt.exp_log_emission(obs)
 
         for n in range(N):

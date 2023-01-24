@@ -1015,7 +1015,7 @@ class qMuTau(VariationalDistribution):
             E_log_tau = self.exp_log_tau()
             E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
             E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
-            E_mu2_tau = torch.einsum('i,in->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:, None, :]
+            E_mu2_tau = torch.einsum('i, n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:, None, :]
             out_arr = .5 * (E_log_tau - E_tau + 2.*E_mu_tau - E_mu2_tau)
             out_arr = torch.einsum('imn->nmi', out_arr)
 
@@ -1033,7 +1033,7 @@ class qMuTau(VariationalDistribution):
 
     def exp_mu2_tau(self):
         return 1./self.lmbda + torch.pow(self.nu, 2) * self.alpha / self.beta
-    
+
     def exp_mu2_tau_c(self):
         A = self.config.n_states
         N = self.config.n_cells
@@ -1044,7 +1044,7 @@ class qMuTau(VariationalDistribution):
         return exp_sum
 
 
-class qMuAndCellIndependentTau(VariationalDistribution):
+class qMuAndTauCellIndependent(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
         # params for each cell
@@ -1053,7 +1053,7 @@ class qMuAndCellIndependentTau(VariationalDistribution):
         self._alpha = torch.empty(1)
         self._beta = torch.empty(1)
         self.nu_0 = torch.empty_like(self._nu)
-        self.lmbda_0 = torch.empty_like(self._lmbda)
+        self.phi_0 = torch.empty_like(self._lmbda)
         self.alpha_0 = torch.empty_like(self._alpha)
         self.beta_0 = torch.empty_like(self._beta)
 
@@ -1114,12 +1114,19 @@ class qMuAndCellIndependentTau(VariationalDistribution):
         q_Z = qz.exp_assignment()
         sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2)
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, obs)
+
         sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
-        alpha = self.alpha_0 + (M + N) * .5  # Never updated
-        lmbda = self.lmbda_0 + sum_MCZ_c2
-        mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
-        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
-        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
+        E_mu = self.exp_mu()
+        y_minus_Emu_c = obs.view(M, N, 1).expand(M, N, A) - torch.outer(E_mu, c_tensor).expand(M, N, A)
+        sum_MCZ_y_minus_mu_c = torch.einsum("kma, nk, mna -> ", qc.single_filtering_probs, q_Z, y_minus_Emu_c**2)
+
+        E_tau = self.exp_tau()
+        alpha = self.alpha_0 + (M * N) * .5  # Never updated
+        beta = self.beta_0 + .5 * sum_MCZ_y_minus_mu_c
+
+        phi = self.phi_0 + E_tau * sum_MCZ_c2
+        mu = (self.nu_0 * self.phi_0 + E_tau * sum_MCZ_cy) / phi
+        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, phi, alpha, beta)
 
         super().update()
         return new_mu, new_lmbda, new_alpha, new_beta
@@ -1140,10 +1147,10 @@ class qMuAndCellIndependentTau(VariationalDistribution):
                    shape: float = 5, rate: float = 5, **kwargs):
         self.nu = loc * torch.ones(self.config.n_cells)
         self.lmbda = precision_factor * torch.ones(self.config.n_cells)
-        self.alpha = shape * torch.ones(self.config.n_cells)
-        self.beta = rate * torch.ones(self.config.n_cells)
+        self.alpha = shape
+        self.beta = rate
         self.nu_0[...] = self._nu
-        self.lmbda_0[...] = self._lmbda
+        self.phi_0[...] = self._lmbda
         self.alpha_0 = self._alpha
         self.beta_0 = self._beta
         return super().initialize(**kwargs)
@@ -1176,7 +1183,7 @@ class qMuAndCellIndependentTau(VariationalDistribution):
             E_log_tau = self.exp_log_tau()
             E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
             E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
-            E_mu2_tau = torch.einsum('i,in->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[
+            E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[
                         :, None, :]
             out_arr = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
             out_arr = torch.einsum('imn->nmi', out_arr)
@@ -1190,17 +1197,14 @@ class qMuAndCellIndependentTau(VariationalDistribution):
     def exp_log_tau(self):
         return torch.digamma(self.alpha) - torch.log(self.beta)
 
+    def exp_mu(self):
+        return self.nu
+
     def exp_mu_tau(self):
         return self.nu * self.alpha / self.beta
 
     def exp_mu2_tau(self):
-        A = self.config.n_states
-        N = self.config.n_cells
-        c = torch.arange(0, A, dtype=float)
-        exp_c_lmbda = torch.einsum("i, n -> in", c, 1. / self.lmbda)
-        exp_mu2_tau = torch.pow(self.nu, 2) * self.alpha / self.beta
-        exp_sum = exp_c_lmbda + exp_mu2_tau
-        return exp_sum
+        return 1./self.lmbda + torch.pow(self.nu, 2) * self.alpha / self.beta
 
 
 # dirichlet concentration
