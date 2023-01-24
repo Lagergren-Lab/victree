@@ -299,10 +299,10 @@ class qC(VariationalDistribution):
                                               e_eta1_m[:, 1:, :])
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
-            e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj,pmh->pmih',
+            e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih',
                                                           self.couple_filtering_probs[edges_mask[0], ...],
-                                                          torch.stack([q_eps.exp_zipping(e) for e in tree.edges]),
-                                                          e_eta1_m[edges_mask[1], 1:, :])
+                                                          torch.stack([q_eps.exp_zipping(e) for e in tree.edges])) +\
+                                                          e_eta1_m[edges_mask[1], 1:, None, :]
             #e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih', #TODO: CHECK THIS
             #                                              self.couple_filtering_probs[edges_mask[0], ...],
             #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
@@ -894,7 +894,7 @@ class qEpsilonMulti(VariationalDistribution):
             # return the zipping function with true value of eps
             # which is the mean of the fixed distribution
             true_eps = self.true_params["eps"]
-            out_arr = h_eps(self.config.n_states, true_eps[u, v])
+            out_arr = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
         else:
             # TODO: implement
             copy_mask = get_zipping_mask(self.config.n_states)
