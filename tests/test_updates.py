@@ -63,9 +63,10 @@ class updatesTestCase(unittest.TestCase):
         obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
 
-        true_eps = torch.ones((cfg.n_nodes, cfg.n_nodes)) * 0.8
-        true_eps[0, 1] = 1./(cfg.chain_length-1)
-        true_eps[0, 2] = 3./(cfg.chain_length-1)
+        true_eps = {
+            (0, 1): 1./(cfg.chain_length-1),
+            (0, 2): 3./(cfg.chain_length-1)
+        }
 
         # give true values to the other required dists
         fix_qc = qC(cfg, true_params={

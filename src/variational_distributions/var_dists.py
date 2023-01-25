@@ -926,7 +926,8 @@ class qEpsilonMulti(VariationalDistribution):
             out_arr[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
             if self.config.debug:
                 assert torch.allclose(torch.sum(out_arr, dim=0), torch.ones_like(out_arr))
-        return out_arr.log()
+            out_arr[...] = out_arr.log()
+        return out_arr
 
     def mean(self):
         return self.alpha / (self.alpha + self.beta)
