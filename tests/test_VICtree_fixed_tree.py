@@ -10,6 +10,7 @@ import simul
 import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
 from model.generative_model import GenerativeModel
+from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
@@ -183,3 +184,46 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(pi, torch.mean(q_pi, dim=0), atol=0.1),
                         msg=f"q(Z) mean over cells not close to true pi used for sampling Z."
                             f" \n q(Z)) mean: {torch.mean(q_pi, dim=0)} \n true pi: {pi}")
+
+
+    def test_large_tree_init_true_params_multiple_runs(self):
+        K = 5
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        n_cells = 1000
+        n_sites = 100
+        n_copy_states = 7
+        data = torch.ones((n_sites, n_cells))
+        dir_alpha0 = 1.
+        n_tests = 10
+        for i in range(n_tests):
+            torch.manual_seed(i)
+            C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                                   mu_0=torch.tensor(10.),
+                                                                   lambda_0=torch.tensor(1.),
+                                                                   alpha0=torch.tensor(10.),
+                                                                   beta0=torch.tensor(40.),
+                                                                   a0=torch.tensor(1.0),
+                                                                   b0=torch.tensor(1.0),
+                                                                   dir_alpha0=torch.tensor(1.0))
+
+            config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+            p = GenerativeModel(config, tree)
+            q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q.initialize(eps_alpha=10., eps_beta=40.,
+                         loc=mu, precision_factor=.1, shape=5, rate=5)
+
+            copy_tree = CopyTree(config, p, q, y)
+            copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
+            copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
+            copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
+
+            copy_tree.run(20)
+            q_C = copy_tree.q.c.single_filtering_probs
+            q_pi = copy_tree.q.z.pi
+            delta = copy_tree.q.pi.concentration_param
+
+            torch.set_printoptions(precision=2)
+            model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                              true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                              q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
