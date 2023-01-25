@@ -194,11 +194,15 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = 1.
-        n_tests = 10
+        n_tests = 3
+        alpha_0_list = [1., 1., 1.]
+        beta_0_list = [1., 1., 1.]
+        mu_0_list = [10., 100., 200.]
+        lmbda_0_list = [10., 10., 10.]
         for i in range(n_tests):
             torch.manual_seed(i)
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                   mu_0=torch.tensor(10.),
+                                                                   mu_0=torch.tensor(mu_0_list[i]),
                                                                    lambda_0=torch.tensor(1.),
                                                                    alpha0=torch.tensor(10.),
                                                                    beta0=torch.tensor(40.),
