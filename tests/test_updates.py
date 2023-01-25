@@ -63,9 +63,10 @@ class updatesTestCase(unittest.TestCase):
         obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
 
-        true_eps = torch.ones((cfg.n_nodes, cfg.n_nodes))
-        true_eps[0, 1] = 1./(cfg.chain_length-1)
-        true_eps[0, 2] = 3./(cfg.chain_length-1)
+        true_eps = {
+            (0, 1): 1./(cfg.chain_length-1),
+            (0, 2): 3./(cfg.chain_length-1)
+        }
 
         # give true values to the other required dists
         fix_qc = qC(cfg, true_params={
@@ -131,12 +132,13 @@ class updatesTestCase(unittest.TestCase):
 
 
     def test_update_qt_simul_data(self):
-        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=20, chain_length=20, wis_sample_size=10,
+        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10,
                         debug=True)
         joint_q = self.generate_test_dataset_var_tree(config)
         print(f'obs: {joint_q.obs}')
         print(f"true c: {joint_q.c.true_params['c']}")
         print(f"true tree: {tree_to_newick(joint_q.t.true_params['tree'])}")
+        print(f"true eps: {joint_q.eps.true_params['eps']}")
 
         qt = qT(config)
         qt.initialize()
