@@ -293,10 +293,10 @@ class qC(VariationalDistribution):
                                 e_eta1_m[inner_nodes, 0, :]
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
-            e_eta2[...] = torch.einsum('pmjk,hikj,pmh->pmih',
+            e_eta2[...] = torch.einsum('pmjk,hikj->pmih',
                                               self.couple_filtering_probs,
-                                              q_eps.exp_zipping(),
-                                              e_eta1_m[:, 1:, :])
+                                              q_eps.exp_zipping()) +\
+                                              e_eta1_m[:, 1:, None, :]
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
             e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih',
