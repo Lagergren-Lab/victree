@@ -457,8 +457,8 @@ if __name__ == '__main__':
     #write_sample_dataset_h5('../data_example.h5')
 
     # simulate data and save it to file
-    data = simulate_full_dataset(Config(n_nodes=8, n_states=7, n_cells=1000, chain_length=6000))
-    write_simulated_dataset_h5('../datasets/n8_c1k_l6k.h5', data)
+    data = simulate_full_dataset(Config(n_nodes=5, n_states=7, n_cells=300, chain_length=1000))
+    write_simulated_dataset_h5('../datasets/n5_c300_l1k.h5', data)
 
     ## parse arguments
     #parser = argparse.ArgumentParser(

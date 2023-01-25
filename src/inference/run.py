@@ -1,6 +1,8 @@
 import logging
 import os
 
+import torch
+
 from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
 from utils.config import Config
 from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5
@@ -13,7 +15,7 @@ def run(args):
         obs = obs.float()
     elif fext == '.h5':
         full_data = load_h5_anndata(args.file_path)
-        obs = full_data['X']
+        obs = torch.tensor(full_data['X'])
     else:
         raise FileNotFoundError(f"file extension not recognized: {fext}")
 
