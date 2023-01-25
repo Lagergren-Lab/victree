@@ -131,12 +131,13 @@ class updatesTestCase(unittest.TestCase):
 
 
     def test_update_qt_simul_data(self):
-        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=20, chain_length=20, wis_sample_size=10,
+        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10,
                         debug=True)
         joint_q = self.generate_test_dataset_var_tree(config)
         print(f'obs: {joint_q.obs}')
         print(f"true c: {joint_q.c.true_params['c']}")
         print(f"true tree: {tree_to_newick(joint_q.t.true_params['tree'])}")
+        print(f"true eps: {joint_q.eps.true_params['eps']}")
 
         qt = qT(config)
         qt.initialize()
