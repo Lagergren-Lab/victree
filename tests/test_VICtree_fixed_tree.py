@@ -82,7 +82,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         config = Config(step_size=1., n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        qmt = qMuAndTauCellIndependent(config)
+        #qmt = qMuAndTauCellIndependent(config)
 
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
@@ -103,7 +103,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         print(f"q_epsilon mean: {q_eps.alpha / q_eps.beta}")
         print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
         print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
-        print(f"y_mn: {y[0:10, 0:10]}")
+        print(f"y_mn: {y[1:10, 0:10]}")
         print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
         print(f"True C: {C[1, 45:50]} \n q(C): {q_C[1, 45:50, :]}")
         print(f"True C: {C[2, 5:10]} \n q(C): {q_C[2, 5:10, :]}")
@@ -146,7 +146,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         data = torch.ones((n_sites, n_cells))
         dir_alpha0 = 1.
         C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                               dir_alpha0=dir_alpha0)
+                                                               dir_alpha0=dir_alpha0, mu_0=10.)
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
@@ -164,11 +164,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q_pi = copy_tree.q.z.pi
         delta = copy_tree.q.pi.concentration_param
 
-        print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
-        print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
+        print(f"Prior dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
+        print(f"True pi: {pi} \n variational categorical param: {torch.mean(q_pi, dim=0)}")
         print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
         print(f"True C: {f.one_hot(C[3, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[3, 5:10, :]}")
-        # print(qmt.exp_tau())
+        print(f"True C: {f.one_hot(C[4, 80:100].long(), num_classes=n_copy_states)} \n q(C): {q_C[4, 80:100, :]}")
+        print(f"True mu: {mu[0:5]} \n Expected mu: {qmt.nu[0:5]}")
+        print(f"True tau: {tau[0:5]} \n Expected var tau: {qmt.exp_tau()[0:5]}")
 
         print(f'tree: {tree.edges}')
 
