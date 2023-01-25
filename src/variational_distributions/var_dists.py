@@ -553,6 +553,18 @@ class qT(VariationalDistribution):
         self.update_graph_weights(qc, qeps)
         return q_T
 
+    def update_params(self, new_weights: torch.Tensor):
+        rho = self.config.step_size
+        prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
+        stepped_weights = (1 - rho) * prev_weights + rho * new_weights
+
+        # minmax scaling the weights
+        stepped_weights -= stepped_weights.min()
+        stepped_weights /= stepped_weights.max()
+        for i, (u, v, weight) in enumerate(self._weighted_graph.edges.data('weight')):
+            self._weighted_graph.edges[u, v]['weight'] = stepped_weights[i]
+        return self._weighted_graph.edges.data('weight')
+
     def update_graph_weights(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
         new_log_weights = {}
@@ -565,8 +577,7 @@ class qT(VariationalDistribution):
         # min-max scaling of weights
         w_tensor -= torch.min(w_tensor)
         w_tensor /= torch.max(w_tensor)
-        for i, (u, v) in enumerate(new_log_weights):
-            self._weighted_graph.edges[u, v]['weight'] = w_tensor[i]
+        self.update_params(w_tensor)
         return super().update()
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
@@ -621,10 +632,9 @@ class qT(VariationalDistribution):
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
-        l = sample_size
         trees = []
-        log_weights = torch.empty(l)
-        l = self.config.wis_sample_size if l is None else l
+        log_weights = torch.empty(sample_size)
+        l = self.config.wis_sample_size if sample_size is None else sample_size
         if self.fixed:
             trees = [self.true_params['tree']] * l
             log_weights[...] = torch.ones(l)
