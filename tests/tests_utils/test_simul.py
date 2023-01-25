@@ -4,7 +4,7 @@ import unittest
 
 from pyro import poutine
 
-from simul import simulate_full_dataset
+from simul import simulate_full_dataset, model_tree_markov_full
 import tests.utils_testing
 from utils.config import Config
 
@@ -29,7 +29,7 @@ class simulTestCase(unittest.TestCase):
         b0 = 40.
         dir_alpha0 = 1.
         data = torch.ones((n_sites, n_cells))
-        model_tree_markov = simul.model_tree_markov_full
+        model_tree_markov = model_tree_markov_full
         unconditioned_model = poutine.uncondition(model_tree_markov)
         C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, mu_0, nu_0, alpha0, beta0, a0, b0, dir_alpha0)
 
