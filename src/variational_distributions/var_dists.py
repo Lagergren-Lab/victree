@@ -1,5 +1,6 @@
 import logging
 
+import hmmlearn.hmm
 import torch
 import torch.nn.functional as torch_functional
 import networkx as nx
@@ -91,13 +92,37 @@ class qC(VariationalDistribution):
         self._eta2[...] = e2
 
     def initialize(self, **kwargs):
-        self.random_init()
+        if 'method' in kwargs.keys() and kwargs['method'] == 'baum-welch':
+            self.baum_welch_init(obs=kwargs['obs'], qmt=kwargs['qmt'])
+        else:
+            self.random_init()
         return super().initialize(**kwargs)
 
     def random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
         self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.rand(self.eta2.shape)
+        self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+
+        self.compute_filtering_probs()
+
+    def baum_welch_init(self, obs: torch.Tensor, qmt: 'qMuTau'):
+        # distribute data to clones
+        # calculate MLE state for each clone given the assigned cells
+        A = self.config.n_states
+        startprob_prior = torch.zeros(A)
+        startprob_prior[2] = 1.
+        c_tensor = torch.arange(A)
+        mu_prior = qmt.nu.numpy()
+        mu_prior_c = torch.outer(c_tensor, qmt.nu).numpy()
+        hmm = hmmlearn.hmm.GaussianHMM(n_components=A,
+                                       covariance_type='diag',
+                                       means_prior=mu_prior_c,
+                                       startprob_prior=startprob_prior,
+                                       n_iter=100)
+        hmm.fit(obs.numpy())
+        self.eta1 = torch.log(torch.tensor(hmm.startprob_))
+        self.eta2 = torch.log(torch.tensor(hmm.transmat_))
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
         self.compute_filtering_probs()
