@@ -633,8 +633,8 @@ class qT(VariationalDistribution):
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
         trees = []
-        log_weights = torch.empty(sample_size)
         l = self.config.wis_sample_size if sample_size is None else sample_size
+        log_weights = torch.empty(l)
         if self.fixed:
             trees = [self.true_params['tree']] * l
             log_weights[...] = torch.ones(l)
