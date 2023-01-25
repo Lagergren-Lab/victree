@@ -5,8 +5,8 @@ import torch
 
 import simul
 from inference.copy_tree import VarDistFixedTree, JointVarDist
-from simul import tree_to_newick
 from utils.config import set_seed, Config
+from utils.tree_utils import tree_to_newick
 from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti, qT
 from tests.utils_testing import simul_data_pyro_full_model
 
