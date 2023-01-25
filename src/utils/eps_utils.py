@@ -77,6 +77,13 @@ def h_eps(n_states: int, eps: float) -> torch.Tensor:
     return out_arr
 
 
+def h_eps0(n_states: int, eps0: float) -> torch.Tensor:
+    heps0_arr = eps0 / (n_states - 1) * torch.ones((n_states, n_states))
+    diag_mask = get_zipping_mask0(n_states)
+    heps0_arr[diag_mask] = 1 - eps0
+    return heps0_arr
+
+
 def normalized_zipping_constant(n_states: int) -> torch.Tensor:
     # FIXME: output shape has to be properly matched with zipping tensor
     mask = get_zipping_mask(n_states)

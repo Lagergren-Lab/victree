@@ -1,12 +1,15 @@
 import copy
 import logging
 import random
-from typing import Tuple
+from typing import Tuple, List
 
 import networkx as nx
+import numpy as np
 import torch
 
 import matplotlib
+from networkx import maximum_spanning_arborescence
+
 matplotlib.use("Agg") # to avoid interactive plots
 import matplotlib.pyplot as plt
 
@@ -60,6 +63,29 @@ def get_edmonds_arborescence(log_W: torch.Tensor, root: int):
     return edmonds_tree
 
 
+def new_graph_with_arc(u, v, graph: nx.DiGraph) -> nx.DiGraph:
+    # remove all incoming arcs for v except u,v
+    arcs_to_v_no_u = [(a, b) for a, b in graph.in_edges(v) if a != u]
+    new_graph = nx.DiGraph.copy(graph)
+    new_graph.remove_edges_from(arcs_to_v_no_u)
+    return new_graph
+
+
+def new_graph_with_arcs(ebunch, graph: nx.DiGraph) -> nx.DiGraph:
+    new_graph = nx.DiGraph.copy(graph)
+    for u, v in ebunch:
+        # remove all incoming arcs for v except u,v
+        arcs_to_v_no_u = [(a, b) for a, b in graph.in_edges(v) if a != u]
+        new_graph.remove_edges_from(arcs_to_v_no_u)
+    return new_graph
+
+
+def new_graph_without_arc(u, v, graph: nx.DiGraph) -> nx.DiGraph:
+    new_graph = nx.DiGraph.copy(graph)
+    new_graph.remove_edge(u, v)
+    return new_graph
+
+
 def get_ordered_indexes(n_nodes):
     idx = []
     for e1 in range(0, n_nodes):
@@ -85,6 +111,92 @@ def draw_graph(G: nx.DiGraph, to_file=None):
 
 def is_root(param):
     pass
+
+
+def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
+                                   root: int = 0, debug: bool = False):
+    # start with empty graph (only root)
+    s = nx.DiGraph()
+    s.add_node(root)
+    # copy graph so to remove arcs which shouldn't be considered
+    # while S gets constructed
+    skimmed_graph = nx.DiGraph.copy(graph)
+    # counts how many times arborescences cannot be found
+    miss_counter = 0
+    log_isw = 0.
+    while s.number_of_edges() < graph.number_of_nodes() - 1:
+        candidate_arcs = get_ordered_arcs(skimmed_graph.edges)
+        # new graph with all s arcs
+        g_with_s = new_graph_with_arcs(s.edges, graph)
+        num_candidates_left = len(candidate_arcs)
+
+        feasible_arcs = []
+        for u, v in candidate_arcs:
+
+            g_w = new_graph_with_arc(u, v, g_with_s)
+            g_wo = new_graph_without_arc(u, v, g_with_s)
+            t_w = t_wo = nx.DiGraph()  # empty graph
+            try:
+                t_w = maximum_spanning_arborescence(g_w, preserve_attrs=True)
+                # save max feasible arcs
+                feasible_arcs.append((u, v, graph.edges[u, v]['weight']))
+                t_wo = maximum_spanning_arborescence(g_wo, preserve_attrs=True)
+            except nx.NetworkXException as nxe:
+                # go to next arc if, once some arcs are removed, no spanning arborescence exists
+                miss_counter += 1
+                if miss_counter in [100, 1000, 2000, 10000]:
+                    logging.log(logging.WARNING, f'DSlantis num misses: {miss_counter}')
+                num_candidates_left -= 1
+                if num_candidates_left > 0:
+                    continue
+
+            if num_candidates_left == 0:
+                # no arc allows for both t_w and t_wo to exist
+                # must choose one of the feasible ones (for which t_w exists)
+                # obliged choice -> theta = 1
+                theta = 1.
+                # randomize selection based on weights
+                u, v = _sample_feasible_arc(feasible_arcs)
+            else:
+                if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
+                    raise Exception('t_w and t_wo are empty but being called')
+                theta = t_w.size(weight='weight') / (t_w.size(weight='weight') + t_wo.size(weight='weight'))
+
+            if np.random.rand() < theta:
+                s.add_edge(u, v, weight=graph.edges[u, v]['weight'])
+                # remove all incoming arcs to v (including u,v)
+                skimmed_graph.remove_edges_from(graph.in_edges(v))
+                skimmed_graph.remove_edges_from([(v, u)])
+                log_isw += np.log(theta)
+                # go to while and check if s is complete
+                break
+
+    return s, log_isw
+
+
+def _sample_feasible_arc(weighted_arcs):
+    # weighted_arcs is a list of 3-tuples (u, v, weight)
+    unnorm_probs = np.array([w for u, v, w in weighted_arcs])
+    probs = unnorm_probs / unnorm_probs.sum()
+    c = np.random.choice(np.arange(len(weighted_arcs)), p=probs)
+    return weighted_arcs[c][:2]
+
+
+def get_ordered_arcs(edges, method='random'):
+    ordered_edges = []
+    edges_list: list
+    if isinstance(edges, list):
+        edges_list = edges
+    else:  # OutEdgeView
+        edges_list = [(u, v) for u, v in edges]
+    if method == 'random':
+        order = np.random.permutation(len(edges))
+    else:
+        raise ValueError(f'Method {method} is not available.')
+
+    for i in order:
+        ordered_edges.append(edges_list[i])
+    return ordered_edges
 
 
 def sample_arborescence(log_W: torch.Tensor, 

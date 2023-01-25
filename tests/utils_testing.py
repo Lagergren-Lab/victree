@@ -4,7 +4,9 @@ import networkx as nx
 import numpy as np
 import torch
 import torch.nn.functional as f
+from pyro import poutine
 
+import simul
 from utils import tree_utils
 
 
@@ -70,3 +72,26 @@ def get_two_simple_trees_with_random_qCs(M, A) -> Tuple[List[nx.DiGraph], torch.
     q_C_pairwise_marginals[1] = q_C_1_pairwise_marginals
     q_C_pairwise_marginals[2] = q_C_2_pairwise_marginals
     return T_list, q_C_pairwise_marginals
+
+
+def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+                               mu_0=torch.tensor(1.),
+                               lambda_0=torch.tensor(1.),
+                               alpha0=torch.tensor(1.),
+                               beta0=torch.tensor(1.),
+                               a0=torch.tensor(1.0),
+                               b0=torch.tensor(10.0),
+                               dir_alpha0=torch.tensor(1.0)
+                               ):
+    model_tree_markov_full = simul.model_tree_markov_full
+    unconditioned_model = poutine.uncondition(model_tree_markov_full)
+    C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                    mu_0,
+                                                    lambda_0,
+                                                    alpha0,
+                                                    beta0,
+                                                    a0,
+                                                    b0,
+                                                    dir_alpha0)
+
+    return C, y, z, pi, mu, tau, eps
