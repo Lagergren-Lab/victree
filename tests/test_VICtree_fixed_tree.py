@@ -186,7 +186,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                             f" \n q(Z)) mean: {torch.mean(q_pi, dim=0)} \n true pi: {pi}")
 
     def test_large_tree_init_true_params_multiple_runs(self):
-        K = 5
+        K = 10
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 1000
         n_sites_list = [10, 100, 300]
@@ -268,10 +268,14 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree = CopyTree(config, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
-            off_set = 0.05
-            z_perturbed = z_one_hot + off_set
+            off_set_z = 0.1
+            z_perturbed = z_one_hot + off_set_z
             copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
-            copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
+
+            c_one_hot = f.one_hot(C.long(), num_classes=n_copy_states).float()
+            off_set_c = 0.0
+            c_perturbed = c_one_hot + off_set_c
+            copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
             copy_tree.run(50, suppress_prints=True)
             q_C = copy_tree.q.c.single_filtering_probs
