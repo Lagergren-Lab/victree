@@ -8,7 +8,7 @@ class Config:
     def __init__(self,
                  n_nodes: int = 10,
                  n_states: int = 7,
-                 eps0: float = 1e-3,
+                 eps0: float = 1e-2,
                  n_cells: int = 20,
                  chain_length: int = 200,
                  wis_sample_size: int = 5,

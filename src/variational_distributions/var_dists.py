@@ -890,7 +890,7 @@ class qEpsilonMulti(VariationalDistribution):
                 return heps0_arr
 
     def exp_zipping(self, e: Tuple[int, int]):
-        """Expected zipping function
+        """Expected log-zipping function
 
         Parameters
         ----------
@@ -898,11 +898,15 @@ class qEpsilonMulti(VariationalDistribution):
             edge associated to the distance epsilon
         """
         u, v = e
+        out_arr = torch.empty((self.config.n_states, ) * 4)
         if self.fixed:
             # return the zipping function with true value of eps
             # which is the mean of the fixed distribution
             true_eps = self.true_params["eps"]
-            out_arr = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
+            try:
+                out_arr[...] = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
+            except KeyError as ke:
+                out_arr[...] = torch.log(torch.ones_like(out_arr) * 0.8)  # distant clones if arc doesn't exist
         else:
             # TODO: implement
             copy_mask = get_zipping_mask(self.config.n_states)
@@ -910,9 +914,8 @@ class qEpsilonMulti(VariationalDistribution):
             # FIXME: add normalization (division by A constant)
             norm_const = self.config.n_states
 
-            out_arr = torch.ones(copy_mask.shape) * \
-                      (torch.digamma(self.beta[u, v]) -
-                       torch.digamma(self.alpha[u, v] + self.beta[u, v]))
+            out_arr[...] = torch.ones(copy_mask.shape) * (torch.digamma(self.beta[u, v]) -
+                                                          torch.digamma(self.alpha[u, v] + self.beta[u, v]))
             # select the combinations that do not satisfy i-i'=j-j'
             # and normalize
             out_arr[~copy_mask] -= norm_const
