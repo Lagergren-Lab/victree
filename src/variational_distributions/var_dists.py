@@ -334,16 +334,16 @@ class qC(VariationalDistribution):
         # alpha_kappa(m, i, i')
         # similar to eta2 but with inverted indices in zipping
         if not isinstance(q_eps, qEpsilonMulti):
-            e_alpha2 = torch.einsum('wmjk,kjhi,wmh->wmih',
+            e_alpha2 = torch.einsum('wmjk,kjhi->wmih',
                                     self.couple_filtering_probs,
-                                    q_eps.exp_log_zipping((0, 0)),
-                                                e_alpha12[:, 1:, :])
+                                    q_eps.exp_log_zipping((0, 0))) +\
+                       e_alpha12[:, 1:, None, :]
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
-            e_alpha2[edges_mask[1], ...] = torch.einsum('wmjk,wkjhi,wmh->wmih',
+            e_alpha2[edges_mask[1], ...] = torch.einsum('wmjk,wkjhi->wmih',
                                                         self.couple_filtering_probs[edges_mask[1], ...],
-                                                        torch.stack([q_eps.exp_log_zipping(e) for e in tree.edges]),
-                                                            e_alpha12[edges_mask[1], 1:, :])
+                                                        torch.stack([q_eps.exp_log_zipping(e) for e in tree.edges])) +\
+                                           e_alpha12[edges_mask[1], 1:, None, :]
 
         return e_alpha1, e_alpha2
 
