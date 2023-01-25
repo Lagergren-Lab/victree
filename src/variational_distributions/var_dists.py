@@ -8,7 +8,7 @@ import numpy as np
 from typing import List, Tuple, Union, Optional
 
 from utils import math_utils
-from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps
+from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalized_zipping_constant
 
 import utils.tree_utils as tree_utils
 from sampling.slantis_arborescence import sample_arborescence, sample_arborescence_from_weighted_graph
@@ -920,6 +920,12 @@ class qEpsilonMulti(VariationalDistribution):
             # exp( E_CuCv[ log( 1 - eps) ] )
             # switching to exponential leads to easier normalization step
             # (same as the one in `h_eps()`)
+
+            # FIXME: maybe exp( E[ log h ] ) needs not to be normalized.
+            #   the update equation uses `- log A` instead, where A is the norm constant for each
+            #   triplet (j, i', i)
+            #   try to use `normalized_zipping_constant()` function
+            # A = normalized_zipping_constant(self.config.n_states)
             exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta[u, v]) -
                                                      torch.digamma(self.alpha[u, v] + self.beta[u, v]))
             exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
