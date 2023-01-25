@@ -37,7 +37,7 @@ class TestElbo(unittest.TestCase):
         joint_dist = JointVarDist(config, obs, q_c, q_z, q_t, q_eps, q_mutau, q_pi)
         joint_dist.initialize(**init_params)
 
-        copy_tree = CopyTree(config, p, joint_dist, obs)
+        copy_tree = CopyTree(config, joint_dist, obs)
 
         copy_tree.elbo = -100. 
         # compute_elbo currently outputs -1000

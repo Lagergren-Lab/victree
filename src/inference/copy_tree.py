@@ -1,3 +1,4 @@
+import logging
 from typing import Union
 
 import networkx as nx
@@ -109,12 +110,10 @@ class VarDistFixedTree(VariationalDistribution):
 class CopyTree:
 
     def __init__(self, config: Config,
-                 p: GenerativeModel,
                  q: Union[JointVarDist, VarDistFixedTree],
                  obs: torch.Tensor):
 
         self.config = config
-        self.p = p
         self.q = q
         self.obs = obs
 
@@ -122,7 +121,7 @@ class CopyTree:
         self.it_counter = 0
         self.elbo = -infty
 
-    def run(self, n_iter, suppress_prints=False):
+    def run(self, n_iter):
 
         # counts the number of irrelevant updates
         close_runs = 0
@@ -136,8 +135,7 @@ class CopyTree:
 
             old_elbo = self.elbo
             self.compute_elbo()
-            if not suppress_prints:
-                print(f"ELBO: {self.elbo}")
+            logging.debug(f"ELBO: {self.elbo}")
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
@@ -145,13 +143,11 @@ class CopyTree:
             elif self.elbo < old_elbo:
                 # elbo should only increase
                 # raise ValueError("Elbo is decreasing")
-                if not suppress_prints:
-                    print("Elbo is decreasing")
+                logging.debug("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
                 # raise ValueError("Elbo is non-negative")
-                if not suppress_prints:
-                    print("Warning: Elbo is non-negative")
+                logging.debug("Warning: Elbo is non-negative")
             else:
                 close_runs = 0
 
