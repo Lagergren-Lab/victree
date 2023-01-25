@@ -36,7 +36,7 @@ class qEpsilonTestCase(unittest.TestCase):
         for u in range(self.config.n_nodes):
             for v in range(self.config.n_nodes):
                 if u != v:
-                    exp_zipping = self.qeps.exp_zipping((u,v))
+                    exp_zipping = self.qeps.exp_log_zipping((u, v))
                     self.assertEqual(exp_zipping.shape, (self.config.n_states,) * 4)
 
     def test_h_eps0(self):
