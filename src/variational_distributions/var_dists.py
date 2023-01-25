@@ -519,9 +519,13 @@ class qZ(VariationalDistribution):
 # topology
 class qT(VariationalDistribution):
 
-    def __init__(self, config: Config):
-        super().__init__(config)
+    def __init__(self, config: Config, true_params=None):
         self._weighted_graph = nx.DiGraph()
+
+        if true_params is not None:
+            assert 'tree' in true_params
+        self.true_params = true_params
+        super().__init__(config, fixed=true_params is not None)
 
     @property
     def weighted_graph(self):
@@ -620,7 +624,11 @@ class qT(VariationalDistribution):
         trees = []
         log_weights = torch.empty(l)
         l = self.config.wis_sample_size if l is None else l
-        if alg == "random":
+        if self.fixed:
+            trees = [self.true_params['tree']] * l
+            log_weights[...] = torch.ones(l)
+
+        elif alg == "random":
             trees = [nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
                      for _ in range(l)]
             log_weights[...] = torch.ones(l)
