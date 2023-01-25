@@ -106,3 +106,18 @@ class qCTestCase(unittest.TestCase):
         cross_entropy_deterministic = qc_2.cross_entropy_arc(q_eps, 0, 1)
         print(f"Deterministic: {cross_entropy_deterministic}")
         self.assertLess(cross_entropy_rand, cross_entropy_deterministic)
+
+
+    def test_baum_welch_init(self):
+        K = 3
+        M = 20
+        N = 20
+        A = 7
+        config_1 = Config(n_nodes=K, n_cells=N, chain_length=M, n_states=A)
+        qc_1 = qC(config_1)
+
+        qc_1.baum_welch_init(obs=self.obs, qmt=self.qmt)
+        q_eps = qEpsilonMulti(config_1)
+        cross_entropy_BW = qc_1.cross_entropy_arc(q_eps, 0, 1)
+        print(f"CE baum-welch init: {cross_entropy_BW}")
+

@@ -186,7 +186,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                             f" \n q(Z)) mean: {torch.mean(q_pi, dim=0)} \n true pi: {pi}")
 
     def test_large_tree_init_true_params_multiple_runs(self):
-        K = 5
+        K = 10
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 1000
         n_sites_list = [10, 100, 300]
