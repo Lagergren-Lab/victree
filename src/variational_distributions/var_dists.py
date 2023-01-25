@@ -293,10 +293,10 @@ class qC(VariationalDistribution):
                                 e_eta1_m[inner_nodes, 0, :]
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
-            e_eta2[...] = torch.einsum('pmjk,hikj,pmh->pmih',
+            e_eta2[...] = torch.einsum('pmjk,hikj->pmih',
                                               self.couple_filtering_probs,
-                                              q_eps.exp_zipping(),
-                                              e_eta1_m[:, 1:, :])
+                                              q_eps.exp_zipping()) +\
+                                              e_eta1_m[:, 1:, None, :]
         else:
             edges_mask = [[p for p, _ in tree.edges], [v for _, v in tree.edges]]
             e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih',
@@ -519,9 +519,13 @@ class qZ(VariationalDistribution):
 # topology
 class qT(VariationalDistribution):
 
-    def __init__(self, config: Config):
-        super().__init__(config)
+    def __init__(self, config: Config, true_params=None):
         self._weighted_graph = nx.DiGraph()
+
+        if true_params is not None:
+            assert 'tree' in true_params
+        self.true_params = true_params
+        super().__init__(config, fixed=true_params is not None)
 
     @property
     def weighted_graph(self):
@@ -620,7 +624,11 @@ class qT(VariationalDistribution):
         trees = []
         log_weights = torch.empty(l)
         l = self.config.wis_sample_size if l is None else l
-        if alg == "random":
+        if self.fixed:
+            trees = [self.true_params['tree']] * l
+            log_weights[...] = torch.ones(l)
+
+        elif alg == "random":
             trees = [nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
                      for _ in range(l)]
             log_weights[...] = torch.ones(l)
@@ -882,7 +890,7 @@ class qEpsilonMulti(VariationalDistribution):
                 return heps0_arr
 
     def exp_zipping(self, e: Tuple[int, int]):
-        """Expected zipping function
+        """Expected log-zipping function
 
         Parameters
         ----------
@@ -890,11 +898,15 @@ class qEpsilonMulti(VariationalDistribution):
             edge associated to the distance epsilon
         """
         u, v = e
+        out_arr = torch.empty((self.config.n_states, ) * 4)
         if self.fixed:
             # return the zipping function with true value of eps
             # which is the mean of the fixed distribution
             true_eps = self.true_params["eps"]
-            out_arr = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
+            try:
+                out_arr[...] = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
+            except KeyError as ke:
+                out_arr[...] = torch.log(torch.ones_like(out_arr) * 0.8)  # distant clones if arc doesn't exist
         else:
             # TODO: implement
             copy_mask = get_zipping_mask(self.config.n_states)
@@ -902,9 +914,8 @@ class qEpsilonMulti(VariationalDistribution):
             # FIXME: add normalization (division by A constant)
             norm_const = self.config.n_states
 
-            out_arr = torch.ones(copy_mask.shape) * \
-                      (torch.digamma(self.beta[u, v]) -
-                       torch.digamma(self.alpha[u, v] + self.beta[u, v]))
+            out_arr[...] = torch.ones(copy_mask.shape) * (torch.digamma(self.beta[u, v]) -
+                                                          torch.digamma(self.alpha[u, v] + self.beta[u, v]))
             # select the combinations that do not satisfy i-i'=j-j'
             # and normalize
             out_arr[~copy_mask] -= norm_const

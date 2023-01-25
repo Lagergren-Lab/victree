@@ -208,8 +208,8 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     return C, y, z, pi, mu, tau, eps
 
 
-def simulate_full_dataset(config: Config, eps_a=1., eps_b=4., mu0=1., lambda0=10.,
-                          alpha0=100., beta0=10.):
+def simulate_full_dataset(config: Config, eps_a=1., eps_b=3., mu0=1., lambda0=10.,
+                          alpha0=500., beta0=50.):
     # generate random tree
     tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph)
     # generate eps from Beta(a, b)
@@ -218,7 +218,7 @@ def simulate_full_dataset(config: Config, eps_a=1., eps_b=4., mu0=1., lambda0=10
         eps[u, v] = torch.distributions.Beta(eps_a, eps_b).sample()
     eps0 = config.eps0
     # generate copy numbers
-    c = torch.empty((config.n_nodes, config.chain_length), dtype=torch.int)
+    c = torch.empty((config.n_nodes, config.chain_length), dtype=torch.long)
     c[0, :] = 2 * torch.ones(config.chain_length)
     h_eps0_cached = h_eps0(config.n_states, eps0)
     for u, v in nx.bfs_edges(tree, source=0):
