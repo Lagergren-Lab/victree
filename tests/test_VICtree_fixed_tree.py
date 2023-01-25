@@ -268,7 +268,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree = CopyTree(config, p, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
-            off_set = 0.05
+            off_set = 0.1
             z_perturbed = z_one_hot + off_set
             copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
             copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
