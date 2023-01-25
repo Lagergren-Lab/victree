@@ -9,7 +9,7 @@ import numpy as np
 from typing import List, Tuple, Union, Optional
 
 from utils import math_utils
-from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps
+from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalized_zipping_constant
 
 import utils.tree_utils as tree_utils
 from sampling.slantis_arborescence import sample_arborescence, sample_arborescence_from_weighted_graph
@@ -578,6 +578,18 @@ class qT(VariationalDistribution):
         self.update_graph_weights(qc, qeps)
         return q_T
 
+    def update_params(self, new_weights: torch.Tensor):
+        rho = self.config.step_size
+        prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
+        stepped_weights = (1 - rho) * prev_weights + rho * new_weights
+
+        # minmax scaling the weights
+        stepped_weights -= stepped_weights.min()
+        stepped_weights /= stepped_weights.max()
+        for i, (u, v, weight) in enumerate(self._weighted_graph.edges.data('weight')):
+            self._weighted_graph.edges[u, v]['weight'] = stepped_weights[i]
+        return self._weighted_graph.edges.data('weight')
+
     def update_graph_weights(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
         new_log_weights = {}
@@ -590,8 +602,7 @@ class qT(VariationalDistribution):
         # min-max scaling of weights
         w_tensor -= torch.min(w_tensor)
         w_tensor /= torch.max(w_tensor)
-        for i, (u, v) in enumerate(new_log_weights):
-            self._weighted_graph.edges[u, v]['weight'] = w_tensor[i]
+        self.update_params(w_tensor)
         return super().update()
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
@@ -646,10 +657,9 @@ class qT(VariationalDistribution):
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
-        l = sample_size
         trees = []
+        l = self.config.wis_sample_size if sample_size is None else sample_size
         log_weights = torch.empty(l)
-        l = self.config.wis_sample_size if l is None else l
         if self.fixed:
             trees = [self.true_params['tree']] * l
             log_weights[...] = torch.ones(l)
@@ -945,6 +955,12 @@ class qEpsilonMulti(VariationalDistribution):
             # exp( E_CuCv[ log( 1 - eps) ] )
             # switching to exponential leads to easier normalization step
             # (same as the one in `h_eps()`)
+
+            # FIXME: maybe exp( E[ log h ] ) needs not to be normalized.
+            #   the update equation uses `- log A` instead, where A is the norm constant for each
+            #   triplet (j, i', i)
+            #   try to use `normalized_zipping_constant()` function
+            # A = normalized_zipping_constant(self.config.n_states)
             exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta[u, v]) -
                                                      torch.digamma(self.alpha[u, v] + self.beta[u, v]))
             exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)

@@ -34,8 +34,7 @@ class TestElbo(unittest.TestCase):
         q_mutau = qMuTau(config)
         _, _, obs = read_sc_data(self.proj_dir / 'obs_example.txt')
         obs = obs.float()
-        joint_dist = JointVarDist(config, 
-                                  q_c, q_z, q_t, q_eps, q_mutau, q_pi, obs)
+        joint_dist = JointVarDist(config, obs, q_c, q_z, q_t, q_eps, q_mutau, q_pi)
         joint_dist.initialize(**init_params)
 
         copy_tree = CopyTree(config, p, joint_dist, obs)

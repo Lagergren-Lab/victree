@@ -2,6 +2,8 @@ import networkx as nx
 import torch
 from typing import List, Tuple
 
+from networkx import is_arborescence
+
 
 def generate_fixed_tree(n_nodes: int):
     return nx.random_tree(n=n_nodes, seed=0, create_using=nx.DiGraph)
@@ -82,6 +84,8 @@ if __name__ == '__main__':
 
 
 def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
+    # make sure the graph is a tree
+    assert is_arborescence(g)
     if root is None:
         roots = list(filter(lambda p: p[1] == 0, g.in_degree()))
         assert 1 == len(roots)

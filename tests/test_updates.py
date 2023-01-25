@@ -5,8 +5,8 @@ import torch
 
 import simul
 from inference.copy_tree import VarDistFixedTree, JointVarDist
-from simul import tree_to_newick
 from utils.config import set_seed, Config
+from utils.tree_utils import tree_to_newick
 from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti, qT
 from tests.utils_testing import simul_data_pyro_full_model
 
@@ -39,7 +39,7 @@ class updatesTestCase(unittest.TestCase):
         mm = 1  # change this to increase length
         chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length,
-                     wis_sample_size=2, debug=True)
+                     wis_sample_size=2, debug=True, step_size=0.8)
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         true_cn_profile = torch.tensor(
@@ -126,10 +126,8 @@ class updatesTestCase(unittest.TestCase):
             "tree": simul_data['tree']
         })
 
-        joint_q = JointVarDist(config, fix_qc, fix_qz, fix_qt, fix_qeps,
-                               fix_qmt, fix_qpi, simul_data['obs'])
+        joint_q = JointVarDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
         return joint_q
-
 
     def test_update_qt_simul_data(self):
         config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10,
@@ -160,16 +158,21 @@ class updatesTestCase(unittest.TestCase):
         fix_qeps = joint_q.eps
         fix_qc = joint_q.c
 
-        trees = [fix_tree] * cfg.wis_sample_size
-
         qt = qT(cfg)
         qt.initialize()
 
+        print(tree_to_newick(fix_tree, weight='weight'))
         for i in range(100):
             trees_sample, iw = qt.get_trees_sample(sample_size=cfg.wis_sample_size)
             qt.update(trees_sample, fix_qc, fix_qeps)
+            for t, w in zip(trees_sample, iw):
+                print(f"{tree_to_newick(t)} | {w}")
 
-        print(qt.weighted_graph.edges.data())
+        # print(qt.weighted_graph.edges.data())
+        # sample_size = 20
+        # sampled_trees, sampled_weights = qt.get_trees_sample(sample_size=sample_size)
+        # for t, w in zip(sampled_trees, sampled_weights):
+        #     print(f"{tree_to_newick(t)} | {w}")
 
     def test_update_qc(self):
 
@@ -307,6 +310,33 @@ class updatesTestCase(unittest.TestCase):
                                        torch.argmax(qz.exp_assignment(), dim=-1)))
 
         self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+
+    def test_update_all(self):
+
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50,
+                        wis_sample_size=20, debug=True, step_size=.3)
+        true_joint_q = self.generate_test_dataset_var_tree(config)
+        joint_q = JointVarDist(config, obs=true_joint_q.obs)
+        joint_q.initialize()
+        for i in range(10):
+            joint_q.update()
+
+        print(f'true c at node 1: {true_joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
+        print(f'var c at node 1: {joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
+
+        print(f'true tree: {tree_to_newick(true_joint_q.t.true_params["tree"])}')
+        print(f'var tree graph: {joint_q.t.weighted_graph.edges.data("weight")}')
+        sample_size = 100
+        s_trees, s_weights = joint_q.t.get_trees_sample(sample_size=sample_size)
+        accum = {}
+        for t, w in zip(s_trees, s_weights):
+            if t in accum:
+                accum[t] += w
+            else:
+                accum[t] = w
+
+        print(sorted(accum.items(), key=lambda x: x[1]))
+
 
     def test_update_qc_qz_qmt(self):
 

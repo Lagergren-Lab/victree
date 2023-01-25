@@ -11,18 +11,18 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMu
 
 
 class JointVarDist(VariationalDistribution):
-    def __init__(self, config: Config,
-                 qc, qz, qt, qeps, qmt, qpi, obs: torch.Tensor):
+    def __init__(self, config: Config,obs: torch.Tensor,
+                 qc=None, qz=None, qt=None, qeps=None, qmt=None, qpi=None):
         super().__init__(config)
-        self.c: qC = qc
-        self.z: qZ = qz
-        self.t: qT = qt
-        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
-        self.mt: qMuTau = qmt
-        self.pi: qPi = qpi
+        self.c: qC = qC(config) if qc is None else qc
+        self.z: qZ = qZ(config) if qz is None else qz
+        self.t: qT = qT(config) if qt is None else qt
+        self.eps: Union[qEpsilon, qEpsilonMulti] = qEpsilonMulti(config) if qeps is None else qeps
+        self.mt: qMuTau = qMuTau(config) if qmt is None else qmt
+        self.pi: qPi = qPi(config) if qpi is None else qpi
         self.obs = obs
 
-    def update(self, p: GenerativeModel):
+    def update(self):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
         self.t.update(trees, self.c, self.eps)
@@ -36,7 +36,7 @@ class JointVarDist(VariationalDistribution):
 
     def initialize(self, **kwargs):
         for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
-            q.initialize(kwargs)
+            q.initialize(**kwargs)
         return super().initialize()
 
     def elbo(self, T_eval, w_T_eval) -> float:
@@ -167,7 +167,7 @@ class CopyTree:
         return self.elbo
 
     def step(self):
-        self.q.update(self.p)
+        self.q.update()
         self.it_counter += 1
 
     def init_variational_variables(self):
