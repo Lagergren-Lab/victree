@@ -41,16 +41,15 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
-
     def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                        mu_0=torch.tensor(10.),
-                        lambda_0=torch.tensor(.1),
-                        alpha0=torch.tensor(10.),
-                        beta0=torch.tensor(40.),
-                        a0=torch.tensor(1.0),
-                        b0=torch.tensor(1.0),
-                        dir_alpha0=torch.tensor(1.0)
-                        ):
+                                         mu_0=torch.tensor(10.),
+                                         lambda_0=torch.tensor(.1),
+                                         alpha0=torch.tensor(10.),
+                                         beta0=torch.tensor(40.),
+                                         a0=torch.tensor(1.0),
+                                         b0=torch.tensor(1.0),
+                                         dir_alpha0=torch.tensor(1.0)
+                                         ):
         model_tree_markov_full = simul.model_tree_markov_full
         unconditioned_model = poutine.uncondition(model_tree_markov_full)
         C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
@@ -163,11 +162,24 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q_pi = copy_tree.q.z.pi
         delta = copy_tree.q.pi.concentration_param
 
-        print(f"True dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
-        print(f"True pi: {pi} \n variational concentration param: {torch.mean(q_pi, dim=0)}")
-        print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
-        print(f"True C: {f.one_hot(C[3, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[3, 5:10, :]}")
-        # print(qmt.exp_tau())
+        torch.set_printoptions(precision=2)
+        verbose = False
+        if verbose:
+            print(f"Prior dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
+            print(f"True pi: {pi} \n variational categorical param: {torch.mean(q_pi, dim=0)}")
+            print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
+            print(f"True C: {f.one_hot(C[3, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[3, 5:10, :]}")
+            print(f"True C: {f.one_hot(C[4, 80:100].long(), num_classes=n_copy_states)} \n q(C): {q_C[4, 80:100, :]}")
+            print(f"True mu: {mu[0:5]} \n Expected mu: {qmt.nu[0:5]}")
+            print(f"True tau: {tau[0:5]} \n Expected var tau: {qmt.exp_tau()[0:5]}")
 
         print(f'tree: {tree.edges}')
 
+        # Asserts
+        print(f"Number of differing argmax(qC) and true C: {torch.sum(C != torch.argmax(q_C, dim=-1))}")
+        threshold = 10
+        n_diff_qC_vs_true_C = torch.sum(C != torch.argmax(q_C, dim=-1))
+        self.assertTrue(n_diff_qC_vs_true_C < threshold, msg=f"N diff argmax q(C) vs true C: {n_diff_qC_vs_true_C}")
+        self.assertTrue(torch.allclose(pi, torch.mean(q_pi, dim=0), atol=0.1),
+                        msg=f"q(Z) mean over cells not close to true pi used for sampling Z."
+                            f" \n q(Z)) mean: {torch.mean(q_pi, dim=0)} \n true pi: {pi}")

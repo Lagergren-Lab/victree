@@ -63,11 +63,11 @@ class VarDistFixedTree(VariationalDistribution):
 
     def update(self, p: GenerativeModel):
         # T, C, eps, z, mt, pi
+        self.mt.update(self.c, self.z, self.obs)
         self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
         self.eps.update([self.T], self.w_T, self.c.couple_filtering_probs)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update(self.c, self.z, self.obs)
 
         return super().update()
 

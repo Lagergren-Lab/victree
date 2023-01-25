@@ -329,11 +329,12 @@ class updatesTestCase(unittest.TestCase):
         # change step_size
         cfg.step_size = .2
 
-        for i in range(100):
+        for i in range(20):
+            qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt,
                       trees=trees, tree_weights=wis_weights)
             qz.update(qmt, qc, fix_qpi, obs)
-            qmt.update(qc, qz, obs)
+            print(f"Iter {i} qZ mean: {qz.exp_assignment().mean(dim=0)}")
 
         # print(qmt.exp_tau())
         # print(joint_q.mt.true_params['tau'])
