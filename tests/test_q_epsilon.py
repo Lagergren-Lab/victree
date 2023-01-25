@@ -1,3 +1,4 @@
+import itertools
 import unittest
 
 import networkx as nx
@@ -43,3 +44,9 @@ class qEpsilonTestCase(unittest.TestCase):
         heps_0_marg = torch.sum(self.qeps.h_eps0(), dim=-1)
         self.assertTrue(torch.allclose(heps_0_marg,
                                        torch.ones(self.config.n_states)))
+
+    def test_exp_log_zipping(self):
+        for u, v in itertools.product(range(self.qeps.config.n_states), range(self.qeps.config.n_states)):
+            if u != v and v != 0:
+                marginalize = torch.exp(self.qeps.exp_log_zipping((u, v))).sum(dim=0)
+                self.assertTrue(torch.allclose(marginalize, torch.ones_like(marginalize)))

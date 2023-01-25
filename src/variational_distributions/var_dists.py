@@ -665,7 +665,7 @@ class qEpsilon(VariationalDistribution):
         self.beta_prior = torch.tensor(beta_0, dtype=torch.float32)
         self.alpha = torch.tensor(alpha_0, dtype=torch.float32)
         self.beta = torch.tensor(beta_0, dtype=torch.float32)
-        self._exp_zipping = None
+        self._exp_log_zipping = None
         super().__init__(config)
 
     def update_params(self, alpha: torch.Tensor, beta: torch.Tensor):
@@ -674,7 +674,7 @@ class qEpsilon(VariationalDistribution):
         new_beta = (1 - rho) * self.beta + rho * beta
         self.alpha[...] = new_alpha
         self.beta[...] = new_beta
-        self._exp_zipping = None  # reset previously computed expected zipping
+        self._exp_log_zipping = None  # reset previously computed expected zipping
         return new_alpha, new_beta
 
     def initialize(self, **kwargs):
@@ -740,20 +740,23 @@ class qEpsilon(VariationalDistribution):
 
     def exp_log_zipping(self, _: Optional[Tuple[int, int]] = None):
         # indexing [j', j, i', i]
-        if self._exp_zipping is None:
-            # TODO: implement
-            copy_mask = get_zipping_mask(self.config.n_states)
+        if self._exp_log_zipping is None:
+            self._exp_log_zipping = torch.empty_like((self.config.n_states, ) * 4)
+            # bool tensor with True on [j', j, i', i] where j'-j = i'-i (comutation)
+            comut_mask = get_zipping_mask(self.config.n_states)
 
-            # FIXME: add normalization (division by A constant)
-            norm_const = self.config.n_states
+            # exp( E_CuCv[ log( 1 - eps) ] )
+            # switching to exponential leads to easier normalization step
+            # (same as the one in `h_eps()`)
+            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta) -
+                                                     torch.digamma(self.alpha + self.beta))
+            exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
+            self._exp_log_zipping[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
+            if self.config.debug:
+                assert torch.allclose(torch.sum(self._exp_log_zipping, dim=0), torch.ones_like(self._exp_log_zipping))
+            self._exp_log_zipping[...] = self._exp_log_zipping.log()
 
-            out_arr = torch.ones(copy_mask.shape) * \
-                      (torch.digamma(self.beta) - \
-                       torch.digamma(self.alpha + self.beta))
-            out_arr[~copy_mask] -= norm_const
-            self._exp_zipping = out_arr
-
-        return self._exp_zipping
+        return self._exp_log_zipping
 
 
 # edge distance (multiple eps, one for each arc)
@@ -909,20 +912,21 @@ class qEpsilonMulti(VariationalDistribution):
             try:
                 out_arr[...] = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
             except KeyError as ke:
-                out_arr[...] = torch.log(torch.ones_like(out_arr) * 0.8)  # distant clones if arc doesn't exist
+                out_arr[...] = torch.log(h_eps(self.config.n_states, .8))  # distant clones if arc doesn't exist
         else:
-            # TODO: implement
-            copy_mask = get_zipping_mask(self.config.n_states)
+            # bool tensor with True on [j', j, i', i] where j'-j = i'-i (comutation)
+            comut_mask = get_zipping_mask(self.config.n_states)
 
-            # FIXME: add normalization (division by A constant)
-            norm_const = self.config.n_states
-
-            out_arr[...] = torch.ones(copy_mask.shape) * (torch.digamma(self.beta[u, v]) -
-                                                          torch.digamma(self.alpha[u, v] + self.beta[u, v]))
-            # select the combinations that do not satisfy i-i'=j-j'
-            # and normalize
-            out_arr[~copy_mask] -= norm_const
-        return out_arr
+            # exp( E_CuCv[ log( 1 - eps) ] )
+            # switching to exponential leads to easier normalization step
+            # (same as the one in `h_eps()`)
+            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta[u, v]) -
+                                                     torch.digamma(self.alpha[u, v] + self.beta[u, v]))
+            exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
+            out_arr[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
+            if self.config.debug:
+                assert torch.allclose(torch.sum(out_arr, dim=0), torch.ones_like(out_arr))
+        return out_arr.log()
 
     def mean(self):
         return self.alpha / (self.alpha + self.beta)
