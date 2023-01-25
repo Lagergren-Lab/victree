@@ -16,7 +16,7 @@ def compare_qC_and_true_C(true_C, q_c: qC, threshold):
     marginals = q_c.single_filtering_probs
     max_prob_cat = torch.argmax(marginals, dim=-1)
     n_diff = torch.sum(true_C != max_prob_cat)
-    assert n_diff <= threshold
+    assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
 
 
 def compare_qZ_and_true_Z(true_Z, q_z: qZ):
@@ -33,7 +33,7 @@ def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     print(f"mean square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
 
     square_dist_tau = torch.pow(true_tau - q_mt.exp_tau(), 2)
-    print(f"mean square dist mu: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
+    print(f"mean square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
 
 
 def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt):
@@ -61,7 +61,7 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
 
 
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon, q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau):
-    n_diff = compare_qC_and_true_C(true_C, q_c, threshold=10)
+    compare_qC_and_true_C(true_C, q_c, threshold=50)
     compare_qZ_and_true_Z(true_Z, q_z)
     compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
     compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt)

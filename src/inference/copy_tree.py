@@ -122,7 +122,7 @@ class CopyTree:
         self.it_counter = 0
         self.elbo = -infty
 
-    def run(self, n_iter):
+    def run(self, n_iter, suppress_prints=False):
 
         # counts the number of irrelevant updates
         close_runs = 0
@@ -136,7 +136,8 @@ class CopyTree:
 
             old_elbo = self.elbo
             self.compute_elbo()
-            print(f"ELBO: {self.elbo}")
+            if not suppress_prints:
+                print(f"ELBO: {self.elbo}")
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
@@ -144,13 +145,18 @@ class CopyTree:
             elif self.elbo < old_elbo:
                 # elbo should only increase
                 # raise ValueError("Elbo is decreasing")
-                print("Elbo is decreasing")
+                if not suppress_prints:
+                    print("Elbo is decreasing")
             elif self.elbo > 0:
                 # elbo must be negative
                 # raise ValueError("Elbo is non-negative")
-                print("Warning: Elbo is non-negative")
+                if not suppress_prints:
+                    print("Warning: Elbo is non-negative")
             else:
                 close_runs = 0
+
+        print(f"ELBO final: {self.elbo}")
+
 
     def compute_elbo(self) -> float:
         if type(self.q) is JointVarDist:
