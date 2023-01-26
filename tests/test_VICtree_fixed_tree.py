@@ -90,7 +90,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
                           alpha=torch.ones(n_cells) * 10,
                           beta=torch.ones(n_cells) * 10)
-        copy_tree = CopyTree(config, p, q, y)
+        copy_tree = CopyTree(config, q, y)
 
         copy_tree.run(50)
 
@@ -126,7 +126,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-        copy_tree = CopyTree(config, p, q, y)
+        copy_tree = CopyTree(config, q, y)
 
         copy_tree.run(10)
         q_C = copy_tree.q.c.single_filtering_probs
@@ -153,7 +153,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q.initialize(eps_alpha=10., eps_beta=40.,
                      loc=mu, precision_factor=.1, shape=5, rate=5)
 
-        copy_tree = CopyTree(config, p, q, y)
+        copy_tree = CopyTree(config, q, y)
         copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
@@ -217,7 +217,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
 
-            copy_tree = CopyTree(config, p, q, y)
+            copy_tree = CopyTree(config, q, y)
             copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
             copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
@@ -265,7 +265,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
 
-            copy_tree = CopyTree(config, p, q, y)
+            copy_tree = CopyTree(config, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
             off_set_z = 0.1

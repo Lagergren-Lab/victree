@@ -20,6 +20,7 @@ import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
 
+from utils import tree_utils
 from utils.config import Config
 from utils.eps_utils import TreeHMM, h_eps, h_eps0
 from utils.tree_utils import generate_fixed_tree
@@ -216,6 +217,7 @@ def simulate_full_dataset(config: Config, eps_a=1., eps_b=3., mu0=1., lambda0=10
     eps = {}
     for u, v in tree.edges:
         eps[u, v] = torch.distributions.Beta(eps_a, eps_b).sample()
+        tree.edges[u, v]['weight'] = eps[u, v]
     eps0 = config.eps0
     # generate copy numbers
     c = torch.empty((config.n_nodes, config.chain_length), dtype=torch.long)
@@ -231,12 +233,12 @@ def simulate_full_dataset(config: Config, eps_a=1., eps_b=3., mu0=1., lambda0=10
             c[v, m] = torch.distributions.Categorical(probs=transition).sample()
 
     # sample mu_n, tau_n
-    tau = torch.distributions.Gamma(alpha0, beta0).sample_n(config.n_cells)
+    tau = torch.distributions.Gamma(alpha0, beta0).sample((config.n_cells,))
     mu = torch.distributions.Normal(mu0, 1./torch.sqrt(lambda0 * tau)).sample()
     assert mu.shape == tau.shape
     # sample assignments
     pi = torch.distributions.Dirichlet(torch.ones(config.n_nodes)).sample()
-    z = torch.distributions.Categorical(pi).sample_n(config.n_cells)
+    z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
     scale_expanded = torch.pow(tau, -2).reshape(-1, 1).expand(-1, config.chain_length)
@@ -347,6 +349,23 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
     return C, y, z, pi, mu, tau, eps
 
 
+def write_simulated_dataset_h5(dest_path, data):
+    f = h5py.File(dest_path, 'w')
+    x_ds = f.create_dataset('X', data=data['obs'])
+    layers_grp = f.create_group('layers')
+    z = data['z']
+    cn_state = data['c'][z, :].T
+    assert(cn_state.shape == x_ds.shape)
+    layers_grp.create_dataset('state', data=cn_state)
+
+    gt_group = f.create_group('gt')
+    gt_group.create_dataset('cell_assignment', data=data['z'])
+    gt_group.create_dataset('tree', data=tree_utils.tree_to_newick(data['tree'], weight='weight'))
+    # TODO: write all remaining data 'eps, mu, tau, ...'
+
+    f.close()
+
+
 def write_sample_dataset_h5(dest_path):
     n_cells = 300
     n_sites = 100
@@ -435,7 +454,11 @@ def tree_to_newick(g: nx.DiGraph, root=None):
 
 if __name__ == '__main__':
     # save data to h5 file
-    write_sample_dataset_h5('../data_example.h5')
+    #write_sample_dataset_h5('../data_example.h5')
+
+    # simulate data and save it to file
+    data = simulate_full_dataset(Config(n_nodes=5, n_states=7, n_cells=300, chain_length=1000))
+    write_simulated_dataset_h5('../datasets/n5_c300_l1k.h5', data)
 
     ## parse arguments
     #parser = argparse.ArgumentParser(

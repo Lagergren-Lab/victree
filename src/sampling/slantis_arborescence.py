@@ -150,13 +150,19 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 if num_candidates_left > 0:
                     continue
 
-            if num_candidates_left == 0:
+            if num_candidates_left == 0 and len(feasible_arcs) > 0:
                 # no arc allows for both t_w and t_wo to exist
                 # must choose one of the feasible ones (for which t_w exists)
                 # obliged choice -> theta = 1
                 theta = 1.
                 # randomize selection based on weights
                 u, v = _sample_feasible_arc(feasible_arcs)
+            elif num_candidates_left == 0:
+                # heuristic: reset s
+                s = nx.DiGraph()
+                s.add_node(root)
+                skimmed_graph = nx.DiGraph.copy(graph)
+                break
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
                     raise Exception('t_w and t_wo are empty but being called')

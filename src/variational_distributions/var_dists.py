@@ -613,9 +613,9 @@ class qT(VariationalDistribution):
         prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
         stepped_weights = (1 - rho) * prev_weights + rho * new_weights
 
-        # minmax scaling the weights
-        stepped_weights -= stepped_weights.min()
-        stepped_weights /= stepped_weights.max()
+        # # minmax scaling the weights
+        # stepped_weights -= stepped_weights.min()
+        # stepped_weights /= stepped_weights.max()
         for i, (u, v, weight) in enumerate(self._weighted_graph.edges.data('weight')):
             self._weighted_graph.edges[u, v]['weight'] = stepped_weights[i]
         return self._weighted_graph.edges.data('weight')
@@ -628,10 +628,10 @@ class qT(VariationalDistribution):
             #   qt is updated but in the opposite way it should be
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-        w_tensor = torch.tensor(list(new_log_weights.values())).exp()
-        # min-max scaling of weights
-        w_tensor -= torch.min(w_tensor)
-        w_tensor /= torch.max(w_tensor)
+        w_tensor = torch.tensor(list(new_log_weights.values()))
+        # # min-max scaling of weights
+        # w_tensor -= torch.min(w_tensor)
+        # w_tensor /= torch.max(w_tensor)
         self.update_params(w_tensor)
         return super().update()
 
@@ -675,7 +675,7 @@ class qT(VariationalDistribution):
     def init_fc_graph(self, root=0):
         # random initialization of the fully connected graph over the clones
         g = nx.DiGraph()
-        weighted_edges = [(u, v, torch.rand(1))
+        weighted_edges = [(u, v, torch.rand(1).log())
                           for u, v in itertools.permutations(range(self.config.n_nodes), 2)]
         g.add_weighted_edges_from(weighted_edges)
         # remove all edges going to the root
