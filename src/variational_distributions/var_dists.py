@@ -110,12 +110,19 @@ class qC(VariationalDistribution):
         # distribute data to clones
         # calculate MLE state for each clone given the assigned cells
         A = self.config.n_states
-        startprob_prior = torch.zeros(A)
+        eps = 0.1
+        startprob_prior = torch.zeros(A) + eps
         startprob_prior[2] = 1.
+        startprob_prior = startprob_prior / torch.sum(startprob_prior)
         c_tensor = torch.arange(A)
         mu_prior = qmt.nu.numpy()
         mu_prior_c = torch.outer(c_tensor, qmt.nu).numpy()
         hmm = hmmlearn.hmm.GaussianHMM(n_components=A,
+                                       covariance_type='diag',
+                                       means_prior=mu_prior_c,
+                                       startprob_prior=startprob_prior,
+                                       n_iter=100)
+        hmm_2 = hmmlearn.hmm.GMMHMM(n_components=A,
                                        covariance_type='diag',
                                        means_prior=mu_prior_c,
                                        startprob_prior=startprob_prior,
