@@ -8,6 +8,8 @@ import itertools
 import numpy as np
 from typing import List, Tuple, Union, Optional
 
+from sklearn.cluster import KMeans
+
 from utils import math_utils
 from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalized_zipping_constant
 
@@ -110,12 +112,19 @@ class qC(VariationalDistribution):
         # distribute data to clones
         # calculate MLE state for each clone given the assigned cells
         A = self.config.n_states
-        startprob_prior = torch.zeros(A)
+        eps = 0.1
+        startprob_prior = torch.zeros(A) + eps
         startprob_prior[2] = 1.
+        startprob_prior = startprob_prior / torch.sum(startprob_prior)
         c_tensor = torch.arange(A)
         mu_prior = qmt.nu.numpy()
         mu_prior_c = torch.outer(c_tensor, qmt.nu).numpy()
         hmm = hmmlearn.hmm.GaussianHMM(n_components=A,
+                                       covariance_type='diag',
+                                       means_prior=mu_prior_c,
+                                       startprob_prior=startprob_prior,
+                                       n_iter=100)
+        hmm_2 = hmmlearn.hmm.GMMHMM(n_components=A,
                                        covariance_type='diag',
                                        means_prior=mu_prior_c,
                                        startprob_prior=startprob_prior,
@@ -486,6 +495,27 @@ class qZ(VariationalDistribution):
     def _uniform_init(self):
         # initialize to uniform probs among nodes
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
+
+    def _kmeans_init(self, obs, qmt: 'qMuTau'):
+        M, N = obs.shape
+        K = self.config.n_nodes
+        A = self.config.n_states
+        scaled_obs = obs / qmt.true_params['mu']
+        scaled_obs = torch.transpose(scaled_obs, dim0=1, dim1=0)
+        kmeans = KMeans(n_clusters=K, random_state=0).fit(scaled_obs)
+        m_labels = kmeans.labels_
+        torch_labels = torch.tensor(m_labels)
+        self.pi[...] = torch.nn.functional.one_hot(torch_labels.long(), num_classes=K)
+        raise NotImplemented("kmeans_init not complete")
+
+    def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
+        M, N = obs.shape
+        K = self.config.n_nodes
+        A = self.config.n_states
+        for m in range(M):
+            kmeans = KMeans(n_clusters=K, random_state=0).fit(obs[m, :])
+            m_labels = kmeans.labels_
+        raise NotImplemented("kmeans_per_site_init not complete")
 
     def update(self, qmt: 'qMuTau', qc: 'qC', qpi: 'qPi', obs: torch.Tensor):
         """

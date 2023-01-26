@@ -109,15 +109,40 @@ class qCTestCase(unittest.TestCase):
 
 
     def test_baum_welch_init(self):
-        K = 3
+        torch.manual_seed(0)
+        K = 1
         M = 20
-        N = 20
+        N = 200
         A = 7
         config_1 = Config(n_nodes=K, n_cells=N, chain_length=M, n_states=A)
         qc_1 = qC(config_1)
 
-        qc_1.baum_welch_init(obs=self.obs, qmt=self.qmt)
+
+        N_K1 = 5
+        N_K2 = 12
+        N_K3 = 3
+        mu_0 = 10.
+        tau_0 = 1.
+        mu_n_dist = torch.distributions.Normal(mu_0, tau_0)
+        obs = torch.ones((M, N))
+        C_probs = torch.zeros(A) + 0.1
+        C_probs[2] = 1
+        C_probs[4] = 1
+        C_K1_dist = torch.distributions.Categorical(C_probs)
+        C_K1 = C_K1_dist.sample([M])
+        C_K1_one_hot = torch.nn.functional.one_hot(C_K1, num_classes=A)
+        for n in range(N):
+            mu_n = mu_n_dist.sample()
+            mu_n_c = mu_n * C_K1
+            obs[:, n] = torch.distributions.Normal(mu_n_c, tau_0).sample()
+
+        qmt = qMuTau(config_1)
+        qmt.initialize(loc=mu_0, precision_factor=tau_0, shape=1., rate=1.)
+
+        qc_1.baum_welch_init(obs=obs, qmt=qmt)
         q_eps = qEpsilonMulti(config_1)
-        cross_entropy_BW = qc_1.cross_entropy_arc(q_eps, 0, 1)
-        print(f"CE baum-welch init: {cross_entropy_BW}")
+#        cross_entropy_BW = qc_1.cross_entropy_arc(q_eps, 0, 1)
+#        print(f"CE baum-welch init: {cross_entropy_BW}")
+        print(f"True: {C_K1[0:5]}")
+        print(f"q(C) after baum-welch init: {qc_1.single_filtering_probs[0, 0:5]}")
 
