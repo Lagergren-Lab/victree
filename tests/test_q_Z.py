@@ -83,3 +83,23 @@ class qZTestCase(unittest.TestCase):
         print(f"Uniform: {res_1} \n Skewed: {res_2}")
         self.assertLess(res_1, res_2, f"ELBO for uniform assignment over clusters greater than all probability to one cluster")
 
+    def test_qZ_kmeans_init(self):
+        # Arrange
+        test_data = utils_testing.generate_test_dataset_fixed_tree()
+        obs = test_data.obs
+        C = test_data.c
+        K, M, A = C.single_filtering_probs.shape
+        qmt = test_data.mt
+        N = qmt.nu.shape[0]
+
+        res_1 = self.q_Z_test.elbo(self.q_pi_test)
+        config_2 = Config(n_nodes=K, chain_length=M, n_cells=N, n_states=A)
+        q_Z_2 = qZ(config_2)
+
+        # Act
+        q_Z_2._kmeans_init(obs=obs, qmt=qmt)
+
+        # Assert
+        res_2 = q_Z_2.elbo(self.q_pi_test)
+        self.assertGreater(res_1, res_2, f"ELBO for uniform assignment over clusters smaller than all probability to one cluster")
+
