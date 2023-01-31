@@ -497,6 +497,7 @@ class qZ(VariationalDistribution):
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
 
     def _kmeans_init(self, obs, qmt: 'qMuTau'):
+        # TODO: find a soft k-means version
         M, N = obs.shape
         K = self.config.n_nodes
         A = self.config.n_states
