@@ -18,7 +18,8 @@ class JointVarDist(VariationalDistribution):
         self.c: qC = qC(config) if qc is None else qc
         self.z: qZ = qZ(config) if qz is None else qz
         self.t: qT = qT(config) if qt is None else qt
-        self.eps: Union[qEpsilon, qEpsilonMulti] = qEpsilonMulti(config) if qeps is None else qeps
+        self.eps: Union[qEpsilon, qEpsilonMulti] = \
+            qEpsilonMulti(config, gedges=self.t.weighted_graph.edges) if qeps is None else qeps
         self.mt: qMuTau = qMuTau(config) if qmt is None else qmt
         self.pi: qPi = qPi(config) if qpi is None else qpi
         self.obs = obs

@@ -832,17 +832,17 @@ class qEpsilon(VariationalDistribution):
 # edge distance (multiple eps, one for each arc)
 class qEpsilonMulti(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.,
+    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1., gedges=None,
                  true_params=None):
-        # FIXME: alpha and beta should not be tensors, but rather dictionaries
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_0)
         self.beta_prior = torch.tensor(beta_0)
-        # one param for every arc except self referenced and v -> root for any v
-        edges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
-                                                      range(config.n_nodes)) if v != 0 and u != v]
-        self._alpha = {e: alpha_0 for e in edges}
-        self._beta = {e: beta_0 for e in edges}
+        if gedges is None:
+            # one param for every arc except self referenced and v -> root for any v
+            gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
+                                                           range(config.n_nodes)) if v != 0 and u != v]
+        self._alpha = {e: torch.tensor(self.alpha_prior) for e in gedges}
+        self._beta = {e: torch.tensor(self.beta_prior) for e in gedges}
 
         if true_params is not None:
             assert "eps" in true_params
@@ -876,8 +876,8 @@ class qEpsilonMulti(VariationalDistribution):
 
     def set_all_equal_params(self, alpha: float, beta: float):
         for e in self.alpha.keys():
-            self.alpha[e] = alpha
-            self.beta[e] = beta
+            self.alpha[e] = torch.tensor(alpha)
+            self.beta[e] = torch.tensor(beta)
 
     def initialize(self, method='uniform', **kwargs):
         if 'eps_alpha' in kwargs and 'eps_beta' in kwargs:
@@ -930,8 +930,8 @@ class qEpsilonMulti(VariationalDistribution):
     def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
         cfp = qc.couple_filtering_probs
         K, M, A, A = cfp.shape
-        new_alpha = {(u, v): self.alpha_prior for u, v in self._alpha.keys()}
-        new_beta = {(u, v): self.beta_prior for u, v in self._beta.keys()}
+        new_alpha = {(u, v): torch.tensor(self.alpha_prior) for u, v in self._alpha.keys()}
+        new_beta = {(u, v): torch.tensor(self.beta_prior) for u, v in self._beta.keys()}
         # TODO: check how many edges are effectively updated
         #   after some iterations (might be very few)
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
