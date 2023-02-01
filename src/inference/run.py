@@ -15,6 +15,9 @@ def run(args):
         obs = obs.float()
     elif fext == '.h5':
         full_data = load_h5_anndata(args.file_path)
+        if 'gt' in full_data.keys():
+            logging.debug(f"gt tree: {full_data['gt']['tree']}")
+
         obs = torch.tensor(full_data['X'])
     else:
         raise FileNotFoundError(f"file extension not recognized: {fext}")

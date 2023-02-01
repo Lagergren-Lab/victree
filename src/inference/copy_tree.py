@@ -26,7 +26,7 @@ class JointVarDist(VariationalDistribution):
     def update(self):
         # T, C, eps, z, mt, pi
         trees, weights = self.t.get_trees_sample()
-        self.t.update(trees, self.c, self.eps)
+        self.t.update(self.c, self.eps)
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         self.eps.update(trees, weights, self.c.couple_filtering_probs)
         self.pi.update(self.z)
@@ -127,10 +127,11 @@ class CopyTree:
         close_runs = 0
 
         self.compute_elbo()
-        print(f"ELBO after init: {self.elbo}")
-
-        for _ in range(n_iter):
+        logging.info(f"ELBO after init: {self.elbo}")
+        logging.info("Start updates...")
+        for it in range(n_iter):
             # do the updates
+            logging.info(f"It: {it}")
             self.step()
 
             old_elbo = self.elbo

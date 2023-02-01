@@ -32,11 +32,15 @@ class updatesTestCase(unittest.TestCase):
 
 
 
-    def generate_test_dataset_fixed_tree(self) -> VarDistFixedTree:
+    def generate_test_dataset_fixed_tree(self, mm: int = 1) -> VarDistFixedTree:
+        """
+        Args:
+            mm: int. multiplier for longer chain. set it to no more than 10
+        Returns:
+        """
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         cells_per_clone = 10
-        mm = 1  # change this to increase length
         chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length,
                      wis_sample_size=2, debug=True, step_size=0.8)
@@ -98,7 +102,7 @@ class updatesTestCase(unittest.TestCase):
         return joint_q
 
 
-    def generate_test_dataset_var_tree(self, config: Config) -> JointVarDist:
+    def generate_dataset_var_tree(self, config: Config) -> JointVarDist:
         simul_data = simul.simulate_full_dataset(config, eps_a=2, eps_b=5)
 
         fix_qc = qC(config, true_params={
@@ -132,7 +136,7 @@ class updatesTestCase(unittest.TestCase):
     def test_update_qt_simul_data(self):
         config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10,
                         debug=True)
-        joint_q = self.generate_test_dataset_var_tree(config)
+        joint_q = self.generate_dataset_var_tree(config)
         print(f'obs: {joint_q.obs}')
         print(f"true c: {joint_q.c.true_params['c']}")
         print(f"true tree: {tree_to_newick(joint_q.t.true_params['tree'])}")
@@ -143,7 +147,7 @@ class updatesTestCase(unittest.TestCase):
 
         for i in range(10):
             trees_sample, iw = qt.get_trees_sample(sample_size=config.wis_sample_size)
-            qt.update(trees_sample, joint_q.c, joint_q.eps)
+            qt.update(joint_q.c, joint_q.eps)
             for t, w in zip(trees_sample, iw):
                 print(f"{tree_to_newick(t)} | {w}")
 
@@ -152,7 +156,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qt(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q = self.generate_test_dataset_fixed_tree(mm=10)
         cfg = joint_q.config
         fix_tree = joint_q.T
         fix_qeps = joint_q.eps
@@ -164,9 +168,9 @@ class updatesTestCase(unittest.TestCase):
         print(tree_to_newick(fix_tree, weight='weight'))
         for i in range(100):
             trees_sample, iw = qt.get_trees_sample(sample_size=cfg.wis_sample_size)
-            qt.update(trees_sample, fix_qc, fix_qeps)
+            qt.update(fix_qc, fix_qeps)
             for t, w in zip(trees_sample, iw):
-                print(f"{tree_to_newick(t)} | {w}")
+                print(f"{tree_to_newick(t, weight='weight')} | {w}")
 
         # print(qt.weighted_graph.edges.data())
         # sample_size = 20
@@ -252,7 +256,7 @@ class updatesTestCase(unittest.TestCase):
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
         for i in range(10):
-            qeps.update(trees, wis_weights, fix_qc.couple_filtering_probs)
+            qeps.update(trees, wis_weights, fix_qc)
 
         # print(qeps.mean()[[0, 0], [1, 2]])
         true_eps = joint_q.eps.true_params['eps']
@@ -282,6 +286,19 @@ class updatesTestCase(unittest.TestCase):
         # print(f'true exp pi: {joint_q.pi.exp_log_pi().exp()}')
         self.assertTrue(torch.allclose(qpi.exp_log_pi().exp(),
                                        joint_q.pi.exp_log_pi().exp(), rtol=1e-2))
+
+    def test_update_large_qt(self):
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
+                        wis_sample_size=20, debug=True, step_size=.3)
+        true_joint_q = self.generate_dataset_var_tree(config)
+
+        qt = qT(config)
+        qt.initialize()
+
+        for i in range(50):
+            qt.update(true_joint_q.c, true_joint_q.eps)
+            qt.get_trees_sample()
+
 
     def test_update_qc_qz(self):
 
@@ -315,7 +332,7 @@ class updatesTestCase(unittest.TestCase):
 
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50,
                         wis_sample_size=20, debug=True, step_size=.3)
-        true_joint_q = self.generate_test_dataset_var_tree(config)
+        true_joint_q = self.generate_dataset_var_tree(config)
         joint_q = JointVarDist(config, obs=true_joint_q.obs)
         joint_q.initialize()
         for i in range(10):

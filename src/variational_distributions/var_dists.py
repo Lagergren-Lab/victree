@@ -273,6 +273,7 @@ class qC(VariationalDistribution):
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
         self.compute_filtering_probs()
+        logging.debug("- copy number updated")
         return super().update()
 
     def update_params(self, eta1, eta2):
@@ -542,6 +543,7 @@ class qZ(VariationalDistribution):
         pi = torch.softmax(gamma, dim=1)
         assert self.pi.shape == (self.config.n_cells, self.config.n_nodes)
         new_pi = self.update_params(pi)
+        logging.debug("- z updated")
         return super().update()
 
     def update_params(self, pi: torch.Tensor):
@@ -604,10 +606,11 @@ class qT(VariationalDistribution):
     def elbo(self) -> float:
         return self.cross_entropy() - self.entropy()
 
-    def update(self, T_list, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
-        q_T = self.update_CAVI(T_list, qc, qeps)
+    def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
+        # q_T = self.update_CAVI(T_list, qc, qeps)
         self.update_graph_weights(qc, qeps)
-        return q_T
+        logging.debug("- tree updated")
+        return super().update()
 
     def update_params(self, new_weights: torch.Tensor):
         rho = self.config.step_size
@@ -625,11 +628,11 @@ class qT(VariationalDistribution):
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
         new_log_weights = {}
         for u, v in all_edges:
-            # TODO: check that u, v order in einsum op is correct
-            #   qt is updated but in the opposite way it should be
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-        w_tensor = torch.tensor(list(new_log_weights.values()))
+        # chain length determines how large are the log-weights
+        # while they should be length invariant
+        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
         # # min-max scaling of weights
         # w_tensor -= torch.min(w_tensor)
         # w_tensor /= torch.max(w_tensor)
@@ -763,6 +766,7 @@ class qEpsilon(VariationalDistribution):
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
         self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
+        logging.debug("- eps updated")
         super().update()
 
     def update_CAVI(self, T_list: list, w_T: torch.Tensor, q_C_pairwise_marginals: torch.Tensor):
@@ -834,42 +838,46 @@ class qEpsilonMulti(VariationalDistribution):
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_0)
         self.beta_prior = torch.tensor(beta_0)
-        # one param for every arc except self referenced (diag set to -infty)
-        self._alpha = torch.diag(-torch.ones(config.n_nodes) * np.infty) + alpha_0
-        self._beta = torch.diag(-torch.ones(config.n_nodes) * np.infty) + beta_0
+        # one param for every arc except self referenced and v -> root for any v
+        edges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
+                                                      range(config.n_nodes)) if v != 0 and u != v]
+        self._alpha = {e: alpha_0 for e in edges}
+        self._beta = {e: beta_0 for e in edges}
 
         if true_params is not None:
             assert "eps" in true_params
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
-    def update_params(self, alpha: torch.Tensor, beta: torch.Tensor):
+    def update_params(self, alpha: dict, beta: dict):
         rho = self.config.step_size
-        new_alpha = (1 - rho) * self.alpha + rho * alpha
-        new_beta = (1 - rho) * self.beta + rho * beta
-        self.alpha = new_alpha
-        self.beta = new_beta
-        return new_alpha, new_beta
+        for e in self.alpha.keys():
+            self.alpha[e] = (1 - rho) * self.alpha[e] + rho * alpha[e]
+            self.beta[e] = (1 - rho) * self.beta[e] + rho * beta[e]
+        return self.alpha, self.beta
     
     @property
     def alpha(self):
         return self._alpha
 
     @alpha.setter
-    def alpha(self, a):
-        self._alpha[...] = a
+    def alpha(self, a: dict):
+        for e, w in a.items():
+            self._alpha[e] = w
 
     @property
     def beta(self):
         return self._beta
 
     @beta.setter
-    def beta(self, b):
-        self._beta[...] = b
+    def beta(self, b: dict):
+        for e, w in b.items():
+            self._beta[e] = w
 
     def set_all_equal_params(self, alpha: float, beta: float):
-        self.alpha = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + alpha
-        self.beta = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + beta
+        for e in self.alpha.keys():
+            self.alpha[e] = alpha
+            self.beta[e] = beta
 
     def initialize(self, method='uniform', **kwargs):
         if 'eps_alpha' in kwargs and 'eps_beta' in kwargs:
@@ -884,13 +892,15 @@ class qEpsilonMulti(VariationalDistribution):
 
     def _uniform_init(self):
         # results in uniform (0,1)
-        self.alpha = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + 1.
-        self.beta = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + 1.
+        for e in self.alpha.keys():
+            self.alpha[e] = 1.
+            self.beta[e] = 1.
 
     def _random_init(self, gamma_shape=2., gamma_rate=2.):
         a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample(2)
-        self.alpha = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + a
-        self.beta = torch.diag(-torch.ones(self.config.n_nodes) * np.infty) + b
+        for e in self.alpha.keys():
+            self.alpha[e] = a
+            self.beta[e] = b
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -913,38 +923,42 @@ class qEpsilonMulti(VariationalDistribution):
         self.entropy()
         return super().elbo()
 
-    def update(self, T_list, w_T, q_C_pairwise_marginals):
-        self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
+    def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
+        self.update_CAVI(tree_list, tree_weights, qc)
         super().update()
 
-    def update_CAVI(self, T_list: list, w_T: torch.Tensor, q_C_pairwise_marginals: torch.Tensor):
-        K, M, A, A = q_C_pairwise_marginals.shape
-        alpha = torch.zeros(self.alpha.shape) + self.alpha_prior
-        beta = torch.zeros(self.beta.shape) + self.beta_prior
-        unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_list, N_nodes=K)
+    def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
+        cfp = qc.couple_filtering_probs
+        K, M, A, A = cfp.shape
+        new_alpha = {(u, v): self.alpha_prior for u, v in self._alpha.keys()}
+        new_beta = {(u, v): self.beta_prior for u, v in self._beta.keys()}
+        # TODO: check how many edges are effectively updated
+        #   after some iterations (might be very few)
+        unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
 
-        E_CuCv_a = torch.zeros((K, K))
-        E_CuCv_b = torch.zeros((K, K))
+        # E_T[ sum_m sum_{not A} Cu Cv ]
+        exp_cuv_a = {}
+        # E_T[ sum_m sum_{A} Cu Cv ]
+        exp_cuv_b = {}
         co_mut_mask, anti_sym_mask = self.create_masks(A)
-        for uv in unique_edges:
-            u, v = uv
-            E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ',
-                                          q_C_pairwise_marginals[u],
-                                          q_C_pairwise_marginals[v],
+        for u, v in unique_edges:
+            exp_cuv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ',
+                                          cfp[u],
+                                          cfp[v],
                                           anti_sym_mask)
-            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
-                                          q_C_pairwise_marginals[u],
-                                          q_C_pairwise_marginals[v],
+            exp_cuv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
+                                          cfp[u],
+                                          cfp[v],
                                           co_mut_mask)
 
-        for k, T in enumerate(T_list):
-            edges_mask = [[i for i, _ in T.edges], [j for _, j in T.edges]]
-            # only change the values related to the tree edges
-            alpha[edges_mask] += w_T[k] * E_CuCv_a[edges_mask]
-            beta[edges_mask] += w_T[k] * E_CuCv_b[edges_mask]
+        for k, t in enumerate(tree_list):
+            for e in t.edges:
+                # only change the values related to the tree edges
+                new_alpha[e] += tree_weights[k] * exp_cuv_a[e]
+                new_beta[e] += tree_weights[k] * exp_cuv_b[e]
 
-        self.update_params(alpha, beta)
-        return alpha, beta
+        self.update_params(new_alpha, new_beta)
+        return new_alpha, new_beta
 
     def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
         if i is not None and j is not None:
@@ -1001,8 +1015,9 @@ class qEpsilonMulti(VariationalDistribution):
             out_arr[...] = out_arr.log()
         return out_arr
 
-    def mean(self):
-        return self.alpha / (self.alpha + self.beta)
+    def mean(self) -> dict:
+        mean_dict = {e: self.alpha[e] / (self.alpha[e] + self.beta[e]) for e in self.alpha.keys()}
+        return mean_dict
 
 
 # observations (mu-tau)
@@ -1083,6 +1098,7 @@ class qMuTau(VariationalDistribution):
         new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
 
         super().update()
+        logging.debug("- mu/tau updated")
         return new_mu, new_lmbda, new_alpha, new_beta
 
     def update_params(self, mu, lmbda, alpha, beta):
@@ -1210,6 +1226,7 @@ class qPi(VariationalDistribution):
         new_concentration_param = self.update_params(concentration_param)
 
         super().update()
+        logging.debug("- pi updated")
         return new_concentration_param
 
     def exp_log_pi(self):

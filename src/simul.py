@@ -21,7 +21,7 @@ import pyro.poutine as poutine
 from matplotlib import pyplot as plt
 
 from utils import tree_utils
-from utils.config import Config
+from utils.config import Config, set_seed
 from utils.eps_utils import TreeHMM, h_eps, h_eps0
 from utils.tree_utils import generate_fixed_tree
 
@@ -360,7 +360,7 @@ def write_simulated_dataset_h5(dest_path, data):
 
     gt_group = f.create_group('gt')
     gt_group.create_dataset('cell_assignment', data=data['z'])
-    gt_group.create_dataset('tree', data=tree_utils.tree_to_newick(data['tree'], weight='weight'))
+    gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
     # TODO: write all remaining data 'eps, mu, tau, ...'
 
     f.close()
@@ -457,6 +457,7 @@ if __name__ == '__main__':
     #write_sample_dataset_h5('../data_example.h5')
 
     # simulate data and save it to file
+    set_seed(42)
     data = simulate_full_dataset(Config(n_nodes=5, n_states=7, n_cells=300, chain_length=1000))
     write_simulated_dataset_h5('../datasets/n5_c300_l1k.h5', data)
 

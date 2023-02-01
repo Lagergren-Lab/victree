@@ -166,7 +166,8 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
                     raise Exception('t_w and t_wo are empty but being called')
-                theta = t_w.size(weight='weight') / (t_w.size(weight='weight') + t_wo.size(weight='weight'))
+                theta = torch.exp(t_w.size(weight='weight') -
+                                  torch.logaddexp(t_w.size(weight='weight'), t_wo.size(weight='weight')))
 
             if np.random.rand() < theta:
                 s.add_edge(u, v, weight=graph.edges[u, v]['weight'])
