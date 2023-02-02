@@ -54,3 +54,6 @@ Start with edmonds
 - try increase statistical power (n. cells) and decrease step-size
 - qz/qc together
 - check `exp_log_emission` which is way too large
+
+Comments:
+_VI in Bayesian inference is still in its infancy, while their competitor MrBayes is comparatively a full grown adult._
