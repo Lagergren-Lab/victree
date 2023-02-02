@@ -32,7 +32,7 @@ class updatesTestCase(unittest.TestCase):
 
 
 
-    def generate_test_dataset_fixed_tree(self, mm: int = 1) -> VarDistFixedTree:
+    def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> VarDistFixedTree:
         """
         Args:
             mm: int. multiplier for longer chain. set it to no more than 10
