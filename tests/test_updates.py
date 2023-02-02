@@ -43,7 +43,7 @@ class updatesTestCase(unittest.TestCase):
         cells_per_clone = 10
         chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length,
-                     wis_sample_size=2, debug=True, step_size=0.8)
+                     wis_sample_size=2, debug=True, step_size=step_size)
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         true_cn_profile = torch.tensor(
@@ -302,7 +302,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qc_qz(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q = self.generate_test_dataset_fixed_tree(step_size=0.3)
         cfg = joint_q.config
         obs = joint_q.obs
         fix_tree = joint_q.T
@@ -318,9 +318,12 @@ class updatesTestCase(unittest.TestCase):
         trees = [fix_tree] * cfg.wis_sample_size
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
+        print(f"true c: {joint_q.c.true_params['c']}")
+        print(f"true z: {joint_q.z.true_params['z']}")
         for i in range(10):
             qc.update(obs, fix_qeps, qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
+            print(torch.max(qc.single_filtering_probs, dim=-1)[1])
             qz.update(fix_qmt, qc, fix_qpi, obs)
 
         self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
