@@ -696,7 +696,19 @@ class qT(VariationalDistribution):
         g.remove_edges_from(edges_in_root)
         return g
 
-    def get_trees_sample(self, alg="dslantis", sample_size=None) -> Tuple[List, List]:
+    def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None) -> Tuple[List, List]:
+        """
+Sample trees from q(T) with importance sampling.
+        Args:
+            alg: string, chosen in ['random' | 'dslantis']
+            sample_size: number of trees to be sampled. If None, sample_size is taken from the configuration
+                object
+        Returns:
+            list of nx.DiGraph arborescences and list of related weights for computing expectations
+            The weights are the result of the operation q'(T) / g(T) where
+                - q'(T) is the unnormalized probability under q(T), product of arc weights
+                - g(T) is the probability of the sample, product of Bernoulli trials
+        """
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
@@ -715,23 +727,16 @@ class qT(VariationalDistribution):
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
         elif alg == "dslantis":
-            # nx.adjacency_matrix(self.weighted_graph, weight="weight") # doesn't work
-            adj_matrix = nx.to_numpy_array(self.weighted_graph, weight="weight")
-            log_W = torch.log(torch.tensor(adj_matrix))
             for i in range(l):
                 # t, w = sample_arborescence(log_W=log_W, root=0)
-                t, log_w = sample_arborescence_from_weighted_graph(self.weighted_graph)
+                t, log_isw = sample_arborescence_from_weighted_graph(self.weighted_graph)
                 trees.append(t)
-                log_weights[i] = log_w
-
+                log_q = t.size(weight='weight')  # unnormalized q(T)
+                log_weights[i] = log_q - log_isw
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
-        # normalize weights and exponentiate
-        log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=0)
         weights = torch.exp(log_weights)
-        if self.config.debug:
-            assert torch.isclose(torch.sum(weights), torch.tensor(1.))
         return trees, weights.tolist()
 
 
