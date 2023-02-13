@@ -6,7 +6,6 @@ from numpy import infty
 import torch
 
 from utils.config import Config
-from model.generative_model import GenerativeModel
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC
 
@@ -29,7 +28,7 @@ class JointVarDist(VariationalDistribution):
         trees, weights = self.t.get_trees_sample()
         self.t.update(self.c, self.eps)
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
-        self.eps.update(trees, weights, self.c.couple_filtering_probs)
+        self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
         self.mt.update(self.c, self.z, self.obs)
@@ -63,7 +62,7 @@ class VarDistFixedTree(VariationalDistribution):
         self.T = T
         self.w_T = [1.0]
 
-    def update(self, p: GenerativeModel):
+    def update(self):
         # T, C, eps, z, mt, pi
         self.mt.update(self.c, self.z, self.obs)
         self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)

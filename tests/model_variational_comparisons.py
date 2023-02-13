@@ -1,15 +1,8 @@
-from typing import List, Tuple
-
-import networkx as nx
-import numpy as np
 import torch
 import torch.distributions as dist
 import torch.nn.functional as f
-import unittest
 
-from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
-from inference.copy_tree import VarDistFixedTree
-from model.generative_model import GenerativeModel
+from variational_distributions.var_dists import qC, qZ, qPi, qMuTau
 
 
 def compare_qC_and_true_C(true_C, q_c: qC, threshold):

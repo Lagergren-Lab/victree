@@ -7,7 +7,6 @@ from utils.config import Config
 from utils.data_handling import read_sc_data
 
 from variational_distributions.var_dists import qZ, qC, qMuTau, qEpsilon, qPi, qT
-from model.generative_model import GenerativeModel
 from inference.copy_tree import CopyTree, JointVarDist
 
 class TestElbo(unittest.TestCase):
@@ -25,7 +24,6 @@ class TestElbo(unittest.TestCase):
             'shape': 5.,
             'rate': 5.
         }
-        p = GenerativeModel(config)
         q_c = qC(config)
         q_z = qZ(config)
         q_t = qT(config)

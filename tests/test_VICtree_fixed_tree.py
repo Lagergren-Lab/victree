@@ -9,7 +9,6 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
-from model.generative_model import GenerativeModel
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model
 from utils.config import Config
@@ -83,7 +82,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
@@ -124,7 +122,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         config = Config(n_nodes=K, chain_length=n_sites,
                         n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, q, y)
 
@@ -148,7 +145,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                dir_alpha0=dir_alpha0)
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize(eps_alpha=10., eps_beta=40.,
                      loc=mu, precision_factor=.1, shape=5, rate=5)
@@ -212,7 +208,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
             config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            p = GenerativeModel(config, tree)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
@@ -260,7 +255,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
             config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            p = GenerativeModel(config, tree)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)

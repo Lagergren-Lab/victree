@@ -67,6 +67,18 @@ def get_zipping_mask0(n_states) -> torch.Tensor:
 
 
 def h_eps(n_states: int, eps: float) -> torch.Tensor:
+    """
+Zipping function tensor for given epsilon. In arc u->v, for each
+combination, P(Cv_m=j'| Cv_{m-1}=j, Cu_m=i', Cu_{m-1}=i) = h(j'|j, i', i).
+Indexing order: [j', j, i', i]. Invariant: sum(dim=0) = 1.
+    Args:
+        n_states: total number of copy number states
+        eps: arc distance parameter
+
+    Returns:
+        tensor of shape (A x A x A x A) with A = n_states
+    """
+    # TODO: add zero-absorption P(Cu>0 | Cp=0) = 0
     mask_arr = get_zipping_mask(n_states=n_states)
     # put 1-eps where j'-j = i'-i
     a = mask_arr * (1 - eps)
@@ -78,6 +90,15 @@ def h_eps(n_states: int, eps: float) -> torch.Tensor:
 
 
 def h_eps0(n_states: int, eps0: float) -> torch.Tensor:
+    """
+Simple zipping function tensor. P(Cv_1=j| Cu_1=i) = h0(j|i)
+    Args:
+        n_states: total number of copy number states
+        eps: arc distance parameter
+
+    Returns:
+        tensor of shape (A x A) with A = n_states
+    """
     heps0_arr = eps0 / (n_states - 1) * torch.ones((n_states, n_states))
     diag_mask = get_zipping_mask0(n_states)
     heps0_arr[diag_mask] = 1 - eps0
@@ -117,6 +138,7 @@ def compute_n_cases(n_copy_states) -> Tuple[torch.Tensor, torch.Tensor]:
     return rare_cnt, common_cnt
 
 
+# obsolete
 class TreeHMM:
 
     def __init__(self, n_copy_states, eps=torch.tensor(1e-2), delta=torch.tensor(1e-10)):

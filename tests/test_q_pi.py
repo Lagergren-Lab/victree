@@ -1,6 +1,5 @@
 import unittest
 import torch
-from model.generative_model import GenerativeModel
 
 from utils.config import Config
 from variational_distributions.var_dists import qZ, qPi
@@ -18,8 +17,6 @@ class qPiTestCase(unittest.TestCase):
         N_2 = 100
         config_1 = Config(n_cells=N_1)
         config_2 = Config(n_cells=N_2)
-        p_1 = GenerativeModel(config_1)
-        p_2 = GenerativeModel(config_2)
         q_pi_1 = qPi(config_1)
         q_pi_2 = qPi(config_2)
 
@@ -39,7 +36,6 @@ class qPiTestCase(unittest.TestCase):
         N = 200
         K = 10
         config = Config(n_cells=N, n_nodes=K)
-        p = GenerativeModel(config)
         q_pi_1 = qPi(config)
         q_pi_2 = qPi(config)
 
@@ -67,7 +63,6 @@ class qPiTestCase(unittest.TestCase):
         N = 20
         K = 10
         config = Config(n_cells=N, n_nodes=K)
-        p = GenerativeModel(config)
         q_pi = qPi(config)
 
         q_z = qZ(config)  # uniform
