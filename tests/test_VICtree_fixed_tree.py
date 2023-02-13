@@ -99,7 +99,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         q_eps = q.eps
         q_mt = q.mt
-        print(f"q_epsilon mean: {q_eps.alpha / q_eps.beta}")
+        print(f"q_epsilon mean: {q_eps.mean()}")
         print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
         print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
         print(f"y_mn: {y[0:10, 0:10]}")

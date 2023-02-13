@@ -1006,8 +1006,10 @@ class qEpsilonMulti(VariationalDistribution):
             #   triplet (j, i', i)
             #   try to use `normalized_zipping_constant()` function
             # A = normalized_zipping_constant(self.config.n_states)
-            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta[u, v]) -
-                                                     torch.digamma(self.alpha[u, v] + self.beta[u, v]))
+            beta_uv_tensor = torch.tensor(self.beta[u, v])
+            alpha_uv_tensor = torch.tensor(self.alpha[u, v])
+            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(beta_uv_tensor) -
+                                                     torch.digamma(alpha_uv_tensor + beta_uv_tensor))
             exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
             out_arr[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
             if self.config.debug:
