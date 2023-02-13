@@ -99,7 +99,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         q_eps = q.eps
         q_mt = q.mt
-        print(f"q_epsilon mean: {q_eps.alpha / q_eps.beta}")
+        print(f"q_epsilon mean: {q_eps.mean()}")
         print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
         print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
         print(f"y_mn: {y[0:10, 0:10]}")
@@ -222,7 +222,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
             copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-            copy_tree.run(20, suppress_prints=True)
+            copy_tree.run(20)
             q_C = copy_tree.q.c.single_filtering_probs
             q_pi = copy_tree.q.z.pi
             delta = copy_tree.q.pi.concentration_param
@@ -277,7 +277,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
-            copy_tree.run(50, suppress_prints=True)
+            copy_tree.run(50)
             q_C = copy_tree.q.c.single_filtering_probs
             q_pi = copy_tree.q.z.pi
             delta = copy_tree.q.pi.concentration_param
