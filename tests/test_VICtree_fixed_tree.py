@@ -217,7 +217,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
             copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-            copy_tree.run(20, suppress_prints=True)
+            copy_tree.run(20)
             q_C = copy_tree.q.c.single_filtering_probs
             q_pi = copy_tree.q.z.pi
             delta = copy_tree.q.pi.concentration_param
@@ -271,7 +271,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
-            copy_tree.run(50, suppress_prints=True)
+            copy_tree.run(50)
             q_C = copy_tree.q.c.single_filtering_probs
             q_pi = copy_tree.q.z.pi
             delta = copy_tree.q.pi.concentration_param

@@ -154,7 +154,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # no arc allows for both t_w and t_wo to exist
                 # must choose one of the feasible ones (for which t_w exists)
                 # obliged choice -> theta = 1
-                theta = 1.
+                theta = torch.tensor(1.)
                 # randomize selection based on weights
                 u, v = _sample_feasible_arc(feasible_arcs)
             elif num_candidates_left == 0:
@@ -174,7 +174,8 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # remove all incoming arcs to v (including u,v)
                 skimmed_graph.remove_edges_from(graph.in_edges(v))
                 skimmed_graph.remove_edges_from([(v, u)])
-                log_isw += np.log(theta)
+                # prob of sampling the tree: prod of bernoulli trials
+                log_isw += torch.log(theta)
                 # go to while and check if s is complete
                 break
 

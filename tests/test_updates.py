@@ -146,9 +146,10 @@ class updatesTestCase(unittest.TestCase):
         qt.initialize()
 
         for i in range(10):
-            trees_sample, iw = qt.get_trees_sample(sample_size=config.wis_sample_size)
+            trees_sample, weights = qt.get_trees_sample()
             qt.update(joint_q.c, joint_q.eps)
-            for t, w in zip(trees_sample, iw):
+            print(qt.elbo())
+            for t, w in zip(trees_sample, weights):
                 print(f"{tree_to_newick(t)} | {w}")
 
         print(qt.weighted_graph.edges.data())
@@ -167,10 +168,10 @@ class updatesTestCase(unittest.TestCase):
 
         print(tree_to_newick(fix_tree, weight='weight'))
         for i in range(100):
-            trees_sample, iw = qt.get_trees_sample(sample_size=cfg.wis_sample_size)
+            trees_sample, weights = qt.get_trees_sample()
             qt.update(fix_qc, fix_qeps)
-            for t, w in zip(trees_sample, iw):
-                print(f"{tree_to_newick(t, weight='weight')} | {w}")
+            for t, w in zip(trees_sample, weights):
+                print(f"{tree_to_newick(t)} | {w}")
 
         # print(qt.weighted_graph.edges.data())
         # sample_size = 20
@@ -290,15 +291,20 @@ class updatesTestCase(unittest.TestCase):
     def test_update_large_qt(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
                         wis_sample_size=20, debug=True, step_size=.3)
-        true_joint_q = self.generate_dataset_var_tree(config)
+        joint_q = self.generate_dataset_var_tree(config)
+        print(f'obs: {joint_q.obs}')
+        print(f"true c: {joint_q.c.true_params['c']}")
+        print(f"true tree: {tree_to_newick(joint_q.t.true_params['tree'])}")
+        print(f"true eps: {joint_q.eps.true_params['eps']}")
 
         qt = qT(config)
         qt.initialize()
 
         for i in range(50):
-            qt.update(true_joint_q.c, true_joint_q.eps)
+            qt.update(joint_q.c, joint_q.eps)
             qt.get_trees_sample()
 
+        print(sorted(qt.weighted_graph.edges.data(), key=lambda e: e[2]['weight'], reverse=True))
 
     def test_update_qc_qz(self):
 

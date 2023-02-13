@@ -578,6 +578,8 @@ class qZ(VariationalDistribution):
 class qT(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
+        # weights are in log-form
+        # so that tree.size() is log_prob of tree (sum of log_weights)
         self._weighted_graph = nx.DiGraph()
 
         if true_params is not None:
@@ -591,19 +593,26 @@ class qT(VariationalDistribution):
 
     # TODO: implement with initialization instruction from the doc
     def initialize(self, **kwargs):
-        # rooted graph with random weights in (0, 1)
+        # rooted graph with random weights in (0, 1) - log transformed
         self._weighted_graph = self.init_fc_graph()
         return super().initialize(**kwargs)
 
     def cross_entropy(self):
+        # TODO: add sampled trees
         K = torch.tensor(self.config.n_nodes)
         return -torch.log(math_utils.cayleys_formula(K))
 
     def entropy(self):
-        # TODO: product over edges in tree
-        return 0
+        # H(qt) = - E_qt[ log qt(T) ] \approx -1/n sum_i w(T_i) log qt(T_i)
+        entropy = 0.
+        trees, weights = self.get_trees_sample()
+        for i, t in enumerate(trees):
+            log_qt = t.size(weight='weight')
+            entropy -= weights[i] * log_qt
+        return entropy / sum(weights)
 
     def elbo(self) -> float:
+        # FIXME: gives weird values
         return self.cross_entropy() - self.entropy()
 
     def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
@@ -852,8 +861,8 @@ class qEpsilonMulti(VariationalDistribution):
     def update_params(self, alpha: dict, beta: dict):
         rho = self.config.step_size
         for e in self.alpha.keys():
-            self.alpha[e] = (1 - rho) * self.alpha[e] + rho * alpha[e]
-            self.beta[e] = (1 - rho) * self.beta[e] + rho * beta[e]
+            self._alpha[e] = (1 - rho) * self.alpha[e] + rho * alpha[e]
+            self._beta[e] = (1 - rho) * self.beta[e] + rho * beta[e]
         return self.alpha, self.beta
     
     @property
@@ -893,8 +902,8 @@ class qEpsilonMulti(VariationalDistribution):
     def _uniform_init(self):
         # results in uniform (0,1)
         for e in self.alpha.keys():
-            self.alpha[e] = 1.
-            self.beta[e] = 1.
+            self.alpha[e] = torch.tensor(1.)
+            self.beta[e] = torch.tensor(1.)
 
     def _random_init(self, gamma_shape=2., gamma_rate=2.):
         a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample(2)
