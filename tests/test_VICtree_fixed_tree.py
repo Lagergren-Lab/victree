@@ -199,6 +199,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         lmbda_0_list = [10., 10., 10.]
         for i in range(n_tests):
             torch.manual_seed(i)
+            print(f"---------- Experiment number {i} - seed {i} -----------")
             n_sites = n_sites_list[i]
             data = torch.ones((n_sites, n_cells))
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,

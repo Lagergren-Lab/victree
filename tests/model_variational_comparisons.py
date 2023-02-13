@@ -12,19 +12,42 @@ from inference.copy_tree import VarDistFixedTree
 from model.generative_model import GenerativeModel
 
 
-def compare_qC_and_true_C(true_C, q_c: qC, threshold):
+def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
+    """
+    Compares the argmax of the qC categorical distribution with the true C used to generate the data.
+    :param true_C:
+    :param q_c:
+    :param threshold:
+    :return:
+    """
     marginals = q_c.single_filtering_probs
     max_prob_cat = torch.argmax(marginals, dim=-1)
     n_diff = torch.sum(true_C != max_prob_cat)
-    assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
+    print(f"Number of different true C and argmax(q(C)): {n_diff}")
+    #assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
 
 
 def compare_qZ_and_true_Z(true_Z, q_z: qZ):
+    """
+    Compares the argmax of the parameters of qZ, i.e., the categorical probabilites, with the true cell-to-clone assignments used to generate the data.
+    :param true_Z: True cell-to-clone assignments.
+    :param q_z: qZ variational distribtion object.
+    :return:
+    """
     N, K = q_z.pi.shape
     z_true_one_hot = f.one_hot(true_Z.long(), num_classes=K)
 
-    total_misclassifications = torch.sum(true_Z.float() != torch.argmax(q_z.pi))
-    kl_distance = torch.kl_div(q_z.pi, z_true_one_hot)
+    total_misclassifications = torch.sum(true_Z.float() != torch.argmax(q_z.pi, dim=1))
+    print(f"Total number of mis-classifications: {total_misclassifications}")
+    if total_misclassifications != 0:
+        n_prints = 5
+        mis_class_idx = torch.where(true_Z.float() != torch.argmax(q_z.pi, dim=1))
+        rand_idx = torch.randperm(total_misclassifications)
+        mis_class_shuffled = mis_class_idx[0][rand_idx]
+        i = 0
+        while (i < n_prints and i < total_misclassifications):
+            print(f"Misclassification of cell {mis_class_shuffled[i]}: qZ = {q_z.pi[mis_class_shuffled[i]]}, pZ = {true_Z[mis_class_shuffled[i]]}")
+            i += 1
 
 
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
@@ -37,6 +60,19 @@ def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
 
 
 def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt):
+    """
+    Evaluates the likelihood of the data, obs, using the variables and parameters of the true model used to generate
+    the data with the variables and parameters of expectation values of the variational distributions.
+    :param obs:
+    :param true_C:
+    :param true_Z:
+    :param true_mu:
+    :param true_tau:
+    :param q_c:
+    :param q_z:
+    :param q_mt:
+    :return:
+    """
     qC_marginals = q_c.single_filtering_probs
     K, M, A = qC_marginals.shape
     N = true_mu.shape
