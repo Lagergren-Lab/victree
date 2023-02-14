@@ -581,6 +581,9 @@ class qT(VariationalDistribution):
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
         self._weighted_graph = nx.DiGraph()
+        self._weighted_graph.add_edges_from([(u, v)
+                                             for u, v in itertools.permutations(range(config.n_nodes), 2)
+                                             if u != v and v != 0])
 
         if true_params is not None:
             assert 'tree' in true_params
@@ -594,7 +597,7 @@ class qT(VariationalDistribution):
     # TODO: implement with initialization instruction from the doc
     def initialize(self, **kwargs):
         # rooted graph with random weights in (0, 1) - log transformed
-        self._weighted_graph = self.init_fc_graph()
+        self.init_fc_graph()
         return super().initialize(**kwargs)
 
     def cross_entropy(self):
@@ -685,16 +688,10 @@ class qT(VariationalDistribution):
 
         return log_q_T_tensor
 
-    def init_fc_graph(self, root=0):
+    def init_fc_graph(self):
         # random initialization of the fully connected graph over the clones
-        g = nx.DiGraph()
-        weighted_edges = [(u, v, torch.rand(1).log())
-                          for u, v in itertools.permutations(range(self.config.n_nodes), 2)]
-        g.add_weighted_edges_from(weighted_edges)
-        # remove all edges going to the root
-        edges_in_root = [(u, v) for u, v in g.in_edges(root)]
-        g.remove_edges_from(edges_in_root)
-        return g
+        for e in self._weighted_graph.edges:
+            self._weighted_graph.edges[e]['weight'] = torch.rand(1).log()
 
     def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None) -> Tuple[List, List]:
         """
@@ -893,7 +890,7 @@ class qEpsilonMulti(VariationalDistribution):
             self.alpha[e] = torch.tensor(alpha)
             self.beta[e] = torch.tensor(beta)
 
-    def initialize(self, method='uniform', **kwargs):
+    def initialize(self, method='random', **kwargs):
         if 'eps_alpha' in kwargs and 'eps_beta' in kwargs:
             self.set_all_equal_params(kwargs['eps_alpha'], kwargs['eps_beta'])
         elif method == 'uniform':
@@ -910,8 +907,8 @@ class qEpsilonMulti(VariationalDistribution):
             self.alpha[e] = torch.tensor(1.)
             self.beta[e] = torch.tensor(1.)
 
-    def _random_init(self, gamma_shape=2., gamma_rate=2.):
-        a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample(2)
+    def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
+        a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
         for e in self.alpha.keys():
             self.alpha[e] = a
             self.beta[e] = b
@@ -967,9 +964,10 @@ class qEpsilonMulti(VariationalDistribution):
 
         for k, t in enumerate(tree_list):
             for e in t.edges:
+                ww = tree_weights[k]
                 # only change the values related to the tree edges
-                new_alpha[e] += tree_weights[k] * exp_cuv_a[e]
-                new_beta[e] += tree_weights[k] * exp_cuv_b[e]
+                new_alpha[e] += ww * exp_cuv_a[e]
+                new_beta[e] += ww * exp_cuv_b[e]
 
         self.update_params(new_alpha, new_beta)
         return new_alpha, new_beta

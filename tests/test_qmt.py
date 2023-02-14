@@ -32,7 +32,7 @@ class qmtTestCase(unittest.TestCase):
     def test_update_mu_greater_than_init_for_observations_greater_than_init(self):
         obs = torch.randint(low=200, high=250, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
         self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
-        self.qc.single_filtering_probs[:, :, 1] = 2
+        self.qc.single_filtering_probs[:, :, 1] = 1.
         mu, lmbda, alpha, beta = self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
         self.assertTrue(torch.greater_equal(torch.mean(mu), self.mu_init), msg=f"mu smaller after update for "
                                                                                f"observations larger than mu init. "
