@@ -9,7 +9,6 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
-from model.generative_model import GenerativeModel
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model
 from utils.config import Config
@@ -83,7 +82,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
@@ -99,7 +97,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         q_eps = q.eps
         q_mt = q.mt
-        print(f"q_epsilon mean: {q_eps.mean()}")
+        q_eps_mean = {e: qeps.alpha[e] / q_eps.beta[e] for e in qeps.alpha.keys()}
+        print(f"q_epsilon mean: {q_eps_mean}")
         print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
         print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
         print(f"y_mn: {y[0:10, 0:10]}")
@@ -124,7 +123,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         config = Config(n_nodes=K, chain_length=n_sites,
                         n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         copy_tree = CopyTree(config, q, y)
 
@@ -148,7 +146,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                dir_alpha0=dir_alpha0)
         config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        p = GenerativeModel(config, tree)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize(eps_alpha=10., eps_beta=40.,
                      loc=mu, precision_factor=.1, shape=5, rate=5)
@@ -199,7 +196,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         lmbda_0_list = [10., 10., 10.]
         for i in range(n_tests):
             torch.manual_seed(i)
-            print(f"---------- Experiment number {i} - seed {i} -----------")
             n_sites = n_sites_list[i]
             data = torch.ones((n_sites, n_cells))
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
@@ -213,7 +209,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
             config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            p = GenerativeModel(config, tree)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
@@ -261,7 +256,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
             config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            p = GenerativeModel(config, tree)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)

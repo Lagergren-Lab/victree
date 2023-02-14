@@ -59,11 +59,10 @@ def get_root_q_C(M, A):
     return q_C_init, q_C_transitions
 
 
-def get_two_simple_trees_with_random_qCs(M, A) -> Tuple[List[nx.DiGraph], torch.Tensor]:
+def get_two_simple_trees_with_random_qCs(M, A, N) -> Tuple[List[nx.DiGraph], torch.Tensor]:
     T_1 = get_tree_three_nodes_balanced()
     T_2 = get_tree_three_nodes_chain()
     T_list = [T_1, T_2]
-    N = 3
     q_C_0_init, q_C_0_transitions = get_root_q_C(M, A)
     q_C_0_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_0_init, q_C_0_transitions)
     q_C_1_init, q_C_1_transitions = get_random_q_C(M, A)

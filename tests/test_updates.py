@@ -1,7 +1,9 @@
+import itertools
 import unittest
 
 import networkx as nx
 import torch
+from sklearn.metrics.cluster import adjusted_rand_score
 
 import simul
 from inference.copy_tree import VarDistFixedTree, JointVarDist
@@ -146,9 +148,10 @@ class updatesTestCase(unittest.TestCase):
         qt.initialize()
 
         for i in range(10):
-            trees_sample, iw = qt.get_trees_sample(sample_size=config.wis_sample_size)
+            trees_sample, weights = qt.get_trees_sample()
             qt.update(joint_q.c, joint_q.eps)
-            for t, w in zip(trees_sample, iw):
+            print(qt.elbo())
+            for t, w in zip(trees_sample, weights):
                 print(f"{tree_to_newick(t)} | {w}")
 
         print(qt.weighted_graph.edges.data())
@@ -167,10 +170,10 @@ class updatesTestCase(unittest.TestCase):
 
         print(tree_to_newick(fix_tree, weight='weight'))
         for i in range(100):
-            trees_sample, iw = qt.get_trees_sample(sample_size=cfg.wis_sample_size)
+            trees_sample, weights = qt.get_trees_sample()
             qt.update(fix_qc, fix_qeps)
-            for t, w in zip(trees_sample, iw):
-                print(f"{tree_to_newick(t, weight='weight')} | {w}")
+            for t, w in zip(trees_sample, weights):
+                print(f"{tree_to_newick(t)} | {w}")
 
         # print(qt.weighted_graph.edges.data())
         # sample_size = 20
@@ -290,15 +293,20 @@ class updatesTestCase(unittest.TestCase):
     def test_update_large_qt(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
                         wis_sample_size=20, debug=True, step_size=.3)
-        true_joint_q = self.generate_dataset_var_tree(config)
+        joint_q = self.generate_dataset_var_tree(config)
+        print(f'obs: {joint_q.obs}')
+        print(f"true c: {joint_q.c.true_params['c']}")
+        print(f"true tree: {tree_to_newick(joint_q.t.true_params['tree'])}")
+        print(f"true eps: {joint_q.eps.true_params['eps']}")
 
         qt = qT(config)
         qt.initialize()
 
         for i in range(50):
-            qt.update(true_joint_q.c, true_joint_q.eps)
+            qt.update(joint_q.c, joint_q.eps)
             qt.get_trees_sample()
 
+        print(sorted(qt.weighted_graph.edges.data(), key=lambda e: e[2]['weight'], reverse=True))
 
     def test_update_qc_qz(self):
 
@@ -315,21 +323,37 @@ class updatesTestCase(unittest.TestCase):
         qz.initialize(method='random')
         qc.initialize()
 
+        n_iter = 10
         trees = [fix_tree] * cfg.wis_sample_size
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
         print(f"true c: {joint_q.c.true_params['c']}")
         print(f"true z: {joint_q.z.true_params['z']}")
-        for i in range(10):
+        for i in range(n_iter):
             qc.update(obs, fix_qeps, qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
-            print(torch.max(qc.single_filtering_probs, dim=-1)[1])
             qz.update(fix_qmt, qc, fix_qpi, obs)
 
-        self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
-                                       torch.argmax(qz.exp_assignment(), dim=-1)))
+        print(f"after {n_iter} iterations")
+        print("var cell assignments")
+        var_cellassignment = torch.max(qz.pi, dim=-1)[1]
+        print(var_cellassignment)
+        print("var copy number")
+        var_copynumber = torch.max(qc.single_filtering_probs, dim=-1)[1]
+        print(var_copynumber)
 
-        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+        # assignment can differ in the labels, using adjusted rand index to
+        # evaluate the variational qz inference
+        ari = adjusted_rand_score(joint_q.z.true_params['z'], var_cellassignment)
+        print(f"ARI={ari}")
+        self.assertGreater(ari, .9)
+        perms = list(itertools.permutations(range(cfg.n_nodes)))
+        # compare with all permutations of copy numbers
+        # take the maximum match according to accuracy ratio
+        c_accuracy = torch.max((var_copynumber[perms, :] ==
+                                joint_q.c.true_params["c"]).sum(2).sum(1) / (cfg.n_nodes * cfg.chain_length))
+        print(f"copy number accuracy: {c_accuracy}")
+        self.assertGreater(c_accuracy, .9)
 
     def test_update_all(self):
 
@@ -338,24 +362,29 @@ class updatesTestCase(unittest.TestCase):
         true_joint_q = self.generate_dataset_var_tree(config)
         joint_q = JointVarDist(config, obs=true_joint_q.obs)
         joint_q.initialize()
-        for i in range(10):
+        for i in range(20):
             joint_q.update()
 
         print(f'true c at node 1: {true_joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
         print(f'var c at node 1: {joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
 
         print(f'true tree: {tree_to_newick(true_joint_q.t.true_params["tree"])}')
-        print(f'var tree graph: {joint_q.t.weighted_graph.edges.data("weight")}')
+        print(f'var tree graph: '
+              f'{sorted(joint_q.t.weighted_graph.edges.data("weight"), key=lambda e: e[2], reverse=True)}')
         sample_size = 100
         s_trees, s_weights = joint_q.t.get_trees_sample(sample_size=sample_size)
         accum = {}
         for t, w in zip(s_trees, s_weights):
-            if t in accum:
-                accum[t] += w
+            tnwk = tree_to_newick(t)
+            if tnwk in accum:
+                accum[tnwk] += w
             else:
-                accum[t] = w
+                accum[tnwk] = w
 
-        print(sorted(accum.items(), key=lambda x: x[1]))
+        print(sorted(accum.items(), key=lambda x: x[1], reverse=True))
+        # NOTE: copy number is not very accurate and tree sampling is not exact, but still some
+        #   of the true edges obtain high probability of being sampled.
+        #   also, the weights don't explode to very large or very small values, causing the algorithm to crash
 
 
     def test_update_qc_qz_qmt(self):
@@ -379,13 +408,15 @@ class updatesTestCase(unittest.TestCase):
 
         # change step_size
         cfg.step_size = .2
+        print(obs)
 
         for i in range(20):
+            qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt,
                       trees=trees, tree_weights=wis_weights)
-            qz.update(qmt, qc, fix_qpi, obs)
             print(f"Iter {i} qZ mean: {qz.exp_assignment().mean(dim=0)}")
+            print(f"iter {i} qmt mean for each cell: {qmt.nu}")
 
         # print(qmt.exp_tau())
         # print(joint_q.mt.true_params['tau'])

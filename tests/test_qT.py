@@ -16,9 +16,10 @@ class qTTestCase(unittest.TestCase):
     def test_q_T_running_for_two_simple_Ts_random_qC(self):
         M = 20
         A = 5
-        self.config = Config(chain_length=M, n_states=A, n_nodes=3)
+        N = 3
+        self.config = Config(chain_length=M, n_states=A, n_nodes=N)
         self.q_T = qT(config=self.config)
-        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A)
+        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
         q_C = qC(config=self.config)
         q_C.couple_filtering_probs = q_C_pairwise_marginals
         q_epsilon = qEpsilonMulti(config=self.config)

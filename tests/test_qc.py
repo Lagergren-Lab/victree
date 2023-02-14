@@ -3,7 +3,7 @@ import unittest
 import networkx as nx
 import torch
 
-from utils.config import Config
+from utils.config import Config, set_seed
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qPi
 from inference.copy_tree import JointVarDist
 
@@ -12,17 +12,22 @@ class qCTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         # build config
+        set_seed(101)
         self.config = Config()
         self.qc = qC(self.config)
-        self.qc.initialize()
         self.qt = qT(self.config)
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
         self.qmt = qMuTau(self.config)
+
+        self.qc.initialize()
+        self.qt.initialize()
+        self.qeps.initialize()
+        self.qz.initialize()
         self.qmt.initialize(loc=100, precision_factor=.1, shape=5, rate=5)
+
         self.obs = torch.randint(low=50, high=150,
                                  size=(self.config.chain_length, self.config.n_cells))
-        torch.manual_seed(101)
 
     def test_filtering_probs_update(self):
 
