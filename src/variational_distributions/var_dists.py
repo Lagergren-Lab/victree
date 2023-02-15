@@ -499,6 +499,7 @@ class qZ(VariationalDistribution):
 
     def _kmeans_init(self, obs, qmt: 'qMuTau'):
         # TODO: find a soft k-means version
+        # https://github.com/omadson/fuzzy-c-means
         M, N = obs.shape
         K = self.config.n_nodes
         A = self.config.n_states
