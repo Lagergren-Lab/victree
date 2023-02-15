@@ -131,8 +131,16 @@ class CopyTree:
         # counts the number of irrelevant updates
         close_runs = 0
 
-        self.compute_elbo()
-        logging.info(f"ELBO after init: {self.elbo}")
+        if self.config.sieving_size > 1:
+            self.compute_elbo()
+            logging.info(f"ELBO before sieving: {self.elbo}")
+            self.sieve(1)  # TODO: Make number of sieving iterations configurable
+            self.compute_elbo()
+            logging.info(f"ELBO after sieving: {self.elbo}")
+        else:
+            self.compute_elbo()
+            logging.info(f"ELBO after init: {self.elbo}")
+
         logging.info("Start updates...")
         for it in range(n_iter):
             # do the updates

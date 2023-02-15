@@ -316,7 +316,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                    b0=torch.tensor(1.0),
                                                                    dir_alpha0=torch.tensor(1.0))
 
-            config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+            config = Config(step_size=0.3,
+                            sieving_size=10,
+                            n_nodes=K,
+                            chain_length=n_sites,
+                            n_cells=n_cells,
+                            n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             p = GenerativeModel(config, tree)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
@@ -335,7 +340,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
-            copy_tree.sieve(10)
             copy_tree.run(50)
 
             torch.set_printoptions(precision=2)
