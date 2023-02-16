@@ -13,7 +13,7 @@ class VariationalDistribution:
         self.fixed = fixed  # if true, don't update and exp-functions return fixed params
 
     def initialize(self, **kwargs):
-        pass
+        return self
 
     def update(self):
         if self.fixed:

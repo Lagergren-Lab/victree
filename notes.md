@@ -7,7 +7,8 @@
 ## Viterbi
 in util.py
 
-After Viterbi it's possible to fit the HMM with EM algorithm (there is both Baum Welch - inefficient - and independent site EM inference)
+After Viterbi it's possible to fit the HMM with EM algorithm (there is both Baum Welch - inefficient - and 
+independent site EM inference)
 
 MLE for Initialization of the gaussian parameters
 $mu_0 <- mean(data)$
@@ -57,3 +58,18 @@ Start with edmonds
 
 Comments:
 _VI in Bayesian inference is still in its infancy, while their competitor MrBayes is comparatively a full grown adult._
+
+# Implementation ideas
+
+Use distributions from 
+`scipy.stats import dirichlet, multinomial, gamma, poisson` 
+or `SKlearn` to derive variational distributions from and inherit methods
+such as `sample` and `density` etc
+
+```python
+from hmmlearn.base import _BaseHMM
+class StubHMM(_BaseHMM):
+    # An HMM with hardcoded observation probabilities
+    def _compute_log_likelihood(self, X):
+        return self.framelogprob
+```

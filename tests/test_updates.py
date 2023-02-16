@@ -237,6 +237,7 @@ class updatesTestCase(unittest.TestCase):
         qmt = qMuTau(cfg)
         # uninformative initialization of mu0, tau0, alpha0, beta0
         qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)
+        # qmt.initialize(method='data', obs=obs)
         for i in range(10):
             qmt.update(fix_qc, fix_qz, obs)
 

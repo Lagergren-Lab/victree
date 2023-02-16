@@ -93,14 +93,18 @@ class qC(VariationalDistribution):
     def eta2(self, e2):
         self._eta2[...] = e2
 
-    def initialize(self, **kwargs):
-        if 'method' in kwargs.keys() and kwargs['method'] == 'baum-welch':
-            self.baum_welch_init(obs=kwargs['obs'], qmt=kwargs['qmt'])
+    def initialize(self, method='random', **kwargs):
+        if method == 'baum-welch':
+            self._baum_welch_init(**kwargs)
+        elif method == 'random':
+            self._random_init()
+        elif method == 'uniform':
+            self._uniform_init()
         else:
-            self.random_init()
+            raise ValueError(f'method `{method}` for qC initialization is not implemented')
         return super().initialize(**kwargs)
 
-    def random_init(self):
+    def _random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
         self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.rand(self.eta2.shape)
@@ -108,11 +112,12 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def baum_welch_init(self, obs: torch.Tensor, qmt: 'qMuTau'):
+    def _baum_welch_init(self, obs: torch.Tensor, qmt: 'qMuTau'):
+        # TODO: test
         # distribute data to clones
         # calculate MLE state for each clone given the assigned cells
         A = self.config.n_states
-        eps = 0.1
+        eps = .01
         startprob_prior = torch.zeros(A) + eps
         startprob_prior[2] = 1.
         startprob_prior = startprob_prior / torch.sum(startprob_prior)
@@ -136,7 +141,36 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def uniform_init(self):
+    def _init_bw_cluster_data(self, obs: torch.Tensor, qmt: 'qMuTau', clusters):
+        raise NotImplementedError
+        # qmt and qz must be initialized already
+        eps = .01
+        startprob_prior = torch.zeros(self.config.n_states) + eps
+        startprob_prior[2] = 1.
+        startprob_prior = startprob_prior / torch.sum(startprob_prior)
+        # distribute data to clones
+        # skip root (node 0)
+        for k in range(1, self.config.n_nodes):
+            hmm = hmmlearn.hmm.GaussianHMM(n_components=self.config.n_states,
+                                           covariance_type='diag',
+                                           means_prior=qmt.nu.numpy(),
+                                           params="st",  # only update start and transitions
+                                           startprob_prior=startprob_prior,
+                                           n_iter=100)
+
+            hmm.fit(obs[:, clusters == k].numpy())
+            # TODO: finish implementation
+        # calculate MLE state for each clone given the assigned cells
+        c_tensor = torch.arange(self.config.n_states)
+        mu_prior = qmt.nu.numpy()
+        mu_prior_c = torch.outer(c_tensor, qmt.nu).numpy()
+        self.eta1 = torch.log(torch.tensor(hmm.startprob_))
+        self.eta2 = torch.log(torch.tensor(hmm.transmat_))
+        self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+
+        self.compute_filtering_probs()
+
+    def _uniform_init(self):
         """
         Mainly used for testing.
         """
@@ -535,14 +569,12 @@ class qZ(VariationalDistribution):
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        d_nmj = qmt.exp_log_emission(obs)  # TODO: CHECK THIS *0.00001
+        d_nmj = qmt.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
         # TODO: remove asserts
-        assert gamma.shape == (self.config.n_cells, self.config.n_nodes)
         pi = torch.softmax(gamma, dim=1)
-        assert self.pi.shape == (self.config.n_cells, self.config.n_nodes)
         new_pi = self.update_params(pi)
         logging.debug("- z updated")
         return super().update()
@@ -1130,8 +1162,20 @@ class qMuTau(VariationalDistribution):
         self.beta = new_beta
         return new_nu, new_lmbda, new_alpha, new_beta
 
-    def initialize(self, loc: float = 1, precision_factor: float = .1,
-                   shape: float = 5, rate: float = 5, **kwargs):
+    def initialize(self, method='fixed', **kwargs):
+        if method == 'fixed':
+            self._initialize_with_values(**kwargs)
+        elif method == 'clust-data':
+            self._init_from_clustered_data(**kwargs)
+        elif method == 'data':
+            self._init_from_raw_data(**kwargs)
+        else:
+            raise ValueError(f'method `{method}` for qMuTau initialization is not implemented')
+
+        return super().initialize(**kwargs)
+
+    def _initialize_with_values(self, loc: float = 1, precision_factor: float = .1,
+                                shape: float = 5, rate: float = 5):
         self.nu = loc * torch.ones(self.config.n_cells)
         self.lmbda = precision_factor * torch.ones(self.config.n_cells)
         self.alpha = shape * torch.ones(self.config.n_cells)
@@ -1140,7 +1184,32 @@ class qMuTau(VariationalDistribution):
         self.lmbda_0[...] = self._lmbda
         self.alpha_0[...] = self._alpha
         self.beta_0[...] = self._beta
-        return super().initialize(**kwargs)
+
+    def _init_from_clustered_data(self, obs, clusters, copy_numbers):
+        """
+Initialize the mu and tau params to EM estimates given estimates of copy numbers and
+clusters
+        Args:
+            obs: data, tensor (chain_length, n_cells)
+            clusters: clustering of the data, tensor (n_cells,)
+            copy_numbers: copy numbers estimate (e.g. Viterbi path) for each clone, tensor (n_nodes, chain_length)
+        """
+        # TODO: implement
+        pass
+
+    def _init_from_raw_data(self, obs: torch.Tensor):
+        """
+Initialize the mu and tau params given observations
+        Args:
+            obs: data, tensor (chain_length, n_cells)
+        """
+        # FIXME: test does not work
+        self.nu = torch.mean(obs, dim=0)
+        self.alpha = torch.tensor(.5) * torch.ones((self.config.n_cells,))  # init alpha to small value
+        var = torch.var(obs, dim=0).clamp(min=.01)  # avoid 0 variance
+        self.beta = var * self.alpha
+        # set lambda to 1. (arbitrarily)
+        self.lmbda = torch.tensor(1.) * torch.ones((self.config.n_cells,))
 
     def cross_entropy(self) -> float:
         CE_prior = self.alpha_0 * torch.log(self.beta_0) + 0.5 * torch.log(self.lmbda_0) - torch.lgamma(self.alpha_0)

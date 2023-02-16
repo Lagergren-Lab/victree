@@ -8,7 +8,6 @@ import torch
 import torch.distributions as dist
 
 from utils.config import Config, set_seed
-from model.generative_model import GenerativeModel
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC
 
