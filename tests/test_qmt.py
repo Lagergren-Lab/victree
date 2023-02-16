@@ -21,7 +21,7 @@ class qmtTestCase(unittest.TestCase):
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
         self.qz.initialize()
-        self.mu_init = 0
+        self.mu_init = 100
         self.prec_factor_init = 1
         self.alpha_init = 1
         self.beta_init = 3
@@ -93,3 +93,12 @@ class qmtTestCase(unittest.TestCase):
             for m in range(M):
                 self.assertTrue(torch.argmax(exp_log_emission) == 6, msg=f"E_mu_tau[log p(y_{m,n}|C)] {exp_log_emission[n,m,:]}")
         # Log emission always largest for C=0 - is that correct?
+
+
+    def test_entropy(self):
+        obs = torch.randint(low=10, high=20, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
+        self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
+        self.qc.single_filtering_probs[:, :, 1] = 2
+        self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
+        elbo_qmt = self.qmt.elbo()
+        print(f"ELBO(mu, tau): {elbo_qmt}")

@@ -14,6 +14,7 @@ class Config:
                  wis_sample_size: int = 5,
                  elbo_tol: float = 1e-10,
                  max_close_runs: int = 10,
+                 sieving_size: int = 1,
                  debug=False, step_size=1.) -> None:
         self.step_size = step_size
         self._n_nodes = n_nodes
@@ -24,6 +25,7 @@ class Config:
         self._wis_sample_size = wis_sample_size  # L in qT sampling
         self._elbo_tol = elbo_tol
         self._max_close_runs = max_close_runs
+        self._sieving_size = sieving_size
         self._debug = debug
 
     @property
@@ -58,18 +60,23 @@ class Config:
     def max_close_runs(self):
         return self._max_close_runs
 
+    @property
+    def sieving_size(self):
+        return self._sieving_size
+
+    @property
+    def debug(self):
+        return self._debug
+
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \
             f"N={self.n_cells}," + \
             f"M={self.chain_length}," + \
             f"L={self.n_states}," + \
-            f"cn_states={self.n_states}"
+            f"cn_states={self.n_states}" + \
+            f"sieving_size={self.sieving_size}"
 
         return s
-
-    @property
-    def debug(self):
-        return self._debug
 
 
 def set_seed(seed):

@@ -1,17 +1,20 @@
+import copy
 import logging
-from typing import Union
+from typing import Union, List
 
 import networkx as nx
 from numpy import infty
 import torch
+import torch.distributions as dist
 
-from utils.config import Config
+from utils.config import Config, set_seed
+from model.generative_model import GenerativeModel
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC
 
 
 class JointVarDist(VariationalDistribution):
-    def __init__(self, config: Config,obs: torch.Tensor,
+    def __init__(self, config: Config, obs: torch.Tensor,
                  qc=None, qz=None, qt=None, qeps=None, qmt=None, qpi=None):
         super().__init__(config)
         self.c: qC = qC(config) if qc is None else qc
@@ -103,9 +106,11 @@ class VarDistFixedTree(VariationalDistribution):
         E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
         E_CZ_mu2_tau = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
-        #elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)
-        elbo = 1/2*(E_CZ_log_tau - E_CZ_tau_y2 + 2*E_CZ_mu_tau_cy - E_CZ_mu2_tau - torch.log(torch.tensor(2*torch.pi)))
+        # elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)
+        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau - torch.log(
+            torch.tensor(2 * torch.pi)))
         return elbo
+
 
 class CopyTree:
 
@@ -120,23 +125,37 @@ class CopyTree:
         # counts the number of steps performed
         self.it_counter = 0
         self.elbo = -infty
+        self.sieve_models: List[Union[JointVarDist, VarDistFixedTree]] = []
 
     def run(self, n_iter):
 
         # counts the number of irrelevant updates
         close_runs = 0
 
-        self.compute_elbo()
-        logging.info(f"ELBO after init: {self.elbo}")
+        if self.config.sieving_size > 1:
+            self.compute_elbo()
+            logging.info(f"ELBO before sieving: {self.elbo:,}")
+            self.sieve(5)  # TODO: Make number of sieving iterations configurable
+            self.compute_elbo()
+            logging.info(f"ELBO after sieving: {self.elbo:,}")
+        else:
+            self.compute_elbo()
+            logging.info(f"ELBO after init: {self.elbo:,}")
+
         logging.info("Start updates...")
         for it in range(n_iter):
             # do the updates
-            logging.info(f"It: {it}")
+            if it % 10 == 0:
+                logging.info(f"It: {it}")
+            logging.debug(f"It: {it}")
             self.step()
 
             old_elbo = self.elbo
             self.compute_elbo()
-            logging.debug(f"ELBO: {self.elbo}")
+            if it % 10 == 0:
+                logging.info(f"ELBO: {self.elbo:,}")
+            logging.debug(f"ELBO: {self.elbo:,}")
+
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
@@ -152,8 +171,59 @@ class CopyTree:
             else:
                 close_runs = 0
 
-        print(f"ELBO final: {self.elbo}")
+        print(f"ELBO final: {self.elbo:,}")
 
+    def sieve(self, n_sieve_iter=10, seed_list=None):
+        """
+        Creates self.config.sieving_size number of copies of self.q, re-initializes each q with different
+        seeds, performs n_sieve_iter updates of q, calculates the ELBO of each copy and sets self.q to the best
+        copy with largest ELBO.
+        :param n_sieve_iter: number of updates before sieving selection
+        :return:
+        """
+        seed_list = range(self.config.sieving_size) if seed_list is None else seed_list
+        for i in range(self.config.sieving_size):
+            self.sieve_models.append(copy.deepcopy(self.q))
+            set_seed(seed_list[i])
+            self.sieve_models[i].initialize()
+
+            for j in range(n_sieve_iter):
+                self.sieve_models[i].update()
+
+        selected_model_idx = self.sieving_selection_likelihood()
+        logging.info(f"Selected sieve model index: {selected_model_idx} with seed: {seed_list[selected_model_idx]}")
+        self.q = self.sieve_models[selected_model_idx]
+
+    def sieving_selection_ELBO(self):
+        elbos = []
+        for i in range(self.config.sieving_size):
+            elbos.append(self.sieve_models[i].elbo())
+
+        logging.info(f"Sieved elbos: {elbos}")
+        max_elbo_idx = torch.argmax(torch.tensor(elbos))
+        return max_elbo_idx
+
+    def sieving_selection_likelihood(self):
+        log_L = []
+
+        for i in range(self.config.sieving_size):
+            q_i = self.sieve_models[i]
+            qC_marginals = q_i.c.single_filtering_probs
+            max_prob_cat = torch.argmax(qC_marginals, dim=-1)
+            exp_var_mu = q_i.mt.nu
+            exp_var_tau = q_i.mt.exp_tau()
+            log_L_var_model = 0
+            for n in range(self.config.n_cells):
+                y_n = self.obs[:, n]
+                u_var = torch.argmax(q_i.z.pi[n])
+                obs_model_var = dist.Normal(max_prob_cat[u_var] * exp_var_mu[n], exp_var_tau[n])
+                log_L_var_model += obs_model_var.log_prob(y_n).sum()
+
+            log_L.append(log_L_var_model)
+
+        logging.info(f"Sieved log likelihoods: {log_L}")
+        max_elbo_idx = torch.argmax(torch.tensor(log_L))
+        return max_elbo_idx
 
     def compute_elbo(self) -> float:
         if type(self.q) is JointVarDist:

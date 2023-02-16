@@ -1,3 +1,4 @@
+import logging
 import random
 import unittest
 
@@ -230,19 +231,22 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                               q_mt=copy_tree.q.mt)
 
     def test_large_tree_good_init_multiple_runs(self):
+        logger = logging.getLogger()
+        logger.level = logging.INFO
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 1000
-        n_sites_list = [10, 100, 300]
+        n_sites_list = [100, 100, 100, 100, 100]
         n_copy_states = 7
         dir_alpha0 = 1.
-        n_tests = 3
+        n_tests = len(n_sites_list)
         alpha_0_list = [1., 1., 1.]
         beta_0_list = [1., 1., 1.]
-        mu_0_list = [10., 10., 10.]
+        mu_0_list = [10., 10., 10., 10., 10.]
         lmbda_0_list = [10., 10., 10.]
         for i in range(n_tests):
             torch.manual_seed(i)
+            print(f"---------- Experiment number {i} - seed {i} -----------")
             n_sites = n_sites_list[i]
             data = torch.ones((n_sites, n_cells))
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
@@ -263,7 +267,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree = CopyTree(config, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
-            off_set_z = 0.1
+            off_set_z = 0.2
             z_perturbed = z_one_hot + off_set_z
             copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
 
@@ -276,6 +280,64 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q_C = copy_tree.q.c.single_filtering_probs
             q_pi = copy_tree.q.z.pi
             delta = copy_tree.q.pi.concentration_param
+
+            torch.set_printoptions(precision=2)
+            model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                              true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                              q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                              q_mt=copy_tree.q.mt)
+
+    def test_large_tree_good_init_seiving(self):
+        K = 5
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        n_cells = 1000
+        n_sites_list = [100, 100, 100, 100, 100]
+        n_copy_states = 7
+        dir_alpha0 = 1.
+        n_tests = len(n_sites_list)
+        alpha_0_list = [1., 1., 1.]
+        beta_0_list = [1., 1., 1.]
+        mu_0_list = [10., 10., 10., 10., 10.]
+        lmbda_0_list = [10., 10., 10.]
+        for i in range(n_tests):
+            torch.manual_seed(i)
+            print(f"---------- Experiment number {i} - seed {i} -----------")
+            n_sites = n_sites_list[i]
+            data = torch.ones((n_sites, n_cells))
+            C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
+                                                                   mu_0=torch.tensor(mu_0_list[i]),
+                                                                   lambda_0=torch.tensor(1.),
+                                                                   alpha0=torch.tensor(10.),
+                                                                   beta0=torch.tensor(40.),
+                                                                   a0=torch.tensor(1.0),
+                                                                   b0=torch.tensor(1.0),
+                                                                   dir_alpha0=torch.tensor(1.0))
+
+            config = Config(step_size=0.3,
+                            sieving_size=10,
+                            n_nodes=K,
+                            chain_length=n_sites,
+                            n_cells=n_cells,
+                            n_states=n_copy_states)
+            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+            p = GenerativeModel(config, tree)
+            q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q.initialize(eps_alpha=10., eps_beta=40.,
+                         loc=mu, precision_factor=.1, shape=5, rate=5)
+
+            copy_tree = CopyTree(config, q, y)
+            # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
+            z_one_hot = f.one_hot(z, num_classes=K)
+            off_set_z = 0.2
+            z_perturbed = z_one_hot + off_set_z
+            copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
+
+            c_one_hot = f.one_hot(C.long(), num_classes=n_copy_states).float()
+            off_set_c = 0.0
+            c_perturbed = c_one_hot + off_set_c
+            copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
+
+            copy_tree.run(50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
