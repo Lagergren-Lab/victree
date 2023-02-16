@@ -154,7 +154,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # no arc allows for both t_w and t_wo to exist
                 # must choose one of the feasible ones (for which t_w exists)
                 # obliged choice -> theta = 1
-                theta = 1.
+                theta = torch.tensor(1.)
                 # randomize selection based on weights
                 u, v = _sample_feasible_arc(feasible_arcs)
             elif num_candidates_left == 0:
@@ -174,7 +174,8 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # remove all incoming arcs to v (including u,v)
                 skimmed_graph.remove_edges_from(graph.in_edges(v))
                 skimmed_graph.remove_edges_from([(v, u)])
-                log_isw += np.log(theta)
+                # prob of sampling the tree: prod of bernoulli trials
+                log_isw += torch.log(theta)
                 # go to while and check if s is complete
                 break
 
@@ -205,7 +206,7 @@ def get_ordered_arcs(edges, method='random'):
         ordered_edges.append(edges_list[i])
     return ordered_edges
 
-
+# obsolete
 def sample_arborescence(log_W: torch.Tensor, 
                         root: int,
                         debug=False) -> Tuple[nx.DiGraph, torch.Tensor]:
@@ -238,7 +239,7 @@ def sample_arborescence(log_W: torch.Tensor,
             log_W_1 = copy.deepcopy(log_W_with_S)   # guarantee S included
             log_W_1[a] = -torch.inf                 # guarantee 'a' excluded
             T_1: nx.DiGraph = get_edmonds_arborescence(log_W_1, root)
-            if debug:   # TODO: make debug system professional
+            if debug:
                 assert set(S) <= set(T_0.edges)
                 assert a in set(T_0.edges)
                 assert set(S) <= set(T_1.edges)
@@ -337,6 +338,7 @@ def sample_arborescence_root(log_W: torch.Tensor, log_W_root: torch.Tensor):
                 continue
 
 
+# obsolete
 def sample_arborescence_old(log_W: torch.Tensor, log_W_root: torch.Tensor):
     logger = logging.getLogger('sample_arborescence')
     n_nodes = log_W.shape[0]

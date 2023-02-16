@@ -31,7 +31,7 @@ class JointVarDist(VariationalDistribution):
         trees, weights = self.t.get_trees_sample()
         self.t.update(self.c, self.eps)
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
-        self.eps.update(trees, weights, self.c.couple_filtering_probs)
+        self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
         self.mt.update(self.c, self.z, self.obs)
@@ -103,7 +103,7 @@ class VarDistFixedTree(VariationalDistribution):
         c2 = c ** 2
         M, N = y.shape
         E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau)
-        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2)
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
         E_CZ_mu2_tau = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
         # elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)

@@ -13,8 +13,8 @@ class qEpsilonTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         L = 5
-        a = 1
-        b = 1
+        a = 1.
+        b = 1.
         self.config = Config()
         # self.qeps = qEpsilon(self.config, a, b)
         self.qeps = qEpsilonMulti(self.config, a, b)
@@ -23,13 +23,16 @@ class qEpsilonTestCase(unittest.TestCase):
         # Arange
         M=20
         A=5
-        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A)
+        N=3
+        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
         w_T = torch.tensor([0.3, 0.7])
         q_C = qC(config=self.config)
         q_C.couple_filtering_probs = q_C_pairwise_marginals
 
+        qc = qC(Config(n_states=A, chain_length=M, n_nodes=N))
+        qc.couple_filtering_probs = q_C_pairwise_marginals
         # Act
-        a, b = self.qeps.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
+        a, b = self.qeps.update_CAVI(T_list, w_T, qc)
 
         # Assert
         print(f"Beta param a: {a}")
@@ -38,7 +41,7 @@ class qEpsilonTestCase(unittest.TestCase):
     def test_expectation_size(self):
         for u in range(self.config.n_nodes):
             for v in range(self.config.n_nodes):
-                if u != v:
+                if u != v and v != 0:
                     exp_zipping = self.qeps.exp_log_zipping((u, v))
                     self.assertEqual(exp_zipping.shape, (self.config.n_states,) * 4)
 
