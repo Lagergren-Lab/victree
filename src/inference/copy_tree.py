@@ -5,6 +5,7 @@ from typing import Union, List
 import networkx as nx
 from numpy import infty
 import torch
+import torch.distributions as dist
 
 from utils.config import Config, set_seed
 from model.generative_model import GenerativeModel
@@ -133,23 +134,27 @@ class CopyTree:
 
         if self.config.sieving_size > 1:
             self.compute_elbo()
-            logging.info(f"ELBO before sieving: {self.elbo}")
-            self.sieve(1)  # TODO: Make number of sieving iterations configurable
+            logging.info(f"ELBO before sieving: {self.elbo:,}")
+            self.sieve(5)  # TODO: Make number of sieving iterations configurable
             self.compute_elbo()
-            logging.info(f"ELBO after sieving: {self.elbo}")
+            logging.info(f"ELBO after sieving: {self.elbo:,}")
         else:
             self.compute_elbo()
-            logging.info(f"ELBO after init: {self.elbo}")
+            logging.info(f"ELBO after init: {self.elbo:,}")
 
         logging.info("Start updates...")
         for it in range(n_iter):
             # do the updates
-            logging.info(f"It: {it}")
+            if it % 10 == 0:
+                logging.info(f"It: {it}")
+            logging.debug(f"It: {it}")
             self.step()
 
             old_elbo = self.elbo
             self.compute_elbo()
-            logging.debug(f"ELBO: {self.elbo}")
+            if it % 10 == 0:
+                logging.info(f"ELBO: {self.elbo:,}")
+            logging.debug(f"ELBO: {self.elbo:,}")
 
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
@@ -166,7 +171,7 @@ class CopyTree:
             else:
                 close_runs = 0
 
-        print(f"ELBO final: {self.elbo}")
+        print(f"ELBO final: {self.elbo:,}")
 
     def sieve(self, n_sieve_iter=10, seed_list=None):
         """
@@ -185,7 +190,7 @@ class CopyTree:
             for j in range(n_sieve_iter):
                 self.sieve_models[i].update()
 
-        selected_model_idx = self.sieving_selection_ELBO()
+        selected_model_idx = self.sieving_selection_likelihood()
         logging.info(f"Selected sieve model index: {selected_model_idx} with seed: {seed_list[selected_model_idx]}")
         self.q = self.sieve_models[selected_model_idx]
 
@@ -196,6 +201,28 @@ class CopyTree:
 
         logging.info(f"Sieved elbos: {elbos}")
         max_elbo_idx = torch.argmax(torch.tensor(elbos))
+        return max_elbo_idx
+
+    def sieving_selection_likelihood(self):
+        log_L = []
+
+        for i in range(self.config.sieving_size):
+            q_i = self.sieve_models[i]
+            qC_marginals = q_i.c.single_filtering_probs
+            max_prob_cat = torch.argmax(qC_marginals, dim=-1)
+            exp_var_mu = q_i.mt.nu
+            exp_var_tau = q_i.mt.exp_tau()
+            log_L_var_model = 0
+            for n in range(self.config.n_cells):
+                y_n = self.obs[:, n]
+                u_var = torch.argmax(q_i.z.pi[n])
+                obs_model_var = dist.Normal(max_prob_cat[u_var] * exp_var_mu[n], exp_var_tau[n])
+                log_L_var_model += obs_model_var.log_prob(y_n).sum()
+
+            log_L.append(log_L_var_model)
+
+        logging.info(f"Sieved log likelihoods: {log_L}")
+        max_elbo_idx = torch.argmax(torch.tensor(log_L))
         return max_elbo_idx
 
     def compute_elbo(self) -> float:

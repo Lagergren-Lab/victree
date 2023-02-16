@@ -1,3 +1,4 @@
+import logging
 import random
 import unittest
 
@@ -235,6 +236,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                               q_mt=copy_tree.q.mt)
 
     def test_large_tree_good_init_multiple_runs(self):
+        logger = logging.getLogger()
+        logger.level = logging.INFO
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 1000
@@ -331,12 +334,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree = CopyTree(config, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
-            off_set_z = 0.1
+            off_set_z = 0.2
             z_perturbed = z_one_hot + off_set_z
             copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
 
             c_one_hot = f.one_hot(C.long(), num_classes=n_copy_states).float()
-            off_set_c = 0.2
+            off_set_c = 0.0
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
