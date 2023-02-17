@@ -145,6 +145,7 @@ class qC(VariationalDistribution):
 
     def _init_bw_cluster_data(self, obs: torch.Tensor, clusters):
         # qz must be initialized already
+        zero_eps = 1e-5
         means = torch.empty(self.config.n_cells)
         precisions = torch.empty(self.config.n_cells)
         # distribute data to clones
@@ -162,15 +163,17 @@ class qC(VariationalDistribution):
 
             hmm.fit(obs[:, clusters == k], lengths=[self.config.chain_length])
 
-            self.eta1[k, :] = torch.tensor(hmm.startprob_).log()
-            self.eta2[k, :] = torch.tensor(hmm.transmat_).log()[None, ...]  # assign same matrix to all sites
-            self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
-            self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+            self.eta1[k, :] = torch.tensor(hmm.startprob_).clamp(min=zero_eps).log()
+            self.eta1[k, :] = self.eta1[k, :] - torch.logsumexp(self.eta1[k, :], dim=-1, keepdim=True)
+            log_transmat = torch.tensor(hmm.transmat_).clamp(min=zero_eps).log()
+            log_transmat = log_transmat - torch.logsumexp(log_transmat, dim=-1, keepdim=True)
+            # assign same matrix to all sites
+            self.eta2[k, ...] = log_transmat[None, ...]
 
             if self.config.debug:
-                assert torch.allclose(torch.logsumexp(self.eta1[k, :], dim=-1), torch.tensor(0.))
-                assert torch.allclose(torch.logsumexp(self.eta2[k, ...], dim=-1),
-                                      torch.zeros((self.config.chain_length - 1, self.config.n_states)))
+                assert torch.allclose(torch.logsumexp(self.eta1[k, :], dim=-1).exp(), torch.tensor(1.))
+                assert torch.allclose(torch.logsumexp(self.eta2[k, ...], dim=-1).exp(),
+                                      torch.ones((self.config.chain_length - 1, self.config.n_states)))
 
             # hmm.means_ has shape (n_states, n_cells)
             # we aggregate over n_states, dividing by the corresponding copy number and taking a mean
@@ -178,6 +181,8 @@ class qC(VariationalDistribution):
             #   skipping mean and covar estimation
             # means[clusters == k] = hmm.means_[1:, :] / torch.arange(self.config.n_states)[1:, None]
             # precisions[clusters == k] = torch.tensor(hmm.covars_).diagonal(dim1=1, dim2=2)
+            # NOTE: VariationalGaussianHMM also finds posterior estimates of params over mean and variance
+            # hmmlearn.vhmm.VariationalGaussianHMM()
 
         # init root node
         self._init_root_skewed2()
@@ -185,15 +190,15 @@ class qC(VariationalDistribution):
         self.compute_filtering_probs()
 
     def _init_root_skewed2(self, skewness=5.):
-        # skewness towards cn=2
-        # cn 2 will be prop_cn -times more likely than other states (in log scale)
+        # skewness towards cn=2 wrt to default 1
+        # e.g. skewness 5 -> cn2 will be 5 times more likely than other states in log-scale
         root_startprob = torch.ones(self.config.n_states)
         root_startprob[2] = skewness
         root_transmat = torch.ones((self.config.n_states, self.config.n_states))
         root_transmat[2, :] = skewness
         # normalize and log-transform
         self.eta1[0, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
-        normalized_log_transmat = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
+        normalized_log_transmat = root_transmat - torch.logsumexp(root_transmat, dim=-1, keepdim=True)
         self.eta2[0, ...] = normalized_log_transmat[None, ...]  # expand for all sites 1, ..., M
 
     def _uniform_init(self):
