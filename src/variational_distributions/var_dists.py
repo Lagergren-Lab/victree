@@ -96,6 +96,8 @@ class qC(VariationalDistribution):
     def initialize(self, method='random', **kwargs):
         if method == 'baum-welch':
             self._baum_welch_init(**kwargs)
+        elif method == 'bw-cluster':
+            self._init_bw_cluster_data(**kwargs)
         elif method == 'random':
             self._random_init()
         elif method == 'uniform':
@@ -141,34 +143,58 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def _init_bw_cluster_data(self, obs: torch.Tensor, qmt: 'qMuTau', clusters):
-        raise NotImplementedError
-        # qmt and qz must be initialized already
-        eps = .01
-        startprob_prior = torch.zeros(self.config.n_states) + eps
-        startprob_prior[2] = 1.
-        startprob_prior = startprob_prior / torch.sum(startprob_prior)
+    def _init_bw_cluster_data(self, obs: torch.Tensor, clusters):
+        # qz must be initialized already
+        means = torch.empty(self.config.n_cells)
+        precisions = torch.empty(self.config.n_cells)
         # distribute data to clones
         # skip root (node 0)
         for k in range(1, self.config.n_nodes):
+            # obs is shape (n_samples, n_features)
+            # where n_samples is simply the chain length (one observation)
+            # and n_features=n_cells, in order to get mu/precision for each cell
+            # cov_type is diag, so to consider independent cells
+
             hmm = hmmlearn.hmm.GaussianHMM(n_components=self.config.n_states,
+                                           implementation='scaling',
                                            covariance_type='diag',
-                                           means_prior=qmt.nu.numpy(),
-                                           params="st",  # only update start and transitions
-                                           startprob_prior=startprob_prior,
                                            n_iter=100)
 
-            hmm.fit(obs[:, clusters == k].numpy())
-            # TODO: finish implementation
-        # calculate MLE state for each clone given the assigned cells
-        c_tensor = torch.arange(self.config.n_states)
-        mu_prior = qmt.nu.numpy()
-        mu_prior_c = torch.outer(c_tensor, qmt.nu).numpy()
-        self.eta1 = torch.log(torch.tensor(hmm.startprob_))
-        self.eta2 = torch.log(torch.tensor(hmm.transmat_))
-        self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+            hmm.fit(obs[:, clusters == k], lengths=[self.config.chain_length])
+
+            self.eta1[k, :] = torch.tensor(hmm.startprob_).log()
+            self.eta2[k, :] = torch.tensor(hmm.transmat_).log()[None, ...]  # assign same matrix to all sites
+            self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
+            self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
+
+            if self.config.debug:
+                assert torch.allclose(torch.logsumexp(self.eta1[k, :], dim=-1), torch.tensor(0.))
+                assert torch.allclose(torch.logsumexp(self.eta2[k, ...], dim=-1),
+                                      torch.zeros((self.config.chain_length - 1, self.config.n_states)))
+
+            # hmm.means_ has shape (n_states, n_cells)
+            # we aggregate over n_states, dividing by the corresponding copy number and taking a mean
+            # ISSUE: we don't know the order of the states (might be any permutation of (0, ..., n_states-1)
+            #   skipping mean and covar estimation
+            # means[clusters == k] = hmm.means_[1:, :] / torch.arange(self.config.n_states)[1:, None]
+            # precisions[clusters == k] = torch.tensor(hmm.covars_).diagonal(dim1=1, dim2=2)
+
+        # init root node
+        self._init_root_skewed2()
 
         self.compute_filtering_probs()
+
+    def _init_root_skewed2(self, skewness=5.):
+        # skewness towards cn=2
+        # cn 2 will be prop_cn -times more likely than other states (in log scale)
+        root_startprob = torch.ones(self.config.n_states)
+        root_startprob[2] = skewness
+        root_transmat = torch.ones((self.config.n_states, self.config.n_states))
+        root_transmat[2, :] = skewness
+        # normalize and log-transform
+        self.eta1[0, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
+        normalized_log_transmat = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
+        self.eta2[0, ...] = normalized_log_transmat[None, ...]  # expand for all sites 1, ..., M
 
     def _uniform_init(self):
         """

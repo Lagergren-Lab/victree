@@ -195,7 +195,7 @@ class updatesTestCase(unittest.TestCase):
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
         qc = qC(cfg)
-        qc.initialize()
+        qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
 
         for i in range(100):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt,
