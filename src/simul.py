@@ -211,6 +211,20 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
 
 def simulate_full_dataset(config: Config, eps_a=1., eps_b=3., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50.):
+    """
+Generate full simulated dataset.
+    Args:
+        config: configuration object
+        eps_a: float, param for Beta distribution over epsilon
+        eps_b: float, param for Beta distribution over epsilon
+        mu0: float, param for NormalGamma distribution over mu/tau
+        lambda0: float, param for NormalGamma distribution over mu/tau
+        alpha0: float, param for NormalGamma distribution over mu/tau
+        beta0: float, param for NormalGamma distribution over mu/tau
+
+    Returns:
+        dictionary with keys: ['obs', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
+    """
     # generate random tree
     tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph)
     # generate eps from Beta(a, b)
