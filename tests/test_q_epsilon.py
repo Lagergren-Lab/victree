@@ -24,12 +24,13 @@ class qEpsilonTestCase(unittest.TestCase):
         M=20
         A=5
         N=3
+
+        config = Config(n_states=A, chain_length=M, n_nodes=N)
+
         T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
         w_T = torch.tensor([0.3, 0.7])
-        q_C = qC(config=self.config)
-        q_C.couple_filtering_probs = q_C_pairwise_marginals
 
-        qc = qC(Config(n_states=A, chain_length=M, n_nodes=N))
+        qc = qC(config)
         qc.couple_filtering_probs = q_C_pairwise_marginals
         # Act
         a, b = self.qeps.update_CAVI(T_list, w_T, qc)

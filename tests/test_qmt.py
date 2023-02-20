@@ -55,6 +55,9 @@ class qmtTestCase(unittest.TestCase):
         for i in range(n_iter):
             mu, lmbda, alpha, beta = self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
             print(f"mu: {mu[0]} beta: {beta[0]}")
+        # FIXME: mu_init = 100, while observation are Normal(0, 9)
+        #   probably not a good idea to keep self.mu_init for all tests
+        #   solution: initialize qmt in this function and check that mu approaches observations
         self.assertTrue(torch.greater_equal(torch.mean(mu), self.mu_init), msg=f"mu smaller after update for "
                                                                                f"observations larger than mu init. "
                                                                                f" \n mu updated: {mu} - mu init {self.mu_init}")

@@ -244,12 +244,10 @@ class qC(VariationalDistribution):
         L = len(T_list)
         normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
-            # FIXME: it's not exactly alpha1 and alpha2
-            #   still, maybe it can be used by changing the nodes permutation
             alpha_1, alpha_2 = self._exp_alpha(T_list[l], q_eps)
             cross_ent_pos_1 = torch.einsum("ki,ki->",
                                            self.single_filtering_probs[:, 0, :],
-                                           torch.log(alpha_1[:, :]))
+                                           alpha_1)
             cross_ent_pos_2_to_M = torch.einsum("kmij,kmij->",
                                                 self.couple_filtering_probs,
                                                 alpha_2)
@@ -276,11 +274,11 @@ class qC(VariationalDistribution):
     def cross_entropy_arc(self, q_eps, u, v):
         E_h_eps_0 = q_eps.h_eps0()
         E_h_eps = q_eps.exp_log_zipping((u, v))
-        cross_ent_pos_1 = torch.einsum("i,j,ij->",
+        cross_ent_pos_1 = torch.einsum("i,j,ji->",
                                        self.single_filtering_probs[u, 0, :],
                                        self.single_filtering_probs[v, 0, :],
                                        E_h_eps_0)
-        cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ikjl->",
+        cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ljki->",
                                             self.couple_filtering_probs[u, :, :, :],
                                             self.couple_filtering_probs[v, :, :, :],
                                             E_h_eps)
@@ -1206,7 +1204,7 @@ class qMuTau(VariationalDistribution):
         return super().initialize(**kwargs)
 
     def _initialize_with_values(self, loc: float = 1, precision_factor: float = .1,
-                                shape: float = 5, rate: float = 5):
+                                shape: float = 5, rate: float = 5, **kwargs):
         self.nu = loc * torch.ones(self.config.n_cells)
         self.lmbda = precision_factor * torch.ones(self.config.n_cells)
         self.alpha = shape * torch.ones(self.config.n_cells)

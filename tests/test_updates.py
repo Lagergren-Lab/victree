@@ -390,6 +390,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qc_qz_qmt(self):
 
+        # FIXME: try other initialization strategies
         joint_q = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs
