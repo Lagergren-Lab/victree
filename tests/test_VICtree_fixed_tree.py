@@ -315,12 +315,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
             config = Config(step_size=0.3,
                             sieving_size=10,
+                            n_sieving_runs=40,
                             n_nodes=K,
                             chain_length=n_sites,
                             n_cells=n_cells,
                             n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            p = GenerativeModel(config, tree)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)

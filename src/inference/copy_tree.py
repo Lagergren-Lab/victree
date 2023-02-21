@@ -8,7 +8,6 @@ import torch
 import torch.distributions as dist
 
 from utils.config import Config, set_seed
-from model.generative_model import GenerativeModel
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC
 
@@ -135,7 +134,7 @@ class CopyTree:
         if self.config.sieving_size > 1:
             self.compute_elbo()
             logging.info(f"ELBO before sieving: {self.elbo:,}")
-            self.sieve(5)  # TODO: Make number of sieving iterations configurable
+            self.sieve(self.config.n_sieving_runs)
             self.compute_elbo()
             logging.info(f"ELBO after sieving: {self.elbo:,}")
         else:
