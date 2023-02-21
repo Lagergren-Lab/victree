@@ -618,8 +618,7 @@ class qZ(VariationalDistribution):
         return torch.special.entr(self.pi).sum()
 
     def elbo(self, qpi: 'qPi') -> float:
-        # FIXME: is it + or - entropy?
-        return self.cross_entropy(qpi) + self.entropy()
+        return self.cross_entropy(qpi) - self.entropy()
 
 
 # topology
