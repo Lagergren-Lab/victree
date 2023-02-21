@@ -47,7 +47,7 @@ class JointVarDist(VariationalDistribution):
                self.z.elbo(self.pi) + \
                self.mt.elbo() + \
                self.pi.elbo() + \
-               self.eps.elbo() + \
+               self.eps.elbo(T_eval, w_T_eval) + \
                self.t.elbo()
 
 
@@ -84,7 +84,7 @@ class VarDistFixedTree(VariationalDistribution):
         q_Z_elbo = self.z.elbo(self.pi)
         q_MuTau_elbo = self.mt.elbo()
         q_pi_elbo = self.pi.elbo()
-        q_eps_elbo = self.eps.elbo()
+        q_eps_elbo = self.eps.elbo([self.T], self.w_T)
         elbo_obs = self.elbo_observations()
         return elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
 
@@ -189,7 +189,7 @@ class CopyTree:
             for j in range(n_sieve_iter):
                 self.sieve_models[i].update()
 
-        selected_model_idx = self.sieving_selection_likelihood()
+        selected_model_idx = self.sieving_selection_ELBO()
         logging.info(f"Selected sieve model index: {selected_model_idx} with seed: {seed_list[selected_model_idx]}")
         self.q = self.sieve_models[selected_model_idx]
 
