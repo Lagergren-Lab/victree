@@ -83,7 +83,7 @@ class qCTestCase(unittest.TestCase):
     def test_entropy_lower_for_random_transitions_than_uniform_transitions(self):
         rand_res = self.qc.entropy()
         qc_1 = qC(self.config)
-        qc_1.uniform_init()
+        qc_1._uniform_init()
         uniform_res = qc_1.entropy()
         print(f"Entropy random eta_2: {rand_res} - uniform eta_2: {uniform_res}")
         self.assertLess(rand_res, uniform_res)
@@ -144,7 +144,7 @@ class qCTestCase(unittest.TestCase):
         qmt = qMuTau(config_1)
         qmt.initialize(loc=mu_0, precision_factor=tau_0, shape=1., rate=1.)
 
-        qc_1.baum_welch_init(obs=obs, qmt=qmt)
+        qc_1._baum_welch_init(obs=obs, qmt=qmt)
         q_eps = qEpsilonMulti(config_1)
 #        cross_entropy_BW = qc_1.cross_entropy_arc(q_eps, 0, 1)
 #        print(f"CE baum-welch init: {cross_entropy_BW}")

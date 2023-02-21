@@ -48,7 +48,7 @@ class JointVarDist(VariationalDistribution):
                self.mt.elbo() + \
                self.pi.elbo() + \
                self.eps.elbo(T_eval, w_T_eval) + \
-               self.t.elbo()
+               self.t.elbo(T_eval, w_T_eval)
 
 
 class VarDistFixedTree(VariationalDistribution):

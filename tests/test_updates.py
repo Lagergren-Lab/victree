@@ -150,7 +150,8 @@ class updatesTestCase(unittest.TestCase):
         for i in range(10):
             trees_sample, weights = qt.get_trees_sample()
             qt.update(joint_q.c, joint_q.eps)
-            print(qt.elbo())
+            eval_trees_sample, eval_weights = qt.get_trees_sample()
+            print(qt.elbo(eval_trees_sample, eval_weights))
             for t, w in zip(trees_sample, weights):
                 print(f"{tree_to_newick(t)} | {w}")
 
@@ -195,7 +196,7 @@ class updatesTestCase(unittest.TestCase):
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
         qc = qC(cfg)
-        qc.initialize()
+        qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
 
         for i in range(100):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt,
@@ -237,6 +238,7 @@ class updatesTestCase(unittest.TestCase):
         qmt = qMuTau(cfg)
         # uninformative initialization of mu0, tau0, alpha0, beta0
         qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)
+        # qmt.initialize(method='data', obs=obs)
         for i in range(10):
             qmt.update(fix_qc, fix_qz, obs)
 
@@ -389,6 +391,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qc_qz_qmt(self):
 
+        # FIXME: try other initialization strategies
         joint_q = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs

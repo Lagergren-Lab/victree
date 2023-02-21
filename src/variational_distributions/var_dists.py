@@ -93,14 +93,20 @@ class qC(VariationalDistribution):
     def eta2(self, e2):
         self._eta2[...] = e2
 
-    def initialize(self, **kwargs):
-        if 'method' in kwargs.keys() and kwargs['method'] == 'baum-welch':
-            self.baum_welch_init(obs=kwargs['obs'], qmt=kwargs['qmt'])
+    def initialize(self, method='random', **kwargs):
+        if method == 'baum-welch':
+            self._baum_welch_init(**kwargs)
+        elif method == 'bw-cluster':
+            self._init_bw_cluster_data(**kwargs)
+        elif method == 'random':
+            self._random_init()
+        elif method == 'uniform':
+            self._uniform_init()
         else:
-            self.random_init()
+            raise ValueError(f'method `{method}` for qC initialization is not implemented')
         return super().initialize(**kwargs)
 
-    def random_init(self):
+    def _random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
         self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.rand(self.eta2.shape)
@@ -108,11 +114,12 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def baum_welch_init(self, obs: torch.Tensor, qmt: 'qMuTau'):
+    def _baum_welch_init(self, obs: torch.Tensor, qmt: 'qMuTau'):
+        # TODO: test
         # distribute data to clones
         # calculate MLE state for each clone given the assigned cells
         A = self.config.n_states
-        eps = 0.1
+        eps = .01
         startprob_prior = torch.zeros(A) + eps
         startprob_prior[2] = 1.
         startprob_prior = startprob_prior / torch.sum(startprob_prior)
@@ -136,7 +143,65 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def uniform_init(self):
+    def _init_bw_cluster_data(self, obs: torch.Tensor, clusters):
+        # qz must be initialized already
+        zero_eps = 1e-5
+        means = torch.empty(self.config.n_cells)
+        precisions = torch.empty(self.config.n_cells)
+        # distribute data to clones
+        # skip root (node 0)
+        for k in range(1, self.config.n_nodes):
+            # obs is shape (n_samples, n_features)
+            # where n_samples is simply the chain length (one observation)
+            # and n_features=n_cells, in order to get mu/precision for each cell
+            # cov_type is diag, so to consider independent cells
+
+            hmm = hmmlearn.hmm.GaussianHMM(n_components=self.config.n_states,
+                                           implementation='scaling',
+                                           covariance_type='diag',
+                                           n_iter=100)
+
+            hmm.fit(obs[:, clusters == k], lengths=[self.config.chain_length])
+
+            self.eta1[k, :] = torch.tensor(hmm.startprob_).clamp(min=zero_eps).log()
+            self.eta1[k, :] = self.eta1[k, :] - torch.logsumexp(self.eta1[k, :], dim=-1, keepdim=True)
+            log_transmat = torch.tensor(hmm.transmat_).clamp(min=zero_eps).log()
+            log_transmat = log_transmat - torch.logsumexp(log_transmat, dim=-1, keepdim=True)
+            # assign same matrix to all sites
+            self.eta2[k, ...] = log_transmat[None, ...]
+
+            if self.config.debug:
+                assert torch.allclose(torch.logsumexp(self.eta1[k, :], dim=-1).exp(), torch.tensor(1.))
+                assert torch.allclose(torch.logsumexp(self.eta2[k, ...], dim=-1).exp(),
+                                      torch.ones((self.config.chain_length - 1, self.config.n_states)))
+
+            # hmm.means_ has shape (n_states, n_cells)
+            # we aggregate over n_states, dividing by the corresponding copy number and taking a mean
+            # ISSUE: we don't know the order of the states (might be any permutation of (0, ..., n_states-1)
+            #   skipping mean and covar estimation
+            # means[clusters == k] = hmm.means_[1:, :] / torch.arange(self.config.n_states)[1:, None]
+            # precisions[clusters == k] = torch.tensor(hmm.covars_).diagonal(dim1=1, dim2=2)
+            # NOTE: VariationalGaussianHMM also finds posterior estimates of params over mean and variance
+            # hmmlearn.vhmm.VariationalGaussianHMM()
+
+        # init root node
+        self._init_root_skewed2()
+
+        self.compute_filtering_probs()
+
+    def _init_root_skewed2(self, skewness=5.):
+        # skewness towards cn=2 wrt to default 1
+        # e.g. skewness 5 -> cn2 will be 5 times more likely than other states in log-scale
+        root_startprob = torch.ones(self.config.n_states)
+        root_startprob[2] = skewness
+        root_transmat = torch.ones((self.config.n_states, self.config.n_states))
+        root_transmat[2, :] = skewness
+        # normalize and log-transform
+        self.eta1[0, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
+        normalized_log_transmat = root_transmat - torch.logsumexp(root_transmat, dim=-1, keepdim=True)
+        self.eta2[0, ...] = normalized_log_transmat[None, ...]  # expand for all sites 1, ..., M
+
+    def _uniform_init(self):
         """
         Mainly used for testing.
         """
@@ -146,19 +211,6 @@ class qC(VariationalDistribution):
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
         self.compute_filtering_probs()
-
-    def log_density(self, copy_numbers: torch.Tensor, nodes: list = []) -> float:
-        # compute probability of a copy number sequence over a set of nodes
-        # if the nodes are not specified, whole q_c is evaluated (all nodes)
-        # copy_numbers has shape (nodes, chain_length)
-        # TODO: it's more complicated than expected, fixing it later
-        if len(nodes):
-            assert copy_numbers.shape[0] == len(nodes)
-            pass
-
-        else:
-            pass
-        return 0.
 
     def entropy(self):
         qC_init = torch.distributions.Categorical(torch.exp(self.eta1))
@@ -179,12 +231,10 @@ class qC(VariationalDistribution):
         L = len(T_list)
         normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
-            # FIXME: it's not exactly alpha1 and alpha2
-            #   still, maybe it can be used by changing the nodes permutation
             alpha_1, alpha_2 = self._exp_alpha(T_list[l], q_eps)
             cross_ent_pos_1 = torch.einsum("ki,ki->",
                                            self.single_filtering_probs[:, 0, :],
-                                           torch.log(alpha_1[:, :]))
+                                           alpha_1)
             cross_ent_pos_2_to_M = torch.einsum("kmij,kmij->",
                                                 self.couple_filtering_probs,
                                                 alpha_2)
@@ -196,6 +246,7 @@ class qC(VariationalDistribution):
     def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # E_q[log p(C|...)]
         E_T = 0
+        # v, m, j, j'
         L = len(T_list)
         normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
@@ -210,13 +261,16 @@ class qC(VariationalDistribution):
 
     def cross_entropy_arc(self, q_eps, u, v):
         E_h_eps_0 = q_eps.h_eps0()
+        # p(j' | j i' i)
         E_h_eps = q_eps.exp_log_zipping((u, v))
-        cross_ent_pos_1 = torch.einsum("i,j,ij->",
+        cross_ent_pos_1 = torch.einsum("i,j,ji->",
                                        self.single_filtering_probs[u, 0, :],
                                        self.single_filtering_probs[v, 0, :],
                                        E_h_eps_0)
-        cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ikjl->",
+        cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ljki->",
+                                            # u, m, i, i'
                                             self.couple_filtering_probs[u, :, :, :],
+                                            # v, m, j, j'
                                             self.couple_filtering_probs[v, :, :, :],
                                             E_h_eps)
 
@@ -338,9 +392,6 @@ class qC(VariationalDistribution):
                                                       self.couple_filtering_probs[edges_mask[0], ...],
                                                       torch.stack([q_eps.exp_log_zipping(e) for e in tree.edges])) + \
                                          e_eta1_m[edges_mask[1], 1:, None, :]
-            # e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih', #TODO: CHECK THIS
-            #                                              self.couple_filtering_probs[edges_mask[0], ...],
-            #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         # natural parameters for root node are fixed to healthy state
         # FIXME: cells shouldn't be assigned to this node
@@ -422,24 +473,23 @@ class qC(VariationalDistribution):
         self.couple_filtering_probs = torch.exp(log_couple)
         return self.single_filtering_probs, self.couple_filtering_probs
 
+    # obsolete
     def compute_fb_filtering_probs(self):
         # with forward-backward
-        # TODO: compare with 'compute_filt_probs' and assess correctness
-        self.single_filtering_probs = self.get_all_marginals()
-        self.couple_filtering_probs = self.get_all_two_sliced_marginals()
+        # TODO: remove
+        self.single_filtering_probs = self._get_all_marginals()
+        self.couple_filtering_probs = self._get_all_two_sliced_marginals()
 
-    def get_two_slice_marginals(self, u):
+    def _get_two_slice_marginals(self, u):
         return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
 
-    def get_marginals(self, u):
+    def _get_marginals(self, u):
         return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
 
-    def get_all_marginals(self):
-        # TODO: optimize replacing for-loop with einsum operations
+    def _get_all_marginals(self):
         q_C = torch.zeros(self.single_filtering_probs.shape)
         for u in range(self.config.n_nodes):
             init_eta = self.eta1[u, :]
-            # FIXME: normalization shouldn't be necessary. check if it's already normlzd
             init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
             log_transition_probs = torch.exp(self.eta2[u])
             transition_probs = torch.exp(log_transition_probs -
@@ -455,14 +505,12 @@ class qC(VariationalDistribution):
 
         return q_C
 
-    def get_all_two_sliced_marginals(self):
-        # TODO: optimize replacing for-loop with einsum operations
+    def _get_all_two_sliced_marginals(self):
         q_C_pairs = torch.zeros(self.couple_filtering_probs.shape)
         for u in range(self.config.n_nodes):
             init_eta = self.eta1[u, :]
             init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
             log_transition_probs = self.eta2[u]
-            # FIXME: normalization shouldn't be necessary
             transition_probs = torch.exp(log_transition_probs -
                                          torch.logsumexp(log_transition_probs, dim=2, keepdim=True))
             q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs)
@@ -485,6 +533,8 @@ class qZ(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'kmeans':
+            self._kmeans_init(**kwargs)
         else:
             raise ValueError(f'method `{method}` for qZ initialization is not implemented')
         return super().initialize(**kwargs)
@@ -497,19 +547,19 @@ class qZ(VariationalDistribution):
         # initialize to uniform probs among nodes
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
 
-    def _kmeans_init(self, obs, qmt: 'qMuTau'):
+    def _kmeans_init(self, obs, **kwargs):
         # TODO: find a soft k-means version
         # https://github.com/omadson/fuzzy-c-means
-        M, N = obs.shape
-        K = self.config.n_nodes
-        A = self.config.n_states
-        scaled_obs = obs / qmt.true_params['mu']
-        scaled_obs = torch.transpose(scaled_obs, dim0=1, dim1=0)
-        kmeans = KMeans(n_clusters=K, random_state=0).fit(scaled_obs)
+        # TODO: add normalization for observations
+        eps = 1e-4
+        m_obs = obs.mean(dim=0, keepdim=True)
+        sd_obs = obs.std(dim=0, keepdim=True)
+        # standardize to keep pattern
+        scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
         m_labels = kmeans.labels_
         torch_labels = torch.tensor(m_labels)
-        self.pi[...] = torch.nn.functional.one_hot(torch_labels.long(), num_classes=K)
-        raise NotImplemented("kmeans_init not complete")
+        self.pi[...] = torch.nn.functional.one_hot(torch_labels.long(), num_classes=self.config.n_nodes)
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape
@@ -535,14 +585,11 @@ class qZ(VariationalDistribution):
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        d_nmj = qmt.exp_log_emission(obs)  # TODO: CHECK THIS *0.00001
+        d_nmj = qmt.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
-        # TODO: remove asserts
-        assert gamma.shape == (self.config.n_cells, self.config.n_nodes)
         pi = torch.softmax(gamma, dim=1)
-        assert self.pi.shape == (self.config.n_cells, self.config.n_nodes)
         new_pi = self.update_params(pi)
         logging.debug("- z updated")
         return super().update()
@@ -572,7 +619,7 @@ class qZ(VariationalDistribution):
         return torch.special.entr(self.pi).sum()
 
     def elbo(self, qpi: 'qPi') -> float:
-        return self.cross_entropy(qpi) + self.entropy()
+        return self.cross_entropy(qpi) - self.entropy()
 
 
 # topology
@@ -595,29 +642,39 @@ class qT(VariationalDistribution):
     def weighted_graph(self):
         return self._weighted_graph
 
-    # TODO: implement with initialization instruction from the doc
     def initialize(self, **kwargs):
         # rooted graph with random weights in (0, 1) - log transformed
         self.init_fc_graph()
         return super().initialize(**kwargs)
 
     def cross_entropy(self):
-        # TODO: add sampled trees
-        K = torch.tensor(self.config.n_nodes)
-        return -torch.log(math_utils.cayleys_formula(K))
+        # sampled trees are not needed here
+        # entropy = - log | T | (number of possible labeled directed rooted trees)
+        # FIXME: cayleys formula is for undirected trees
+        return -math_utils.cayleys_formula(self.config.n_nodes, log=True)
 
-    def entropy(self):
+    def entropy(self, trees, weights):
         # H(qt) = - E_qt[ log qt(T) ] \approx -1/n sum_i w(T_i) log qt(T_i)
+        # TODO: how do we compute the entropy if we don't know the normalized q(T)?
+        #   t.size() computes \log\tilde q(T),
         entropy = 0.
-        trees, weights = self.get_trees_sample()
         for i, t in enumerate(trees):
             log_qt = t.size(weight='weight')
             entropy -= weights[i] * log_qt
         return entropy / sum(weights)
 
-    def elbo(self) -> float:
+    def elbo(self, trees, weights) -> float:
+        """
+Computes partial elbo for qT from the same trees-sample used for
+other elbos such as qC.
+        Args:
+            trees: list of nx.DiGraph
+            weights: list of weights as those in the qT.get_trees_sample() output
+        Returns:
+            float, value of ELBO for qT
+        """
         # FIXME: gives weird values
-        return self.cross_entropy() - self.entropy()
+        return self.cross_entropy() - self.entropy(trees, weights)
 
     def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         # q_T = self.update_CAVI(T_list, qc, qeps)
@@ -703,9 +760,9 @@ Sample trees from q(T) with importance sampling.
                 object
         Returns:
             list of nx.DiGraph arborescences and list of related weights for computing expectations
-            The weights are the result of the operation q'(T) / g(T) where
+            The weights are the result of the operation q'(T) / g'(T) where
                 - q'(T) is the unnormalized probability under q(T), product of arc weights
-                - g(T) is the probability of the sample, product of Bernoulli trials
+                - g'(T) is the probability of the sample, product of Bernoulli trials (also unnormalized)
         """
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
@@ -1164,8 +1221,20 @@ class qMuTau(VariationalDistribution):
         self.beta = new_beta
         return new_nu, new_lmbda, new_alpha, new_beta
 
-    def initialize(self, loc: float = 1, precision_factor: float = .1,
-                   shape: float = 5, rate: float = 5, **kwargs):
+    def initialize(self, method='fixed', **kwargs):
+        if method == 'fixed':
+            self._initialize_with_values(**kwargs)
+        elif method == 'clust-data':
+            self._init_from_clustered_data(**kwargs)
+        elif method == 'data':
+            self._init_from_raw_data(**kwargs)
+        else:
+            raise ValueError(f'method `{method}` for qMuTau initialization is not implemented')
+
+        return super().initialize(**kwargs)
+
+    def _initialize_with_values(self, loc: float = 1, precision_factor: float = .1,
+                                shape: float = 5, rate: float = 5, **kwargs):
         self.nu = loc * torch.ones(self.config.n_cells)
         self.lmbda = precision_factor * torch.ones(self.config.n_cells)
         self.alpha = shape * torch.ones(self.config.n_cells)
@@ -1174,7 +1243,32 @@ class qMuTau(VariationalDistribution):
         self.lmbda_0[...] = self._lmbda
         self.alpha_0[...] = self._alpha
         self.beta_0[...] = self._beta
-        return super().initialize(**kwargs)
+
+    def _init_from_clustered_data(self, obs, clusters, copy_numbers):
+        """
+Initialize the mu and tau params to EM estimates given estimates of copy numbers and
+clusters
+        Args:
+            obs: data, tensor (chain_length, n_cells)
+            clusters: clustering of the data, tensor (n_cells,)
+            copy_numbers: copy numbers estimate (e.g. Viterbi path) for each clone, tensor (n_nodes, chain_length)
+        """
+        # TODO: implement
+        pass
+
+    def _init_from_raw_data(self, obs: torch.Tensor):
+        """
+Initialize the mu and tau params given observations
+        Args:
+            obs: data, tensor (chain_length, n_cells)
+        """
+        # FIXME: test does not work
+        self.nu = torch.mean(obs, dim=0)
+        self.alpha = torch.tensor(.5) * torch.ones((self.config.n_cells,))  # init alpha to small value
+        var = torch.var(obs, dim=0).clamp(min=.01)  # avoid 0 variance
+        self.beta = var * self.alpha
+        # set lambda to 1. (arbitrarily)
+        self.lmbda = torch.tensor(1.) * torch.ones((self.config.n_cells,))
 
     def cross_entropy(self) -> float:
         CE_prior = self.alpha_0 * torch.log(self.beta_0) + 0.5 * torch.log(self.lmbda_0) - torch.lgamma(self.alpha_0)
