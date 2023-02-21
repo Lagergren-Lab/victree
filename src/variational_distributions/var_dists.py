@@ -212,19 +212,6 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def log_density(self, copy_numbers: torch.Tensor, nodes: list = []) -> float:
-        # compute probability of a copy number sequence over a set of nodes
-        # if the nodes are not specified, whole q_c is evaluated (all nodes)
-        # copy_numbers has shape (nodes, chain_length)
-        # TODO: it's more complicated than expected, fixing it later
-        if len(nodes):
-            assert copy_numbers.shape[0] == len(nodes)
-            pass
-
-        else:
-            pass
-        return 0.
-
     def entropy(self):
         qC_init = torch.distributions.Categorical(torch.exp(self.eta1))
         init_entropy = qC_init.entropy().sum()
@@ -405,9 +392,6 @@ class qC(VariationalDistribution):
                                                       self.couple_filtering_probs[edges_mask[0], ...],
                                                       torch.stack([q_eps.exp_log_zipping(e) for e in tree.edges])) + \
                                          e_eta1_m[edges_mask[1], 1:, None, :]
-            # e_eta2[edges_mask[1], ...] = torch.einsum('pmjk,phikj->pmih', #TODO: CHECK THIS
-            #                                              self.couple_filtering_probs[edges_mask[0], ...],
-            #                                              torch.stack([q_eps.exp_zipping(e) for e in tree.edges]))
 
         # natural parameters for root node are fixed to healthy state
         # FIXME: cells shouldn't be assigned to this node
@@ -489,24 +473,23 @@ class qC(VariationalDistribution):
         self.couple_filtering_probs = torch.exp(log_couple)
         return self.single_filtering_probs, self.couple_filtering_probs
 
+    # obsolete
     def compute_fb_filtering_probs(self):
         # with forward-backward
-        # TODO: compare with 'compute_filt_probs' and assess correctness
-        self.single_filtering_probs = self.get_all_marginals()
-        self.couple_filtering_probs = self.get_all_two_sliced_marginals()
+        # TODO: remove
+        self.single_filtering_probs = self._get_all_marginals()
+        self.couple_filtering_probs = self._get_all_two_sliced_marginals()
 
-    def get_two_slice_marginals(self, u):
+    def _get_two_slice_marginals(self, u):
         return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
 
-    def get_marginals(self, u):
+    def _get_marginals(self, u):
         return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
 
-    def get_all_marginals(self):
-        # TODO: optimize replacing for-loop with einsum operations
+    def _get_all_marginals(self):
         q_C = torch.zeros(self.single_filtering_probs.shape)
         for u in range(self.config.n_nodes):
             init_eta = self.eta1[u, :]
-            # FIXME: normalization shouldn't be necessary. check if it's already normlzd
             init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
             log_transition_probs = torch.exp(self.eta2[u])
             transition_probs = torch.exp(log_transition_probs -
@@ -522,14 +505,12 @@ class qC(VariationalDistribution):
 
         return q_C
 
-    def get_all_two_sliced_marginals(self):
-        # TODO: optimize replacing for-loop with einsum operations
+    def _get_all_two_sliced_marginals(self):
         q_C_pairs = torch.zeros(self.couple_filtering_probs.shape)
         for u in range(self.config.n_nodes):
             init_eta = self.eta1[u, :]
             init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
             log_transition_probs = self.eta2[u]
-            # FIXME: normalization shouldn't be necessary
             transition_probs = torch.exp(log_transition_probs -
                                          torch.logsumexp(log_transition_probs, dim=2, keepdim=True))
             q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs)
@@ -567,6 +548,7 @@ class qZ(VariationalDistribution):
     def _kmeans_init(self, obs, qmt: 'qMuTau'):
         # TODO: find a soft k-means version
         # https://github.com/omadson/fuzzy-c-means
+        # TODO: add normalization for observations
         M, N = obs.shape
         K = self.config.n_nodes
         A = self.config.n_states
@@ -606,7 +588,6 @@ class qZ(VariationalDistribution):
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
-        # TODO: remove asserts
         pi = torch.softmax(gamma, dim=1)
         new_pi = self.update_params(pi)
         logging.debug("- z updated")
@@ -637,6 +618,7 @@ class qZ(VariationalDistribution):
         return torch.special.entr(self.pi).sum()
 
     def elbo(self, qpi: 'qPi') -> float:
+        # FIXME: is it + or - entropy?
         return self.cross_entropy(qpi) + self.entropy()
 
 
@@ -660,29 +642,39 @@ class qT(VariationalDistribution):
     def weighted_graph(self):
         return self._weighted_graph
 
-    # TODO: implement with initialization instruction from the doc
     def initialize(self, **kwargs):
         # rooted graph with random weights in (0, 1) - log transformed
         self.init_fc_graph()
         return super().initialize(**kwargs)
 
     def cross_entropy(self):
-        # TODO: add sampled trees
-        K = torch.tensor(self.config.n_nodes)
-        return -torch.log(math_utils.cayleys_formula(K))
+        # sampled trees are not needed here
+        # entropy = - log | T | (number of possible labeled directed rooted trees)
+        # FIXME: cayleys formula is for undirected trees
+        return -math_utils.cayleys_formula(self.config.n_nodes, log=True)
 
-    def entropy(self):
+    def entropy(self, trees, weights):
         # H(qt) = - E_qt[ log qt(T) ] \approx -1/n sum_i w(T_i) log qt(T_i)
+        # TODO: how do we compute the entropy if we don't know the normalized q(T)?
+        #   t.size() computes \log\tilde q(T),
         entropy = 0.
-        trees, weights = self.get_trees_sample()
         for i, t in enumerate(trees):
             log_qt = t.size(weight='weight')
             entropy -= weights[i] * log_qt
         return entropy / sum(weights)
 
-    def elbo(self) -> float:
+    def elbo(self, trees, weights) -> float:
+        """
+Computes partial elbo for qT from the same trees-sample used for
+other elbos such as qC.
+        Args:
+            trees: list of nx.DiGraph
+            weights: list of weights as those in the qT.get_trees_sample() output
+        Returns:
+            float, value of ELBO for qT
+        """
         # FIXME: gives weird values
-        return self.cross_entropy() - self.entropy()
+        return self.cross_entropy() - self.entropy(trees, weights)
 
     def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         # q_T = self.update_CAVI(T_list, qc, qeps)
@@ -768,9 +760,9 @@ Sample trees from q(T) with importance sampling.
                 object
         Returns:
             list of nx.DiGraph arborescences and list of related weights for computing expectations
-            The weights are the result of the operation q'(T) / g(T) where
+            The weights are the result of the operation q'(T) / g'(T) where
                 - q'(T) is the unnormalized probability under q(T), product of arc weights
-                - g(T) is the probability of the sample, product of Bernoulli trials
+                - g'(T) is the probability of the sample, product of Bernoulli trials (also unnormalized)
         """
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
