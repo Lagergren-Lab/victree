@@ -533,6 +533,8 @@ class qZ(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'kmeans':
+            self._kmeans_init(**kwargs)
         else:
             raise ValueError(f'method `{method}` for qZ initialization is not implemented')
         return super().initialize(**kwargs)
@@ -545,20 +547,19 @@ class qZ(VariationalDistribution):
         # initialize to uniform probs among nodes
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
 
-    def _kmeans_init(self, obs, qmt: 'qMuTau'):
+    def _kmeans_init(self, obs, **kwargs):
         # TODO: find a soft k-means version
         # https://github.com/omadson/fuzzy-c-means
         # TODO: add normalization for observations
-        M, N = obs.shape
-        K = self.config.n_nodes
-        A = self.config.n_states
-        scaled_obs = obs / qmt.true_params['mu']
-        scaled_obs = torch.transpose(scaled_obs, dim0=1, dim1=0)
-        kmeans = KMeans(n_clusters=K, random_state=0).fit(scaled_obs)
+        eps = 1e-4
+        m_obs = obs.mean(dim=0, keepdim=True)
+        sd_obs = obs.std(dim=0, keepdim=True)
+        # standardize to keep pattern
+        scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
         m_labels = kmeans.labels_
         torch_labels = torch.tensor(m_labels)
-        self.pi[...] = torch.nn.functional.one_hot(torch_labels.long(), num_classes=K)
-        raise NotImplemented("kmeans_init not complete")
+        self.pi[...] = torch.nn.functional.one_hot(torch_labels.long(), num_classes=self.config.n_nodes)
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape

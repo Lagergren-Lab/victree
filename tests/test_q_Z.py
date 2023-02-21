@@ -85,21 +85,21 @@ class qZTestCase(unittest.TestCase):
 
     def test_qZ_kmeans_init(self):
         # Arrange
-        test_data = utils_testing.generate_test_dataset_fixed_tree()
-        obs = test_data.obs
-        C = test_data.c
-        K, M, A = C.single_filtering_probs.shape
-        qmt = test_data.mt
-        N = qmt.nu.shape[0]
+        sim_joint_q = utils_testing.generate_test_dataset_fixed_tree()
+        obs = sim_joint_q.obs
 
-        res_1 = self.q_Z_test.elbo(self.q_pi_test)
-        config_2 = Config(n_nodes=K, chain_length=M, n_cells=N, n_states=A)
-        q_Z_2 = qZ(config_2)
+        qz = qZ(sim_joint_q.config).initialize(method='uniform')
+        unif_elbo = qz.elbo(sim_joint_q.pi)
 
-        # Act
-        q_Z_2._kmeans_init(obs=obs, qmt=qmt)
+        qz.initialize(method='random')
+        rand_elbo = qz.elbo(sim_joint_q.pi)
 
-        # Assert
-        res_2 = q_Z_2.elbo(self.q_pi_test)
-        self.assertGreater(res_1, res_2, f"ELBO for uniform assignment over clusters smaller than all probability to one cluster")
+        qz.initialize(method='kmeans', obs=obs)
+        kmeans_elbo = qz.elbo(sim_joint_q.pi)
+
+        print(unif_elbo)
+        print(rand_elbo)
+        print(kmeans_elbo)
+        self.assertGreater(kmeans_elbo, unif_elbo, f"ELBO for uniform assignment over clusters is greater than KMeans")
+        self.assertGreater(kmeans_elbo, rand_elbo, f"ELBO for random assignment over clusters is greater than KMeans")
 
