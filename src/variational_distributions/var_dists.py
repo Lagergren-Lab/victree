@@ -259,6 +259,7 @@ class qC(VariationalDistribution):
     def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # E_q[log p(C|...)]
         E_T = 0
+        # v, m, j, j'
         L = len(T_list)
         normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
@@ -273,13 +274,16 @@ class qC(VariationalDistribution):
 
     def cross_entropy_arc(self, q_eps, u, v):
         E_h_eps_0 = q_eps.h_eps0()
+        # p(j' | j i' i)
         E_h_eps = q_eps.exp_log_zipping((u, v))
         cross_ent_pos_1 = torch.einsum("i,j,ji->",
                                        self.single_filtering_probs[u, 0, :],
                                        self.single_filtering_probs[v, 0, :],
                                        E_h_eps_0)
         cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ljki->",
+                                            # u, m, i, i'
                                             self.couple_filtering_probs[u, :, :, :],
+                                            # v, m, j, j'
                                             self.couple_filtering_probs[v, :, :, :],
                                             E_h_eps)
 
