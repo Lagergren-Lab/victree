@@ -150,7 +150,8 @@ class updatesTestCase(unittest.TestCase):
         for i in range(10):
             trees_sample, weights = qt.get_trees_sample()
             qt.update(joint_q.c, joint_q.eps)
-            print(qt.elbo())
+            eval_trees_sample, eval_weights = qt.get_trees_sample()
+            print(qt.elbo(eval_trees_sample, eval_weights))
             for t, w in zip(trees_sample, weights):
                 print(f"{tree_to_newick(t)} | {w}")
 
