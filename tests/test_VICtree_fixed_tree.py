@@ -315,6 +315,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
             config = Config(step_size=0.3,
                             sieving_size=10,
+                            n_sieving_runs=40,
                             n_nodes=K,
                             chain_length=n_sites,
                             n_cells=n_cells,

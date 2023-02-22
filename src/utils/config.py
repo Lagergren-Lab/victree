@@ -15,6 +15,7 @@ class Config:
                  elbo_tol: float = 1e-10,
                  max_close_runs: int = 10,
                  sieving_size: int = 1,
+                 n_sieving_runs: int = 20,
                  debug=False, step_size=1.) -> None:
         self.step_size = step_size
         self._n_nodes = n_nodes
@@ -26,6 +27,7 @@ class Config:
         self._elbo_tol = elbo_tol
         self._max_close_runs = max_close_runs
         self._sieving_size = sieving_size
+        self._n_sieving_runs = n_sieving_runs
         self._debug = debug
 
     @property
@@ -63,6 +65,10 @@ class Config:
     @property
     def sieving_size(self):
         return self._sieving_size
+
+    @property
+    def n_sieving_runs(self):
+        return self._n_sieving_runs
 
     @property
     def debug(self):

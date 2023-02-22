@@ -47,7 +47,7 @@ class qmtTestCase(unittest.TestCase):
     def test_update_beta(self):
         n_iter = 3
         #obs = torch.randint(low=200, high=250, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
-        obs_rv = torch.distributions.Normal(loc=0, scale=3)
+        obs_rv = torch.distributions.Normal(loc=200, scale=3)
         obs = obs_rv.sample((self.config.chain_length, self.config.n_cells))
         sum_M_y2 = torch.sum(obs ** 2, dim=0)
         self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
