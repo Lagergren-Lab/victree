@@ -82,7 +82,7 @@ def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.D
                                alpha0=torch.tensor(1.),
                                beta0=torch.tensor(1.),
                                a0=torch.tensor(1.0),
-                               b0=torch.tensor(10.0),
+                               b0=torch.tensor(20.0),
                                dir_alpha0=torch.tensor(1.0)
                                ):
     model_tree_markov_full = simul.model_tree_markov_full
