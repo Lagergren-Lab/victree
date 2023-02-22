@@ -1289,7 +1289,7 @@ Initialize the mu and tau params given observations
         return -torch.sum(entropy_arr)
 
     def elbo(self) -> float:
-        return self.cross_entropy() + self.entropy()
+        return self.cross_entropy() - self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
@@ -1420,4 +1420,4 @@ class qPi(VariationalDistribution):
     def elbo(self) -> float:
         cross_entropy = self.cross_entropy()
         entropy = self.entropy()
-        return cross_entropy + entropy
+        return cross_entropy - entropy
