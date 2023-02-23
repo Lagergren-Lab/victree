@@ -140,7 +140,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     # Per cell variables
     with pyro.plate("cells", n_cells) as n:
         tau = pyro.sample("tau_{}".format(n), dist.Gamma(alpha0, beta0))
-        mu = pyro.sample("mu_{}".format(n), dist.Normal(mu_0, 1. / (lambda_0 * tau.sqrt())))
+        mu = pyro.sample("mu_{}".format(n), dist.Normal(mu_0, 1. / (lambda_0 * tau).sqrt()))
         z = pyro.sample("z_{}".format(n), dist.Categorical(pi))
 
     eps = pyro.sample("eps", dist.Beta(a0, b0))
