@@ -4,8 +4,9 @@ import torch
 import tkinter
 
 
-def visualize_copy_number_profiles(C: torch.Tensor):
-    matplotlib.use('TkAgg')
+def visualize_copy_number_profiles(C: torch.Tensor, save=False):
+    if not save:
+        matplotlib.use('TkAgg')
     if len(C.shape) > 2 and C.shape[2] > 1:
         C = torch.argmax(C, dim=2)  # convert one-hot-encoding to categories
 
@@ -27,7 +28,30 @@ def visualize_copy_number_profiles(C: torch.Tensor):
         axs[int(k / n_col), col_count].plot(sites, C_k)
         axs[int(k / n_col), col_count].set_title(f'k = {k}')
 
-    plt.show()
+    if not save:
+        plt.show()
+    else:
+        plt.savefig(fig)
+
+
+def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save=False):
+    if not save:
+        matplotlib.use('TkAgg')
+
+    N = mu.shape[0]
+    fig, axs = plt.subplots(1, 2)
+    fig.suptitle('Mu and tau')
+
+    cells = range(1, N+1)
+    axs[0].plot(cells, mu)
+    axs[0].set_title(f"mu")
+    axs[1].plot(cells, tau)
+    axs[1].set_title(f"tau")
+
+    if not save:
+        plt.show()
+    else:
+        plt.savefig(fig)
 
 
 if __name__ == '__main__':
@@ -36,3 +60,8 @@ if __name__ == '__main__':
     C_test[2, int(M_test / 2):] = 2.
     C_test[3, int(M_test / 2):] = 2.
     visualize_copy_number_profiles(C_test)
+
+    N_test = 15
+    mu_test = torch.ones(N_test) * 5. + torch.rand(N_test) * 2.0
+    tau_test = torch.ones(N_test) * 0.1 * torch.rand(N_test)
+    visualize_mu_tau(mu_test, tau_test)

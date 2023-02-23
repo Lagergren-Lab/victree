@@ -2,6 +2,7 @@ import os.path
 import pickle
 from typing import List, Tuple
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import torch
@@ -10,7 +11,7 @@ from pyro import poutine
 
 import simul
 from inference.copy_tree import VarDistFixedTree
-from utils import tree_utils
+from utils import tree_utils, visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
@@ -46,7 +47,7 @@ def get_tree_K_nodes_random(K):
 
 def get_random_q_C(M, A):
     q_C_init = torch.rand(A)
-    q_C_transitions_unnormalized = torch.rand((M-1, A, A))
+    q_C_transitions_unnormalized = torch.rand((M - 1, A, A))
     q_C_transitions = f.normalize(q_C_transitions_unnormalized, p=1, dim=2)
     return q_C_init, q_C_transitions
 
@@ -54,9 +55,9 @@ def get_random_q_C(M, A):
 def get_root_q_C(M, A):
     q_C_init = torch.zeros(A)
     q_C_init[2] = 1
-    q_C_transitions = torch.zeros((M-1, A, A))
+    q_C_transitions = torch.zeros((M - 1, A, A))
     diag_A = torch.ones(A)
-    for m in range(M-1):
+    for m in range(M - 1):
         q_C_transitions[m] = torch.diag(diag_A, 0)
     return q_C_init, q_C_transitions
 
@@ -112,9 +113,9 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     # obs with 15 cells, 5 each to different clone
     # in order, clone 0, 1, 2
     true_cn_profile = torch.tensor(
-        [[2] * 10*mm,
-         [2] * 4*mm + [3] * 6*mm,
-         [1] * 3*mm + [3] * 2*mm + [2] * 3*mm + [3] * 2*mm]
+        [[2] * 10 * mm,
+         [2] * 4 * mm + [3] * 6 * mm,
+         [1] * 3 * mm + [3] * 2 * mm + [2] * 3 * mm + [3] * 2 * mm]
         # [3] * 10]
     )
     # cell assignments
@@ -131,8 +132,8 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
 
     true_eps = {
-        (0, 1): 1./(cfg.chain_length-1),
-        (0, 2): 3./(cfg.chain_length-1)
+        (0, 1): 1. / (cfg.chain_length - 1),
+        (0, 2): 3. / (cfg.chain_length - 1)
     }
 
     # give true values to the other required dists
@@ -167,9 +168,9 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
 
 def save_test_data(seed, tree, C, y, z, pi, mu, tau, eps):
     K, M = C.shape
-    N = mu.shape
+    N = mu.shape[0]
     parent_folder = "tests/data/"
-    dir_name = f"K{K}_N{N}_M{M}_Seed{seed}"
+    dir_name = f"K{K}_N{N}_M{M}_Seed{seed}/"
     path = parent_folder + dir_name
     if os.path.exists(path):
         raise FileExistsError
@@ -183,6 +184,10 @@ def save_test_data(seed, tree, C, y, z, pi, mu, tau, eps):
     torch.save(mu, path + 'mu.pt')
     torch.save(tau, path + 'tau.pt')
     torch.save(eps, path + 'eps.pt')
+
+    visualization_utils.visualize_copy_number_profiles(C, save=True)
+    visualization_utils.visualize_mu_tau(mu, tau, save=True)
+
 
 def load_test_data(seed, K, M, N):
     parent_folder = "tests/data/"
