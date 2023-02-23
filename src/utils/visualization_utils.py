@@ -4,9 +4,14 @@ import torch
 import tkinter
 
 
-def visualize_copy_number_profiles(C: torch.Tensor, save=False):
-    if not save:
+def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None):
+    if save_path is None and pyplot_backend is None:
         matplotlib.use('TkAgg')
+    elif save_path is None and pyplot_backend == "default":
+        asd = 1 #matplotlib.use(matplotlib.rcParams['backend'])
+    elif save_path is None:
+        matplotlib.use('TkAgg')
+
     if len(C.shape) > 2 and C.shape[2] > 1:
         C = torch.argmax(C, dim=2)  # convert one-hot-encoding to categories
 
@@ -28,14 +33,18 @@ def visualize_copy_number_profiles(C: torch.Tensor, save=False):
         axs[int(k / n_col), col_count].plot(sites, C_k)
         axs[int(k / n_col), col_count].set_title(f'k = {k}')
 
-    if not save:
+    if save_path is None:
         plt.show()
     else:
-        plt.savefig(fig)
+        plt.savefig(save_path)
 
 
-def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save=False):
-    if not save:
+def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save_path=None, pyplot_backend=None):
+    if save_path is None and pyplot_backend is None:
+        matplotlib.use('TkAgg')
+    elif save_path is None and pyplot_backend == "default":
+        matplotlib.use(matplotlib.rcParams['backend'])
+    elif save_path is None:
         matplotlib.use('TkAgg')
 
     N = mu.shape[0]
@@ -48,10 +57,10 @@ def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save=False):
     axs[1].plot(cells, tau)
     axs[1].set_title(f"tau")
 
-    if not save:
+    if save_path is None:
         plt.show()
     else:
-        plt.savefig(fig)
+        plt.savefig(save_path)
 
 
 if __name__ == '__main__':

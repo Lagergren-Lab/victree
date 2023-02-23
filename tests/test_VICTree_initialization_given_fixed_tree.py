@@ -11,7 +11,7 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
-from tests import model_variational_comparisons
+from tests import model_variational_comparisons, utils_testing
 from tests.utils_testing import simul_data_pyro_full_model
 from utils import visualization_utils
 from utils.config import Config
@@ -69,7 +69,8 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
     def test_small_tree(self):
         logger = logging.getLogger()
         logger.level = logging.INFO
-        torch.manual_seed(1)
+        seed = 1
+        torch.manual_seed(seed)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
         n_cells = 1000
@@ -85,12 +86,13 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                                                                alpha0=torch.tensor(10.),
                                                                beta0=torch.tensor(40.),
                                                                a0=torch.tensor(1.0),
-                                                               b0=torch.tensor(6.0),
+                                                               b0=torch.tensor(8.0),
                                                                dir_alpha0=dir_alpha)
         print(f"Simulated data")
         vis_clone_idx = z[80]
         print(f"C: {C[vis_clone_idx, 40]} y: {y[80, 40]} z: {z[80]} \n"
               f"pi: {pi} mu: {mu[80]} tau: {tau[80]} eps: {eps}")
+        utils_testing.save_test_data(1, tree, C, y, z, pi, mu, tau, eps)
         visualization_utils.visualize_copy_number_profiles(C)
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)

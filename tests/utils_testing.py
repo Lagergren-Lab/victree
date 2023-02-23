@@ -168,30 +168,31 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
 
 def save_test_data(seed, tree, C, y, z, pi, mu, tau, eps):
     K, M = C.shape
+    A = int(torch.max(C)) + 1
     N = mu.shape[0]
-    parent_folder = "tests/data/"
-    dir_name = f"K{K}_N{N}_M{M}_Seed{seed}/"
-    path = parent_folder + dir_name
+    parent_folder = "data/" if "tests" in os.getcwd() else "tests/data/"
+    dir_name = f"K{K}_N{N}_M{M}_A{A}_Seed{seed}"
+    path = parent_folder + dir_name if "data" not in os.getcwd() else dir_name
     if os.path.exists(path):
         raise FileExistsError
 
-    # save graph object to file
-    pickle.dump(tree, open(path + 'tree.pickle', 'wb'))
-    torch.save(C, path + 'C.pt')
-    torch.save(y, path + 'y.pt')
-    torch.save(z, path + 'z.pt')
-    torch.save(pi, path + 'pi.pt')
-    torch.save(mu, path + 'mu.pt')
-    torch.save(tau, path + 'tau.pt')
-    torch.save(eps, path + 'eps.pt')
+    os.mkdir(path)
+    pickle.dump(tree, open(path + '/tree.pickle', 'wb'))
+    torch.save(C, path + '/C.pt')
+    torch.save(y, path + '/y.pt')
+    torch.save(z, path + '/z.pt')
+    torch.save(pi, path + '/pi.pt')
+    torch.save(mu, path + '/mu.pt')
+    torch.save(tau, path + '/tau.pt')
+    torch.save(eps, path + '/eps.pt')
 
-    visualization_utils.visualize_copy_number_profiles(C, save=True)
-    visualization_utils.visualize_mu_tau(mu, tau, save=True)
+    visualization_utils.visualize_copy_number_profiles(C, save_path=path + "/CN_profiles.png")
+    visualization_utils.visualize_mu_tau(mu, tau, save_path=path + "/mu_tau_plot.png")
 
 
-def load_test_data(seed, K, M, N):
-    parent_folder = "tests/data/"
-    dir_name = f"K{K}_N{N}_M{M}_Seed{seed}/"
+def load_test_data(seed, K, M, N, A):
+    parent_folder = "data/" if "tests" in os.getcwd() else "tests/data/"
+    dir_name = f"K{K}_N{N}_M{M}_A{A}_Seed{seed}/"
     path = parent_folder + dir_name
     if not os.path.exists(path):
         raise FileNotFoundError
