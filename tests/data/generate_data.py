@@ -58,7 +58,7 @@ def generate_data_balanced_tree(seed, n_cells, n_sites, n_copy_states):
 
 
 if __name__ == '__main__':
-    seeds = [1, 4]
+    seeds = [0, 1, 2]
     n_cells = 1000
     n_sites = 300
     n_copy_states = 7

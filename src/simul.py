@@ -210,7 +210,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
 
 
 def simulate_full_dataset(config: Config, eps_a=1., eps_b=3., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50.):
+                          alpha0=500., beta0=50., dir_alpha=None, tree=None):
     """
 Generate full simulated dataset.
     Args:
@@ -226,7 +226,7 @@ Generate full simulated dataset.
         dictionary with keys: ['obs', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
     """
     # generate random tree
-    tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph)
+    tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph) if tree is None else tree
     # generate eps from Beta(a, b)
     eps = {}
     for u, v in tree.edges:
@@ -251,7 +251,8 @@ Generate full simulated dataset.
     mu = torch.distributions.Normal(mu0, 1./torch.sqrt(lambda0 * tau)).sample()
     assert mu.shape == tau.shape
     # sample assignments
-    pi = torch.distributions.Dirichlet(torch.ones(config.n_nodes)).sample()
+    dir_alpha = torch.ones(config.n_nodes) if dir_alpha is None else dir_alpha
+    pi = torch.distributions.Dirichlet(dir_alpha).sample()
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
