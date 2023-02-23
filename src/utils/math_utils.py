@@ -2,7 +2,7 @@ import torch
 import math
 
 
-def log_beta_function(x: torch.Tensor)-> torch.float:
+def log_beta_function(x: torch.Tensor) -> torch.float:
     x_0 = torch.sum(x)
     return torch.sum(torch.lgamma(x)) - torch.lgamma(x_0)
 

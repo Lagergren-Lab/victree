@@ -983,15 +983,49 @@ class qEpsilonMulti(VariationalDistribution):
                 anti_sym_mask[i, j, k, l] = 1
         return co_mut_mask, anti_sym_mask
 
-    def cross_entropy(self):
-        return 0
+    def cross_entropy(self, T_eval, w_T_eval):
+        a = self.alpha
+        a_0 = self.alpha_prior
+        b = self.beta
+        b_0 = self.beta_prior
+        tot_H = 0
+        unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_eval, self.config.n_nodes)
+        for (u, v), n_uv in zip(unique_edges, unique_edges_count):
+            a_uv = a[u, v]
+            a_uv_0 = a_0
+            b_uv = b[u, v]
+            b_uv_0 = b_0
+            a_0_b_0_uv_tens = torch.tensor((a_uv_0, b_uv_0))
+            Beta_ab_0_uv = math_utils.log_beta_function(a_0_b_0_uv_tens)
+            psi_a_uv = torch.digamma(a_uv)
+            psi_b_uv = torch.digamma(b_uv)
+            psi_a_plus_b_uv = torch.digamma(a_uv + b_uv)
+            tot_H += torch.sum(n_uv * (Beta_ab_0_uv - (a_uv_0 - 1) * (psi_a_uv - psi_a_plus_b_uv) -
+                                       (b_uv_0 - 1) * (psi_b_uv - psi_a_plus_b_uv)))
+        return tot_H
 
-    def entropy(self):
-        return 0
+    def entropy(self, T_eval, w_T_eval):
+        a = self.alpha
+        b = self.beta
+        tot_H = 0
+        # TODO: replace n_uv by weights*n_uv
+        unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_eval, self.config.n_nodes)
+        for (u, v), n_uv in zip(unique_edges, unique_edges_count):
+            a_uv = a[u, v]
+            b_uv = b[u, v]
+            a_b_uv_tens = torch.tensor((a_uv, b_uv))
+            Beta_ab_uv = math_utils.log_beta_function(a_b_uv_tens)
+            psi_a_uv = torch.digamma(a_uv)
+            psi_b_uv = torch.digamma(b_uv)
+            psi_a_plus_b_uv = torch.digamma(a_uv + b_uv)
+            tot_H -= torch.sum(n_uv * (Beta_ab_uv - (a_uv - 1) * psi_a_uv - (b_uv - 1) * psi_b_uv +
+                                       (a_uv + b_uv + 2) * psi_a_plus_b_uv))
+        return tot_H
 
-    def elbo(self) -> float:
-        self.entropy()
-        return super().elbo()
+    def elbo(self, T_eval, w_T_eval) -> float:
+        entropy_eps = self.entropy(T_eval, w_T_eval)
+        CE_eps = self.cross_entropy(T_eval, w_T_eval)
+        return entropy_eps + CE_eps
 
     def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
         self.update_CAVI(tree_list, tree_weights, qc)
@@ -1255,7 +1289,7 @@ Initialize the mu and tau params given observations
         return -torch.sum(entropy_arr)
 
     def elbo(self) -> float:
-        return self.cross_entropy() + self.entropy()
+        return self.cross_entropy() - self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
@@ -1386,4 +1420,4 @@ class qPi(VariationalDistribution):
     def elbo(self) -> float:
         cross_entropy = self.cross_entropy()
         entropy = self.entropy()
-        return cross_entropy + entropy
+        return cross_entropy - entropy
