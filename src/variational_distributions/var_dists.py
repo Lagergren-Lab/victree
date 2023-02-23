@@ -157,7 +157,7 @@ class qC(VariationalDistribution):
             # cov_type is diag, so to consider independent cells
 
             hmm = hmmlearn.hmm.GaussianHMM(n_components=self.config.n_states,
-                                           implementation='scaling',
+                                           implementation='log',
                                            covariance_type='diag',
                                            n_iter=100)
 

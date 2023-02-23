@@ -85,8 +85,8 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
         log_L_true_model += obs_model_true.log_prob(y_n).sum()
         log_L_var_model += obs_model_var.log_prob(y_n).sum()
 
-    print(f"tot log_L_true_model: {log_L_true_model.sum()}")
-    print(f"tot log_L_var_model: {log_L_var_model.sum()}")
+    print(f"tot log_L_true_model: {log_L_true_model.sum():,}")
+    print(f"tot log_L_var_model: {log_L_var_model.sum():,}")
 
 
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon, q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau):

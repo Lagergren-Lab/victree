@@ -1,3 +1,5 @@
+import os.path
+import pickle
 from typing import List, Tuple
 
 import networkx as nx
@@ -161,3 +163,40 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps,
                                fix_qmt, fix_qpi, fix_tree, obs)
     return joint_q
+
+
+def save_test_data(seed, tree, C, y, z, pi, mu, tau, eps):
+    K, M = C.shape
+    N = mu.shape
+    parent_folder = "tests/data/"
+    dir_name = f"K{K}_N{N}_M{M}_Seed{seed}"
+    path = parent_folder + dir_name
+    if os.path.exists(path):
+        raise FileExistsError
+
+    # save graph object to file
+    pickle.dump(tree, open(path + 'tree.pickle', 'wb'))
+    torch.save(C, path + 'C.pt')
+    torch.save(y, path + 'y.pt')
+    torch.save(z, path + 'z.pt')
+    torch.save(pi, path + 'pi.pt')
+    torch.save(mu, path + 'mu.pt')
+    torch.save(tau, path + 'tau.pt')
+    torch.save(eps, path + 'eps.pt')
+
+def load_test_data(seed, K, M, N):
+    parent_folder = "tests/data/"
+    dir_name = f"K{K}_N{N}_M{M}_Seed{seed}/"
+    path = parent_folder + dir_name
+    if not os.path.exists(path):
+        raise FileNotFoundError
+
+    tree = pickle.load(path + 'tree.pickle')
+    C = torch.load(path + 'C.pt')
+    y = torch.load(path + 'y.pt')
+    z = torch.load(path + 'z.pt')
+    pi = torch.load(path + 'pi.pt')
+    mu = torch.load(path + 'mu.pt')
+    tau = torch.load(path + 'tau.pt')
+    eps = torch.load(path + 'eps.pt')
+    return tree, C, y, z, pi, mu, tau, eps

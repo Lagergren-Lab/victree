@@ -1,4 +1,5 @@
 import logging
+import pickle
 import random
 import unittest
 
@@ -68,7 +69,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
     def test_small_tree(self):
         logger = logging.getLogger()
         logger.level = logging.INFO
-        torch.manual_seed(0)
+        torch.manual_seed(1)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
         n_cells = 1000
@@ -79,18 +80,18 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data,
                                                                n_cells, n_sites, n_copy_states,
                                                                tree,
+                                                               mu_0=torch.tensor(10.),
                                                                lambda_0=torch.tensor(1.),
                                                                alpha0=torch.tensor(10.),
                                                                beta0=torch.tensor(40.),
                                                                a0=torch.tensor(1.0),
-                                                               b0=torch.tensor(20.0),
-                                                               dir_alpha0=torch.tensor(1.0))
-
+                                                               b0=torch.tensor(6.0),
+                                                               dir_alpha0=dir_alpha)
         print(f"Simulated data")
         vis_clone_idx = z[80]
         print(f"C: {C[vis_clone_idx, 40]} y: {y[80, 40]} z: {z[80]} \n"
               f"pi: {pi} mu: {mu[80]} tau: {tau[80]} eps: {eps}")
-        #visualization_utils.visualize_copy_number_profiles(C)
+        visualization_utils.visualize_copy_number_profiles(C)
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
@@ -99,13 +100,15 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         # initialize all var dists
         q.initialize()
         q.z.initialize('kmeans', obs=y)
+        q.z.pi = q.z.pi + 1./n_nodes
+        q.z.pi = q.z.pi / torch.sum(q.z.pi, dim=1, keepdim=True)
         q.mt.initialize('data', obs=y)
         clusters = torch.argmax(q.z.pi, dim=1)
         q.c.initialize('bw-cluster', obs=y, clusters=clusters)
 
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(50)
+        copy_tree.run(30)
 
         q_C = copy_tree.q.c.single_filtering_probs
         q_z_pi = copy_tree.q.z.pi
@@ -116,54 +119,24 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         print(f"q_epsilon mean: {q_eps_mean}")
         print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
         print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
-        print(f"y_mn: {y[0:10, 0:10]}")
-        print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
-        print(f"True C: {C[1, 45:50]} \n q(C): {q_C[1, 45:50, :]}")
-        print(f"True C: {C[2, 5:10]} \n q(C): {q_C[2, 5:10, :]}")
-        print(f"True C: {C[2, 45:50]} \n q(C): {q_C[2, 45:50, :]}")
+        torch.set_printoptions(precision=2)
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                          q_mt=copy_tree.q.mt)
 
-    def test_large_tree(self):
-        torch.manual_seed(0)
-        K = 5
-        tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 200
-        n_sites = 100
-        n_copy_states = 7
-        data = torch.ones((n_sites, n_cells))
-        dir_alpha0 = torch.ones(K)
-        dir_alpha0[3] = 100.
-        C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                               dir_alpha0=dir_alpha0)
-        print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(n_nodes=K, chain_length=n_sites,
-                        n_cells=n_cells, n_states=n_copy_states)
-        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-        copy_tree = CopyTree(config, q, y)
-
-        copy_tree.run(10)
-        q_C = copy_tree.q.c.single_filtering_probs
-        q_z_pi = copy_tree.q.z.pi
-        delta = copy_tree.q.pi.concentration_param
-        print(f"True pi: {pi} \n variational pi_n: {q_z_pi[0:5]}")
-        print(f"True alpha: {dir_alpha0} \n variational concentration param: {delta}")
-        print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
-
-
-    def test_large_tree_init_true_params_multiple_runs(self):
+    def test_large_tree_init_multiple_runs(self):
         logger = logging.getLogger()
         logger.level = logging.INFO
-        K = 10
+        K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 1000
-        n_sites_list = [10, 100, 300]
+        print(f"Tree edges: {tree.edges}")
+        n_cells = 500
+        n_sites_list = [100, 100, 100]
         n_copy_states = 7
         dir_alpha0 = 1.
         n_tests = 3
-        alpha_0_list = [1., 1., 1.]
-        beta_0_list = [1., 1., 1.]
         mu_0_list = [10., 10., 10.]
-        lmbda_0_list = [10., 10., 10.]
         for i in range(n_tests):
             torch.manual_seed(i)
             n_sites = n_sites_list[i]
@@ -174,24 +147,22 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                                                                    alpha0=torch.tensor(10.),
                                                                    beta0=torch.tensor(40.),
                                                                    a0=torch.tensor(1.0),
-                                                                   b0=torch.tensor(20.0),
+                                                                   b0=torch.tensor(10.0),
                                                                    dir_alpha0=torch.tensor(1.0))
 
+            visualization_utils.visualize_copy_number_profiles(C)
             config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize(eps_alpha=1., eps_beta=20.,
-                         loc=mu, precision_factor=.1, shape=5, rate=5)
+            q.initialize()
+            q.z.initialize('kmeans', obs=y)
+            q.mt.initialize('data', obs=y)
+            clusters = torch.argmax(q.z.pi, dim=1)
+            q.c.initialize('bw-cluster', obs=y, clusters=clusters)
 
             copy_tree = CopyTree(config, q, y)
-            copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
-            copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
-            copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-            copy_tree.run(20)
-            q_C = copy_tree.q.c.single_filtering_probs
-            q_pi = copy_tree.q.z.pi
-            delta = copy_tree.q.pi.concentration_param
+            copy_tree.run(50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
