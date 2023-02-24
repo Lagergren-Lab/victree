@@ -6,3 +6,4 @@
 .DS_Store
 # output dirs
 *_out
+notes.md

@@ -1,3 +1,4 @@
+import itertools
 import random
 import sys
 import os
@@ -90,6 +91,19 @@ class slantisArborescenceTestCase(unittest.TestCase):
         edmonds_arb_with_included = maximum_spanning_arborescence(graph, preserve_attrs=True)
         # print(tree_to_newick(edmonds_arb_with_included))
         self.assertTrue((0, 1) in edmonds_arb_with_included.edges)
+
+    def test_large_tree_sampling(self):
+        n_nodes = 8
+        graph = nx.DiGraph(directed=True)
+        weighted_edges = [(u, v, ((u * v) % 5) + 1 / 10)
+                          for u, v in itertools.product(range(n_nodes), range(n_nodes)) if v != 0 and u != v]
+        graph.add_weighted_edges_from(weighted_edges)
+        l = 500
+        log_iws_tensor = torch.empty((l, ))
+        for i in range(l):
+            s, log_iws_tensor[i] = sample_arborescence_from_weighted_graph(graph)
+
+        print(torch.histogram(log_iws_tensor, bins=20))
 
 
     def test_tree_sampling(self):

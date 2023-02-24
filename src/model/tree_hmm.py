@@ -5,6 +5,7 @@ import torch
 from utils.eps_utils import compute_n_cases
 
 
+# obsolete
 class CopyNumberTreeHMM:
 
     def __init__(self, n_copy_states, eps=torch.tensor(1e-2), delta=torch.tensor(1e-10)):

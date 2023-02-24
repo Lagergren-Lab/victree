@@ -14,16 +14,9 @@ from utils.config import set_seed
 
 
 def main(args):
-    logging.debug("running main program")
-    run(args)
-    # try:
-    #     run(args)
-    # except ValueError as ve:
-    #     logging.error(f"program stopped with ValueError: {ve}")
-    # except Exception as e:
-    #     logging.error(f"Unknown error: {e}")
-
-    logging.debug("main is over")
+    logging.info("running main program")
+    copytree = run(args)
+    logging.info("main is over")
 
 
 def validate_file(f):
@@ -43,9 +36,11 @@ if __name__ == '__main__':
     parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
-    parser.add_argument("-i", "--input", dest="filename",
+    parser.add_argument("-i", "--input", dest="file_path",
                         type=validate_file, default='../obs_example.txt',
                         help="input data file", metavar="FILE")
+    parser.add_argument("-o", "--output", dest="out_path",
+                        help="output data file", metavar="FILE")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
     parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")
     parser.add_argument("--A", default=7, type=int, help="Number of characters/copy number states")
@@ -56,7 +51,7 @@ if __name__ == '__main__':
     set_seed(args.seed)
 
     # logger setup
-    logging.basicConfig(filename='out.log', level=logging.DEBUG)
+    logging.basicConfig(filename='out.log', level=logging.DEBUG if args.debug else logging.INFO)
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     getattr(logging, args.log)
 

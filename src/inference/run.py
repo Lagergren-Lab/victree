@@ -1,39 +1,41 @@
 import logging
+import os
+
+import torch
 
 from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
 from utils.config import Config
-from utils.data_handling import read_sc_data
-from utils.tree_utils import generate_fixed_tree
-from variational_distributions.var_dists import qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qZ, qC
-from model.generative_model import GenerativeModel
+from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5
 
 
 def run(args):
-    # TODO: write main code
-    cell_names, gene_ids, obs = read_sc_data(args.filename)
-    n_genes, n_cells = obs.shape
-    obs = obs.float()
-    logging.debug(f"file {args.filename} read successfully [{n_genes} genes, {n_cells} cells]")
+    fname, fext = os.path.splitext(args.file_path)
+    if fext == '.txt':
+        cell_names, gene_ids, obs = read_sc_data(args.file_path)
+        obs = obs.float()
+    elif fext == '.h5':
+        full_data = load_h5_anndata(args.file_path)
+        if 'gt' in full_data.keys():
+            logging.debug(f"gt tree: {full_data['gt']['tree']}")
 
-    config = Config(chain_length=n_genes, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
+        obs = torch.tensor(full_data['X'])
+    else:
+        raise FileNotFoundError(f"file extension not recognized: {fext}")
+
+    n_bins, n_cells = obs.shape
+    logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
+
+    config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
                     wis_sample_size=args.L, debug=args.debug)
     logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
-    p = GenerativeModel(config)
-    
-    # instantiate all distributions 
-    qc = qC(config)
-    qz = qZ(config)
-    qt = qT(config)
-    qeps = qEpsilonMulti(config)
-    qmt = qMuTau(config)
-    qpi = qPi(config)
 
-    # q = JointVarDist(config, qc, qz, qt, qeps, qmt, qpi, obs)
-    tree = generate_fixed_tree(config.n_nodes)
-    q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, obs)
-    q.initialize()
-    copy_tree = CopyTree(config, p, q, obs)
+    # instantiate all distributions
+    joint_q = JointVarDist(config, obs)
+    joint_q.initialize()
+    copy_tree = CopyTree(config, joint_q, obs)
     
     copy_tree.run(args.n_iter)
 
-    return copy_tree.elbo
+    write_output_h5(copy_tree, args.out_path)
+
+    return copy_tree

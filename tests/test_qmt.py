@@ -21,7 +21,7 @@ class qmtTestCase(unittest.TestCase):
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
         self.qz.initialize()
-        self.mu_init = 0
+        self.mu_init = 100
         self.prec_factor_init = 1
         self.alpha_init = 1
         self.beta_init = 3
@@ -32,7 +32,7 @@ class qmtTestCase(unittest.TestCase):
     def test_update_mu_greater_than_init_for_observations_greater_than_init(self):
         obs = torch.randint(low=200, high=250, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
         self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
-        self.qc.single_filtering_probs[:, :, 1] = 2
+        self.qc.single_filtering_probs[:, :, 1] = 1.
         mu, lmbda, alpha, beta = self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
         self.assertTrue(torch.greater_equal(torch.mean(mu), self.mu_init), msg=f"mu smaller after update for "
                                                                                f"observations larger than mu init. "
@@ -47,7 +47,7 @@ class qmtTestCase(unittest.TestCase):
     def test_update_beta(self):
         n_iter = 3
         #obs = torch.randint(low=200, high=250, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
-        obs_rv = torch.distributions.Normal(loc=0, scale=3)
+        obs_rv = torch.distributions.Normal(loc=200, scale=3)
         obs = obs_rv.sample((self.config.chain_length, self.config.n_cells))
         sum_M_y2 = torch.sum(obs ** 2, dim=0)
         self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
@@ -55,6 +55,9 @@ class qmtTestCase(unittest.TestCase):
         for i in range(n_iter):
             mu, lmbda, alpha, beta = self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
             print(f"mu: {mu[0]} beta: {beta[0]}")
+        # FIXME: mu_init = 100, while observation are Normal(0, 9)
+        #   probably not a good idea to keep self.mu_init for all tests
+        #   solution: initialize qmt in this function and check that mu approaches observations
         self.assertTrue(torch.greater_equal(torch.mean(mu), self.mu_init), msg=f"mu smaller after update for "
                                                                                f"observations larger than mu init. "
                                                                                f" \n mu updated: {mu} - mu init {self.mu_init}")
@@ -94,6 +97,14 @@ class qmtTestCase(unittest.TestCase):
                 self.assertTrue(torch.argmax(exp_log_emission) == 6, msg=f"E_mu_tau[log p(y_{m,n}|C)] {exp_log_emission[n,m,:]}")
         # Log emission always largest for C=0 - is that correct?
 
+
+    def test_entropy(self):
+        obs = torch.randint(low=10, high=20, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
+        self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
+        self.qc.single_filtering_probs[:, :, 1] = 2
+        self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
+        elbo_qmt = self.qmt.elbo()
+        print(f"ELBO(mu, tau): {elbo_qmt}")
 
     def test_log_emissions_cell_independent_tau(self):
         K = 3
