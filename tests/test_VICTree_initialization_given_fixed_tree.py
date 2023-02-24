@@ -156,7 +156,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                                                 eps_b=20.,
                                                 mu0=10.,
                                                 lambda0=2.,
-                                                alpha0=2., beta0=10.,
+                                                alpha0=50., beta0=10.,
                                                 dir_alpha=dir_alpha0)
         y = out_simul['obs']
         C = out_simul['c']
@@ -180,6 +180,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
+            q.eps.initialize(method='non_mutation')
             #q.z.initialize('kmeans', obs=y)
             q.z.pi = f.one_hot(z.long(), num_classes=K).float()
             q.mt.initialize('data', obs=y)
