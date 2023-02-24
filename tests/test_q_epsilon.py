@@ -39,6 +39,9 @@ class qEpsilonTestCase(unittest.TestCase):
         print(f"Beta param a: {a}")
         print(f"Beta param b: {b}")
 
+        elbo = self.qeps.elbo([T_list[0]], w_T[0])
+        print(f"ELBO: {elbo}")
+
     def test_expectation_size(self):
         for u in range(self.config.n_nodes):
             for v in range(self.config.n_nodes):
@@ -56,3 +59,33 @@ class qEpsilonTestCase(unittest.TestCase):
             if u != v and v != 0:
                 marginalize = torch.exp(self.qeps.exp_log_zipping((u, v))).sum(dim=0)
                 self.assertTrue(torch.allclose(marginalize, torch.ones_like(marginalize)))
+
+    def test_q_epsilon_ELBO_larger_for_no_mutation(self):
+        # Arange
+        K = 2
+        M = 2
+        A = 5
+
+        config = Config(n_nodes=K, chain_length=M, n_states=A)
+        q_eps1 = qEpsilonMulti(config, alpha_0=1., beta_0=10.)
+        q_eps2 = qEpsilonMulti(config, alpha_0=1., beta_0=10.)
+        T = nx.DiGraph()
+        T.add_edge(0, 1)
+        w_T = [1.]
+        q_C1 = qC(config)
+        q_C2 = qC(config)
+        q_C1.couple_filtering_probs[0] = torch.diag(torch.ones(A))
+        q_C1.couple_filtering_probs[1] = torch.diag(torch.ones(A))
+        q_C2.couple_filtering_probs[0] = torch.rand((A, A))
+        q_C2.couple_filtering_probs[1] = torch.rand((A, A))
+
+        # Act
+        self.assertTrue(q_eps1.elbo([T], w_T) == q_eps2.elbo([T], w_T))
+
+        q_eps1.update([T], w_T, q_C1)
+        q_eps1.update([T], w_T, q_C2)
+        elbo_1 = q_eps1.elbo([T], w_T)
+        elbo_2 = q_eps2.elbo([T], w_T)
+
+        # Assert
+        self.assertTrue(elbo_1 > elbo_2, msg="ELBO for no q(Epsilon) lower for ")

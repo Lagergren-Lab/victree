@@ -12,6 +12,7 @@ import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model
+from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
 
@@ -48,7 +49,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                          alpha0=torch.tensor(10.),
                                          beta0=torch.tensor(40.),
                                          a0=torch.tensor(1.0),
-                                         b0=torch.tensor(1.0),
+                                         b0=torch.tensor(20.0),
                                          dir_alpha0=torch.tensor(1.0)
                                          ):
         model_tree_markov_full = simul.model_tree_markov_full
@@ -184,6 +185,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                             f" \n q(Z)) mean: {torch.mean(q_pi, dim=0)} \n true pi: {pi}")
 
     def test_large_tree_init_true_params_multiple_runs(self):
+        logger = logging.getLogger()
+        logger.level = logging.INFO
         K = 10
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 1000
@@ -205,13 +208,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                    alpha0=torch.tensor(10.),
                                                                    beta0=torch.tensor(40.),
                                                                    a0=torch.tensor(1.0),
-                                                                   b0=torch.tensor(1.0),
+                                                                   b0=torch.tensor(20.0),
                                                                    dir_alpha0=torch.tensor(1.0))
 
             config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize(eps_alpha=10., eps_beta=40.,
+            q.initialize(eps_alpha=1., eps_beta=20.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
 
             copy_tree = CopyTree(config, q, y)
@@ -255,13 +258,14 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                    alpha0=torch.tensor(10.),
                                                                    beta0=torch.tensor(40.),
                                                                    a0=torch.tensor(1.0),
-                                                                   b0=torch.tensor(1.0),
+                                                                   b0=torch.tensor(10.0),
                                                                    dir_alpha0=torch.tensor(1.0))
 
+            visualization_utils.visualize_copy_number_profiles(C)
             config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize(eps_alpha=10., eps_beta=40.,
+            q.initialize(eps_alpha=1., eps_beta=10.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
 
             copy_tree = CopyTree(config, q, y)
@@ -310,7 +314,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                    alpha0=torch.tensor(10.),
                                                                    beta0=torch.tensor(40.),
                                                                    a0=torch.tensor(1.0),
-                                                                   b0=torch.tensor(1.0),
+                                                                   b0=torch.tensor(20.0),
                                                                    dir_alpha0=torch.tensor(1.0))
 
             config = Config(step_size=0.3,

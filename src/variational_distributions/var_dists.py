@@ -157,7 +157,7 @@ class qC(VariationalDistribution):
             # cov_type is diag, so to consider independent cells
 
             hmm = hmmlearn.hmm.GaussianHMM(n_components=self.config.n_states,
-                                           implementation='scaling',
+                                           implementation='log',
                                            covariance_type='diag',
                                            n_iter=100)
 
@@ -902,7 +902,7 @@ class qEpsilon(VariationalDistribution):
 # edge distance (multiple eps, one for each arc)
 class qEpsilonMulti(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1., gedges=None,
+    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 10., gedges=None,
                  true_params=None):
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_0)
@@ -956,6 +956,8 @@ class qEpsilonMulti(VariationalDistribution):
             self._uniform_init()
         elif method == 'random':
             self._random_init(**kwargs)
+        elif method == 'non_mutation':
+            self._non_mutation_init(**kwargs)
         else:
             raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
@@ -965,6 +967,11 @@ class qEpsilonMulti(VariationalDistribution):
         for e in self.alpha.keys():
             self.alpha[e] = torch.tensor(1.)
             self.beta[e] = torch.tensor(1.)
+
+    def _non_mutation_init(self):
+        for e in self.alpha.keys():
+            self.alpha[e] = torch.tensor(1.)
+            self.beta[e] = torch.tensor(10.)
 
     def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
         a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
@@ -990,17 +997,18 @@ class qEpsilonMulti(VariationalDistribution):
         b_0 = self.beta_prior
         tot_H = 0
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_eval, self.config.n_nodes)
-        for (u, v), n_uv in zip(unique_edges, unique_edges_count):
+        for (u, v) in unique_edges:
+            n_uv = unique_edges_count[u, v]
             a_uv = a[u, v]
             a_uv_0 = a_0
             b_uv = b[u, v]
             b_uv_0 = b_0
             a_0_b_0_uv_tens = torch.tensor((a_uv_0, b_uv_0))
-            Beta_ab_0_uv = math_utils.log_beta_function(a_0_b_0_uv_tens)
+            log_Beta_ab_0_uv = math_utils.log_beta_function(a_0_b_0_uv_tens)
             psi_a_uv = torch.digamma(a_uv)
             psi_b_uv = torch.digamma(b_uv)
             psi_a_plus_b_uv = torch.digamma(a_uv + b_uv)
-            tot_H += torch.sum(n_uv * (Beta_ab_0_uv - (a_uv_0 - 1) * (psi_a_uv - psi_a_plus_b_uv) -
+            tot_H += torch.sum(n_uv * (log_Beta_ab_0_uv - (a_uv_0 - 1) * (psi_a_uv - psi_a_plus_b_uv) -
                                        (b_uv_0 - 1) * (psi_b_uv - psi_a_plus_b_uv)))
         return tot_H
 
@@ -1010,22 +1018,23 @@ class qEpsilonMulti(VariationalDistribution):
         tot_H = 0
         # TODO: replace n_uv by weights*n_uv
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_eval, self.config.n_nodes)
-        for (u, v), n_uv in zip(unique_edges, unique_edges_count):
+        for (u, v) in unique_edges:
+            n_uv = unique_edges_count[u, v]
             a_uv = a[u, v]
             b_uv = b[u, v]
             a_b_uv_tens = torch.tensor((a_uv, b_uv))
-            Beta_ab_uv = math_utils.log_beta_function(a_b_uv_tens)
+            log_Beta_ab_uv = math_utils.log_beta_function(a_b_uv_tens)
             psi_a_uv = torch.digamma(a_uv)
             psi_b_uv = torch.digamma(b_uv)
             psi_a_plus_b_uv = torch.digamma(a_uv + b_uv)
-            tot_H -= torch.sum(n_uv * (Beta_ab_uv - (a_uv - 1) * psi_a_uv - (b_uv - 1) * psi_b_uv +
-                                       (a_uv + b_uv + 2) * psi_a_plus_b_uv))
+            tot_H += torch.sum(n_uv * (log_Beta_ab_uv - (a_uv - 1) * psi_a_uv - (b_uv - 1) * psi_b_uv +
+                                       (a_uv + b_uv - 2) * psi_a_plus_b_uv))
         return tot_H
 
     def elbo(self, T_eval, w_T_eval) -> float:
         entropy_eps = self.entropy(T_eval, w_T_eval)
         CE_eps = self.cross_entropy(T_eval, w_T_eval)
-        return entropy_eps + CE_eps
+        return CE_eps - entropy_eps
 
     def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
         self.update_CAVI(tree_list, tree_weights, qc)

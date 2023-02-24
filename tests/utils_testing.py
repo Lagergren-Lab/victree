@@ -1,5 +1,8 @@
+import os.path
+import pickle
 from typing import List, Tuple
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import torch
@@ -8,7 +11,7 @@ from pyro import poutine
 
 import simul
 from inference.copy_tree import VarDistFixedTree
-from utils import tree_utils
+from utils import tree_utils, visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
@@ -44,7 +47,7 @@ def get_tree_K_nodes_random(K):
 
 def get_random_q_C(M, A):
     q_C_init = torch.rand(A)
-    q_C_transitions_unnormalized = torch.rand((M-1, A, A))
+    q_C_transitions_unnormalized = torch.rand((M - 1, A, A))
     q_C_transitions = f.normalize(q_C_transitions_unnormalized, p=1, dim=2)
     return q_C_init, q_C_transitions
 
@@ -52,9 +55,9 @@ def get_random_q_C(M, A):
 def get_root_q_C(M, A):
     q_C_init = torch.zeros(A)
     q_C_init[2] = 1
-    q_C_transitions = torch.zeros((M-1, A, A))
+    q_C_transitions = torch.zeros((M - 1, A, A))
     diag_A = torch.ones(A)
-    for m in range(M-1):
+    for m in range(M - 1):
         q_C_transitions[m] = torch.diag(diag_A, 0)
     return q_C_init, q_C_transitions
 
@@ -82,7 +85,7 @@ def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.D
                                alpha0=torch.tensor(1.),
                                beta0=torch.tensor(1.),
                                a0=torch.tensor(1.0),
-                               b0=torch.tensor(10.0),
+                               b0=torch.tensor(20.0),
                                dir_alpha0=torch.tensor(1.0)
                                ):
     model_tree_markov_full = simul.model_tree_markov_full
@@ -110,9 +113,9 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     # obs with 15 cells, 5 each to different clone
     # in order, clone 0, 1, 2
     true_cn_profile = torch.tensor(
-        [[2] * 10*mm,
-         [2] * 4*mm + [3] * 6*mm,
-         [1] * 3*mm + [3] * 2*mm + [2] * 3*mm + [3] * 2*mm]
+        [[2] * 10 * mm,
+         [2] * 4 * mm + [3] * 6 * mm,
+         [1] * 3 * mm + [3] * 2 * mm + [2] * 3 * mm + [3] * 2 * mm]
         # [3] * 10]
     )
     # cell assignments
@@ -129,8 +132,8 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
 
     true_eps = {
-        (0, 1): 1./(cfg.chain_length-1),
-        (0, 2): 3./(cfg.chain_length-1)
+        (0, 1): 1. / (cfg.chain_length - 1),
+        (0, 2): 3. / (cfg.chain_length - 1)
     }
 
     # give true values to the other required dists
@@ -161,3 +164,45 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps,
                                fix_qmt, fix_qpi, fix_tree, obs)
     return joint_q
+
+
+def save_test_data(seed, tree, C, y, z, pi, mu, tau, eps):
+    K, M = C.shape
+    A = int(torch.max(C)) + 1
+    N = mu.shape[0]
+    parent_folder = "data/" if "tests" in os.getcwd() else "tests/data/"
+    dir_name = f"K{K}_N{N}_M{M}_A{A}_Seed{seed}"
+    path = parent_folder + dir_name if "data" not in os.getcwd() else dir_name
+    if os.path.exists(path):
+        raise FileExistsError
+
+    os.mkdir(path)
+    pickle.dump(tree, open(path + '/tree.pickle', 'wb'))
+    torch.save(C, path + '/C.pt')
+    torch.save(y, path + '/y.pt')
+    torch.save(z, path + '/z.pt')
+    torch.save(pi, path + '/pi.pt')
+    torch.save(mu, path + '/mu.pt')
+    torch.save(tau, path + '/tau.pt')
+    torch.save(eps, path + '/eps.pt')
+
+    visualization_utils.visualize_copy_number_profiles(C, save_path=path + "/CN_profiles.png")
+    visualization_utils.visualize_mu_tau(mu, tau, save_path=path + "/mu_tau_plot.png")
+
+
+def load_test_data(seed, K, M, N, A):
+    parent_folder = "data/" if "tests" in os.getcwd() else "tests/data/"
+    dir_name = f"K{K}_N{N}_M{M}_A{A}_Seed{seed}/"
+    path = parent_folder + dir_name
+    if not os.path.exists(path):
+        raise FileNotFoundError
+
+    tree = pickle.load(path + 'tree.pickle')
+    C = torch.load(path + 'C.pt')
+    y = torch.load(path + 'y.pt')
+    z = torch.load(path + 'z.pt')
+    pi = torch.load(path + 'pi.pt')
+    mu = torch.load(path + 'mu.pt')
+    tau = torch.load(path + 'tau.pt')
+    eps = torch.load(path + 'eps.pt')
+    return tree, C, y, z, pi, mu, tau, eps
