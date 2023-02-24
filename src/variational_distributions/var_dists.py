@@ -1004,11 +1004,11 @@ class qEpsilonMulti(VariationalDistribution):
             b_uv = b[u, v]
             b_uv_0 = b_0
             a_0_b_0_uv_tens = torch.tensor((a_uv_0, b_uv_0))
-            Beta_ab_0_uv = math_utils.log_beta_function(a_0_b_0_uv_tens)
+            log_Beta_ab_0_uv = math_utils.log_beta_function(a_0_b_0_uv_tens)
             psi_a_uv = torch.digamma(a_uv)
             psi_b_uv = torch.digamma(b_uv)
             psi_a_plus_b_uv = torch.digamma(a_uv + b_uv)
-            tot_H += torch.sum(n_uv * (Beta_ab_0_uv - (a_uv_0 - 1) * (psi_a_uv - psi_a_plus_b_uv) -
+            tot_H += torch.sum(n_uv * (log_Beta_ab_0_uv - (a_uv_0 - 1) * (psi_a_uv - psi_a_plus_b_uv) -
                                        (b_uv_0 - 1) * (psi_b_uv - psi_a_plus_b_uv)))
         return tot_H
 
@@ -1023,12 +1023,12 @@ class qEpsilonMulti(VariationalDistribution):
             a_uv = a[u, v]
             b_uv = b[u, v]
             a_b_uv_tens = torch.tensor((a_uv, b_uv))
-            Beta_ab_uv = math_utils.log_beta_function(a_b_uv_tens)
+            log_Beta_ab_uv = math_utils.log_beta_function(a_b_uv_tens)
             psi_a_uv = torch.digamma(a_uv)
             psi_b_uv = torch.digamma(b_uv)
             psi_a_plus_b_uv = torch.digamma(a_uv + b_uv)
-            tot_H -= torch.sum(n_uv * (Beta_ab_uv - (a_uv - 1) * psi_a_uv - (b_uv - 1) * psi_b_uv +
-                                       (a_uv + b_uv + 2) * psi_a_plus_b_uv))
+            tot_H += torch.sum(n_uv * (log_Beta_ab_uv - (a_uv - 1) * psi_a_uv - (b_uv - 1) * psi_b_uv +
+                                       (a_uv + b_uv - 2) * psi_a_plus_b_uv))
         return tot_H
 
     def elbo(self, T_eval, w_T_eval) -> float:
