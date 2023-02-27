@@ -1274,7 +1274,7 @@ Initialize the mu and tau params given observations
         CE_prior = self.alpha_0 * torch.log(self.beta_0) + 0.5 * torch.log(self.lmbda_0) - torch.lgamma(self.alpha_0)
         CE_constants = 0.5 * torch.log(torch.tensor(2 * torch.pi))
         CE_var_terms = self.exp_log_tau()
-        CE_cross_terms = self.beta_0 * self.exp_tau() + (self.alpha_0 - 1) * self.exp_log_tau() - \
+        CE_cross_terms = - self.beta_0 * self.exp_tau() + (self.alpha_0 - 1) * self.exp_log_tau() - \
                          0.5 * self.lmbda_0 / self.lmbda
         CE_arr = CE_constants + CE_prior + CE_var_terms + CE_cross_terms
         return torch.sum(CE_arr)
@@ -1290,6 +1290,23 @@ Initialize the mu and tau params given observations
 
     def elbo(self) -> float:
         return self.cross_entropy() - self.entropy()
+
+    def elbo_alt(self):
+        exp_entropy_mun = .5 * (1. + torch.log(2 * np.pi * self.beta) - torch.log(self.lmbda) -
+                                torch.digamma(self.alpha))
+        entropy_taun = self.alpha - self.beta.log() + torch.lgamma(self.alpha) +\
+                       (1 - self.alpha) * torch.digamma(self.alpha)
+        entropy = exp_entropy_mun + entropy_taun
+
+        cross_entropy = .5 * (torch.tensor(2 * torch.pi).log() - self.lmbda.log() + self.lmbda_0 / self.lmbda) -\
+            self.alpha_0 * (torch.digamma(self.alpha) - self.beta.log()) - self.alpha_0 * self.beta_0.log() +\
+            torch.lgamma(self.alpha_0) + self.beta_0 * self.alpha / self.beta
+
+        if self.config.debug:
+            assert entropy.shape == (self.config.n_cells, )
+            assert cross_entropy.shape == (self.config.n_cells, )
+
+        return - torch.sum(entropy + cross_entropy)
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)

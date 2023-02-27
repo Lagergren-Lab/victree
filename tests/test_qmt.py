@@ -100,8 +100,11 @@ class qmtTestCase(unittest.TestCase):
 
     def test_entropy(self):
         obs = torch.randint(low=10, high=20, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
-        self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
-        self.qc.single_filtering_probs[:, :, 1] = 2
+        eps = 1e-5
+        self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A)) + eps
+        self.qc.single_filtering_probs[:, :, 1] = 1 - eps
         self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
         elbo_qmt = self.qmt.elbo()
+        alt_elbo_qmt = self.qmt.elbo_alt()
         print(f"ELBO(mu, tau): {elbo_qmt}")
+        print(f"new ELBO(mu, tau): {alt_elbo_qmt}")
