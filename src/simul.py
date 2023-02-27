@@ -20,10 +20,12 @@ import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
 
+from inference.copy_tree import JointVarDist
 from utils import tree_utils
 from utils.config import Config, set_seed
 from utils.eps_utils import TreeHMM, h_eps, h_eps0
 from utils.tree_utils import generate_fixed_tree
+from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT
 
 
 def model_tree_markov(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -493,3 +495,35 @@ if __name__ == '__main__':
     #random.seed(args.seed)
 
     #main(args)
+
+
+def generate_dataset_var_tree(config: Config) -> JointVarDist:
+    simul_data = simulate_full_dataset(config, eps_a=2, eps_b=5)
+
+    fix_qc = qC(config, true_params={
+        "c": simul_data['c']
+    })
+
+    fix_qz = qZ(config, true_params={
+        "z": simul_data['z']
+    })
+
+    fix_qeps = qEpsilonMulti(config, true_params={
+        "eps": simul_data['eps']
+    })
+
+    fix_qmt = qMuTau(config, true_params={
+        "mu": simul_data['mu'],
+        "tau": simul_data['tau']
+    })
+
+    fix_qpi = qPi(config, true_params={
+        "pi": simul_data['pi']
+    })
+
+    fix_qt = qT(config, true_params={
+        "tree": simul_data['tree']
+    })
+
+    joint_q = JointVarDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
+    return joint_q

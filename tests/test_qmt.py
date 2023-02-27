@@ -2,6 +2,7 @@ import unittest
 
 import torch
 
+from simul import generate_dataset_var_tree
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
 
@@ -105,6 +106,15 @@ class qmtTestCase(unittest.TestCase):
         self.qc.single_filtering_probs[:, :, 1] = 1 - eps
         self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
         elbo_qmt = self.qmt.elbo()
-        alt_elbo_qmt = self.qmt.elbo_alt()
         print(f"ELBO(mu, tau): {elbo_qmt}")
-        print(f"new ELBO(mu, tau): {alt_elbo_qmt}")
+
+    def test_elbo(self):
+
+        joint_q = generate_dataset_var_tree(Config())
+        qmt = qMuTau(joint_q.config).initialize(method='fixed')  # with defaults
+        for i in range(10):
+            alt_elbo_qmt = self.qmt.elbo_alt()
+            elbo_qmt = self.qmt.elbo()
+            qmt.update(qc=joint_q.c, qz=joint_q.z, obs=joint_q.obs)
+            print(f"ELBO(mu, tau): {elbo_qmt}")
+            print(f"new ELBO(mu, tau): {alt_elbo_qmt}")

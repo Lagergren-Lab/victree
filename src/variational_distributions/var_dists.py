@@ -62,7 +62,7 @@ class qC(VariationalDistribution):
             true_cfp = torch.zeros_like(self._couple_filtering_probs) + 1e-2 / (self.config.n_states ** 2 - 1)
             for u in range(self.config.n_nodes):
                 true_cfp[u, torch.arange(self.config.chain_length - 1),
-                         cn_profile[u, :-1], cn_profile[u, 1:]] = 1. - 1e-2
+                cn_profile[u, :-1], cn_profile[u, 1:]] = 1. - 1e-2
             self._couple_filtering_probs[...] = true_cfp
             if self.config.debug:
                 assert torch.allclose(self._couple_filtering_probs.sum(dim=(2, 3)),
@@ -1224,8 +1224,8 @@ class qMuTau(VariationalDistribution):
     def initialize(self, method='fixed', **kwargs):
         if method == 'fixed':
             self._initialize_with_values(**kwargs)
-        elif method == 'clust-data':
-            self._init_from_clustered_data(**kwargs)
+        # elif method == 'clust-data':
+        #     self._init_from_clustered_data(**kwargs)
         elif method == 'data':
             self._init_from_raw_data(**kwargs)
         else:
@@ -1288,25 +1288,32 @@ Initialize the mu and tau params given observations
         entropy_arr = entropy_constants + entropy_prior + CE_var_terms + CE_cross_terms
         return -torch.sum(entropy_arr)
 
+    def entropy_alt(self):
+        ent = - self.config.n_cells * .5 * np.log(2 * np.pi) + \
+              .5 * (1 - self.beta.log() - self.lmbda.log()) + \
+              (.5 - self.alpha) * torch.digamma(self.alpha) + self.alpha + torch.lgamma(self.alpha)
+
+        if self.config.debug:
+            assert ent.shape == (self.config.n_cells,)
+
+        return torch.sum(ent)
+
+    def neg_cross_entropy_alt(self):
+        neg_ce = - self.config.n_cells * .5 * np.log(2 * np.pi) + \
+                 .5 * (self.lmbda.log() - self.lmbda_0 / self.lmbda) + \
+                 (self.alpha_0 - .5) * (torch.digamma(self.alpha) - self.beta.log()) + \
+                 self.alpha_0 * self.beta_0.log() - torch.lgamma(self.alpha_0) - self.beta_0 * self.alpha / self.beta
+
+        if self.config.debug:
+            assert neg_ce.shape == (self.config.n_cells,)
+
+        return torch.sum(neg_ce)
+
     def elbo(self) -> float:
         return self.cross_entropy() - self.entropy()
 
     def elbo_alt(self):
-        exp_entropy_mun = .5 * (1. + torch.log(2 * np.pi * self.beta) - torch.log(self.lmbda) -
-                                torch.digamma(self.alpha))
-        entropy_taun = self.alpha - self.beta.log() + torch.lgamma(self.alpha) +\
-                       (1 - self.alpha) * torch.digamma(self.alpha)
-        entropy = exp_entropy_mun + entropy_taun
-
-        cross_entropy = .5 * (torch.tensor(2 * torch.pi).log() - self.lmbda.log() + self.lmbda_0 / self.lmbda) -\
-            self.alpha_0 * (torch.digamma(self.alpha) - self.beta.log()) - self.alpha_0 * self.beta_0.log() +\
-            torch.lgamma(self.alpha_0) + self.beta_0 * self.alpha / self.beta
-
-        if self.config.debug:
-            assert entropy.shape == (self.config.n_cells, )
-            assert cross_entropy.shape == (self.config.n_cells, )
-
-        return - torch.sum(entropy + cross_entropy)
+        return self.neg_cross_entropy_alt() + self.entropy_alt()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
@@ -1346,7 +1353,7 @@ Initialize the mu and tau params given observations
 
     def exp_mu2_tau(self):
         return 1. / self.lmbda + \
-               torch.pow(self.nu, 2) * self.alpha / self.beta
+            torch.pow(self.nu, 2) * self.alpha / self.beta
 
 
 # dirichlet concentration
