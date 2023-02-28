@@ -2,7 +2,10 @@ import unittest
 
 import torch
 
+from simul import generate_dataset_var_tree
 from utils.config import Config
+from utils.evaluation import pm_uni
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qMuAndTauCellIndependent
 
 
@@ -100,8 +103,9 @@ class qmtTestCase(unittest.TestCase):
 
     def test_entropy(self):
         obs = torch.randint(low=10, high=20, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
-        self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A))
-        self.qc.single_filtering_probs[:, :, 1] = 2
+        eps = 1e-5
+        self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A)) + eps
+        self.qc.single_filtering_probs[:, :, 1] = 1 - eps
         self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
         elbo_qmt = self.qmt.elbo()
         print(f"ELBO(mu, tau): {elbo_qmt}")
@@ -138,3 +142,18 @@ class qmtTestCase(unittest.TestCase):
             for m in range(M):
                 self.assertTrue(torch.argmax(exp_log_emission) == 6, msg=f"E_mu_tau[log p(y_{m,n}|C)] {exp_log_emission[n,m,:]}")
         # Log emission always largest for C=0 - is that correct?
+
+
+    def test_elbo(self):
+        joint_q = generate_dataset_var_tree(Config(debug=True))
+        qmt = qMuTau(joint_q.config, alpha_prior=.1, beta_prior=.1, nu_prior=10, lambda_prior=.1).\
+            initialize(method='fixed', loc=300., precision_factor=2, shape=5, rate=5)
+        print(f"[OBS] {joint_q.obs.mean():.2f} " + pm_uni + f" {joint_q.obs.std():.2f}")
+        print(joint_q.mt.summary())
+        for i in range(2):
+            elbo_qmt = qmt.elbo()
+            print(f"[{i}] old ELBO(mu, tau): {elbo_qmt:.2f}")
+            print(f"[{i}]" + qmt.summary())
+            qmt.update(qc=joint_q.c, qz=joint_q.z, obs=joint_q.obs)
+
+
