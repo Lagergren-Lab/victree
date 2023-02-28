@@ -4,6 +4,7 @@ import torch
 
 from simul import generate_dataset_var_tree
 from utils.config import Config
+from utils.evaluation import pm_uni
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
 
 
@@ -109,12 +110,15 @@ class qmtTestCase(unittest.TestCase):
         print(f"ELBO(mu, tau): {elbo_qmt}")
 
     def test_elbo(self):
-
-        joint_q = generate_dataset_var_tree(Config())
-        qmt = qMuTau(joint_q.config).initialize(method='fixed')  # with defaults
-        for i in range(10):
-            alt_elbo_qmt = self.qmt.elbo_alt()
-            elbo_qmt = self.qmt.elbo()
+        joint_q = generate_dataset_var_tree(Config(debug=True))
+        qmt = qMuTau(joint_q.config, alpha_prior=.1, beta_prior=.1, nu_prior=10, lambda_prior=.1).\
+            initialize(method='fixed', loc=300., precision_factor=2, shape=5, rate=5)
+        print(f"[OBS] {joint_q.obs.mean():.2f} " + pm_uni + f" {joint_q.obs.std():.2f}")
+        print(joint_q.mt.summary())
+        for i in range(2):
+            elbo_qmt = qmt.elbo()
+            print(f"[{i}] old ELBO(mu, tau): {elbo_qmt:.2f}")
+            print(f"[{i}]" + qmt.summary())
             qmt.update(qc=joint_q.c, qz=joint_q.z, obs=joint_q.obs)
-            print(f"ELBO(mu, tau): {elbo_qmt}")
-            print(f"new ELBO(mu, tau): {alt_elbo_qmt}")
+
+

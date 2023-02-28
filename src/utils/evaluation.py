@@ -2,6 +2,8 @@ from scipy.stats import dirichlet, multinomial, gamma, poisson
 import numpy as np
 import math
 
+pm_uni = u"\u00B1"
+
 # FROM CopyMix
 # TODO: DIC (see formula on wiki, this function implements that)
 #   elbow method https://en.wikipedia.org/wiki/Deviance_information_criterion

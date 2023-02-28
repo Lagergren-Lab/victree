@@ -1,4 +1,5 @@
 import logging
+import os
 
 import hmmlearn.hmm
 import torch
@@ -7,6 +8,7 @@ import networkx as nx
 import itertools
 import numpy as np
 from typing import List, Tuple, Union, Optional
+from utils.evaluation import pm_uni
 
 from sklearn.cluster import KMeans
 
@@ -1140,16 +1142,19 @@ class qEpsilonMulti(VariationalDistribution):
 # observations (mu-tau)
 class qMuTau(VariationalDistribution):
 
-    def __init__(self, config: Config, true_params=None):
+    def __init__(self, config: Config, true_params=None,
+                 nu_prior: float = 1., lambda_prior: float = .1,
+                 alpha_prior: float = 5., beta_prior: float = 5.):
         # params for each cell
         self._nu = torch.empty(config.n_cells)
         self._lmbda = torch.empty(config.n_cells)
         self._alpha = torch.empty(config.n_cells)
         self._beta = torch.empty(config.n_cells)
-        self.nu_0 = torch.empty_like(self._nu)
-        self.lmbda_0 = torch.empty_like(self._lmbda)
-        self.alpha_0 = torch.empty_like(self._alpha)
-        self.beta_0 = torch.empty_like(self._beta)
+        # prior / generative model
+        self.nu_0 = torch.tensor(nu_prior)
+        self.lmbda_0 = torch.tensor(lambda_prior)
+        self.alpha_0 = torch.tensor(alpha_prior)
+        self.beta_0 = torch.tensor(beta_prior)
 
         if true_params is not None:
             # for each cell, mean and precision of the emission model
@@ -1231,6 +1236,15 @@ class qMuTau(VariationalDistribution):
         return new_nu, new_lmbda, new_alpha, new_beta
 
     def initialize(self, method='fixed', **kwargs):
+        """
+        Args:
+            method:
+                -'fixed' [  loc: float = 1,
+                            precision_factor: float = .1,
+                            shape: float = 5,
+                            rate: float = 5 ]
+        Returns: self
+        """
         if method == 'fixed':
             self._initialize_with_values(**kwargs)
         # elif method == 'clust-data':
@@ -1248,10 +1262,6 @@ class qMuTau(VariationalDistribution):
         self.lmbda = precision_factor * torch.ones(self.config.n_cells)
         self.alpha = shape * torch.ones(self.config.n_cells)
         self.beta = rate * torch.ones(self.config.n_cells)
-        self.nu_0[...] = self._nu
-        self.lmbda_0[...] = self._lmbda
-        self.alpha_0[...] = self._alpha
-        self.beta_0[...] = self._beta
 
     def _init_from_clustered_data(self, obs, clusters, copy_numbers):
         """
@@ -1298,7 +1308,7 @@ Initialize the mu and tau params given observations
         return -torch.sum(entropy_arr)
 
     def entropy_alt(self):
-        ent = - self.config.n_cells * .5 * np.log(2 * np.pi) + \
+        ent = self.config.n_cells * .5 * np.log(2 * np.pi) + \
               .5 * (1 - self.beta.log() - self.lmbda.log()) + \
               (.5 - self.alpha) * torch.digamma(self.alpha) + self.alpha + torch.lgamma(self.alpha)
 
@@ -1309,7 +1319,7 @@ Initialize the mu and tau params given observations
 
     def neg_cross_entropy_alt(self):
         neg_ce = - self.config.n_cells * .5 * np.log(2 * np.pi) + \
-                 .5 * (self.lmbda.log() - self.lmbda_0 / self.lmbda) + \
+                 .5 * (self.lmbda_0.log() - self.lmbda_0 / self.lmbda) + \
                  (self.alpha_0 - .5) * (torch.digamma(self.alpha) - self.beta.log()) + \
                  self.alpha_0 * self.beta_0.log() - torch.lgamma(self.alpha_0) - self.beta_0 * self.alpha / self.beta
 
@@ -1319,7 +1329,7 @@ Initialize the mu and tau params given observations
         return torch.sum(neg_ce)
 
     def elbo(self) -> float:
-        return self.cross_entropy() - self.entropy()
+        return self.cross_entropy() + self.entropy()
 
     def elbo_alt(self):
         return self.neg_cross_entropy_alt() + self.entropy_alt()
@@ -1363,6 +1373,33 @@ Initialize the mu and tau params given observations
     def exp_mu2_tau(self):
         return 1. / self.lmbda + \
             torch.pow(self.nu, 2) * self.alpha / self.beta
+
+    def summary(self, print_out=False):
+        summary = ["[qMuTau summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append(f"-mu\t\t{self.true_params['mu'].mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.true_params['mu'].std(dim=-1):.2f}")
+            summary.append(f"-tau\t{self.true_params['tau'].mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.true_params['tau'].std(dim=-1):.2f}")
+        else:
+            summary.append(f"-alpha\t{self.alpha.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.alpha.std(dim=-1):.2f}" +
+                           f" (prior {self.alpha_0:.2f})")
+            summary.append(f"-beta\t{self.beta.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.beta.std(dim=-1):.2f}" +
+                           f" (prior {self.beta_0:.2f})")
+            summary.append(f"-nu\t\t{self.nu.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.nu.std(dim=-1):.2f}" +
+                           f" (prior {self.nu_0:.2f})")
+            summary.append(f"-lambda\t{self.lmbda.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.lmbda.std(dim=-1):.2f}" +
+                           f" (prior {self.lmbda_0:.2f})")
+            summary.append(f"ELBO\t{self.elbo_alt():.2f}")
+
+        if print_out:
+            print(summary)
+        return os.linesep.join(summary)
 
 
 # dirichlet concentration
