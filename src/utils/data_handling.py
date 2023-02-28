@@ -42,7 +42,7 @@ def write_output_h5(out_copytree: CopyTree, out_path):
     eps_alpha = out_grp.create_dataset('eps_alpha', data=out_copytree.q.eps.alpha)
     eps_beta = out_grp.create_dataset('eps_beta', data=out_copytree.q.eps.beta)
 
-    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda, out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
+    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.phi, out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
 
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
     f.close()

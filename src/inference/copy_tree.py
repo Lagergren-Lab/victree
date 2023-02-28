@@ -9,7 +9,8 @@ import torch.distributions as dist
 
 from utils.config import Config, set_seed
 from variational_distributions.variational_distribution import VariationalDistribution
-from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC, \
+    qMuAndTauCellIndependent
 
 
 class JointVarDist(VariationalDistribution):
@@ -58,7 +59,7 @@ class VarDistFixedTree(VariationalDistribution):
         self.c: qC = qc
         self.z: qZ = qz
         self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
-        self.mt: qMuTau = qmt
+        self.mt: Union[qMuTau, qMuAndTauCellIndependent] = qmt
         self.pi: qPi = qpi
         self.obs = obs
         self.T = T
@@ -101,8 +102,8 @@ class VarDistFixedTree(VariationalDistribution):
         c = torch.arange(0, A, dtype=torch.float)
         c2 = c ** 2
         M, N = y.shape
-        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau)
-        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2)
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum("umi, nu, ->", qC, qZ, E_log_tau)
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2) if type(self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y**2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
         E_CZ_mu2_tau = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
         # elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)

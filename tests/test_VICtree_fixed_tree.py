@@ -14,7 +14,7 @@ from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model
 from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
 class VICtreeFixedTreeTestCase(unittest.TestCase):
@@ -40,7 +40,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
-        qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
+        qmt.initialize(loc=1, precision_factor=1., shape=10, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
     def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,

@@ -6,6 +6,7 @@ from simul import generate_dataset_var_tree
 from utils.config import Config
 from utils.evaluation import pm_uni
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qMuAndTauCellIndependent
 
 
 class qmtTestCase(unittest.TestCase):
@@ -108,6 +109,40 @@ class qmtTestCase(unittest.TestCase):
         self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
         elbo_qmt = self.qmt.elbo()
         print(f"ELBO(mu, tau): {elbo_qmt}")
+
+    def test_log_emissions_cell_independent_tau(self):
+        K = 3
+        M = 10
+        N = 5
+        A = 7
+        config = Config(n_nodes=K, chain_length=M, n_cells=N, n_states=A)
+        C = torch.ones(M) * 2.
+        C[0:50] = 6.
+        mu = torch.ones(N) * 1
+        tau = 1
+        obs_rv = torch.distributions.Normal(loc=torch.outer(C, mu), scale=1/tau)
+        #obs_gc_scaled = torch.empty((self.M, self.N))
+        #torch.nn.init.trunc_normal_(obs_gc_scaled, mean=torch.outer(C, mu), std=1/tau)
+        obs = torch.ones((M, N))*6. #obs_rv.sample()
+        qc = qC(config)
+        qc.initialize()
+        qz = qZ(config)
+        qz.initialize()
+        qmt = qMuAndTauCellIndependent(config=config)
+        mu_init = 1
+        prec_factor_init = 1
+        alpha_init = 1
+        beta_init = 1
+        qmt.initialize(loc=mu_init, precision_factor=prec_factor_init,
+                       shape=alpha_init, rate=beta_init)
+        #qmt.update(qc, qz, obs)
+        exp_log_emission = qmt.exp_log_emission(obs)
+
+        for n in range(N):
+            for m in range(M):
+                self.assertTrue(torch.argmax(exp_log_emission) == 6, msg=f"E_mu_tau[log p(y_{m,n}|C)] {exp_log_emission[n,m,:]}")
+        # Log emission always largest for C=0 - is that correct?
+
 
     def test_elbo(self):
         joint_q = generate_dataset_var_tree(Config(debug=True))

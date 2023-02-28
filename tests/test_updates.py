@@ -287,6 +287,11 @@ class updatesTestCase(unittest.TestCase):
         fix_qpi = joint_q.pi
         fix_qeps = joint_q.eps
         fix_qmt = joint_q.mt
+        print(f"Exp log emissions: {fix_qmt.exp_log_emission(obs)[0]}")
+        print(f"Exp log emissions: {fix_qmt.exp_log_emission(obs)[6]}")
+        print(f"Exp log emissions: {fix_qmt.exp_log_emission(obs)[10]}")
+        print(f"Exp log emissions: {fix_qmt.exp_log_emission(obs)[15]}")
+        print(f"Exp tau: {fix_qmt.true_params} ")
 
         qz = qZ(cfg)
         qc = qC(cfg)
@@ -303,6 +308,8 @@ class updatesTestCase(unittest.TestCase):
             qc.update(obs, fix_qeps, qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
             qz.update(fix_qmt, qc, fix_qpi, obs)
+            print(f"{qz.exp_assignment().mean(dim=0)}")
+            print(f"{qc.single_filtering_probs[1].mean(dim=0)}")
 
         print(f"after {n_iter} iterations")
         print("var cell assignments")
