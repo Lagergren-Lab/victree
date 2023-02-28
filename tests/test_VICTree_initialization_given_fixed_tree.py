@@ -15,7 +15,7 @@ from tests import model_variational_comparisons, utils_testing
 from tests.utils_testing import simul_data_pyro_full_model
 from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
 class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
@@ -41,7 +41,6 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
-        qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
     def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -77,15 +76,16 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         n_sites = 200
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
-        dir_alpha = torch.tensor([3., 3., 3.])
+        dir_alpha = torch.tensor([1., 3., 3.])
         config = Config(n_nodes=3, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
         out_simul = simul.simulate_full_dataset(config=config,
                                                 tree=tree,
                                                 eps_a=1.0,
                                                 eps_b=10.,
                                                 mu0=10.,
-                                                lambda0=10.,
-                                                alpha0=50., beta0=5.)
+                                                lambda0=2.,
+                                                alpha0=50., beta0=10.,
+                                                dir_alpha=dir_alpha)
         y = out_simul['obs']
         C = out_simul['c']
         z = out_simul['z']
@@ -104,14 +104,15 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+        qmt = qMuAndTauCellIndependent(config)
 
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
-        q.initialize()
+        q.initialize(loc=10., precision_factor=2., shape=50., rate=10.)
         #q.z.initialize('kmeans', obs=y)
         #q.z.pi = q.z.pi + 1./n_nodes
         #q.z.pi = q.z.pi / torch.sum(q.z.pi, dim=1, keepdim=True)
-        q.mt.initialize('data', obs=y)
+        #q.mt.initialize('data', obs=y)
         #clusters = torch.argmax(q.z.pi, dim=1)
         #q.c.initialize('bw-cluster', obs=y, clusters=clusters)
 
@@ -133,6 +134,67 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                           q_mt=copy_tree.q.mt)
+
+    def test_large_tree_fixed_qMuTau_same_data_different_optimizations(self):
+        logger = logging.getLogger()
+        logger.level = logging.INFO
+        K = 5
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        print(f"Tree edges: {tree.edges}")
+        n_cells = 1000
+        n_sites = 100
+        n_copy_states = 7
+        dir_alpha0 = torch.tensor([1., 3., 3., 3., 3.])
+        n_tests = 3
+        config = Config(step_size=0.3, n_nodes=K, n_states=n_copy_states, n_cells=n_cells,
+                        chain_length=n_sites,
+                        debug=False)
+        sim_data_seed = 0
+        torch.manual_seed(sim_data_seed)
+        out_simul = simul.simulate_full_dataset(config=config,
+                                                tree=tree,
+                                                eps_a=1.0,
+                                                eps_b=20.,
+                                                mu0=10.,
+                                                lambda0=2.,
+                                                alpha0=50., beta0=10.,
+                                                dir_alpha=dir_alpha0)
+        y = out_simul['obs']
+        C = out_simul['c']
+        z = out_simul['z']
+        pi = out_simul['pi']
+        mu = out_simul['mu']
+        tau = out_simul['tau']
+        eps = out_simul['eps']
+        eps0 = out_simul['eps0']
+        tree = out_simul['tree']
+
+        print(f"Simulated data")
+        vis_clone_idx = z[80]
+        print(f"C: {C[vis_clone_idx, 40]} y: {y[80, 40]} z: {z[80]} \n"
+              f"pi: {pi} mu: {mu[80]} tau: {tau[80]} eps: {eps}")
+        visualization_utils.visualize_copy_number_profiles(C)
+
+        for i in range(n_tests):
+            torch.manual_seed(i)
+            config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+            qmt = qMuTau(config, true_params={"mu": mu, "tau": tau})
+            q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q.initialize()
+            qmt.initialize(method='fixed', loc=10., precision_factor=2., shape=50., rate=10.)
+            q.eps.initialize(method='non_mutation')
+            q.z.pi = f.one_hot(z.long(), num_classes=K).float()
+
+            copy_tree = CopyTree(config, q, y)
+
+            copy_tree.run(50)
+
+            torch.set_printoptions(precision=2)
+            model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                              true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                              q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                              q_mt=copy_tree.q.mt)
 
     def test_large_tree_same_data_different_optimizations(self):
         logger = logging.getLogger()
