@@ -415,7 +415,7 @@ class qC(VariationalDistribution):
         # alpha_iota(m, i)
         # as in the write-up, then it's split and e_alpha12[:, 1:, :] is
         # incorporated into e_alpha2
-        e_alpha12 = torch.einsum('wmj,ji->wmi', self.single_filtering_probs, q_eps.h_eps0())
+        e_alpha12 = torch.einsum('wmj,ji->wmi', self.single_filtering_probs, q_eps.h_eps0().log())
 
         e_alpha1[...] = e_alpha12[:, 0, :]  # first site goes to initial state
 
