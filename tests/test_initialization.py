@@ -2,7 +2,7 @@ import unittest
 
 from simul import simulate_full_dataset
 from utils.config import Config, set_seed
-from variational_distributions.var_dists import qC, qEpsilonMulti, qT
+from variational_distributions.var_dists import qC, qEpsilonMulti, qT, qMuTau
 
 
 class InitTestCase(unittest.TestCase):
@@ -37,6 +37,17 @@ class InitTestCase(unittest.TestCase):
         fix_qc = qC(config, true_params={
             "c": data['c']
         })
+
+    def test_mutau_init_from_data(self):
+        config = Config(n_nodes=4, n_states=5, n_cells=100, chain_length=200, wis_sample_size=100, debug=True)
+        data = simulate_full_dataset(config)
+
+        qmt_fixed_init = qMuTau(config).initialize(method='fixed', loc=10., precision_factor=1.,
+                                                   shape=5., rate=50.)
+        qmt_data_init = qMuTau(config).initialize(method='data', obs=data['obs'])
+
+        print(f"fixed init ELBO: {qmt_fixed_init.elbo_alt()}")
+        print(f"data init ELBO: {qmt_data_init.elbo_alt()}")
 
 
 if __name__ == '__main__':
