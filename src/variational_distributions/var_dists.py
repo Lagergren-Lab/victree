@@ -525,6 +525,7 @@ class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
         self.pi = torch.empty((config.n_cells, config.n_nodes))
 
+        self.kmeans_labels = torch.empty(config.n_cells, dtype=torch.long)
         if true_params is not None:
             assert "z" in true_params
         self.true_params = true_params
@@ -560,8 +561,8 @@ class qZ(VariationalDistribution):
         scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
         kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
         m_labels = kmeans.labels_
-        torch_labels = torch.tensor(m_labels)
-        self.pi[...] = torch.nn.functional.one_hot(torch_labels.long(), num_classes=self.config.n_nodes)
+        self.kmeans_labels[...] = torch.tensor(m_labels).long()
+        self.pi[...] = torch.nn.functional.one_hot(self.kmeans_labels, num_classes=self.config.n_nodes)
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape
@@ -1283,7 +1284,7 @@ Initialize the mu and tau params given observations
         """
         # FIXME: test does not work
         self.nu = torch.mean(obs, dim=0)
-        self.alpha = torch.tensor(.5) * torch.ones((self.config.n_cells,))  # init alpha to small value
+        self.alpha = torch.ones((self.config.n_cells,))  # init alpha to small value (1)
         var = torch.var(obs, dim=0).clamp(min=.01)  # avoid 0 variance
         self.beta = var * self.alpha
         # set lambda to 1. (arbitrarily)
@@ -1590,7 +1591,7 @@ class qPi(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_prior=1, true_params=None):
         self.concentration_param_prior = torch.ones(config.n_nodes) * alpha_prior
-        self._concentration_param = self.concentration_param_prior
+        self._concentration_param = torch.empty_like(self.concentration_param_prior)
 
         if true_params is not None:
             assert "pi" in true_params
