@@ -72,7 +72,7 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
 
     max_prob_cat = torch.argmax(qC_marginals, dim=-1)
     exp_var_mu = q_mt.nu
-    exp_var_tau = q_mt.exp_tau()
+    exp_var_tau = q_mt.exp_tau() if type(q_mt) is qMuTau else q_mt.exp_tau().expand(N)
     log_L_true_model = 0
     log_L_var_model = 0
     for n in range(N[0]):
