@@ -5,6 +5,7 @@ import networkx as nx
 import torch
 from sklearn.metrics.cluster import adjusted_rand_score
 
+import utils.visualization_utils
 from inference.copy_tree import VarDistFixedTree, JointVarDist
 from simul import generate_dataset_var_tree
 from utils.config import set_seed, Config
@@ -210,8 +211,8 @@ class updatesTestCase(unittest.TestCase):
         for i in range(10):
             qmt.update(fix_qc, fix_qz, obs)
 
-        # print(qmt.exp_tau())
-        # print(joint_q.mt.true_params['tau'])
+        print(qmt.exp_tau())
+        print(joint_q.mt.true_params['tau'])
         self.assertTrue(torch.allclose(qmt.nu, joint_q.mt.true_params['mu'], rtol=1e-2))
         self.assertTrue(torch.allclose(qmt.exp_tau(), joint_q.mt.true_params['tau'], rtol=.2))
 
@@ -365,7 +366,6 @@ class updatesTestCase(unittest.TestCase):
 
 
     def test_update_qc_qz_qmt(self):
-
         # FIXME: try other initialization strategies
         joint_q = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
@@ -393,8 +393,12 @@ class updatesTestCase(unittest.TestCase):
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt,
                       trees=trees, tree_weights=wis_weights)
-            print(f"Iter {i} qZ mean: {qz.exp_assignment().mean(dim=0)}")
+            print(f"Iter {i} qZ: {qz.exp_assignment()}")
             print(f"iter {i} qmt mean for each cell: {qmt.nu}")
+            print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
+
+        utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'])
+        utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(qc.single_filtering_probs, dim=-1))
 
         # print(qmt.exp_tau())
         # print(joint_q.mt.true_params['tau'])
@@ -404,6 +408,60 @@ class updatesTestCase(unittest.TestCase):
                                        #torch.argmax(qz.exp_assignment(), dim=-1)))
 
         self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+
+    def test_label_switching(self):
+        # define 3 clones besides root
+        cfg = Config(n_nodes=3, n_states=5, n_cells=40, chain_length=50,
+                     wis_sample_size=2, debug=True, step_size=.3)
+        true_cn_profile = torch.tensor(
+            [[2] * cfg.chain_length,
+             [2] * 30 + [3] * 20,
+             [1] * 10 + [3] * 25 + [2] * 10 + [4] * 5,
+             [3] * 10 + [4] * 30 + [1] * 10]
+        )
+
+        # cell assignments
+        true_z = torch.tensor([0] * 5 +
+                              [1] * 10 +
+                              [2] * 7 +
+                              [3] * 18)
+
+        true_pi = torch.tensor([5, 10, 7, 18]) / cfg.n_cells
+        self.assertEqual(true_pi.sum(), 1.)
+
+        cell_cn_profile = true_cn_profile[true_z, :]
+        self.assertEqual(cell_cn_profile.shape, (cfg.n_cells, cfg.chain_length))
+
+        # mean and precision
+        tau = torch.tensor(5)
+        nu, lmbda = torch.tensor([1, 5])  # randomize mu for each cell with these hyperparameters
+        true_mu = torch.randn(cfg.n_cells) / torch.sqrt(lmbda * tau) + nu
+        obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
+        self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
+
+        # initialize main dists
+        qz = qZ(cfg).initialize(method='kmeans', obs=obs)
+        qc = qC(cfg).initialize(method='bw-cluster', obs=obs, clusters=qz.kmeans_labels)
+        qmt = qMuTau(cfg).initialize(method='data', obs=obs)
+        qeps = qEpsilonMulti(cfg).initialize()
+        qpi = qPi(cfg).initialize()
+        qt = qT(cfg).initialize()
+        joint_q = JointVarDist(cfg, qc=qc, qz=qz, qmt=qmt, qeps=qeps, qpi=qpi, qt=qt, obs=obs)
+
+        # update and check copy numbers
+        print(f"[init] elbo: {joint_q.elbo(*joint_q.t.get_trees_sample(sample_size=10))}")
+        utils.visualization_utils.visualize_copy_number_profiles(true_cn_profile)
+        for i in range(10):
+            joint_q.update()
+            utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
+
+            trees, weights = joint_q.t.get_trees_sample(sample_size=10)
+            print(f"[{i}] elbo: {joint_q.elbo(trees, weights)}")
+
+
+        # same but with z at current pos
+
+
 
 if __name__ == '__main__':
     unittest.main()
