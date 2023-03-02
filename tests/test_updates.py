@@ -365,6 +365,44 @@ class updatesTestCase(unittest.TestCase):
         #   of the true edges obtain high probability of being sampled.
         #   also, the weights don't explode to very large or very small values, causing the algorithm to crash
 
+    def test_update_qz_qmt(self):
+        joint_q = self.generate_test_dataset_fixed_tree()
+        cfg = joint_q.config
+        obs = joint_q.obs
+        fix_qpi = joint_q.pi
+        fix_qc = joint_q.c
+        n_iter = 40
+        cfg.step_size = .3
+
+        almost_true_z_init = joint_q.z.exp_assignment() + .2
+        almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
+
+        # FIXME: if alpha and beta priors are set to .05, tau estimate is 10x the correct value
+        #   undetermined problem lambda * tau ?
+        qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=.5, beta_prior=.5)
+        qmt.initialize(method='data', obs=obs)
+        # qmt.initialize(method='fixed', loc=1, precision_factor=1, rate=5., shape=5.)
+        qz = qZ(cfg).initialize()
+        # qz.initialize(method='fixed', pi_init=joint_q.z.exp_assignment() + .2)
+        # qz.initialize(method='kmeans', obs=obs)
+
+        print(f"true z: {joint_q.z.true_params['z']}")
+        print(f"true mu: {joint_q.mt.true_params['mu']}")
+        print(f"true tau: {joint_q.mt.true_params['tau']}")
+        for i in range(n_iter):
+            if i % 5 == 0:
+                var_cellassignment = torch.max(qz.pi, dim=-1)[1]
+                ari = adjusted_rand_score(joint_q.z.true_params['z'], var_cellassignment)
+                print(f"[{i}]")
+                print(f"- qz adjusted rand idx: {ari:.2f}")
+                print(f"- qmt dist: {torch.pow(qmt.nu - joint_q.mt.true_params['mu'], 2).sum():.2f}")
+
+            qmt.update(fix_qc, qz, obs)
+            qz.update(qmt, fix_qc, fix_qpi, obs)
+        print(f"results after {n_iter} iter")
+        print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
+        print(f"- var mu: {qmt.nu}")
+        print(f"- var tau: {qmt.exp_tau()}")
 
     def test_update_qc_qz_qmt(self):
         joint_q = self.generate_test_dataset_fixed_tree()
@@ -423,8 +461,8 @@ class updatesTestCase(unittest.TestCase):
 
     def test_label_switching(self):
         # define 3 clones besides root
-        cfg = Config(n_nodes=3, n_states=5, n_cells=40, chain_length=50,
-                     wis_sample_size=2, debug=True, step_size=.3)
+        cfg = Config(n_nodes=4, n_states=5, n_cells=40, chain_length=50,
+                     wis_sample_size=2, debug=True, step_size=1)
         true_cn_profile = torch.tensor(
             [[2] * cfg.chain_length,
              [2] * 30 + [3] * 20,
@@ -450,10 +488,15 @@ class updatesTestCase(unittest.TestCase):
         true_mu = torch.randn(cfg.n_cells) / torch.sqrt(lmbda * tau) + nu
         obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
+        print(obs)
 
         # initialize main dists
-        qz = qZ(cfg).initialize(method='kmeans', obs=obs)
-        qc = qC(cfg).initialize(method='bw-cluster', obs=obs, clusters=qz.kmeans_labels)
+        # qz = qZ(cfg).initialize(method='kmeans', obs=obs)
+        # skewed towards true cluster, but not exact
+        qz = qZ(cfg).initialize(method='fixed',
+                                z_init=torch.nn.functional.one_hot(true_z).float().clamp(.2 / (cfg.n_nodes-1), .8))
+        # qc = qC(cfg).initialize(method='bw-cluster', obs=obs, clusters=qz.kmeans_labels)
+        qc = qC(cfg).initialize()
         qmt = qMuTau(cfg).initialize(method='data', obs=obs)
         qeps = qEpsilonMulti(cfg).initialize()
         qpi = qPi(cfg).initialize()
@@ -463,13 +506,16 @@ class updatesTestCase(unittest.TestCase):
         # update and check copy numbers
         print(f"[init] elbo: {joint_q.elbo(*joint_q.t.get_trees_sample(sample_size=10))}")
         utils.visualization_utils.visualize_copy_number_profiles(true_cn_profile)
-        for i in range(10):
+        print(f"true z: {true_z}")
+        print(f"[init] var z: {qz.exp_assignment()}")
+        for i in range(30):
             joint_q.update()
-            utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
+            if i % 5 == 0:
+                utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
+                print(f"[{i}] var z: {qz.exp_assignment()}")
 
-            trees, weights = joint_q.t.get_trees_sample(sample_size=10)
-            print(f"[{i}] elbo: {joint_q.elbo(trees, weights)}")
-
+                trees, weights = joint_q.t.get_trees_sample(sample_size=10)
+                print(f"[{i}] elbo: {joint_q.elbo(trees, weights)}")
 
         # same but with z at current pos
 
