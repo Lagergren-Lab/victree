@@ -380,8 +380,8 @@ class updatesTestCase(unittest.TestCase):
         # FIXME: if alpha and beta priors are set to .05, tau estimate is 10x the correct value
         #   undetermined problem lambda * tau ?
         qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=.5, beta_prior=.5)
-        qmt.initialize(method='data', obs=obs)
-        # qmt.initialize(method='fixed', loc=1, precision_factor=1, rate=5., shape=5.)
+        # qmt.initialize(method='data', obs=obs)  # does not work
+        qmt.initialize(loc=1, precision_factor=.1, rate=5., shape=5.)
         qz = qZ(cfg).initialize()
         # qz.initialize(method='fixed', pi_init=joint_q.z.exp_assignment() + .2)
         # qz.initialize(method='kmeans', obs=obs)
