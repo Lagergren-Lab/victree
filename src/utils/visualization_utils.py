@@ -5,7 +5,7 @@ import tkinter
 
 
 def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None,
-                                   title_suff: str = ''):
+                                   title_suff: str = '', block=False):
     if save_path is None and pyplot_backend is None:
         matplotlib.use('TkAgg')
     elif save_path is None and pyplot_backend == "default":
@@ -36,7 +36,7 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
         axs[int(k / n_col), col_count].set_title(f'k = {k}')
 
     if save_path is None:
-        plt.show()
+        plt.show(block=block)
     else:
         plt.savefig(save_path)
 

@@ -206,7 +206,8 @@ class updatesTestCase(unittest.TestCase):
 
         qmt = qMuTau(cfg)
         # uninformative initialization of mu0, tau0, alpha0, beta0
-        qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)
+        # qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)  # also works
+        qmt.initialize(method='data', obs=obs)
         # qmt.initialize(method='data', obs=obs)
         for i in range(10):
             qmt.update(fix_qc, fix_qz, obs)
@@ -366,7 +367,6 @@ class updatesTestCase(unittest.TestCase):
 
 
     def test_update_qc_qz_qmt(self):
-        # FIXME: try other initialization strategies
         joint_q = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs
@@ -374,39 +374,51 @@ class updatesTestCase(unittest.TestCase):
         fix_qpi = joint_q.pi
         fix_qeps = joint_q.eps
 
-        qmt = qMuTau(cfg)
+        qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=.05, beta_prior=.05)
         qz = qZ(cfg)
         qc = qC(cfg)
-        qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)
-        qz.initialize(method='random')
+        qmt.initialize(loc=1, precision_factor=.1, rate=5., shape=5.)
+        almost_true_z_init = joint_q.z.exp_assignment() + .2
+        almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
+        qz.initialize(method='fixed', pi_init=joint_q.z.exp_assignment() + .2)
+        # qz.initialize(method='kmeans', obs=obs)
         qc.initialize()
 
         trees = [fix_tree] * cfg.wis_sample_size
         wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
 
         # change step_size
-        cfg.step_size = .2
-        print(obs)
+        cfg.step_size = .3
+        # print(obs)
 
+        utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'],
+                                                                 save_path="./test_output/update_qcqzqmt_true_cn.png",
+                                                                 title_suff="- true values")
         for i in range(20):
+            if i % 5 == 0:
+                # print(f"Iter {i} qZ: {qz.exp_assignment()}")
+                # print(f"iter {i} qmt mean for each cell: {qmt.nu}")
+                # print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
+                partial_elbo = qc.elbo([fix_tree], [1.], fix_qeps) + qz.elbo(fix_qpi) + qmt.elbo_old()
+                utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(qc.single_filtering_probs, dim=-1),
+                                                                         save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
+                                                                         title_suff=f"- VI iter {i},"
+                                                                                    f" elbo: {partial_elbo}")
             qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt,
                       trees=trees, tree_weights=wis_weights)
-            print(f"Iter {i} qZ: {qz.exp_assignment()}")
-            print(f"iter {i} qmt mean for each cell: {qmt.nu}")
-            print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
 
-        utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'])
-        utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(qc.single_filtering_probs, dim=-1))
 
         # print(qmt.exp_tau())
         # print(joint_q.mt.true_params['tau'])
-        print(joint_q.z.true_params["z"])
-        print(torch.argmax(qz.exp_assignment(), dim=-1))
+        # print(joint_q.z.true_params["z"])
+        # print(torch.argmax(qz.exp_assignment(), dim=-1))
         # self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
-                                       #torch.argmax(qz.exp_assignment(), dim=-1)))
-
+        #                                torch.argmax(qz.exp_assignment(), dim=-1)))
+        var_cellassignment = torch.max(qz.pi, dim=-1)[1]
+        ari = adjusted_rand_score(joint_q.z.true_params['z'], var_cellassignment)
+        self.assertGreater(ari, .85)
         self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
 
     def test_label_switching(self):

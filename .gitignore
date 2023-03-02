@@ -7,3 +7,4 @@
 # output dirs
 *_out
 notes.md
+./tests/test_output/*
