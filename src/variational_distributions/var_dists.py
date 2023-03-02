@@ -1150,7 +1150,7 @@ class qMuTau(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None,
                  nu_prior: float = 1., lambda_prior: float = .1,
-                 alpha_prior: float = 5., beta_prior: float = 5.):
+                 alpha_prior: float = .5, beta_prior: float = .5):
         # params for each cell
         self._nu = torch.empty(config.n_cells)
         self._lmbda = torch.empty(config.n_cells)
