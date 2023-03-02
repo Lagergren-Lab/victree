@@ -4,7 +4,8 @@ import torch
 import tkinter
 
 
-def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None):
+def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None,
+                                   title_suff: str = ''):
     if save_path is None and pyplot_backend is None:
         matplotlib.use('TkAgg')
     elif save_path is None and pyplot_backend == "default":
@@ -20,7 +21,8 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
     n_col = 2
     n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
     fig, axs = plt.subplots(n_rows, n_col)
-    fig.suptitle('Copy numbers profiles')
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
 
     sites = range(1, M + 1)
     for k in range(K):
