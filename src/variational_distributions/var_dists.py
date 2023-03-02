@@ -536,6 +536,8 @@ class qZ(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'fixed':
+            self._init_with_values(**kwargs)
         elif method == 'kmeans':
             self._kmeans_init(**kwargs)
         else:
@@ -546,6 +548,9 @@ class qZ(VariationalDistribution):
         # sample from a Dirichlet
         self.pi[...] = torch.distributions.Dirichlet(torch.ones_like(self.pi)).sample()
 
+    def _init_with_values(self, pi_init):
+        self.pi[...] = pi_init
+
     def _uniform_init(self):
         # initialize to uniform probs among nodes
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
@@ -553,7 +558,6 @@ class qZ(VariationalDistribution):
     def _kmeans_init(self, obs, **kwargs):
         # TODO: find a soft k-means version
         # https://github.com/omadson/fuzzy-c-means
-        # TODO: add normalization for observations
         eps = 1e-4
         m_obs = obs.mean(dim=0, keepdim=True)
         sd_obs = obs.std(dim=0, keepdim=True)
@@ -614,7 +618,7 @@ class qZ(VariationalDistribution):
             out_qz[...] = self.pi
         return out_qz
 
-    def cross_entropy(self, qpi: 'qPi') -> float:
+    def neg_cross_entropy(self, qpi: 'qPi') -> float:
         e_logpi = qpi.exp_log_pi()
         return torch.einsum("nk, k -> ", self.pi, e_logpi)
 
@@ -622,7 +626,7 @@ class qZ(VariationalDistribution):
         return torch.special.entr(self.pi).sum()
 
     def elbo(self, qpi: 'qPi') -> float:
-        return self.cross_entropy(qpi) + self.entropy()
+        return self.neg_cross_entropy(qpi) + self.entropy()
 
 
 # topology
