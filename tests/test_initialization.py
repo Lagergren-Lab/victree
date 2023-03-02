@@ -46,8 +46,8 @@ class InitTestCase(unittest.TestCase):
                                                    shape=5., rate=50.)
         qmt_data_init = qMuTau(config).initialize(method='data', obs=data['obs'])
 
-        print(f"fixed init ELBO: {qmt_fixed_init.elbo_alt()}")
-        print(f"data init ELBO: {qmt_data_init.elbo_alt()}")
+        print(f"fixed init ELBO: {qmt_fixed_init.elbo()}")
+        print(f"data init ELBO: {qmt_data_init.elbo()}")
 
 
 if __name__ == '__main__':

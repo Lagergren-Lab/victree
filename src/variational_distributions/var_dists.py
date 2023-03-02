@@ -654,9 +654,10 @@ class qT(VariationalDistribution):
         self.init_fc_graph()
         return super().initialize(**kwargs)
 
-    def cross_entropy(self):
+    def neg_cross_entropy(self):
         # sampled trees are not needed here
-        # entropy = - log | T | (number of possible labeled directed rooted trees)
+        # negative cross_entropy = sum_t q(t) log p(t) = log p(t) = - log | T |
+        # (number of possible labeled directed rooted trees)
         # FIXME: cayleys formula is for undirected trees
         return -math_utils.cayleys_formula(self.config.n_nodes, log=True)
 
@@ -681,7 +682,7 @@ other elbos such as qC.
             float, value of ELBO for qT
         """
         # FIXME: gives weird values
-        return self.cross_entropy() + self.entropy(trees, weights)
+        return self.neg_cross_entropy() + self.entropy(trees, weights)
 
     def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         # q_T = self.update_CAVI(T_list, qc, qeps)
@@ -1294,7 +1295,7 @@ Initialize the mu and tau params given observations
         # set lambda to 1. (arbitrarily)
         self.lmbda = torch.tensor(1.) * torch.ones((self.config.n_cells,))
 
-    def cross_entropy(self) -> float:
+    def neg_cross_entropy_old(self) -> float:
         CE_prior = self.alpha_0 * torch.log(self.beta_0) + 0.5 * torch.log(self.lmbda_0) - torch.lgamma(self.alpha_0)
         CE_constants = 0.5 * torch.log(torch.tensor(2 * torch.pi))
         CE_var_terms = self.exp_log_tau()
@@ -1303,7 +1304,7 @@ Initialize the mu and tau params given observations
         CE_arr = CE_constants + CE_prior + CE_var_terms + CE_cross_terms
         return torch.sum(CE_arr)
 
-    def entropy(self) -> float:
+    def entropy_old(self) -> float:
         entropy_prior = self.alpha * torch.log(self.beta) + 0.5 * torch.log(self.lmbda) - torch.lgamma(self.alpha)
         entropy_constants = 0.5 * torch.log(torch.tensor(2 * torch.pi))
         CE_var_terms = self.exp_log_tau()
@@ -1312,7 +1313,7 @@ Initialize the mu and tau params given observations
         entropy_arr = entropy_constants + entropy_prior + CE_var_terms + CE_cross_terms
         return -torch.sum(entropy_arr)
 
-    def entropy_alt(self):
+    def entropy(self):
         ent = self.config.n_cells * .5 * np.log(2 * np.pi) + \
               .5 * (1 - self.beta.log() - self.lmbda.log()) + \
               (.5 - self.alpha) * torch.digamma(self.alpha) + self.alpha + torch.lgamma(self.alpha)
@@ -1322,7 +1323,7 @@ Initialize the mu and tau params given observations
 
         return torch.sum(ent)
 
-    def neg_cross_entropy_alt(self):
+    def neg_cross_entropy(self):
         neg_ce = - self.config.n_cells * .5 * np.log(2 * np.pi) + \
                  .5 * (self.lmbda_0.log() - self.lmbda_0 / self.lmbda) + \
                  (self.alpha_0 - .5) * (torch.digamma(self.alpha) - self.beta.log()) + \
@@ -1334,10 +1335,10 @@ Initialize the mu and tau params given observations
         return torch.sum(neg_ce)
 
     def elbo(self) -> float:
-        return self.cross_entropy() + self.entropy()
+        return self.neg_cross_entropy() + self.entropy()
 
-    def elbo_alt(self):
-        return self.neg_cross_entropy_alt() + self.entropy_alt()
+    def elbo_old(self) -> float:
+        return self.neg_cross_entropy_old() + self.entropy_old()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
