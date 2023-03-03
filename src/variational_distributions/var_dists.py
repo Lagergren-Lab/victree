@@ -44,8 +44,10 @@ class qC(VariationalDistribution):
     @property
     def single_filtering_probs(self):
         if self.fixed:
+            small_eps = 1e-5
             cn_profile = self.true_params["c"]
-            true_sfp = torch_functional.one_hot(cn_profile, num_classes=self.config.n_states).float()
+            true_sfp = torch_functional.one_hot(cn_profile,
+                                                num_classes=self.config.n_states).float().clamp(min=small_eps)
             self._single_filtering_probs[...] = true_sfp
         return self._single_filtering_probs
 
@@ -58,14 +60,17 @@ class qC(VariationalDistribution):
     @property
     def couple_filtering_probs(self):
         if self.fixed:
+            small_eps = 1e-5
             cn_profile = self.true_params["c"]
             # map node specific copy number profile to pair marginal probabilities
             # almost all prob mass is given to the true copy number combinations
-            true_cfp = torch.zeros_like(self._couple_filtering_probs) + 1e-2 / (self.config.n_states ** 2 - 1)
+            true_cfp = torch.zeros_like(self._couple_filtering_probs)
             for u in range(self.config.n_nodes):
                 true_cfp[u, torch.arange(self.config.chain_length - 1),
-                cn_profile[u, :-1], cn_profile[u, 1:]] = 1. - 1e-2
-            self._couple_filtering_probs[...] = true_cfp
+                cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
+            # add epsilon and normalize
+            self._couple_filtering_probs[...] = true_cfp.clamp(min=small_eps)
+            self._couple_filtering_probs /= self._couple_filtering_probs.sum(dim=(2, 3), keepdim=True)
             if self.config.debug:
                 assert torch.allclose(self._couple_filtering_probs.sum(dim=(2, 3)),
                                       torch.ones((self.config.n_nodes, self.config.chain_length - 1)))
@@ -81,18 +86,26 @@ class qC(VariationalDistribution):
 
     @property
     def eta1(self):
+        if self.fixed:
+            self._eta1[...] = self._single_filtering_probs[:, 0, :].log()
         return self._eta1
 
     @eta1.setter
     def eta1(self, e1):
+        if self.fixed:
+            logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._eta1[...] = e1
 
     @property
     def eta2(self):
+        if self.fixed:
+            self._eta2[...] = self._couple_filtering_probs.log()
         return self._eta2
 
     @eta2.setter
     def eta2(self, e2):
+        if self.fixed:
+            logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._eta2[...] = e2
 
     def initialize(self, method='random', **kwargs):
@@ -215,9 +228,18 @@ class qC(VariationalDistribution):
         self.compute_filtering_probs()
 
     def entropy(self):
-        qC_init = torch.distributions.Categorical(torch.exp(self.eta1))
+        start_probs = torch.empty_like(self.eta1)
+        trans_mats = torch.empty_like(self.eta2)
+        if self.fixed:
+            start_probs = self.single_filtering_probs[:, 0, :]
+            trans_mats = self.couple_filtering_probs
+        else:
+            start_probs = self.eta1.exp()
+            trans_mats = self.eta2.exp()
+
+        qC_init = torch.distributions.Categorical(start_probs)
         init_entropy = qC_init.entropy().sum()
-        qC = torch.distributions.Categorical(torch.exp(self.eta2))
+        qC = torch.distributions.Categorical(trans_mats)
         transitions_entropy = qC.entropy().sum()
         # transitions_entropy = -torch.einsum("kmij, kmij ->", self.eta2, torch.log(self.eta2))
         return init_entropy + transitions_entropy
@@ -245,7 +267,7 @@ class qC(VariationalDistribution):
 
         return E_T
 
-    def cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+    def neg_cross_entropy(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # E_q[log p(C|...)]
         E_T = 0
         # v, m, j, j'
@@ -255,20 +277,20 @@ class qC(VariationalDistribution):
             tree_CE = 0
             for a in T_list[l].edges:
                 u, v = a
-                arc_CE = self.cross_entropy_arc(q_eps, u, v)
+                arc_CE = self.neg_cross_entropy_arc(q_eps, u, v)
                 tree_CE += arc_CE
 
             E_T += torch.exp(w_T_list[l] - normalizing_weight) * tree_CE
         return E_T
 
-    def cross_entropy_arc(self, q_eps, u, v):
-        E_h_eps_0 = q_eps.h_eps0().log()
+    def neg_cross_entropy_arc(self, q_eps, u, v):
+        log_h_eps0 = q_eps.h_eps0().log()
         # p(j' | j i' i)
         E_h_eps = q_eps.exp_log_zipping((u, v))
         cross_ent_pos_1 = torch.einsum("i,j,ji->",
                                        self.single_filtering_probs[u, 0, :],
                                        self.single_filtering_probs[v, 0, :],
-                                       E_h_eps_0.log())
+                                       log_h_eps0)
         cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ljki->",
                                             # u, m, i, i'
                                             self.couple_filtering_probs[u, :, :, :],
@@ -282,8 +304,7 @@ class qC(VariationalDistribution):
         # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
         # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
         # alpha_1, alpha_2 = self.exp_alpha()
-
-        elbo = self.cross_entropy(T_list, w_T_list, q_eps) + self.marginal_entropy()
+        elbo = self.neg_cross_entropy(T_list, w_T_list, q_eps) + self.marginal_entropy()
         return elbo
 
     def update(self, obs: torch.Tensor,
@@ -523,7 +544,7 @@ class qC(VariationalDistribution):
 # cell assignments
 class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
-        self.pi = torch.empty((config.n_cells, config.n_nodes))
+        self._pi = torch.empty((config.n_cells, config.n_nodes))
 
         self.kmeans_labels = torch.empty(config.n_cells, dtype=torch.long)
         if true_params is not None:
@@ -531,6 +552,19 @@ class qZ(VariationalDistribution):
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
+    @property
+    def pi(self):
+        if self.fixed:
+            true_z = self.true_params['z']
+            # set prob of a true assignment to 1
+            self._pi[torch.arange(self.config.n_cells), true_z] = 1.
+        return self._pi
+
+    @pi.setter
+    def pi(self, pi):
+        if self.fixed:
+            logging.warning('Trying to re-set qc attribute when it should be fixed')
+        self._pi[...] = pi
     def initialize(self, method: str = 'random', **kwargs):
         if method == 'random':
             self._random_init()
@@ -609,13 +643,8 @@ class qZ(VariationalDistribution):
 
     def exp_assignment(self) -> torch.Tensor:
         out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
-        if self.fixed:
-            true_z = self.true_params["z"]
-            # set prob of a true assignment to 1
-            out_qz[torch.arange(self.config.n_cells), true_z] = 1.
-        else:
-            # simply the pi probabilities
-            out_qz[...] = self.pi
+        # simply the pi probabilities
+        out_qz[...] = self.pi
         return out_qz
 
     def neg_cross_entropy(self, qpi: 'qPi') -> float:
@@ -757,7 +786,7 @@ other elbos such as qC.
     def init_fc_graph(self):
         # random initialization of the fully connected graph over the clones
         for e in self._weighted_graph.edges:
-            self._weighted_graph.edges[e]['weight'] = torch.rand(1).log()
+            self._weighted_graph.edges[e]['weight'] = torch.rand(1)[0].log()
 
     def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None) -> Tuple[List, List]:
         """
@@ -910,17 +939,17 @@ class qEpsilon(VariationalDistribution):
 # edge distance (multiple eps, one for each arc)
 class qEpsilonMulti(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 10., gedges=None,
+    def __init__(self, config: Config, alpha_prior: float = 1., beta_prior: float = 1., gedges=None,
                  true_params=None):
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
-        self.alpha_prior = torch.tensor(alpha_0)
-        self.beta_prior = torch.tensor(beta_0)
+        self.alpha_prior = torch.tensor(alpha_prior)
+        self.beta_prior = torch.tensor(beta_prior)
         if gedges is None:
             # one param for every arc except self referenced and v -> root for any v
             gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
                                                            range(config.n_nodes)) if v != 0 and u != v]
-        self._alpha = {e: torch.tensor(self.alpha_prior) for e in gedges}
-        self._beta = {e: torch.tensor(self.beta_prior) for e in gedges}
+        self._alpha = {e: torch.empty(1) for e in gedges}
+        self._beta = {e: torch.empty(1) for e in gedges}
 
         if true_params is not None:
             assert "eps" in true_params
@@ -952,38 +981,41 @@ class qEpsilonMulti(VariationalDistribution):
         for e, w in b.items():
             self._beta[e] = w
 
-    def set_all_equal_params(self, alpha: float, beta: float):
+    def _set_equal_params(self, eps_alpha: float, eps_beta: float):
         for e in self.alpha.keys():
-            self.alpha[e] = torch.tensor(alpha)
-            self.beta[e] = torch.tensor(beta)
+            self.alpha[e] = torch.tensor(eps_alpha)
+            self.beta[e] = torch.tensor(eps_beta)
 
     def initialize(self, method='random', **kwargs):
-        if 'eps_alpha' in kwargs and 'eps_beta' in kwargs:
-            self.set_all_equal_params(kwargs['eps_alpha'], kwargs['eps_beta'])
+        if method == 'fixed':
+            self._fixed_init(**kwargs)
+        elif method == 'fixed-equal':
+            self._set_equal_params(**kwargs)
         elif method == 'uniform':
             self._uniform_init()
         elif method == 'random':
             self._random_init(**kwargs)
         elif method == 'non_mutation':
-            self._non_mutation_init(**kwargs)
+            self._non_mutation_init()
         else:
             raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
 
+    def _fixed_init(self, eps_alpha_dict, eps_beta_dict):
+        for e in self.alpha:
+            self.alpha[e] = eps_alpha_dict[e]
+            self.beta[e] = eps_beta_dict[e]
+
     def _uniform_init(self):
         # results in uniform (0,1)
-        for e in self.alpha.keys():
-            self.alpha[e] = torch.tensor(1.)
-            self.beta[e] = torch.tensor(1.)
+        self._set_equal_params(1., 1.)
 
     def _non_mutation_init(self):
-        for e in self.alpha.keys():
-            self.alpha[e] = torch.tensor(1.)
-            self.beta[e] = torch.tensor(10.)
+        self._set_equal_params(1., 10.)
 
-    def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
-        a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
+    def _random_init(self, gamma_shape=2., gamma_rate=2.):
         for e in self.alpha.keys():
+            a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
             self.alpha[e] = a
             self.beta[e] = b
 
