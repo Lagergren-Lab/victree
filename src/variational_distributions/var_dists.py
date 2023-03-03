@@ -262,13 +262,13 @@ class qC(VariationalDistribution):
         return E_T
 
     def cross_entropy_arc(self, q_eps, u, v):
-        E_h_eps_0 = q_eps.h_eps0()
+        E_h_eps_0 = q_eps.h_eps0().log()
         # p(j' | j i' i)
         E_h_eps = q_eps.exp_log_zipping((u, v))
         cross_ent_pos_1 = torch.einsum("i,j,ji->",
                                        self.single_filtering_probs[u, 0, :],
                                        self.single_filtering_probs[v, 0, :],
-                                       E_h_eps_0)
+                                       E_h_eps_0.log())
         cross_ent_pos_2_to_M = torch.einsum("mik, mjl, ljki->",
                                             # u, m, i, i'
                                             self.couple_filtering_probs[u, :, :, :],
@@ -380,7 +380,7 @@ class qC(VariationalDistribution):
         e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
                                               self.single_filtering_probs[
                                               [next(tree.predecessors(u)) for u in inner_nodes], 0, :],
-                                              q_eps.h_eps0()) + \
+                                              q_eps.h_eps0().log()) + \
                                  e_eta1_m[inner_nodes, 0, :]
         # eta_2_kappa(m, i, i')
         if not isinstance(q_eps, qEpsilonMulti):
