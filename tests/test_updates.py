@@ -5,6 +5,7 @@ import networkx as nx
 import torch
 from sklearn.metrics.cluster import adjusted_rand_score
 
+import tests.model_variational_comparisons
 import utils.visualization_utils
 from inference.copy_tree import VarDistFixedTree, JointVarDist
 from simul import generate_dataset_var_tree
@@ -420,6 +421,12 @@ class updatesTestCase(unittest.TestCase):
         ari = adjusted_rand_score(joint_q.z.true_params['z'], var_cellassignment)
         self.assertGreater(ari, .85)
         self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+        tests.model_variational_comparisons.fixed_T_comparisons(obs, true_C=joint_q.c.true_params["c"],
+                                                                true_Z=joint_q.z.true_params["z"],
+                                                                true_mu=joint_q.mt.true_params["mu"],
+                                                                true_tau=joint_q.mt.true_params["tau"],
+                                                                true_epsilon=None, true_pi=None, q_c=qc, q_z=qz,
+                                                                q_mt=qmt, qpi=None)
 
     def test_label_switching(self):
         # define 3 clones besides root
