@@ -15,6 +15,13 @@ from utils import tree_utils, visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
+
+def get_two_node_tree():
+    T_1 = nx.DiGraph()
+    T_1.add_edge(0, 1)
+    return T_1
+
+
 def get_tree_three_nodes_balanced():
     T_1 = nx.DiGraph()
     T_1.add_edge(0, 1)
