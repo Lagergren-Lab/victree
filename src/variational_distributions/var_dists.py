@@ -13,7 +13,7 @@ from utils.evaluation import pm_uni
 from sklearn.cluster import KMeans
 
 from utils import math_utils
-from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalized_zipping_constant
+from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalizing_zipping_constant
 
 import utils.tree_utils as tree_utils
 from sampling.slantis_arborescence import sample_arborescence, sample_arborescence_from_weighted_graph
@@ -1097,7 +1097,7 @@ class qEpsilonMulti(VariationalDistribution):
             else:
                 return heps0_arr
 
-    def exp_log_zipping(self, e: Tuple[int, int]):
+    def exp_log_zipping(self, e: Tuple[int, int], normalized=True):
         """Expected log-zipping function
 
         Parameters
@@ -1116,7 +1116,7 @@ class qEpsilonMulti(VariationalDistribution):
                 out_arr[...] = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
             except KeyError as ke:
                 out_arr[...] = torch.log(h_eps(self.config.n_states, .8))  # distant clones if arc doesn't exist
-        else:
+        elif normalized:
             # bool tensor with True on [j', j, i', i] where j'-j = i'-i (comutation)
             comut_mask = get_zipping_mask(self.config.n_states)
 
@@ -1124,20 +1124,21 @@ class qEpsilonMulti(VariationalDistribution):
             # switching to exponential leads to easier normalization step
             # (same as the one in `h_eps()`)
 
-            # FIXME: maybe exp( E[ log h ] ) needs not to be normalized.
-            #   the update equation uses `- log A` instead, where A is the norm constant for each
-            #   triplet (j, i', i)
-            #   try to use `normalized_zipping_constant()` function
-            # A = normalized_zipping_constant(self.config.n_states)
-            beta_uv_tensor = torch.tensor(self.beta[u, v])
-            alpha_uv_tensor = torch.tensor(self.alpha[u, v])
-            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(beta_uv_tensor) -
-                                                     torch.digamma(alpha_uv_tensor + beta_uv_tensor))
+            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta[u, v]) -
+                                                     torch.digamma(self.alpha[u, v] + self.beta[u, v]))
             exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
             out_arr[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
             if self.config.debug:
                 assert torch.allclose(torch.sum(out_arr, dim=0), torch.ones_like(out_arr))
             out_arr[...] = out_arr.log()
+        else:
+            comut_mask = get_zipping_mask(self.config.n_states)
+            A = normalizing_zipping_constant(self.config.n_states)
+            digamma_a = torch.digamma(self.alpha[u, v])
+            digamma_b = torch.digamma(self.beta[u, v])
+            digamma_ab = torch.digamma(self.alpha[u, v] + self.beta[u, v])
+            out_arr[comut_mask] = digamma_b - digamma_ab
+            out_arr[~comut_mask] = digamma_a - digamma_ab - A.log()
         return out_arr
 
     def mean(self) -> dict:
