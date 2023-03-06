@@ -357,8 +357,11 @@ class qC(VariationalDistribution):
         lrho = torch.tensor(self.config.step_size).log()
         l1mrho = torch.tensor(1. - self.config.step_size).log()
         # numerically stable sum over prob vectors
-        self.eta1 = torch.logaddexp(self.eta1 + l1mrho, eta1 + lrho)
-        self.eta2 = torch.logaddexp(self.eta2 + l1mrho, eta2 + lrho)
+        new_eta1 = torch.logaddexp(self.eta1 + l1mrho, eta1 + lrho)
+        new_eta2 = torch.logaddexp(self.eta2 + l1mrho, eta2 + lrho)
+        # add normalization step
+        self.eta1 = new_eta1 - new_eta1.logsumexp(dim=1, keepdim=True)
+        self.eta2 = new_eta2 - new_eta2.logsumexp(dim=3, keepdim=True)
         if self.config.debug:
             assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
             assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
