@@ -11,7 +11,7 @@ import simul
 import tests.utils_testing
 from inference.copy_tree import VarDistFixedTree, CopyTree
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model
+from tests.utils_testing import simul_data_pyro_full_model, pyro_simulate_full_dataset
 from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
@@ -69,16 +69,20 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_two_node_tree()
         n_nodes = len(tree.nodes)
-        n_cells = 100
-        n_sites = 50
+        n_cells = 1000
+        n_sites = 200
         n_copy_states = 7
-        data = torch.ones((n_sites, n_cells))
         dir_alpha = torch.tensor([3., 3.])
-        C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                               mu_0=10., dir_alpha0=dir_alpha)
-        # y should be integer and non-negative (count data)
-        # y = y.clamp(min=0).int()
-        print(f"C node 1 site 2: {C[1, 2]}")
+        y, C, z, pi, mu, tau, eps, eps0 = pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree,
+                                                                     mu_0=torch.tensor(1.),
+                                                                     lambda_0=torch.tensor(1.),
+                                                                     alpha0=torch.tensor(.5),
+                                                                     beta0=torch.tensor(.5),
+                                                                     a0=torch.tensor(1.0),
+                                                                     b0=torch.tensor(20.0),
+                                                                     dir_alpha0=dir_alpha
+                                                                     )
+        print(f"C node 1 site 20: {C[1, 20]}")
         print(f"Epsilon: {eps}")
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)
@@ -87,9 +91,10 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
-        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
-                          alpha=torch.ones(n_cells) * 10,
-                          beta=torch.ones(n_cells) * 10)
+        q.z.pi = f.one_hot(z, num_classes=2).float()
+        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 1,
+                          alpha=torch.ones(n_cells) * 1,
+                          beta=torch.ones(n_cells) * 1)
         copy_tree = CopyTree(config, q, y)
 
         copy_tree.run(50)
@@ -100,15 +105,10 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q_eps = q.eps
         q_mt = q.mt
         q_eps_mean = {e: qeps.alpha[e] / q_eps.beta[e] for e in qeps.alpha.keys()}
-        print(f"q_epsilon mean: {q_eps_mean}")
-        print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
-        print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
-        print(f"y_mn: {y[0:10, 0:10]}")
-        print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
-        print(f"True C: {C[1, 45:50]} \n q(C): {q_C[1, 45:50, :]}")
-        print(f"True C: {C[2, 5:10]} \n q(C): {q_C[2, 5:10, :]}")
-        print(f"True C: {C[2, 45:50]} \n q(C): {q_C[2, 45:50, :]}")
-
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                          q_mt=copy_tree.q.mt)
 
     def test_small_tree(self):
         torch.manual_seed(0)
