@@ -40,7 +40,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
-        qmt.initialize(loc=1, precision_factor=1., shape=10, rate=1)
         return qc, qt, qeps, qz, qpi, qmt
 
     def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
@@ -67,17 +66,18 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
     def test_one_edge_tree(self):
         torch.manual_seed(0)
+        logging.getLogger().setLevel("INFO")
         tree = tests.utils_testing.get_two_node_tree()
         n_nodes = len(tree.nodes)
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        dir_alpha = torch.tensor([3., 3.])
+        dir_alpha = torch.tensor([1., 3.])
         y, C, z, pi, mu, tau, eps, eps0 = pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree,
-                                                                     mu_0=torch.tensor(1.),
-                                                                     lambda_0=torch.tensor(1.),
-                                                                     alpha0=torch.tensor(.5),
-                                                                     beta0=torch.tensor(.5),
+                                                                     mu_0=torch.tensor(10.),
+                                                                     lambda_0=torch.tensor(10.),
+                                                                     alpha0=torch.tensor(500.),
+                                                                     beta0=torch.tensor(50.),
                                                                      a0=torch.tensor(1.0),
                                                                      b0=torch.tensor(20.0),
                                                                      dir_alpha0=dir_alpha
@@ -87,24 +87,16 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-
+        qmt = qMuAndTauCellIndependent(config)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
-        q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
-        q.z.pi = f.one_hot(z, num_classes=2).float()
-        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 1,
-                          alpha=torch.ones(n_cells) * 1,
-                          beta=torch.ones(n_cells) * 1)
+        q.initialize()
+       # qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 1, alpha=torch.ones(n_cells) * 1, beta=torch.ones(n_cells) * 50)
         copy_tree = CopyTree(config, q, y)
 
         copy_tree.run(50)
 
-        q_C = copy_tree.q.c.single_filtering_probs
-        q_z_pi = copy_tree.q.z.pi
         torch.set_printoptions(precision=2)
-        q_eps = q.eps
-        q_mt = q.mt
-        q_eps_mean = {e: qeps.alpha[e] / q_eps.beta[e] for e in qeps.alpha.keys()}
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
