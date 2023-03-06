@@ -321,8 +321,8 @@ class qC(VariationalDistribution):
         HMM and simplified expected value over the natural parameter.
         :return:
         """
-        new_eta1 = torch.zeros(self.eta1.shape)
-        new_eta2 = torch.zeros(self.eta2.shape)
+        new_eta1 = torch.zeros_like(self.eta1)
+        new_eta2 = torch.zeros_like(self.eta2)
 
         for tree, weight in zip(trees, tree_weights):
             # compute all alpha quantities
@@ -432,6 +432,9 @@ class qC(VariationalDistribution):
 
         e_alpha1 = torch.empty_like(self.eta1)
         e_alpha2 = torch.empty_like(self.eta2)
+        # alpha is not defined for root node
+        e_alpha1[0, ...] = -torch.inf
+        e_alpha2[0, ...] = -torch.inf
 
         # alpha_iota(m, i)
         # as in the write-up, then it's split and e_alpha12[:, 1:, :] is
@@ -471,6 +474,7 @@ class qC(VariationalDistribution):
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
 
     def compute_filtering_probs(self):
+        small_eps = 1e-7
         # shape K x S (K is batch size / clones)
         initial_log_probs = self.eta1
         # shape K x M x S x S
@@ -488,12 +492,13 @@ class qC(VariationalDistribution):
             # then marginalize over X_m to obtain P(X_m+1)
             log_single[:, m + 1, :] = torch.logsumexp(log_couple[:, m, ...], dim=1)
 
-        if self.config.debug:
-            assert np.allclose(log_single.logsumexp(dim=2).exp(), 1.)
-            assert np.allclose(log_couple.logsumexp(dim=(2, 3)).exp(), 1.)
+        self.single_filtering_probs = torch.exp(log_single).clamp(min=small_eps, max=1.-small_eps)
+        self.couple_filtering_probs = torch.exp(log_couple).clamp(min=small_eps, max=1.-small_eps)
 
-        self.single_filtering_probs = torch.exp(log_single)
-        self.couple_filtering_probs = torch.exp(log_couple)
+        if self.config.debug:
+            assert np.allclose(self.single_filtering_probs.sum(dim=2), 1.)
+            assert np.allclose(self.couple_filtering_probs.sum(dim=(2, 3)), 1.)
+
         return self.single_filtering_probs, self.couple_filtering_probs
 
     # obsolete
@@ -1083,8 +1088,8 @@ class qEpsilonMulti(VariationalDistribution):
     def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
         cfp = qc.couple_filtering_probs
         K, M, A, A = cfp.shape
-        new_alpha = {(u, v): torch.tensor(self.alpha_prior) for u, v in self._alpha.keys()}
-        new_beta = {(u, v): torch.tensor(self.beta_prior) for u, v in self._beta.keys()}
+        new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha.keys()}
+        new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta.keys()}
         # TODO: check how many edges are effectively updated
         #   after some iterations (might be very few)
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
@@ -1148,29 +1153,14 @@ class qEpsilonMulti(VariationalDistribution):
                 out_arr[...] = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
             except KeyError as ke:
                 out_arr[...] = torch.log(h_eps(self.config.n_states, .8))  # distant clones if arc doesn't exist
-        elif normalized:
-            # bool tensor with True on [j', j, i', i] where j'-j = i'-i (comutation)
-            comut_mask = get_zipping_mask(self.config.n_states)
-
-            # exp( E_CuCv[ log( 1 - eps) ] )
-            # switching to exponential leads to easier normalization step
-            # (same as the one in `h_eps()`)
-
-            exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta[u, v]) -
-                                                     torch.digamma(self.alpha[u, v] + self.beta[u, v]))
-            exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
-            out_arr[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
-            if self.config.debug:
-                assert torch.allclose(torch.sum(out_arr, dim=0), torch.ones_like(out_arr))
-            out_arr[...] = out_arr.log()
         else:
             comut_mask = get_zipping_mask(self.config.n_states)
             A = normalizing_zipping_constant(self.config.n_states)
             digamma_a = torch.digamma(self.alpha[u, v])
             digamma_b = torch.digamma(self.beta[u, v])
             digamma_ab = torch.digamma(self.alpha[u, v] + self.beta[u, v])
+            out_arr[...] = digamma_a - digamma_ab - A.log()
             out_arr[comut_mask] = digamma_b - digamma_ab
-            out_arr[~comut_mask] = digamma_a - digamma_ab - A.log()
         return out_arr
 
     def mean(self) -> dict:
