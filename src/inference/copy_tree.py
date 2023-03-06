@@ -124,7 +124,7 @@ class CopyTree:
 
         # counts the number of steps performed
         self.it_counter = 0
-        self.elbo = -infty
+        self.elbo: float = -infty
         self.sieve_models: List[Union[JointVarDist, VarDistFixedTree]] = []
 
     def run(self, n_iter):
@@ -134,13 +134,13 @@ class CopyTree:
 
         if self.config.sieving_size > 1:
             self.compute_elbo()
-            logging.info(f"ELBO before sieving: {self.elbo:,}")
+            logging.info(f"ELBO before sieving: {self.elbo:.2f}")
             self.sieve(self.config.n_sieving_runs)
             self.compute_elbo()
-            logging.info(f"ELBO after sieving: {self.elbo:,}")
+            logging.info(f"ELBO after sieving: {self.elbo:.2f}")
         else:
             self.compute_elbo()
-            logging.info(f"ELBO after init: {self.elbo:,}")
+            logging.info(f"ELBO after init: {self.elbo:.2f}")
 
         logging.info("Start updates...")
         for it in range(n_iter):
@@ -153,8 +153,7 @@ class CopyTree:
             old_elbo = self.elbo
             self.compute_elbo()
             if it % 10 == 0:
-                logging.info(f"ELBO: {self.elbo:,}")
-            logging.debug(f"ELBO: {self.elbo:,}")
+                logging.info(f"[{it}] ELBO: {self.elbo:.2f}")
 
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
@@ -164,14 +163,10 @@ class CopyTree:
                 # elbo should only increase
                 # raise ValueError("Elbo is decreasing")
                 logging.debug("Elbo is decreasing")
-            elif self.elbo > 0:
-                # elbo must be negative
-                # raise ValueError("Elbo is non-negative")
-                logging.debug("Warning: Elbo is non-negative")
             else:
                 close_runs = 0
 
-        print(f"ELBO final: {self.elbo:,}")
+        print(f"ELBO final: {self.elbo:.2f}")
 
     def sieve(self, n_sieve_iter=10, seed_list=None):
         """

@@ -184,9 +184,9 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
 
 def _sample_feasible_arc(weighted_arcs):
     # weighted_arcs is a list of 3-tuples (u, v, weight)
-    unnorm_probs = np.array([w for u, v, w in weighted_arcs])
+    unnorm_probs = torch.stack([w for u, v, w in weighted_arcs])
     probs = unnorm_probs / unnorm_probs.sum()
-    c = np.random.choice(np.arange(len(weighted_arcs)), p=probs)
+    c = np.random.choice(np.arange(len(weighted_arcs)), p=probs.numpy())
     return weighted_arcs[c][:2]
 
 

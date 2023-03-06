@@ -105,16 +105,20 @@ Simple zipping function tensor. P(Cv_1=j| Cu_1=i) = h0(j|i)
     return heps0_arr
 
 
-def normalized_zipping_constant(n_states: int) -> torch.Tensor:
-    # FIXME: output shape has to be properly matched with zipping tensor
+def normalizing_zipping_constant(n_states: int) -> torch.Tensor:
+    # out shape (n_states, n_states, n_states, n_states)
+    out_tensor = torch.empty((n_states, ) * 4)
     mask = get_zipping_mask(n_states)
-    return torch.sum(~mask, dim=0, keepdim=True)
+    out_tensor[...] = torch.sum(~mask, dim=0, keepdim=True)
+    return out_tensor
 
 
-def normalized_zipping_constant0(n_states: int) -> torch.Tensor:
-    # FIXME: output shape has to be properly matched with zipping tensor
+def normalizing_zipping_constant0(n_states: int) -> torch.Tensor:
+    # out shape (n_states, n_states)
+    out_tensor = torch.empty(n_states, n_states)
     mask = get_zipping_mask0(n_states)
-    return torch.sum(~mask, dim=0, keepdim=True)
+    out_tensor[...] = torch.sum(~mask, dim=0, keepdim=True)
+    return out_tensor
 
 
 def is_rare_case(jj, j, ii, i):

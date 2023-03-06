@@ -67,8 +67,8 @@ class qEpsilonTestCase(unittest.TestCase):
         A = 5
 
         config = Config(n_nodes=K, chain_length=M, n_states=A)
-        q_eps1 = qEpsilonMulti(config, alpha_0=1., beta_0=10.)
-        q_eps2 = qEpsilonMulti(config, alpha_0=1., beta_0=10.)
+        q_eps1 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
+        q_eps2 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
         T = nx.DiGraph()
         T.add_edge(0, 1)
         w_T = [1.]

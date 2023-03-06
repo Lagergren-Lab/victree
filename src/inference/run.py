@@ -2,6 +2,7 @@ import logging
 import os
 
 import torch
+import numpy as np
 
 from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
 from utils.config import Config
@@ -18,7 +19,7 @@ def run(args):
         if 'gt' in full_data.keys():
             logging.debug(f"gt tree: {full_data['gt']['tree']}")
 
-        obs = torch.tensor(full_data['X'])
+        obs = torch.tensor(np.array(full_data['X']))
     else:
         raise FileNotFoundError(f"file extension not recognized: {fext}")
 
