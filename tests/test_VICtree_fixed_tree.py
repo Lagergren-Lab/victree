@@ -97,7 +97,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
        # qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 1, alpha=torch.ones(n_cells) * 1, beta=torch.ones(n_cells) * 50)
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(60)
+        copy_tree.run(80)
         diagnostics_dict = copy_tree.diagnostics_dict
         visualization_utils.visualize_diagnostics(diagnostics_dict, cells_to_vis_idxs=[0, int(n_cells/2), int(n_cells/3), n_cells-1])
         torch.set_printoptions(precision=2)
