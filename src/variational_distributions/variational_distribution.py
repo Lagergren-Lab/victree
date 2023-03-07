@@ -22,3 +22,6 @@ class VariationalDistribution:
 
     def elbo(self) -> float:
         return 0.
+
+    def summary(self) -> str:
+        return "Empty summary"

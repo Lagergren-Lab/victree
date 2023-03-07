@@ -139,12 +139,8 @@ class updatesTestCase(unittest.TestCase):
         qt = qT(cfg)
         qt.initialize()
 
-        print(tree_to_newick(fix_tree, weight='weight'))
-        for i in range(100):
-            trees_sample, weights = qt.get_trees_sample()
-            qt.update(fix_qc, fix_qeps)
-            for t, w in zip(trees_sample, weights):
-                print(f"{tree_to_newick(t)} | {w}")
+        print(qT(cfg, true_params={'tree': fix_tree}))
+        print(qt)
 
         # print(qt.weighted_graph.edges.data())
         # sample_size = 20

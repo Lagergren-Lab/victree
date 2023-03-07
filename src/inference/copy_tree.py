@@ -51,6 +51,14 @@ class JointVarDist(VariationalDistribution):
                self.eps.elbo(T_eval, w_T_eval) + \
                self.t.elbo(T_eval, w_T_eval)
 
+    def __str__(self):
+        # summary for joint dist
+        tot_str = "+++ Joint summary +++"
+        for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
+            tot_str += str(q)
+            tot_str += "\n --- \n"
+        tot_str += "+++ end of summary +++"
+
 
 class VarDistFixedTree(VariationalDistribution):
     def __init__(self, config: Config,
