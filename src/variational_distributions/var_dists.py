@@ -1688,7 +1688,7 @@ class qPi(VariationalDistribution):
 
         return e_log_pi
 
-    def cross_entropy(self):
+    def neg_cross_entropy(self):
         delta_p = self.concentration_param_prior
         delta_q = self.concentration_param
         delta_p_0 = torch.sum(delta_p)
@@ -1709,6 +1709,6 @@ class qPi(VariationalDistribution):
         return log_B_q + (delta_q_0 - K) * digamma_q_0 - torch.sum((delta_q - 1) * digamma_q)
 
     def elbo(self) -> float:
-        cross_entropy = self.cross_entropy()
+        cross_entropy = self.neg_cross_entropy()
         entropy = self.entropy()
-        return cross_entropy - entropy
+        return cross_entropy + entropy

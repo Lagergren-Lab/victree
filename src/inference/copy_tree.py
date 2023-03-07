@@ -160,12 +160,12 @@ class VarDistFixedTree(VariationalDistribution):
         c = torch.arange(0, A, dtype=torch.float)
         c2 = c ** 2
         M, N = y.shape
-        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum("umi, nu, ->", qC, qZ, E_log_tau)
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum("umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
         E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2) if type(self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y**2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
-        E_CZ_mu2_tau = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
+        E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
         # elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)
-        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau - torch.log(
+        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
             torch.tensor(2 * torch.pi)))
         return elbo
 
