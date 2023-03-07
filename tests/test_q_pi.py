@@ -79,7 +79,7 @@ class qPiTestCase(unittest.TestCase):
 
     def test_cross_entropy(self):
         self.q_pi.concentration_param = torch.ones(self.K)*2
-        res = self.q_pi.cross_entropy()
+        res = self.q_pi.neg_cross_entropy()
         print(f"Cross entropy: {res}")
 
     def test_entropy(self):
