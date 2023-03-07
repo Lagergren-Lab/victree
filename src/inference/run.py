@@ -3,6 +3,7 @@ import os
 
 import torch
 import numpy as np
+import pickle
 
 from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
 from utils.config import Config
@@ -27,7 +28,7 @@ def run(args):
     logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
     config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
-                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size)
+                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size, diagnostics=args.debug)
     logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
 
     # instantiate all distributions
@@ -36,6 +37,9 @@ def run(args):
     copy_tree = CopyTree(config, joint_q, obs)
     
     copy_tree.run(args.n_iter)
+    if args.debug:
+        with open('./output/diagnostics.pkl', 'wb') as pickle_file:
+            pickle.dump(copy_tree.diagnostics_dict, pickle_file)
 
     write_output_h5(copy_tree, args.out_path)
 
