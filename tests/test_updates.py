@@ -416,7 +416,7 @@ class updatesTestCase(unittest.TestCase):
         qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=.05, beta_prior=.05)
         qz = qZ(cfg)
         qc = qC(cfg)
-        qmt.initialize(loc=1, precision_factor=.1, rate=5., shape=5.)
+        qmt.initialize(loc=1., precision_factor=.1, rate=5., shape=5.)
         almost_true_z_init = joint_q.z.exp_assignment() + .2
         almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
         qz.initialize(method='fixed', pi_init=joint_q.z.exp_assignment() + .2)

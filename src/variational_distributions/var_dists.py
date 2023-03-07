@@ -1530,8 +1530,8 @@ class qMuAndTauCellIndependent(VariationalDistribution):
         self.beta = new_beta
         return new_nu, new_phi, new_alpha, new_beta
 
-    def initialize(self, loc: float = 1, precision_factor: float = .1,
-                   shape: float = 5, rate: float = 5, **kwargs):
+    def initialize(self, loc: float = 10., precision_factor: float = 5.,
+                   shape: float = 500., rate: float = 50., **kwargs):
         self.nu = loc * torch.ones(self.config.n_cells)
         self.phi = precision_factor * torch.ones(self.config.n_cells)
         self.alpha = torch.tensor(shape)

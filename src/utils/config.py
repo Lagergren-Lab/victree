@@ -16,7 +16,10 @@ class Config:
                  max_close_runs: int = 10,
                  sieving_size: int = 1,
                  n_sieving_runs: int = 20,
-                 debug=False, step_size=1.) -> None:
+                 step_size=1.,
+                 debug=False,
+                 diagnostics=False) -> None:
+        self._diagnostics = diagnostics
         self.step_size = step_size
         self._n_nodes = n_nodes
         self._n_states = n_states
@@ -73,6 +76,10 @@ class Config:
     @property
     def debug(self):
         return self._debug
+
+    @property
+    def diagnostics(self):
+        return self._diagnostics
 
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \

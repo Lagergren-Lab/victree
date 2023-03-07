@@ -15,6 +15,13 @@ from utils import tree_utils, visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
+
+def get_two_node_tree():
+    T_1 = nx.DiGraph()
+    T_1.add_edge(0, 1)
+    return T_1
+
+
 def get_tree_three_nodes_balanced():
     T_1 = nx.DiGraph()
     T_1.add_edge(0, 1)
@@ -99,6 +106,32 @@ def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.D
                                                     dir_alpha0)
 
     return C, y, z, pi, mu, tau, eps
+
+
+def pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+                               mu_0=torch.tensor(1.),
+                               lambda_0=torch.tensor(1.),
+                               alpha0=torch.tensor(1.),
+                               beta0=torch.tensor(1.),
+                               a0=torch.tensor(1.0),
+                               b0=torch.tensor(20.0),
+                               dir_alpha0=torch.tensor(1.0)
+                               ):
+    n_nodes = len(tree.nodes)
+    config = Config(n_nodes=n_nodes, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
+    output_sim = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=mu_0, lambda0=lambda_0, alpha0=alpha0,
+                                             beta0=beta0,
+                                             dir_alpha=dir_alpha0)
+    y = output_sim['obs']
+    C = output_sim['c']
+    z = output_sim['z']
+    pi = output_sim['pi']
+    mu = output_sim['mu']
+    tau = output_sim['tau']
+    eps = output_sim['eps']
+    eps0 = output_sim['eps0']
+
+    return y, C, z, pi, mu, tau, eps, eps0
 
 
 def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
