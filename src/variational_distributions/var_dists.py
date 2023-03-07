@@ -354,12 +354,18 @@ class qC(VariationalDistribution):
         return super().update()
 
     def update_params(self, eta1, eta2):
-        rho = self.config.step_size
-        new_eta1 = (1 - rho) * torch.exp(self.eta1) + rho * torch.exp(eta1)
-        new_eta2 = (1 - rho) * torch.exp(self.eta2) + rho * torch.exp(eta2)
-        self.eta1 = torch.log(new_eta1)
-        self.eta2 = torch.log(new_eta2)
-        return new_eta1, new_eta2
+        lrho = torch.tensor(self.config.step_size).log()
+        l1mrho = torch.tensor(1. - self.config.step_size).log()
+        # numerically stable sum over prob vectors
+        new_eta1 = torch.logaddexp(self.eta1 + l1mrho, eta1 + lrho)
+        new_eta2 = torch.logaddexp(self.eta2 + l1mrho, eta2 + lrho)
+        # add normalization step
+        self.eta1 = new_eta1 - new_eta1.logsumexp(dim=1, keepdim=True)
+        self.eta2 = new_eta2 - new_eta2.logsumexp(dim=3, keepdim=True)
+        if self.config.debug:
+            assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
+            assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
+        return self.eta1, self.eta2
 
     def _exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                  q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -474,7 +480,7 @@ class qC(VariationalDistribution):
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
 
     def compute_filtering_probs(self):
-        small_eps = 1e-7
+        small_eps = 1e-8
         # shape K x S (K is batch size / clones)
         initial_log_probs = self.eta1
         # shape K x M x S x S
@@ -489,8 +495,14 @@ class qC(VariationalDistribution):
         for m in range(self.config.chain_length - 1):
             # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
             log_couple[:, m, ...] = log_single[:, m, :, None] + transition_log_probs[:, m, ...]
+            # avoid error propagation with normalization step
+            log_couple[:, m, ...] = log_couple[:, m, ...] - log_couple[:, m, ...].logsumexp(dim=(1, 2), keepdim=True)
             # then marginalize over X_m to obtain P(X_m+1)
             log_single[:, m + 1, :] = torch.logsumexp(log_couple[:, m, ...], dim=1)
+
+            if self.config.debug:
+                assert np.allclose(log_single[:, m + 1, :].exp().sum(dim=1), 1.)
+                assert np.allclose(log_couple[:, m, ...].exp().sum(dim=(1, 2)), 1.)
 
         self.single_filtering_probs = torch.exp(log_single).clamp(min=small_eps, max=1.-small_eps)
         self.couple_filtering_probs = torch.exp(log_couple).clamp(min=small_eps, max=1.-small_eps)
@@ -729,9 +741,6 @@ other elbos such as qC.
         prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
         stepped_weights = (1 - rho) * prev_weights + rho * new_weights
 
-        # # minmax scaling the weights
-        # stepped_weights -= stepped_weights.min()
-        # stepped_weights /= stepped_weights.max()
         for i, (u, v, weight) in enumerate(self._weighted_graph.edges.data('weight')):
             self._weighted_graph.edges[u, v]['weight'] = stepped_weights[i]
         return self._weighted_graph.edges.data('weight')
@@ -1134,7 +1143,7 @@ class qEpsilonMulti(VariationalDistribution):
             else:
                 return heps0_arr
 
-    def exp_log_zipping(self, e: Tuple[int, int], normalized=True):
+    def exp_log_zipping(self, e: Tuple[int, int]):
         """Expected log-zipping function
 
         Parameters

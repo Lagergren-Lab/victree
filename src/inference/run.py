@@ -27,7 +27,7 @@ def run(args):
     logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
     config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
-                    wis_sample_size=args.L, debug=args.debug)
+                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size)
     logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
 
     # instantiate all distributions

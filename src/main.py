@@ -43,6 +43,7 @@ if __name__ == '__main__':
                         help="output data file", metavar="FILE")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
     parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")
+    parser.add_argument("-s", "--step-size", default=.1, type=float, help="step-size for partial updates")
     parser.add_argument("--A", default=7, type=int, help="Number of characters/copy number states")
     parser.add_argument("--L", default=10, type=int, help="Number of sampled arborescences")
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
