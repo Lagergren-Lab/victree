@@ -9,4 +9,5 @@
 ./img/
 # output dirs
 *_out
+./output/
 ./tests/test_output/
