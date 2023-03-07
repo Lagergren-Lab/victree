@@ -5,9 +5,9 @@
 *.log
 .DS_Store
 # notes
-./notes.md
-./img/
+notes.md
+/img/
 # output dirs
 *_out
-./output/
-./tests/test_output/
+/tests/test_output/
+/output/
