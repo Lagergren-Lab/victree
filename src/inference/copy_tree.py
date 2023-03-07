@@ -173,13 +173,13 @@ class CopyTree:
                 logging.debug(f"It: {it}")
             self.step()
 
-            if self.diagnostics_dict is not None:
-                self.update_diagnostics(it)
-
             old_elbo = self.elbo
             self.compute_elbo()
             if it % 10 == 0:
                 logging.info(f"[{it}] ELBO: {self.elbo:.2f}")
+
+            if self.diagnostics_dict is not None:
+                self.update_diagnostics(it)
 
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
@@ -238,7 +238,7 @@ class CopyTree:
         self.diagnostics_dict["beta"][iter] = self.q.mt.beta
 
         # elbo
-        self.diagnostics_dict["elbo"][iter] = elbo
+        self.diagnostics_dict["elbo"][iter] = self.elbo
 
 
     def sieve(self, n_sieve_iter=10, seed_list=None):
