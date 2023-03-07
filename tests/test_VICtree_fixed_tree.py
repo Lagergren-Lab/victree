@@ -2,6 +2,7 @@ import logging
 import random
 import unittest
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 import torch.nn.functional as f
@@ -85,24 +86,27 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         print(f"C node 1 site 20: {C[1, 20]}")
         print(f"Epsilon: {eps}")
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
-                        debug=False)
+                        debug=False, diagnostics=True)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        qmt = qMuAndTauCellIndependent(config)
+        #qmt = qMuAndTauCellIndependent(config)
+        #qmt = qMuTau(config, true_params={"mu": mu, "tau": tau})
+        #qmt.lmbda_0 = torch.tensor(10000.)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize()
        # qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 1, alpha=torch.ones(n_cells) * 1, beta=torch.ones(n_cells) * 50)
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(50)
-
+        copy_tree.run(60)
+        diagnostics_dict = copy_tree.diagnostics_dict
+        visualization_utils.visualize_diagnostics(diagnostics_dict, cells_to_vis_idxs=[0, int(n_cells/2), int(n_cells/3), n_cells-1])
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                           q_mt=copy_tree.q.mt)
 
-    def test_small_tree(self):
+    def test_three_node_tree(self):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
@@ -110,7 +114,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 50
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
-        dir_alpha = torch.tensor([3., 3., 3.])
+        dir_alpha = torch.tensor([1., 3., 3.])
         C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
                                                                mu_0=10., dir_alpha0=dir_alpha)
         # y should be integer and non-negative (count data)

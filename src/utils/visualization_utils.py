@@ -65,6 +65,36 @@ def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save_path=None, pyplot
         plt.savefig(save_path)
 
 
+def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_to_vis_idxs=[1]):
+    plt.switch_backend("TkAgg")
+    max_iter, N = diagnostics_dict["nu"].shape
+    max_iter, K, M, A = diagnostics_dict["C"].shape
+    n_rows = 4
+    n_cols = 4
+    fig, axs = plt.subplots(n_rows, n_cols)
+    fig.suptitle(f"Diagnostics - cells {cells_to_vis_idxs}")
+    axs[0, 0].plot(diagnostics_dict["nu"][:, cells_to_vis_idxs[0]])
+    axs[0, 1].plot(diagnostics_dict["lmbda"][:, cells_to_vis_idxs[0]])
+    axs[0, 2].plot(torch.arange(0, max_iter), diagnostics_dict["alpha"][cells_to_vis_idxs[0]].expand(max_iter))
+    axs[0, 3].plot(diagnostics_dict["beta"][:, cells_to_vis_idxs[0]])
+
+    axs[1, 0].plot(diagnostics_dict["C"][0, clones_to_vis_idxs[0], :].argmax(dim=-1))
+    axs[1, 1].plot(diagnostics_dict["C"][int(max_iter/4), clones_to_vis_idxs[0], :].argmax(dim=-1))
+    axs[1, 2].plot(diagnostics_dict["C"][int(max_iter/2), clones_to_vis_idxs[0], :].argmax(dim=-1))
+    axs[1, 3].plot(diagnostics_dict["C"][max_iter-1, clones_to_vis_idxs[0], :].argmax(dim=-1))
+
+    for i, cell_idx in enumerate(cells_to_vis_idxs):
+        if i >= n_cols:
+            break
+        axs[2, i].plot(diagnostics_dict["Z"][:, cell_idx])
+
+    axs[3, 0].plot(diagnostics_dict["pi"])
+    axs[3, 1].plot(diagnostics_dict["eps_a"][:, 0, 1])
+    axs[3, 2].plot(diagnostics_dict["eps_b"][:, 0, 1])
+
+    plt.show()
+
+
 if __name__ == '__main__':
     K_test, M_test = (5, 10)
     C_test = torch.ones((K_test, M_test))
