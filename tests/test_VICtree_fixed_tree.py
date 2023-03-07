@@ -110,15 +110,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
-        n_cells = 100
-        n_sites = 50
+        n_cells = 1000
+        n_sites = 200
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha = torch.tensor([1., 3., 3.])
         C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
                                                                mu_0=10., dir_alpha0=dir_alpha)
-        # y should be integer and non-negative (count data)
-        # y = y.clamp(min=0).int()
         print(f"C node 1 site 2: {C[1, 2]}")
         print(f"Epsilon: {eps}")
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
@@ -127,28 +125,24 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
-        q.initialize(loc=1, precision_factor=.1, shape=5, rate=5)
+        q.initialize()
         qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
                           alpha=torch.ones(n_cells) * 10,
                           beta=torch.ones(n_cells) * 10)
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(50)
+        copy_tree.run(70)
 
-        q_C = copy_tree.q.c.single_filtering_probs
-        q_z_pi = copy_tree.q.z.pi
         torch.set_printoptions(precision=2)
-        q_eps = q.eps
-        q_mt = q.mt
-        q_eps_mean = {e: qeps.alpha[e] / q_eps.beta[e] for e in qeps.alpha.keys()}
-        print(f"q_epsilon mean: {q_eps_mean}")
-        print(f"True Z: {z[0:10]} \n variational pi_n: {q_z_pi[0:10]}")
-        print(f"True mu: {mu[0:10]} \n E_q[mu_n]: {q_mt.nu[0:10]}")
-        print(f"y_mn: {y[0:10, 0:10]}")
-        print(f"True C: {C[1, 5:10]} \n q(C): {q_C[1, 5:10, :]}")
-        print(f"True C: {C[1, 45:50]} \n q(C): {q_C[1, 45:50, :]}")
-        print(f"True C: {C[2, 5:10]} \n q(C): {q_C[2, 5:10, :]}")
-        print(f"True C: {C[2, 45:50]} \n q(C): {q_C[2, 45:50, :]}")
+        diagnostics_dict = copy_tree.diagnostics_dict
+        #visualization_utils.visualize_diagnostics(diagnostics_dict,
+        #                                          cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
+        #                                                             n_cells - 1])
+        torch.set_printoptions(precision=2)
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                          q_mt=copy_tree.q.mt)
 
     def test_large_tree(self):
         torch.manual_seed(0)

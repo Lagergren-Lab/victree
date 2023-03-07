@@ -50,7 +50,73 @@ class JointVarDist(VariationalDistribution):
                self.mt.elbo() + \
                self.pi.elbo() + \
                self.eps.elbo(T_eval, w_T_eval) + \
-               self.t.elbo(T_eval, w_T_eval)
+               self.t.elbo(T_eval, w_T_eval) + \
+               self.elbo_observations(T_eval, w_T_eval)
+
+    def elbo_observations(self):
+        E_log_tau = self.mt.exp_log_tau()
+        E_tau = self.mt.exp_tau()
+        E_mu_tau = self.mt.exp_mu_tau()
+        E_mu2_tau = self.mt.exp_mu2_tau()
+
+        qC = self.c.single_filtering_probs
+        qZ = self.z.pi
+        y = self.obs
+        A = self.config.n_states
+        c = torch.arange(0, A, dtype=torch.float)
+        c2 = c ** 2
+        M, N = y.shape
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
+            "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+            self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
+        E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
+        E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
+        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
+            torch.tensor(2 * torch.pi)))
+        return elbo
+
+    def init_diagnostics(self, diagnostics_dict: dict, n_iter: int):
+        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
+        # T, C, Z, pi diagnostics
+        diagnostics_dict["qT"] = torch.zeros((n_iter, K, K))
+        diagnostics_dict["gT"] = torch.zeros((n_iter, K, K))
+        diagnostics_dict["T"] = []
+        diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
+        diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
+        diagnostics_dict["pi"] = torch.zeros((n_iter, K))
+
+        # eps diagnostics
+        diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
+        diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
+
+        # qMuTau diagnostics
+        diagnostics_dict["nu"] = torch.zeros((n_iter, N))
+        diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
+        diagnostics_dict["alpha"] = self.mt.alpha  # Never updated
+        diagnostics_dict["beta"] = torch.zeros((n_iter, N))
+
+    def add_diagnostics(self, diagnostics_dict: dict, iter: int):
+        # C, Z, pi diagnostics
+        diagnostics_dict["C"][iter] = self.c.single_filtering_probs
+        diagnostics_dict["Z"][iter] = self.z.pi
+        diagnostics_dict["pi"][iter] = self.pi.concentration_param
+
+        # eps diagnostics
+        K = self.config.n_nodes
+        eps_a = torch.zeros((K, K))
+        eps_b = torch.zeros((K, K))
+        for key in self.eps.alpha.keys():
+            eps_a[key] = self.eps.alpha[key]
+            eps_b[key] = self.eps.beta[key]
+
+        diagnostics_dict["eps_a"][iter] = eps_a
+        diagnostics_dict["eps_b"][iter] = eps_b
+
+        # qMuTau diagnostics
+        diagnostics_dict["nu"][iter] = self.mt.nu
+        diagnostics_dict["lmbda"][iter] = self.mt.lmbda
+        diagnostics_dict["beta"][iter] = self.mt.beta
 
 
 class VarDistFixedTree(VariationalDistribution):
@@ -160,11 +226,12 @@ class VarDistFixedTree(VariationalDistribution):
         c = torch.arange(0, A, dtype=torch.float)
         c2 = c ** 2
         M, N = y.shape
-        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum("umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
-        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2) if type(self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y**2)
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
+            "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+            self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
         E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
-        # elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)
         elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
             torch.tensor(2 * torch.pi)))
         return elbo
