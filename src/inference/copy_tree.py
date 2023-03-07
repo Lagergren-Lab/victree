@@ -212,7 +212,9 @@ class CopyTree:
         self.diagnostics_dict["alpha"] = torch.zeros((n_iter, N))
         self.diagnostics_dict["beta"] = torch.zeros((n_iter, N))
 
-    def update_diagnostics(self, iter):
+        self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
+
+    def update_diagnostics(self, iter: int, elbo: float = 0.):
         # C, Z, pi diagnostics
         self.diagnostics_dict["C"][iter] = self.q.c.single_filtering_probs
         self.diagnostics_dict["Z"][iter] = self.q.z.pi
@@ -234,6 +236,9 @@ class CopyTree:
         self.diagnostics_dict["lmbda"][iter] = self.q.mt.lmbda
         self.diagnostics_dict["alpha"][iter] = self.q.mt.alpha  # not updated
         self.diagnostics_dict["beta"][iter] = self.q.mt.beta
+
+        # elbo
+        self.diagnostics_dict["elbo"][iter] = elbo
 
 
     def sieve(self, n_sieve_iter=10, seed_list=None):

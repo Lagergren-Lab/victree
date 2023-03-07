@@ -29,7 +29,8 @@ def run(args):
 
     config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
                     wis_sample_size=args.L, debug=args.debug, step_size=args.step_size, diagnostics=args.debug)
-    logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
+    # logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
+    logging.debug(str(config))
 
     # instantiate all distributions
     joint_q = JointVarDist(config, obs)

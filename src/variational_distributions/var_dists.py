@@ -1626,8 +1626,8 @@ class qMuAndTauCellIndependent(VariationalDistribution):
 # dirichlet concentration
 class qPi(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_prior=1, true_params=None):
-        self.concentration_param_prior = torch.ones(config.n_nodes) * alpha_prior
+    def __init__(self, config: Config, delta_prior: float = 1., true_params: dict | None = None):
+        self.concentration_param_prior = torch.ones(config.n_nodes) * delta_prior
         self._concentration_param = torch.empty_like(self.concentration_param_prior)
 
         if true_params is not None:
