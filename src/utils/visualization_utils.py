@@ -65,7 +65,7 @@ def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save_path=None, pyplot
         plt.savefig(save_path)
 
 
-def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_to_vis_idxs=[1]):
+def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_to_vis_idxs=[1], save_path: str = ''):
     plt.switch_backend("TkAgg")
     max_iter, N = diagnostics_dict["nu"].shape
     max_iter, K, M, A = diagnostics_dict["C"].shape
@@ -75,7 +75,9 @@ def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_
     fig.suptitle(f"Diagnostics - cells {cells_to_vis_idxs}")
     axs[0, 0].plot(diagnostics_dict["nu"][:, cells_to_vis_idxs[0]])
     axs[0, 1].plot(diagnostics_dict["lmbda"][:, cells_to_vis_idxs[0]])
-    axs[0, 2].plot(torch.arange(0, max_iter), diagnostics_dict["alpha"][cells_to_vis_idxs[0]].expand(max_iter))
+    axs[0, 1].plot(diagnostics_dict["alpha"][:, cells_to_vis_idxs[0]])
+    # print all even if not updated (constant line)
+    # axs[0, 2].plot(torch.arange(0, max_iter), diagnostics_dict["alpha"][cells_to_vis_idxs[0]].expand(max_iter))
     axs[0, 3].plot(diagnostics_dict["beta"][:, cells_to_vis_idxs[0]])
 
     axs[1, 0].plot(diagnostics_dict["C"][0, clones_to_vis_idxs[0], :].argmax(dim=-1))
@@ -92,7 +94,10 @@ def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_
     axs[3, 1].plot(diagnostics_dict["eps_a"][:, 0, 1])
     axs[3, 2].plot(diagnostics_dict["eps_b"][:, 0, 1])
 
-    plt.show()
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
 
 
 if __name__ == '__main__':
