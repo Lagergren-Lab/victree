@@ -28,8 +28,8 @@ class JointVarDist(VariationalDistribution):
 
     def update(self):
         # T, C, eps, z, mt, pi
-        trees, weights = self.t.get_trees_sample()
         self.t.update(self.c, self.eps)
+        trees, weights = self.t.get_trees_sample()
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
@@ -49,7 +49,32 @@ class JointVarDist(VariationalDistribution):
                self.mt.elbo() + \
                self.pi.elbo() + \
                self.eps.elbo(T_eval, w_T_eval) + \
-               self.t.elbo(T_eval, w_T_eval)
+               self.t.elbo(T_eval, w_T_eval) + \
+               self.elbo_observations()
+
+    def elbo_observations(self):
+        E_log_tau = self.mt.exp_log_tau()
+        E_tau = self.mt.exp_tau()
+        E_mu_tau = self.mt.exp_mu_tau()
+        E_mu2_tau = self.mt.exp_mu2_tau()
+
+        qC = self.c.single_filtering_probs
+        qZ = self.z.pi
+        y = self.obs
+        A = self.config.n_states
+        c = torch.arange(0, A, dtype=torch.float)
+        c2 = c ** 2
+        M, N = y.shape
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
+            "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+            self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
+        E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
+        E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
+        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
+            torch.tensor(2 * torch.pi)))
+        return elbo
+
 
     def __str__(self):
         # summary for joint dist
@@ -128,11 +153,12 @@ class VarDistFixedTree(VariationalDistribution):
         c = torch.arange(0, A, dtype=torch.float)
         c2 = c ** 2
         M, N = y.shape
-        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum("umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
-        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y**2) if type(self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y**2)
+        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
+            "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+            self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
         E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
-        # elbo = torch.einsum("umi, nu, n, mn, nmi, ni -> ", self.c.single_filtering_probs, self.z.pi, E_log_tau, E_tau_y2, E_mu_tau_y_i, E_mu2_tau)
         elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
             torch.tensor(2 * torch.pi)))
         return elbo
@@ -222,7 +248,14 @@ class CopyTree:
 
         self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
 
-    def update_diagnostics(self, iter: int, elbo: float = 0.):
+        if type(self.q) is JointVarDist:
+            L = self.config.wis_sample_size
+            self.diagnostics_dict["wG"] = []
+            self.diagnostics_dict["wT"] = torch.zeros((n_iter, L))
+            self.diagnostics_dict["gT"] = torch.zeros((n_iter, L))
+            self.diagnostics_dict["T"] = []
+
+    def update_diagnostics(self, iter: int):
         # C, Z, pi diagnostics
         self.diagnostics_dict["C"][iter] = self.q.c.single_filtering_probs
         self.diagnostics_dict["Z"][iter] = self.q.z.pi
@@ -247,6 +280,12 @@ class CopyTree:
 
         # elbo
         self.diagnostics_dict["elbo"][iter] = self.elbo
+
+        if type(self.q) is JointVarDist:
+            self.diagnostics_dict["wG"].append(self.q.t.weighted_graph)
+            self.diagnostics_dict["wT"][iter] = self.q.t.w_T
+            self.diagnostics_dict["gT"][iter] = self.q.t.g_T
+            self.diagnostics_dict["T"].append(self.q.t.T_list)
 
 
     def sieve(self, n_sieve_iter=10, seed_list=None):
