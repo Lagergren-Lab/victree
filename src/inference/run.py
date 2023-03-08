@@ -5,6 +5,7 @@ import torch
 import numpy as np
 
 from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
+from utils import visualization_utils
 from utils.config import Config
 from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5
 
@@ -27,7 +28,8 @@ def run(args):
     logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
     config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
-                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size)
+                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size,
+                    diagnostics=args.diagnostics)
     logging.debug(f"Config - n_nodes:  {args.K}, n_states:  {args.A}, n_tree_samples:  {args.L}")
 
     # instantiate all distributions
@@ -37,6 +39,8 @@ def run(args):
     
     copy_tree.run(args.n_iter)
 
-    write_output_h5(copy_tree, args.out_path)
+    write_output_h5(copy_tree, args.out_path, args.diagnostics)
+    if config.diagnostics:
+        visualization_utils.visualize_diagnostics(copy_tree.diagnostics_dict)
 
     return copy_tree

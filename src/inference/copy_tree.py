@@ -51,7 +51,7 @@ class JointVarDist(VariationalDistribution):
                self.pi.elbo() + \
                self.eps.elbo(T_eval, w_T_eval) + \
                self.t.elbo(T_eval, w_T_eval) + \
-               self.elbo_observations(T_eval, w_T_eval)
+               self.elbo_observations()
 
     def elbo_observations(self):
         E_log_tau = self.mt.exp_log_tau()
