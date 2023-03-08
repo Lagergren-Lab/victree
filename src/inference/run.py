@@ -40,12 +40,10 @@ def run(args):
     copy_tree = CopyTree(config, joint_q, obs)
     
     copy_tree.run(args.n_iter)
-    if args.debug:
+    if args.diagnostics:
         with open('./output/diagnostics.pkl', 'wb') as pickle_file:
             pickle.dump(copy_tree.diagnostics_dict, pickle_file)
 
     write_output_h5(copy_tree, args.out_path, args.diagnostics)
-    if config.diagnostics:
-        visualization_utils.visualize_diagnostics(copy_tree.diagnostics_dict)
 
     return copy_tree
