@@ -202,7 +202,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
                 # save values in dict
                 C_dict[u, m] = C_u_m
                 ind = torch.where(z == u)[0]
-                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (lambda_0 * tau[ind].sqrt())), obs=data[m, ind])
+                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / tau[ind].sqrt()), obs=data[m, ind])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():
@@ -258,7 +258,7 @@ Generate full simulated dataset.
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
-    scale_expanded = torch.pow(tau, -2).reshape(-1, 1).expand(-1, config.chain_length)
+    scale_expanded = torch.pow(tau, -1/2).reshape(-1, 1).expand(-1, config.chain_length)
     # (chain_length x n_cells)
     obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
     obs = obs.T

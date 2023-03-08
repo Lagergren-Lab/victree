@@ -6,6 +6,7 @@ import numpy as np
 import pickle
 
 from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
+from utils import visualization_utils
 from utils.config import Config
 from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5
 
@@ -28,7 +29,8 @@ def run(args):
     logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
     config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
-                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size, diagnostics=args.debug)
+                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size,
+                    diagnostics=args.diagnostics)
     logging.debug(str(config))
 
     # instantiate all distributions
@@ -42,8 +44,13 @@ def run(args):
 
     logging.info('start inference')
     copy_tree.run(args.n_iter)
-    if args.debug:
-        with open('./output/diagnostics.pkl', 'wb') as pickle_file:
+    if args.diagnostics:
+        file_dir = './output/'
+        file_name = f'diagnostics_K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}' \
+                    f'_iter{args.n_iter}'
+        file_name += f'_L{config.wis_sample_size}.pkl' if type(copy_tree.q) is JointVarDist else '.pkl'
+        file_path = os.path.join(file_dir, file_name)
+        with open(file_path, 'wb') as pickle_file:
             pickle.dump(copy_tree.diagnostics_dict, pickle_file)
 
     write_output_h5(copy_tree, args.out_path)

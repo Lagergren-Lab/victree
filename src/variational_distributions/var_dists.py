@@ -728,6 +728,9 @@ class qT(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
+        self.g_T = torch.zeros(config.wis_sample_size)
+        self.w_T = torch.zeros(config.wis_sample_size)
+        self.T_list = []
         self._weighted_graph = nx.DiGraph()
         self._weighted_graph.add_edges_from([(u, v)
                                              for u, v in itertools.permutations(range(config.n_nodes), 2)
@@ -884,10 +887,13 @@ Sample trees from q(T) with importance sampling.
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
                 log_weights[i] = log_q - log_isw
+                self.g_T[i] = log_isw
+                self.w_T[i] = log_weights[i]
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
         weights = torch.exp(log_weights)
+        self.T_list = trees
         return trees, weights.tolist()
 
     def __str__(self):

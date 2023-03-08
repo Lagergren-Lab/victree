@@ -57,6 +57,7 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--output", dest="out_path",
                         help="output data file", metavar="FILE")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
+    parser.add_argument("--diagnostics", action="store_true", help="store data of var dists during optimization")
     parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")
     parser.add_argument("-s", "--step-size", default=.1, type=float, help="step-size for partial updates")
     parser.add_argument("--A", default=7, type=int, help="Number of characters/copy number states")

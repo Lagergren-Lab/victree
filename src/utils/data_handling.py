@@ -52,6 +52,7 @@ def write_output_h5(out_copytree: CopyTree, out_path):
     mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda, out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
 
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
+
     f.close()
 
 
