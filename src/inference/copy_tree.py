@@ -28,8 +28,8 @@ class JointVarDist(VariationalDistribution):
 
     def update(self):
         # T, C, eps, z, mt, pi
-        trees, weights = self.t.get_trees_sample()
         self.t.update(self.c, self.eps)
+        trees, weights = self.t.get_trees_sample()
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
@@ -75,47 +75,6 @@ class JointVarDist(VariationalDistribution):
             torch.tensor(2 * torch.pi)))
         return elbo
 
-    def init_diagnostics(self, diagnostics_dict: dict, n_iter: int):
-        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
-        # T, C, Z, pi diagnostics
-        diagnostics_dict["qT"] = torch.zeros((n_iter, K, K))
-        diagnostics_dict["gT"] = torch.zeros((n_iter, K, K))
-        diagnostics_dict["T"] = []
-        diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
-        diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
-        diagnostics_dict["pi"] = torch.zeros((n_iter, K))
-
-        # eps diagnostics
-        diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
-        diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
-
-        # qMuTau diagnostics
-        diagnostics_dict["nu"] = torch.zeros((n_iter, N))
-        diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
-        diagnostics_dict["alpha"] = self.mt.alpha  # Never updated
-        diagnostics_dict["beta"] = torch.zeros((n_iter, N))
-
-    def add_diagnostics(self, diagnostics_dict: dict, iter: int):
-        # C, Z, pi diagnostics
-        diagnostics_dict["C"][iter] = self.c.single_filtering_probs
-        diagnostics_dict["Z"][iter] = self.z.pi
-        diagnostics_dict["pi"][iter] = self.pi.concentration_param
-
-        # eps diagnostics
-        K = self.config.n_nodes
-        eps_a = torch.zeros((K, K))
-        eps_b = torch.zeros((K, K))
-        for key in self.eps.alpha.keys():
-            eps_a[key] = self.eps.alpha[key]
-            eps_b[key] = self.eps.beta[key]
-
-        diagnostics_dict["eps_a"][iter] = eps_a
-        diagnostics_dict["eps_b"][iter] = eps_b
-
-        # qMuTau diagnostics
-        diagnostics_dict["nu"][iter] = self.mt.nu
-        diagnostics_dict["lmbda"][iter] = self.mt.lmbda
-        diagnostics_dict["beta"][iter] = self.mt.beta
 
     def __str__(self):
         # summary for joint dist
@@ -289,7 +248,14 @@ class CopyTree:
 
         self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
 
-    def update_diagnostics(self, iter: int, elbo: float = 0.):
+        if type(self.q) is JointVarDist:
+            L = self.config.wis_sample_size
+            self.diagnostics_dict["wG"] = []
+            self.diagnostics_dict["wT"] = torch.zeros((n_iter, L))
+            self.diagnostics_dict["gT"] = torch.zeros((n_iter, L))
+            self.diagnostics_dict["T"] = []
+
+    def update_diagnostics(self, iter: int):
         # C, Z, pi diagnostics
         self.diagnostics_dict["C"][iter] = self.q.c.single_filtering_probs
         self.diagnostics_dict["Z"][iter] = self.q.z.pi
@@ -314,6 +280,12 @@ class CopyTree:
 
         # elbo
         self.diagnostics_dict["elbo"][iter] = self.elbo
+
+        if type(self.q) is JointVarDist:
+            self.diagnostics_dict["wG"].append(self.q.t.weighted_graph)
+            self.diagnostics_dict["wT"][iter] = self.q.t.w_T
+            self.diagnostics_dict["gT"][iter] = self.q.t.g_T
+            self.diagnostics_dict["T"].append(self.q.t.T_list)
 
 
     def sieve(self, n_sieve_iter=10, seed_list=None):

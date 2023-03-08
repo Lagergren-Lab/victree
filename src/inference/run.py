@@ -43,7 +43,8 @@ def run(args):
     if args.diagnostics:
         file_dir = './output/'
         file_name = f'diagnostics_K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}' \
-                    f'_iter{args.n_iter}.pkl'
+                    f'_iter{args.n_iter}'
+        file_name += f'_L{config.wis_sample_size}.pkl' if type(copy_tree.q) is JointVarDist else '.pkl'
         file_path = os.path.join(file_dir, file_name)
         with open(file_path, 'wb') as pickle_file:
             pickle.dump(copy_tree.diagnostics_dict, pickle_file)
