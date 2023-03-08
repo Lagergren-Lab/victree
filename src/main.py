@@ -15,9 +15,24 @@ from utils.config import set_seed
 
 def main(args):
     logging.info("running main program")
-    copytree = run(args)
+    try:
+        run(args)
+    except Exception as e:
+        logging.exception("main fail traceback")
     logging.info("main is over")
 
+
+def set_logger(debug: bool):
+    level = logging.DEBUG if debug else logging.INFO
+    f_handler = logging.FileHandler('out.log')
+    c_handler = logging.StreamHandler(sys.stdout)
+
+    f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
+    c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    logger = logging.root
+    logger.setLevel(level)
+    logger.addHandler(f_handler)
+    logger.addHandler(c_handler)
 
 def validate_file(f):
     if not os.path.exists(f):
@@ -37,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
     parser.add_argument("-i", "--input", dest="file_path",
-                        type=validate_file, default='../obs_example.txt',
+                        type=validate_file, default='./datasets/n5_c300_l1k.h5',
                         help="input data file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_path",
                         help="output data file", metavar="FILE")
@@ -52,8 +67,7 @@ if __name__ == '__main__':
     set_seed(args.seed)
 
     # logger setup
-    logging.basicConfig(filename='out.log', level=logging.DEBUG if args.debug else logging.INFO)
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    getattr(logging, args.log)
+    set_logger(args.debug)
 
+    # main program
     main(args)

@@ -86,8 +86,8 @@ class Config:
             f"N={self.n_cells}," + \
             f"M={self.chain_length}," + \
             f"L={self.n_states}," + \
-            f"cn_states={self.n_states}" + \
-            f"step_size={self.step_size}" + \
+            f"cn_states={self.n_states}," + \
+            f"step_size={self.step_size}," + \
             f"sieving_size={self.sieving_size}"
 
         return s
