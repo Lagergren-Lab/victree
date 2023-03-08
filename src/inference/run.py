@@ -41,9 +41,13 @@ def run(args):
     
     copy_tree.run(args.n_iter)
     if args.diagnostics:
-        with open('./output/diagnostics.pkl', 'wb') as pickle_file:
+        file_dir = './output/'
+        file_name = f'diagnostics_K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}' \
+                    f'_iter{args.n_iter}.pkl'
+        file_path = os.path.join(file_dir, file_name)
+        with open(file_path, 'wb') as pickle_file:
             pickle.dump(copy_tree.diagnostics_dict, pickle_file)
 
-    write_output_h5(copy_tree, args.out_path, args.diagnostics)
+    write_output_h5(copy_tree, args.out_path)
 
     return copy_tree

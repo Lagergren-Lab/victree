@@ -34,7 +34,7 @@ def dict_to_tensor(a: dict):
     return a_tensor
 
 
-def write_output_h5(out_copytree: CopyTree, out_path, diagnostics=False):
+def write_output_h5(out_copytree: CopyTree, out_path):
     f = h5py.File(out_path, 'w')
     x_ds = f.create_dataset('X', data=out_copytree.obs)
     out_grp = f.create_group('result')
@@ -52,10 +52,6 @@ def write_output_h5(out_copytree: CopyTree, out_path, diagnostics=False):
     mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda, out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
 
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
-
-    if diagnostics:
-        diagnostics_group = f.create_group('diagnostics')
-        diagnostics_group.create_dataset('')
 
     f.close()
 
