@@ -663,8 +663,13 @@ class qZ(VariationalDistribution):
 
     def exp_assignment(self) -> torch.Tensor:
         out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
-        # simply the pi probabilities
-        out_qz[...] = self.pi
+        if self.fixed:
+            true_z = self.true_params["z"]
+            # set prob of a true assignment to 1
+            out_qz[torch.arange(self.config.n_cells), true_z] = 1.
+        else:
+            # simply the pi probabilities
+            out_qz[...] = self.pi
         return out_qz
 
     def neg_cross_entropy(self, qpi: 'qPi') -> float:
