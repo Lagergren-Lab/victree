@@ -558,7 +558,26 @@ class qC(VariationalDistribution):
         return q_C_pairs
 
     def __str__(self):
-        return 'qc summary not implemented'
+        torch.set_printoptions(precision=3)
+        # summary for qc
+        summary = ["[qC summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            k = max(30, self.config.chain_length)  # first k sites
+            summary.append(f"-cn profile\n{self.true_params['c'][:, :k]}")
+        else:
+            max_entropy = torch.special.entr(torch.ones(self.config.n_states) / self.config.n_states).sum()
+            # print first k cells assignments and their uncertainties - entropy normalized by max value
+            summary.append(f"-cn profile")
+            k = min(10, self.config.n_nodes)  # first k clones
+            m = min(30, self.config.chain_length)  # first m sites
+            for c in range(k):
+                cn_prof = self.single_filtering_probs[c, :m, :].argmax(dim=1)
+                summary.append(f"\t{c}:\t{cn_prof}")
+                uncertainty = torch.special.entr(self.single_filtering_probs[c, :m, :]).sum(dim=1) / max_entropy
+                summary.append(f"\t\t{uncertainty}")
+
+        return os.linesep.join(summary)
 
 
 # cell assignments
@@ -683,7 +702,24 @@ class qZ(VariationalDistribution):
         return self.neg_cross_entropy(qpi) + self.entropy()
 
     def __str__(self):
-        return 'qz summary not implemented'
+        np.set_printoptions(precision=3, suppress=True)
+        # summary for qz
+        summary = ["[qZ summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            k = max(20, self.config.n_cells)  # first k cells
+            summary.append("-cell assignment\t" + self.true_params['z'][:k])
+        else:
+            max_entropy = torch.special.entr(torch.ones(self.config.n_nodes) / self.config.n_nodes).sum()
+            # print first k cells assignments and their uncertainties - entropy normalized by max value
+            summary.append(f"-cell assignment (uncertainty, i.e. 1=flat, 0=peaked)\n")
+            k = min(10, self.config.n_cells)  # first k cells
+            for c in range(k):
+                cell_clone = self.pi[c, :].argmax()
+                norm_entropy = torch.special.entr(self.pi[c, :]).sum() / max_entropy
+                summary.append(f"\t\tcell {c}: clone {cell_clone} ({norm_entropy.item():.3f})")
+
+        return os.linesep.join(summary)
 
 
 # topology

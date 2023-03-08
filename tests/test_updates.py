@@ -150,7 +150,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qc(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q = self.generate_test_dataset_fixed_tree(step_size=.1)
         cfg = joint_q.config
         obs = joint_q.obs
         fix_tree = joint_q.T
@@ -164,11 +164,13 @@ class updatesTestCase(unittest.TestCase):
         qc = qC(cfg)
         qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
 
-        for i in range(100):
+        for i in range(50):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt,
                       trees=trees, tree_weights=wis_weights)
 
         # compare estimated single filtering probs against true copy number profile
+        print(joint_q.c)
+        print(qc)
         self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
 
         self.assertTrue(torch.all(qc.couple_filtering_probs[0, :, 2, 2] > qc.couple_filtering_probs[0, :, 2, 0]))
