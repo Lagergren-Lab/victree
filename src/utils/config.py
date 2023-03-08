@@ -85,7 +85,7 @@ class Config:
         s = f"config: K={self.n_nodes}," + \
             f"N={self.n_cells}," + \
             f"M={self.chain_length}," + \
-            f"L={self.n_states}," + \
+            f"L={self.wis_sample_size}," + \
             f"cn_states={self.n_states}," + \
             f"step_size={self.step_size}," + \
             f"sieving_size={self.sieving_size}"

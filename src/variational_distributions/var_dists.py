@@ -762,12 +762,10 @@ other elbos such as qC.
         for u, v in all_edges:
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-        # chain length determines how large are the log-weights
+        # chain length determines how large log-weights are
         # while they should be length invariant
+        # FIXME: avoid this hack
         w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
-        # # min-max scaling of weights
-        # w_tensor -= torch.min(w_tensor)
-        # w_tensor /= torch.max(w_tensor)
         self.update_params(w_tensor)
         return super().update()
 
@@ -1226,7 +1224,7 @@ class qEpsilonMulti(VariationalDistribution):
                 e_var = var[u, v]
                 summary.append(f"({u},{v}): {e_mean:.2f} " +
                                pm_uni +
-                               f"{np.sqrt(e_var):.2f} (a={self.alpha[u, v]:.2f}, b={self.beta[u,v]:.2f})")
+                               f" {np.sqrt(e_var):.2f} (a={self.alpha[u, v]:.2f}, b={self.beta[u,v]:.2f})")
 
             summary.append(f"-prior\ta0={self.alpha_prior}, b0={self.beta_prior}")
 
@@ -1500,11 +1498,6 @@ Initialize the mu and tau params given observations
             summary.append(f"partial ELBO\t{self.elbo():.2f}")
 
         return os.linesep.join(summary)
-
-    def summary(self, print_out=False):
-        if print_out:
-            print(self)
-        return str(self)
 
 
 class qMuAndTauCellIndependent(VariationalDistribution):
