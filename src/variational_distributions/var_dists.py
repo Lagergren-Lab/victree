@@ -557,6 +557,9 @@ class qC(VariationalDistribution):
 
         return q_C_pairs
 
+    def __str__(self):
+        return 'qc summary not implemented'
+
 
 # cell assignments
 class qZ(VariationalDistribution):
@@ -673,6 +676,9 @@ class qZ(VariationalDistribution):
 
     def elbo(self, qpi: 'qPi') -> float:
         return self.neg_cross_entropy(qpi) + self.entropy()
+
+    def __str__(self):
+        return 'qz summary not implemented'
 
 
 # topology
@@ -846,7 +852,8 @@ Sample trees from q(T) with importance sampling.
         return trees, weights.tolist()
 
     def __str__(self):
-        # elbo for q
+        np.set_printoptions(precision=3, suppress=True)
+        # summary for qt
         summary = ["[qT summary]"]
         if self.fixed:
             summary[0] += " - True Dist"
@@ -856,7 +863,7 @@ Sample trees from q(T) with importance sampling.
             summary.append(f"-sampled trees:")
             eval_trees, eval_weights = self.get_trees_sample(sample_size=10)
             for t, w in zip(eval_trees, eval_weights):
-                summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w}")
+                summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w:.4f}")
             summary.append(f"partial ELBO\t{self.elbo(eval_trees, eval_weights):.2f}")
 
         return os.linesep.join(summary)
@@ -1192,6 +1199,34 @@ class qEpsilonMulti(VariationalDistribution):
         mean_dict = {e: self.alpha[e] / (self.alpha[e] + self.beta[e]) for e in self.alpha.keys()}
         return mean_dict
 
+    def var(self) -> dict:
+        var_dict = {e: self.alpha[e]*self.beta[e] / ((self.alpha[e] + self.beta[e]) ** 2 *
+                                                    (self.alpha[e] + self.beta[e] + 1)) for e in self.alpha.keys()}
+        return var_dict
+
+    def __str__(self):
+        # summary for qeps
+        summary = ["[qEpsilon summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append(f"-eps\t\n{self.true_params['eps']}")  # prints dict
+        else:
+            # print top k smallest epsilons
+            k = min(len(self.alpha), 5)
+            topk = sorted(self.mean().items(), key=lambda x: x[1])[:k]
+            summary.append(f"-top{k}")
+            var = self.var()
+            for i in range(k):
+                (u, v), e_mean = topk[i]
+                e_var = var[u, v]
+                summary.append(f"({u},{v}): {e_mean:.2f} " +
+                               pm_uni +
+                               f"{np.sqrt(e_var):.2f} (a={self.alpha[u, v]:.2f}, b={self.beta[u,v]:.2f})")
+
+            summary.append(f"-prior\ta0={self.alpha_prior}, b0={self.beta_prior}")
+
+        return os.linesep.join(summary)
+
 
 # observations (mu-tau)
 class qMuTau(VariationalDistribution):
@@ -1436,7 +1471,7 @@ Initialize the mu and tau params given observations
         exp_sum = exp_c_lmbda + exp_mu2_tau
         return exp_sum
 
-    def summary(self, print_out=False):
+    def __str__(self):
         summary = ["[qMuTau summary]"]
         if self.fixed:
             summary[0] += " - True Dist"
@@ -1459,9 +1494,12 @@ Initialize the mu and tau params given observations
                            f" (prior {self.lmbda_0:.2f})")
             summary.append(f"partial ELBO\t{self.elbo():.2f}")
 
-        if print_out:
-            print(summary)
         return os.linesep.join(summary)
+
+    def summary(self, print_out=False):
+        if print_out:
+            print(self)
+        return str(self)
 
 
 class qMuAndTauCellIndependent(VariationalDistribution):
@@ -1729,3 +1767,6 @@ class qPi(VariationalDistribution):
         cross_entropy = self.neg_cross_entropy()
         entropy = self.entropy()
         return cross_entropy + entropy
+
+    def __str__(self):
+        return 'qpi summary not implemented'
