@@ -3,7 +3,6 @@ import logging
 from typing import Union, List
 
 import networkx as nx
-import numpy as np
 from numpy import infty
 import torch
 import torch.distributions as dist
@@ -118,6 +117,14 @@ class JointVarDist(VariationalDistribution):
         diagnostics_dict["lmbda"][iter] = self.mt.lmbda
         diagnostics_dict["beta"][iter] = self.mt.beta
 
+    def __str__(self):
+        # summary for joint dist
+        tot_str = "+++ Joint summary +++"
+        for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
+            tot_str += str(q)
+            tot_str += "\n --- \n"
+        tot_str += "+++ end of summary +++"
+
 
 class VarDistFixedTree(VariationalDistribution):
     def __init__(self, config: Config,
@@ -140,45 +147,6 @@ class VarDistFixedTree(VariationalDistribution):
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
         return super().update()
-
-    def init_diagnostics(self, diagnostics_dict: dict, n_iter: int):
-        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
-        # C, Z, pi diagnostics
-        diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
-        diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
-        diagnostics_dict["pi"] = torch.zeros((n_iter, K))
-
-        # eps diagnostics
-        diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
-        diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
-
-        # qMuTau diagnostics
-        diagnostics_dict["nu"] = torch.zeros((n_iter, N))
-        diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
-        diagnostics_dict["alpha"] = self.mt.alpha  # Never updated
-        diagnostics_dict["beta"] = torch.zeros((n_iter, N))
-
-    def add_diagnostics(self, diagnostics_dict: dict, iter: int):
-        # C, Z, pi diagnostics
-        diagnostics_dict["C"][iter] = self.c.single_filtering_probs
-        diagnostics_dict["Z"][iter] = self.z.pi
-        diagnostics_dict["pi"][iter] = self.pi.concentration_param
-
-        # eps diagnostics
-        K = self.config.n_nodes
-        eps_a = torch.zeros((K, K))
-        eps_b = torch.zeros((K, K))
-        for key in self.eps.alpha.keys():
-            eps_a[key] = self.eps.alpha[key]
-            eps_b[key] = self.eps.beta[key]
-
-        diagnostics_dict["eps_a"][iter] = eps_a
-        diagnostics_dict["eps_b"][iter] = eps_b
-
-        # qMuTau diagnostics
-        diagnostics_dict["nu"][iter] = self.mt.nu
-        diagnostics_dict["lmbda"][iter] = self.mt.lmbda
-        diagnostics_dict["beta"][iter] = self.mt.beta
 
     def update_shuffle(self):
         # T, C, eps, z, mt, pi
@@ -259,7 +227,7 @@ class CopyTree:
         close_runs = 0
 
         if self.diagnostics_dict is not None:
-            self.q.init_diagnostics(self.diagnostics_dict, n_iter)
+            self.init_diagnostics(n_iter)
 
         if self.config.sieving_size > 1:
             self.compute_elbo()
@@ -276,20 +244,22 @@ class CopyTree:
             # do the updates
             if it % 10 == 0:
                 logging.info(f"It: {it}")
-            logging.debug(f"It: {it}")
+            else:
+                logging.debug(f"It: {it}")
             self.step()
-
-            if self.diagnostics_dict is not None:
-                self.q.add_diagnostics(self.diagnostics_dict, it)
 
             old_elbo = self.elbo
             self.compute_elbo()
             if it % 10 == 0:
                 logging.info(f"[{it}] ELBO: {self.elbo:.2f}")
 
+            if self.diagnostics_dict is not None:
+                self.update_diagnostics(it)
+
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
+                    logging.debug(f"Run ended after {it}/{n_iter} iterations due to plateau")
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
@@ -299,6 +269,52 @@ class CopyTree:
                 close_runs = 0
 
         print(f"ELBO final: {self.elbo:.2f}")
+
+    def init_diagnostics(self, n_iter: int):
+        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
+        # C, Z, pi diagnostics
+        self.diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
+        self.diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
+        self.diagnostics_dict["pi"] = torch.zeros((n_iter, K))
+
+        # eps diagnostics
+        self.diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
+        self.diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
+
+        # qMuTau diagnostics
+        self.diagnostics_dict["nu"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["alpha"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["beta"] = torch.zeros((n_iter, N))
+
+        self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
+
+    def update_diagnostics(self, iter: int, elbo: float = 0.):
+        # C, Z, pi diagnostics
+        self.diagnostics_dict["C"][iter] = self.q.c.single_filtering_probs
+        self.diagnostics_dict["Z"][iter] = self.q.z.pi
+        self.diagnostics_dict["pi"][iter] = self.q.pi.concentration_param
+
+        # eps diagnostics
+        K = self.config.n_nodes
+        eps_a = torch.zeros((K, K))
+        eps_b = torch.zeros((K, K))
+        for key in self.q.eps.alpha.keys():
+            eps_a[key] = self.q.eps.alpha[key]
+            eps_b[key] = self.q.eps.beta[key]
+
+        self.diagnostics_dict["eps_a"][iter] = eps_a
+        self.diagnostics_dict["eps_b"][iter] = eps_b
+
+        # qMuTau diagnostics
+        self.diagnostics_dict["nu"][iter] = self.q.mt.nu
+        self.diagnostics_dict["lmbda"][iter] = self.q.mt.lmbda
+        self.diagnostics_dict["alpha"][iter] = self.q.mt.alpha  # not updated
+        self.diagnostics_dict["beta"][iter] = self.q.mt.beta
+
+        # elbo
+        self.diagnostics_dict["elbo"][iter] = self.elbo
+
 
     def sieve(self, n_sieve_iter=10, seed_list=None):
         """

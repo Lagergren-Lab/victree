@@ -845,6 +845,22 @@ Sample trees from q(T) with importance sampling.
         weights = torch.exp(log_weights)
         return trees, weights.tolist()
 
+    def __str__(self):
+        # elbo for q
+        summary = ["[qT summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append("-tree\t" + tree_utils.tree_to_newick(self.true_params['tree']))
+        else:
+            summary.append(f"-adj matrix\t{nx.to_numpy_array(self._weighted_graph)}")
+            summary.append(f"-sampled trees:")
+            eval_trees, eval_weights = self.get_trees_sample(sample_size=10)
+            for t, w in zip(eval_trees, eval_weights):
+                summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w}")
+            summary.append(f"partial ELBO\t{self.elbo(eval_trees, eval_weights):.2f}")
+
+        return os.linesep.join(summary)
+
 
 # edge distance (single eps for all nodes)
 class qEpsilon(VariationalDistribution):
@@ -1420,6 +1436,33 @@ Initialize the mu and tau params given observations
         exp_sum = exp_c_lmbda + exp_mu2_tau
         return exp_sum
 
+    def summary(self, print_out=False):
+        summary = ["[qMuTau summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append(f"-mu\t\t{self.true_params['mu'].mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.true_params['mu'].std(dim=-1):.2f}")
+            summary.append(f"-tau\t{self.true_params['tau'].mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.true_params['tau'].std(dim=-1):.2f}")
+        else:
+            summary.append(f"-alpha\t{self.alpha.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.alpha.std(dim=-1):.2f}" +
+                           f" (prior {self.alpha_0:.2f})")
+            summary.append(f"-beta\t{self.beta.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.beta.std(dim=-1):.2f}" +
+                           f" (prior {self.beta_0:.2f})")
+            summary.append(f"-nu\t\t{self.nu.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.nu.std(dim=-1):.2f}" +
+                           f" (prior {self.nu_0:.2f})")
+            summary.append(f"-lambda\t{self.lmbda.mean(dim=-1):.2f} " +
+                           pm_uni + f" {self.lmbda.std(dim=-1):.2f}" +
+                           f" (prior {self.lmbda_0:.2f})")
+            summary.append(f"partial ELBO\t{self.elbo():.2f}")
+
+        if print_out:
+            print(summary)
+        return os.linesep.join(summary)
+
 
 class qMuAndTauCellIndependent(VariationalDistribution):
 
@@ -1595,39 +1638,13 @@ class qMuAndTauCellIndependent(VariationalDistribution):
     def exp_mu2_tau(self):
         return 1. / self.phi + torch.pow(self.nu, 2) * self.alpha / self.beta
 
-    def summary(self, print_out=False):
-        summary = ["[qMuTau summary]"]
-        if self.fixed:
-            summary[0] += " - True Dist"
-            summary.append(f"-mu\t\t{self.true_params['mu'].mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.true_params['mu'].std(dim=-1):.2f}")
-            summary.append(f"-tau\t{self.true_params['tau'].mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.true_params['tau'].std(dim=-1):.2f}")
-        else:
-            summary.append(f"-alpha\t{self.alpha.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.alpha.std(dim=-1):.2f}" +
-                           f" (prior {self.alpha_0:.2f})")
-            summary.append(f"-beta\t{self.beta.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.beta.std(dim=-1):.2f}" +
-                           f" (prior {self.beta_0:.2f})")
-            summary.append(f"-nu\t\t{self.nu.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.nu.std(dim=-1):.2f}" +
-                           f" (prior {self.nu_0:.2f})")
-            summary.append(f"-lambda\t{self.lmbda.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.lmbda.std(dim=-1):.2f}" +
-                           f" (prior {self.lmbda_0:.2f})")
-            summary.append(f"ELBO\t{self.elbo_alt():.2f}")
-
-        if print_out:
-            print(summary)
-        return os.linesep.join(summary)
 
 
 # dirichlet concentration
 class qPi(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_prior=1, true_params=None):
-        self.concentration_param_prior = torch.ones(config.n_nodes) * alpha_prior
+    def __init__(self, config: Config, delta_prior: float = 1., true_params: dict | None = None):
+        self.concentration_param_prior = torch.ones(config.n_nodes) * delta_prior
         self._concentration_param = torch.empty_like(self.concentration_param_prior)
 
         if true_params is not None:

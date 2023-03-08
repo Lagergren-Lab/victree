@@ -4,9 +4,10 @@
 **/__pycache__/*
 *.log
 .DS_Store
+# notes
+notes.md
+/img/
 # output dirs
 *_out
-notes.md
-./src/tests/test_output/*
-./tests/test_output/*
-./tests/test_output
+/tests/test_output/
+/output/
