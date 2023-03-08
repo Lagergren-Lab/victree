@@ -368,7 +368,7 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
 
 def write_simulated_dataset_h5(dest_path, data):
     f = h5py.File(dest_path, 'w')
-    x_ds = f.create_dataset('X', data=data['obs'])
+    x_ds = f.create_dataset('X', data=data['obs'].T)
     layers_grp = f.create_group('layers')
     z = data['z']
     cn_state = data['c'][z, :].T

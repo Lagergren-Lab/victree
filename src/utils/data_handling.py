@@ -36,7 +36,7 @@ def dict_to_tensor(a: dict):
 
 def write_output_h5(out_copytree: CopyTree, out_path):
     f = h5py.File(out_path, 'w')
-    x_ds = f.create_dataset('X', data=out_copytree.obs)
+    x_ds = f.create_dataset('X', data=out_copytree.obs.T)
     out_grp = f.create_group('result')
 
     graph_data = out_copytree.q.t.weighted_graph.edges.data('weight')

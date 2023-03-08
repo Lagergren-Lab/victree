@@ -20,7 +20,7 @@ def run(args):
         if 'gt' in full_data.keys():
             logging.debug(f"gt tree: {np.array(full_data['gt']['tree'])}")
 
-        obs = torch.tensor(np.array(full_data['X']))
+        obs = torch.tensor(np.array(full_data['X']), dtype=torch.float).T
     else:
         raise FileNotFoundError(f"file extension not recognized: {fext}")
 
@@ -35,6 +35,9 @@ def run(args):
     joint_q = JointVarDist(config, obs)
     logging.info('initializing distributions..')
     joint_q.initialize()
+    joint_q.z.initialize(method='kmeans', obs=obs)
+    joint_q.mt.initialize(method='data', obs=obs)
+
     copy_tree = CopyTree(config, joint_q, obs)
 
     logging.info('start inference')
