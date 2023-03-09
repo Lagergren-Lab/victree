@@ -2,6 +2,7 @@ from typing import List, Tuple, Union
 from pathlib import Path
 import torch
 import h5py
+import networkx as nx
 
 from inference.copy_tree import CopyTree
 
@@ -40,12 +41,12 @@ def write_output_h5(out_copytree: CopyTree, out_path):
     out_grp = f.create_group('result')
 
     graph_data = out_copytree.q.t.weighted_graph.edges.data('weight')
-    graph_tensor = torch.tensor([[u, v, w] for u, v, w in graph_data])
+    graph_adj_matrix = nx.to_numpy_array(out_copytree.q.t.weighted_graph)
     alpha_tensor = dict_to_tensor(out_copytree.q.eps.alpha)
     beta_tensor = dict_to_tensor(out_copytree.q.eps.beta)
 
-    graph_weights = out_grp.create_dataset('graph', data=graph_tensor)
-    cell_assignments = out_grp.create_dataset('cell_assignments', data=out_copytree.q.z.pi)
+    graph_weights = out_grp.create_dataset('graph', data=graph_adj_matrix)
+    cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi)
     eps_alpha = out_grp.create_dataset('eps_alpha', data=alpha_tensor)
     eps_beta = out_grp.create_dataset('eps_beta', data=beta_tensor)
 
