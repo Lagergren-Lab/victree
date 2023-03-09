@@ -124,8 +124,9 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
     # counts how many times arborescences cannot be found
     miss_counter = 0
     log_isw = 0.
+    candidate_arcs = get_ordered_arcs(skimmed_graph.edges)
+
     while s.number_of_edges() < graph.number_of_nodes() - 1:
-        candidate_arcs = get_ordered_arcs(skimmed_graph.edges)
         # new graph with all s arcs
         g_with_s = new_graph_with_arcs(s.edges, graph)
         num_candidates_left = len(candidate_arcs)
@@ -161,7 +162,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # heuristic: reset s
                 s = nx.DiGraph()
                 s.add_node(root)
-                skimmed_graph = copy.deepcopy(graph)
+                #skimmed_graph = copy.deepcopy(graph)
                 break
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
@@ -169,11 +170,14 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 theta = torch.exp(t_w.size(weight='weight') -
                                   torch.logaddexp(t_w.size(weight='weight'), t_wo.size(weight='weight')))
 
-            if np.random.rand() < theta:
+            if torch.rand(1) < theta:
                 s.add_edge(u, v, weight=graph.edges[u, v]['weight'])
                 # remove all incoming arcs to v (including u,v)
-                skimmed_graph.remove_edges_from(graph.in_edges(v))
-                skimmed_graph.remove_edges_from([(v, u)])
+                #skimmed_graph.remove_edges_from(graph.in_edges(v))
+                #skimmed_graph.remove_edges_from([(v, u)])
+                candidates_to_remove = list(graph.in_edges(v))
+                candidates_to_remove.append((v, u))
+                candidate_arcs = [a for a in candidate_arcs if a not in candidates_to_remove]
                 # prob of sampling the tree: prod of bernoulli trials
                 log_isw += torch.log(theta)
                 # go to while and check if s is complete
