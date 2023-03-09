@@ -888,13 +888,20 @@ Sample trees from q(T) with importance sampling.
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
                 log_weights[i] = log_q - log_isw
-                self.g_T[i] = log_isw
-                self.w_T[i] = log_weights[i]
+                # get_trees_sample can be called with arbitrary sample_size
+                # e.g. in case of evaluation we might want more than config.wis_sample_size trees
+                # this avoids IndexOutOfRange error
+                if i < self.config.wis_sample_size:
+                    self.g_T[i] = log_isw
+                    self.w_T[i] = log_weights[i]
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
         weights = torch.exp(log_weights)
-        self.T_list = trees
+        # only first trees are saved (see comment above)
+        # FIXME: this is just a temporary fix for sample_size param being different than config.wis_sample_size
+        min_size = min(self.config.wis_sample_size, l)
+        self.T_list = trees[:min_size]
         return trees, weights.tolist()
 
     def __str__(self):

@@ -363,6 +363,7 @@ class updatesTestCase(unittest.TestCase):
         # NOTE: copy number is not very accurate and tree sampling is not exact, but still some
         #   of the true edges obtain high probability of being sampled.
         #   also, the weights don't explode to very large or very small values, causing the algorithm to crash
+        print(joint_q.t)
 
     def test_update_qz_qmt(self):
         joint_q = self.generate_test_dataset_fixed_tree()
