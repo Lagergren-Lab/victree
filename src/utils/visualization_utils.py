@@ -75,7 +75,7 @@ def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_
     fig.suptitle(f"Diagnostics - cells {cells_to_vis_idxs}")
     axs[0, 0].plot(diagnostics_dict["nu"][:, cells_to_vis_idxs[0]])
     axs[0, 1].plot(diagnostics_dict["lmbda"][:, cells_to_vis_idxs[0]])
-    axs[0, 1].plot(diagnostics_dict["alpha"][:, cells_to_vis_idxs[0]])
+    axs[0, 2].plot(diagnostics_dict["alpha"][:, cells_to_vis_idxs[0]])
     # print all even if not updated (constant line)
     # axs[0, 2].plot(torch.arange(0, max_iter), diagnostics_dict["alpha"][cells_to_vis_idxs[0]].expand(max_iter))
     axs[0, 3].plot(diagnostics_dict["beta"][:, cells_to_vis_idxs[0]])
