@@ -261,10 +261,11 @@ class updatesTestCase(unittest.TestCase):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
                         wis_sample_size=20, debug=True, step_size=.3)
         joint_q = generate_dataset_var_tree(config)
-        print(f'obs: {joint_q.obs}')
-        print(f"true c: {joint_q.c.true_params['c']}")
-        print(f"true tree: {tree_to_newick(joint_q.t.true_params['tree'])}")
-        print(f"true eps: {joint_q.eps.true_params['eps']}")
+        # print(f'obs: {joint_q.obs}')
+        # print(f"true c: {joint_q.c.true_params['c']}")
+        true_tree_newick = tree_to_newick(joint_q.t.true_params['tree'])
+        # print(f"true tree: {true_tree_newick}")
+        # print(f"true eps: {joint_q.eps.true_params['eps']}")
 
         qt = qT(config)
         qt.initialize()
@@ -273,7 +274,24 @@ class updatesTestCase(unittest.TestCase):
             qt.update(joint_q.c, joint_q.eps)
             qt.get_trees_sample()
 
-        print(sorted(qt.weighted_graph.edges.data(), key=lambda e: e[2]['weight'], reverse=True))
+        print(qt)
+        # sample many trees and get the mode
+        n = 100
+        k = 10
+        trees_sample = qt.get_trees_sample(sample_size=n)
+        top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k, nx_graph=False)
+        self.assertEqual(top_k_trees[0][0], true_tree_newick,
+                         msg="true tree is different than top sampled tree by weight\n"
+                             f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
+        # print("Sorted trees (by weight sum)")
+        # print(top_k_trees)
+        top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k,
+                                                               by_weight=False, nx_graph=False)
+        self.assertEqual(top_k_trees[0][0], true_tree_newick,
+                         msg="true tree is different than top sampled tree by number of occurrences\n"
+                             f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
+        # print("Sorted trees (by occurrence)")
+        # print(top_k_trees)
 
     def test_update_qc_qz(self):
 

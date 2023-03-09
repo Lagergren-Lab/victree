@@ -92,7 +92,8 @@ def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
         assert 1 == len(roots)
         root = roots[0][0]
     subgs = []
-    for child in g[root]:
+    # sorting makes sure same trees have same newick
+    for child in sorted(g[root]):
         node_str: str
         if len(g[child]) > 0:
             node_str = tree_to_newick(g, root=child, weight=weight)
@@ -103,3 +104,47 @@ def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
             node_str += ':' + str(g.get_edge_data(root, child)[weight])
         subgs.append(node_str)
     return "(" + ','.join(subgs) + ")" + str(root)
+
+
+def top_k_trees_from_sample(t_list, w_list, k, by_weight=True, nx_graph=False):
+    """
+    Parameters
+    ----------
+    t_list list of sampled trees
+    w_list sampled trees weights
+    k number of unique top trees in output
+    by_weight bool, if true sorts by decreasing sum of weights.
+        if false, sorts by decreasing number of trees (cardinality)
+    nx_graph bool, if true nx.DiGraph object is returned, if false newick str is returned
+
+    Returns
+    -------
+    list of tuples, top k trees depending on chosen order
+    """
+    unique_trees = {}
+    for t, w in zip(t_list, w_list):
+        t_newick: str = tree_to_newick(t)
+        if t_newick not in unique_trees:
+            unique_trees[t_newick] = {
+                'nx-tree': t,
+                'weight': 0.,
+                'count': 0
+            }
+        diff = nx.difference(unique_trees[t_newick]['nx-tree'], t).size()
+        assert diff == 0, \
+            f"same string but different sets of edges: {t_newick} -> {[e for e in unique_trees[t_newick]['nx-tree'].edges]}," \
+            f" {[e for e in t.edges]} | diff = {diff}"
+        unique_trees[t_newick]['weight'] += w
+        unique_trees[t_newick]['count'] += 1
+
+        for alt_t in unique_trees:
+            if alt_t != t_newick:
+                # check effectively that all trees with different newick have
+                # different sets of edges
+                assert nx.difference(unique_trees[alt_t]['nx-tree'], t).size() > 0
+
+    sorted_trees: [(str, float)]
+    sorted_trees = [(t_dat['nx-tree'] if nx_graph else t_str,
+                     t_dat['weight'] if by_weight else t_dat['count'])
+                    for t_str, t_dat in sorted(unique_trees.items(), key=lambda x: x[1]['weight'], reverse=True)]
+    return sorted_trees[:k]
