@@ -151,7 +151,6 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     cpd = treeHMM.cpd_table
     pair_cpd = treeHMM.cpd_pair_table
 
-
     # variables to store complete data in
     C_dict = {}
     y = torch.zeros(n_sites, n_cells)
@@ -172,7 +171,8 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
                 C_dict[0, m] = C_r_m
                 ind = torch.where(z == u)[0]
                 for n in ind:
-                    y[m, n] = pyro.sample("y_{}_{}".format(m, n), dist.Normal(mu[n] * C_r_m, 1.0 / (lambda_0 * tau[n].sqrt())), obs=data[m, n])
+                    y[m, n] = pyro.sample("y_{}_{}".format(m, n),
+                                          dist.Normal(mu[n] * C_r_m, 1.0 / (lambda_0 * tau[n].sqrt())), obs=data[m, n])
         # inner nodes
         else:
             p = [pred for pred in tree.predecessors(u)][0]
@@ -202,7 +202,8 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
                 # save values in dict
                 C_dict[u, m] = C_u_m
                 ind = torch.where(z == u)[0]
-                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / tau[ind].sqrt()), obs=data[m, ind])
+                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / tau[ind].sqrt()),
+                                        obs=data[m, ind])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():
@@ -245,12 +246,12 @@ Generate full simulated dataset.
         h_eps_uv = h_eps(config.n_states, eps[u, v])
         for m in range(1, config.chain_length):
             # j', j, i', i
-            transition = h_eps_uv[:, c[v, m-1], c[u, m], c[u, m-1]]
+            transition = h_eps_uv[:, c[v, m - 1], c[u, m], c[u, m - 1]]
             c[v, m] = torch.distributions.Categorical(probs=transition).sample()
 
     # sample mu_n, tau_n
     tau = torch.distributions.Gamma(alpha0, beta0).sample((config.n_cells,))
-    mu = torch.distributions.Normal(mu0, 1./torch.sqrt(lambda0 * tau)).sample()
+    mu = torch.distributions.Normal(mu0, 1. / torch.sqrt(lambda0 * tau)).sample()
     assert mu.shape == tau.shape
     # sample assignments
     dir_alpha = torch.ones(config.n_nodes) if dir_alpha is None else dir_alpha
@@ -258,7 +259,7 @@ Generate full simulated dataset.
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
-    scale_expanded = torch.pow(tau, -1/2).reshape(-1, 1).expand(-1, config.chain_length)
+    scale_expanded = torch.pow(tau, -1 / 2).reshape(-1, 1).expand(-1, config.chain_length)
     # (chain_length x n_cells)
     obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
     obs = obs.T
@@ -327,7 +328,8 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
                 C_dict[0, m] = C_r_m
                 ind = torch.where(z == u)[0]
                 for n in ind:
-                    y[m, n] = pyro.sample("y_{}_{}".format(m, n), dist.Normal(mu[n] * C_r_m, 1.0 / tau[n].sqrt()), obs=data[m, n])
+                    y[m, n] = pyro.sample("y_{}_{}".format(m, n), dist.Normal(mu[n] * C_r_m, 1.0 / tau[n].sqrt()),
+                                          obs=data[m, n])
         # inner nodes
         else:
             p = [pred for pred in tree.predecessors(u)][0]
@@ -357,7 +359,8 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
                 # save values in dict
                 C_dict[u, m] = C_u_m
                 ind = torch.where(z == u)[0]
-                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (tau[ind].sqrt())), obs=data[m, ind])
+                y[m, ind] = pyro.sample("y_{}_{}".format(u, ind), dist.Normal(mu[ind] * C_u_m, 1.0 / (tau[ind].sqrt())),
+                                        obs=data[m, ind])
 
     C = torch.empty((n_nodes, n_sites))
     for u, m in C_dict.keys():
@@ -368,11 +371,11 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
 
 def write_simulated_dataset_h5(dest_path, data):
     f = h5py.File(dest_path, 'w')
-    x_ds = f.create_dataset('X', data=data['obs'])
+    x_ds = f.create_dataset('X', data=data['obs'].T)
     layers_grp = f.create_group('layers')
     z = data['z']
     cn_state = data['c'][z, :].T
-    assert(cn_state.shape == x_ds.shape)
+    assert cn_state.shape == x_ds.shape
     layers_grp.create_dataset('state', data=cn_state)
 
     gt_group = f.create_group('gt')
@@ -405,7 +408,7 @@ def write_sample_dataset_h5(dest_path):
     x_ds = f.create_dataset('X', data=y.int().clamp(min=0))
     layers_grp = f.create_group('layers')
     cn_state = C[z, :].T
-    assert(cn_state.shape == x_ds.shape)
+    assert cn_state.shape == x_ds.shape
     layers_grp.create_dataset('state', data=cn_state)
     f.close()
 
@@ -471,7 +474,7 @@ def tree_to_newick(g: nx.DiGraph, root=None):
 
 if __name__ == '__main__':
     # save data to h5 file
-    #write_sample_dataset_h5('../data_example.h5')
+    # write_sample_dataset_h5('../data_example.h5')
 
     # simulate data and save it to file
     set_seed(42)
@@ -479,27 +482,32 @@ if __name__ == '__main__':
     write_simulated_dataset_h5('../datasets/n5_c300_l1k.h5', data)
 
     ## parse arguments
-    #parser = argparse.ArgumentParser(
+    # parser = argparse.ArgumentParser(
     #    description="Tree HMM test"
-    #)
-    #parser.add_argument("--seed", default=42, type=int)
-    #parser.add_argument("--cuda", action="store_true")
+    # )
+    # parser.add_argument("--seed", default=42, type=int)
+    # parser.add_argument("--cuda", action="store_true")
     ## parser.add_argument("--tmc-num-samples", default=10, type=int)
-    #args = parser.parse_args()
+    # args = parser.parse_args()
     ## seed for reproducibility
     ## torch rng
-    #torch.manual_seed(args.seed)
-    #torch.cuda.manual_seed(args.seed)
-    #torch.cuda.manual_seed_all(args.seed)
+    # torch.manual_seed(args.seed)
+    # torch.cuda.manual_seed(args.seed)
+    # torch.cuda.manual_seed_all(args.seed)
     ## python rng
-    #np.random.seed(args.seed)
-    #random.seed(args.seed)
+    # np.random.seed(args.seed)
+    # random.seed(args.seed)
 
-    #main(args)
+    # main(args)
 
 
 def generate_dataset_var_tree(config: Config) -> JointVarDist:
-    simul_data = simulate_full_dataset(config, eps_a=2, eps_b=5)
+    nu_prior = 1.
+    lambda_prior = 100.
+    alpha_prior = 500.
+    beta_prior = 50.
+    simul_data = simulate_full_dataset(config, mu0=nu_prior, lambda0=lambda_prior, alpha0=alpha_prior, beta0=beta_prior,
+                                       eps_a=2, eps_b=5)
 
     fix_qc = qC(config, true_params={
         "c": simul_data['c']
@@ -514,9 +522,9 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
     })
 
     fix_qmt = qMuTau(config, true_params={
-        "mu": simul_data['mu'],
-        "tau": simul_data['tau']
-    })
+            "mu": simul_data['mu'],
+            "tau": simul_data['tau']
+        }).initialize()
 
     fix_qpi = qPi(config, true_params={
         "pi": simul_data['pi']

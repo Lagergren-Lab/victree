@@ -83,6 +83,7 @@ class JointVarDist(VariationalDistribution):
             tot_str += str(q)
             tot_str += "\n --- \n"
         tot_str += "+++ end of summary +++"
+        return tot_str
 
 
 class VarDistFixedTree(VariationalDistribution):
@@ -351,3 +352,5 @@ class CopyTree:
     def step(self):
         self.q.update()
         self.it_counter += 1
+        # print info about dist
+        logging.debug(str(self.q))

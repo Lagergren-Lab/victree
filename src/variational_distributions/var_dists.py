@@ -557,6 +557,28 @@ class qC(VariationalDistribution):
 
         return q_C_pairs
 
+    def __str__(self):
+        torch.set_printoptions(precision=3)
+        # summary for qc
+        summary = ["[qC summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            k = max(30, self.config.chain_length)  # first k sites
+            summary.append(f"-cn profile\n{self.true_params['c'][:, :k]}")
+        else:
+            max_entropy = torch.special.entr(torch.ones(self.config.n_states) / self.config.n_states).sum()
+            # print first k cells assignments and their uncertainties - entropy normalized by max value
+            summary.append(f"-cn profile")
+            k = min(10, self.config.n_nodes)  # first k clones
+            m = min(30, self.config.chain_length)  # first m sites
+            for c in range(k):
+                cn_prof = self.single_filtering_probs[c, :m, :].argmax(dim=1)
+                summary.append(f"\t{c}:\t{cn_prof}")
+                uncertainty = torch.special.entr(self.single_filtering_probs[c, :m, :]).sum(dim=1) / max_entropy
+                summary.append(f"\t\t{uncertainty}")
+
+        return os.linesep.join(summary)
+
 
 # cell assignments
 class qZ(VariationalDistribution):
@@ -660,8 +682,13 @@ class qZ(VariationalDistribution):
 
     def exp_assignment(self) -> torch.Tensor:
         out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
-        # simply the pi probabilities
-        out_qz[...] = self.pi
+        if self.fixed:
+            true_z = self.true_params["z"]
+            # set prob of a true assignment to 1
+            out_qz[torch.arange(self.config.n_cells), true_z] = 1.
+        else:
+            # simply the pi probabilities
+            out_qz[...] = self.pi
         return out_qz
 
     def neg_cross_entropy(self, qpi: 'qPi') -> float:
@@ -673,6 +700,26 @@ class qZ(VariationalDistribution):
 
     def elbo(self, qpi: 'qPi') -> float:
         return self.neg_cross_entropy(qpi) + self.entropy()
+
+    def __str__(self):
+        np.set_printoptions(precision=3, suppress=True)
+        # summary for qz
+        summary = ["[qZ summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            k = max(20, self.config.n_cells)  # first k cells
+            summary.append("-cell assignment\t" + self.true_params['z'][:k])
+        else:
+            max_entropy = torch.special.entr(torch.ones(self.config.n_nodes) / self.config.n_nodes).sum()
+            # print first k cells assignments and their uncertainties - entropy normalized by max value
+            summary.append(f"-cell assignment (uncertainty, i.e. 1=flat, 0=peaked)\n")
+            k = min(10, self.config.n_cells)  # first k cells
+            for c in range(k):
+                cell_clone = self.pi[c, :].argmax()
+                norm_entropy = torch.special.entr(self.pi[c, :]).sum() / max_entropy
+                summary.append(f"\t\tcell {c}: clone {cell_clone} ({norm_entropy.item():.3f})")
+
+        return os.linesep.join(summary)
 
 
 # topology
@@ -754,12 +801,11 @@ other elbos such as qC.
         for u, v in all_edges:
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-        # chain length determines how large are the log-weights
+        # chain length determines how large log-weights are
         # while they should be length invariant
+        # FIXME: avoid this hack
+        # TODO: implement tempering (check tempered/annealing in VI)
         w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
-        # # min-max scaling of weights
-        # w_tensor -= torch.min(w_tensor)
-        # w_tensor /= torch.max(w_tensor)
         self.update_params(w_tensor)
         return super().update()
 
@@ -842,17 +888,25 @@ Sample trees from q(T) with importance sampling.
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
                 log_weights[i] = log_q - log_isw
-                self.g_T[i] = log_isw
-                self.w_T[i] = log_weights[i]
+                # get_trees_sample can be called with arbitrary sample_size
+                # e.g. in case of evaluation we might want more than config.wis_sample_size trees
+                # this avoids IndexOutOfRange error
+                if i < self.config.wis_sample_size:
+                    self.g_T[i] = log_isw
+                    self.w_T[i] = log_weights[i]
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
         weights = torch.exp(log_weights)
-        self.T_list = trees
+        # only first trees are saved (see comment above)
+        # FIXME: this is just a temporary fix for sample_size param being different than config.wis_sample_size
+        min_size = min(self.config.wis_sample_size, l)
+        self.T_list = trees[:min_size]
         return trees, weights.tolist()
 
     def __str__(self):
-        # elbo for q
+        np.set_printoptions(precision=3, suppress=True)
+        # summary for qt
         summary = ["[qT summary]"]
         if self.fixed:
             summary[0] += " - True Dist"
@@ -862,7 +916,7 @@ Sample trees from q(T) with importance sampling.
             summary.append(f"-sampled trees:")
             eval_trees, eval_weights = self.get_trees_sample(sample_size=10)
             for t, w in zip(eval_trees, eval_weights):
-                summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w}")
+                summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w:.4f}")
             summary.append(f"partial ELBO\t{self.elbo(eval_trees, eval_weights):.2f}")
 
         return os.linesep.join(summary)
@@ -1198,6 +1252,34 @@ class qEpsilonMulti(VariationalDistribution):
         mean_dict = {e: self.alpha[e] / (self.alpha[e] + self.beta[e]) for e in self.alpha.keys()}
         return mean_dict
 
+    def var(self) -> dict:
+        var_dict = {e: self.alpha[e]*self.beta[e] / ((self.alpha[e] + self.beta[e]) ** 2 *
+                                                    (self.alpha[e] + self.beta[e] + 1)) for e in self.alpha.keys()}
+        return var_dict
+
+    def __str__(self):
+        # summary for qeps
+        summary = ["[qEpsilon summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append(f"-eps\t\n{self.true_params['eps']}")  # prints dict
+        else:
+            # print top k smallest epsilons
+            k = min(len(self.alpha), 5)
+            topk = sorted(self.mean().items(), key=lambda x: x[1])[:k]
+            summary.append(f"-top{k}")
+            var = self.var()
+            for i in range(k):
+                (u, v), e_mean = topk[i]
+                e_var = var[u, v]
+                summary.append(f"({u},{v}): {e_mean:.2f} " +
+                               pm_uni +
+                               f" {np.sqrt(e_var):.2f} (a={self.alpha[u, v]:.2f}, b={self.beta[u,v]:.2f})")
+
+            summary.append(f"-prior\ta0={self.alpha_prior}, b0={self.beta_prior}")
+
+        return os.linesep.join(summary)
+
 
 # observations (mu-tau)
 class qMuTau(VariationalDistribution):
@@ -1305,7 +1387,9 @@ class qMuTau(VariationalDistribution):
                             rate: float = 5 ]
         Returns: self
         """
-        if method == 'fixed':
+        if self.fixed:
+            self._init_from_true_params()
+        elif method == 'fixed':
             self._initialize_with_values(**kwargs)
         # elif method == 'clust-data':
         #     self._init_from_clustered_data(**kwargs)
@@ -1442,7 +1526,7 @@ Initialize the mu and tau params given observations
         exp_sum = exp_c_lmbda + exp_mu2_tau
         return exp_sum
 
-    def summary(self, print_out=False):
+    def __str__(self):
         summary = ["[qMuTau summary]"]
         if self.fixed:
             summary[0] += " - True Dist"
@@ -1465,9 +1549,13 @@ Initialize the mu and tau params given observations
                            f" (prior {self.lmbda_0:.2f})")
             summary.append(f"partial ELBO\t{self.elbo():.2f}")
 
-        if print_out:
-            print(summary)
         return os.linesep.join(summary)
+
+    def _init_from_true_params(self):
+        self.alpha = self.alpha_0 + (self.config.chain_length + 1) * self.config.n_cells * .5
+        self.beta = self.alpha / self.true_params['tau']
+        self.nu = self.true_params['mu']
+        self.lmbda = torch.ones(self.config.n_cells) * 100.
 
 
 class qMuAndTauCellIndependent(VariationalDistribution):
@@ -1711,6 +1799,14 @@ class qPi(VariationalDistribution):
 
         return e_log_pi
 
+    def exp_pi(self):
+        e_pi = torch.empty_like(self.concentration_param)
+        if self.fixed:
+            e_pi[...] = self.true_params['pi']
+        else:
+            e_pi[...] = self.concentration_param / self.concentration_param.sum()
+        return e_pi
+
     def neg_cross_entropy(self):
         delta_p = self.concentration_param_prior
         delta_q = self.concentration_param
@@ -1735,3 +1831,16 @@ class qPi(VariationalDistribution):
         cross_entropy = self.neg_cross_entropy()
         entropy = self.entropy()
         return cross_entropy + entropy
+
+    def __str__(self):
+        torch.set_printoptions(precision=3)
+        summary = ["[qPi summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append(f"-pi\t{self.true_params['pi']}")
+        else:
+            summary.append(f"-delta\t{self.concentration_param}\n"
+                           f"\t\t(prior: {self.concentration_param_prior})")
+            summary.append(f"-E[pi]\t{self.exp_pi()}")
+
+        return os.linesep.join(summary)

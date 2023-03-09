@@ -115,3 +115,6 @@ class qZTestCase(unittest.TestCase):
         self.assertGreater(kmeans_elbo, unif_elbo, f"ELBO for uniform assignment over clusters is greater than KMeans")
         self.assertGreater(kmeans_elbo, rand_elbo, f"ELBO for random assignment over clusters is greater than KMeans")
 
+    def test_summary(self):
+        print(self.q_Z_test)
+

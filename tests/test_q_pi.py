@@ -72,10 +72,11 @@ class qPiTestCase(unittest.TestCase):
 
         # Act
         q_pi.update(q_z)
-        alpha = q_pi.concentration_param
+        delta = q_pi.concentration_param
 
         # Assert
-        assert all(alpha[1] >= alpha)
+        assert all(delta[1] >= delta)
+        print(q_pi)
 
     def test_cross_entropy(self):
         self.q_pi.concentration_param = torch.ones(self.K)*2

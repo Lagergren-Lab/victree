@@ -149,11 +149,11 @@ class qmtTestCase(unittest.TestCase):
         qmt = qMuTau(joint_q.config, alpha_prior=.1, beta_prior=.1, nu_prior=10, lambda_prior=.1).\
             initialize(method='fixed', loc=300., precision_factor=2, shape=5, rate=5)
         print(f"[OBS] {joint_q.obs.mean():.2f} " + pm_uni + f" {joint_q.obs.std():.2f}")
-        print(joint_q.mt.summary())
+        print(joint_q.mt)
         for i in range(2):
             elbo_qmt = qmt.elbo()
             print(f"[{i}] old ELBO(mu, tau): {elbo_qmt:.2f}")
-            print(f"[{i}]" + qmt.summary())
+            print(f"[{i}]" + str(qmt))
             qmt.update(qc=joint_q.c, qz=joint_q.z, obs=joint_q.obs)
 
 
