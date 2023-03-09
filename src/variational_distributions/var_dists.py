@@ -1792,6 +1792,14 @@ class qPi(VariationalDistribution):
 
         return e_log_pi
 
+    def exp_pi(self):
+        e_pi = torch.empty_like(self.concentration_param)
+        if self.fixed:
+            e_pi[...] = self.true_params['pi']
+        else:
+            e_pi[...] = self.concentration_param / self.concentration_param.sum()
+        return e_pi
+
     def neg_cross_entropy(self):
         delta_p = self.concentration_param_prior
         delta_q = self.concentration_param
@@ -1818,4 +1826,14 @@ class qPi(VariationalDistribution):
         return cross_entropy + entropy
 
     def __str__(self):
-        return 'qpi summary not implemented'
+        torch.set_printoptions(precision=3)
+        summary = ["[qPi summary]"]
+        if self.fixed:
+            summary[0] += " - True Dist"
+            summary.append(f"-pi\t{self.true_params['pi']}")
+        else:
+            summary.append(f"-delta\t{self.concentration_param}\n"
+                           f"\t\t(prior: {self.concentration_param_prior})")
+            summary.append(f"-E[pi]\t{self.exp_pi()}")
+
+        return os.linesep.join(summary)
