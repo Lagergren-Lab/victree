@@ -31,10 +31,7 @@ class updatesTestCase(unittest.TestCase):
                                           config.chain_length,
                                           config.n_states, tree,
                                           mu_0=1., lambda_0=10.)
-        return data + (tree, )
-
-
-
+        return data + (tree,)
 
     def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> VarDistFixedTree:
         """
@@ -51,9 +48,9 @@ class updatesTestCase(unittest.TestCase):
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         true_cn_profile = torch.tensor(
-            [[2] * 10*mm,
-             [2] * 4*mm + [3] * 6*mm,
-             [1] * 3*mm + [3] * 2*mm + [2] * 3*mm + [3] * 2*mm]
+            [[2] * 10 * mm,
+             [2] * 4 * mm + [3] * 6 * mm,
+             [1] * 3 * mm + [3] * 2 * mm + [2] * 3 * mm + [3] * 2 * mm]
             # [3] * 10]
         )
         # cell assignments
@@ -72,8 +69,8 @@ class updatesTestCase(unittest.TestCase):
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
 
         true_eps = {
-            (0, 1): 1./(cfg.chain_length-1),
-            (0, 2): 3./(cfg.chain_length-1)
+            (0, 1): 1. / (cfg.chain_length - 1),
+            (0, 2): 3. / (cfg.chain_length - 1)
         }
 
         # give true values to the other required dists
@@ -127,7 +124,6 @@ class updatesTestCase(unittest.TestCase):
 
         print(qt.weighted_graph.edges.data())
 
-
     def test_update_qt(self):
 
         joint_q = self.generate_test_dataset_fixed_tree(mm=10)
@@ -159,7 +155,7 @@ class updatesTestCase(unittest.TestCase):
         fix_qmt = joint_q.mt
 
         trees = [fix_tree] * cfg.wis_sample_size
-        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+        wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
 
         qc = qC(cfg)
         qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
@@ -227,7 +223,7 @@ class updatesTestCase(unittest.TestCase):
         qeps.initialize('uniform')
 
         trees = [fix_tree] * cfg.wis_sample_size
-        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+        wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
 
         for i in range(10):
             qeps.update(trees, wis_weights, fix_qc)
@@ -301,7 +297,7 @@ class updatesTestCase(unittest.TestCase):
 
         n_iter = 10
         trees = [fix_tree] * cfg.wis_sample_size
-        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+        wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
 
         print(f"true c: {joint_q.c.true_params['c']}")
         print(f"true z: {joint_q.z.true_params['z']}")
@@ -423,7 +419,7 @@ class updatesTestCase(unittest.TestCase):
         qc.initialize()
 
         trees = [fix_tree] * cfg.wis_sample_size
-        wis_weights = [1/cfg.wis_sample_size] * cfg.wis_sample_size
+        wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
 
         # change step_size
         cfg.step_size = .3
@@ -438,15 +434,15 @@ class updatesTestCase(unittest.TestCase):
                 # print(f"iter {i} qmt mean for each cell: {qmt.nu}")
                 # print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
                 partial_elbo = qc.elbo([fix_tree], [1.], fix_qeps) + qz.elbo(fix_qpi) + qmt.elbo_old()
-                utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(qc.single_filtering_probs, dim=-1),
-                                                                         save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
-                                                                         title_suff=f"- VI iter {i},"
-                                                                                    f" elbo: {partial_elbo}")
+                utils.visualization_utils.visualize_copy_number_profiles(
+                    torch.argmax(qc.single_filtering_probs, dim=-1),
+                    save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
+                    title_suff=f"- VI iter {i},"
+                               f" elbo: {partial_elbo}")
             qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt,
                       trees=trees, tree_weights=wis_weights)
-
 
         # print(qmt.exp_tau())
         # print(joint_q.mt.true_params['tau'])
@@ -500,7 +496,7 @@ class updatesTestCase(unittest.TestCase):
         # qz = qZ(cfg).initialize(method='kmeans', obs=obs)
         # skewed towards true cluster, but not exact
         qz = qZ(cfg).initialize(method='fixed',
-                                z_init=torch.nn.functional.one_hot(true_z).float().clamp(.2 / (cfg.n_nodes-1), .8))
+                                z_init=torch.nn.functional.one_hot(true_z).float().clamp(.2 / (cfg.n_nodes - 1), .8))
         # qc = qC(cfg).initialize(method='bw-cluster', obs=obs, clusters=qz.kmeans_labels)
         qc = qC(cfg).initialize()
         qmt = qMuTau(cfg).initialize(method='data', obs=obs)
@@ -517,14 +513,14 @@ class updatesTestCase(unittest.TestCase):
         for i in range(30):
             joint_q.update()
             if i % 5 == 0:
-                utils.visualization_utils.visualize_copy_number_profiles(torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
+                utils.visualization_utils.visualize_copy_number_profiles(
+                    torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
                 print(f"[{i}] var z: {qz.exp_assignment()}")
 
                 trees, weights = joint_q.t.get_trees_sample(sample_size=10)
                 print(f"[{i}] elbo: {joint_q.elbo(trees, weights)}")
 
         # same but with z at current pos
-
 
 
 if __name__ == '__main__':
