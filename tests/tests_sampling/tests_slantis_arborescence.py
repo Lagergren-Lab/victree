@@ -17,6 +17,7 @@ from networkx.algorithms.tree import Edmonds
 from sampling import slantis_arborescence
 from sampling.slantis_arborescence import create_fully_connected_graph, new_graph_with_arc, \
     sample_arborescence_from_weighted_graph
+from utils import tree_utils, config
 from utils.config import set_seed
 from utils.tree_utils import tree_to_newick
 
@@ -41,15 +42,35 @@ class slantisArborescenceTestCase(unittest.TestCase):
         return super().setUp()
 
     def test_slantis_random_weight_matrix(self):
-        n_nodes = 10
-        W = torch.rand((n_nodes, n_nodes))
+        config.set_seed(0)
+        n_nodes = 5
+        W = torch.rand(n_nodes, n_nodes)
+        W.fill_diagonal_(0.)
+        W[:, 0] = 0.
+        W = W / W.sum()
         log_W = torch.log(W)
-        log_W_root = torch.rand((n_nodes,))
-        T, log_T = slantis_arborescence.sample_arborescence(log_W=log_W, root=0, debug=True)
+        G = nx.DiGraph()
+        G.add_edges_from([(u, v) for u, v in itertools.permutations(range(n_nodes), 2) if u != v and v != 0])
+        for u in range(0, n_nodes-1):
+            for v in range(u+1, n_nodes):
+                G.edges[u, v]['weight'] = log_W[u, v]
+                if u != 0:
+                    G.edges[v, u]['weight'] = log_W[v, u]
+        T_list = []
+        log_T_list = []
+        L = 100
+        for l in range(L):
+            T, log_T = slantis_arborescence.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
+            T_list.append(T)
+            log_T_list.append(log_T)
 
+        unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list)
+        edges_freq = unique_edges_count / L
+        print(f"Frequency edges: {edges_freq} \n W: {W}")
+        print(f"Diff: {torch.abs(edges_freq - W)}")
         # save sampled tree on img
-        slantis_arborescence.draw_graph(T, to_file=path.join(self.output_dir, 
-                                                             "slantis_random_sample.png"))
+        #slantis_arborescence.draw_graph(T, to_file=path.join(self.output_dir,
+        #                                                     "slantis_random_sample.png"))
         self.logger.debug(f"log_T: {torch.exp(log_T)}")
 
     def test_edmonds(self):

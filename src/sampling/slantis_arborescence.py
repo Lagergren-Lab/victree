@@ -66,13 +66,13 @@ def get_edmonds_arborescence(log_W: torch.Tensor, root: int):
 def new_graph_with_arc(u, v, graph: nx.DiGraph) -> nx.DiGraph:
     # remove all incoming arcs for v except u,v
     arcs_to_v_no_u = [(a, b) for a, b in graph.in_edges(v) if a != u]
-    new_graph = nx.DiGraph.copy(graph)
+    new_graph = copy.deepcopy(graph)
     new_graph.remove_edges_from(arcs_to_v_no_u)
     return new_graph
 
 
 def new_graph_with_arcs(ebunch, graph: nx.DiGraph) -> nx.DiGraph:
-    new_graph = nx.DiGraph.copy(graph)
+    new_graph = copy.deepcopy(graph)
     for u, v in ebunch:
         # remove all incoming arcs for v except u,v
         arcs_to_v_no_u = [(a, b) for a, b in graph.in_edges(v) if a != u]
@@ -81,7 +81,7 @@ def new_graph_with_arcs(ebunch, graph: nx.DiGraph) -> nx.DiGraph:
 
 
 def new_graph_without_arc(u, v, graph: nx.DiGraph) -> nx.DiGraph:
-    new_graph = nx.DiGraph.copy(graph)
+    new_graph = copy.deepcopy(graph)
     new_graph.remove_edge(u, v)
     return new_graph
 
@@ -120,7 +120,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
     s.add_node(root)
     # copy graph so to remove arcs which shouldn't be considered
     # while S gets constructed
-    skimmed_graph = nx.DiGraph.copy(graph)
+    skimmed_graph = copy.deepcopy(graph)
     # counts how many times arborescences cannot be found
     miss_counter = 0
     log_isw = 0.
@@ -161,7 +161,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # heuristic: reset s
                 s = nx.DiGraph()
                 s.add_node(root)
-                skimmed_graph = nx.DiGraph.copy(graph)
+                skimmed_graph = copy.deepcopy(graph)
                 break
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
