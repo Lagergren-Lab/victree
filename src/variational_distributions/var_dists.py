@@ -804,6 +804,7 @@ other elbos such as qC.
         # chain length determines how large log-weights are
         # while they should be length invariant
         # FIXME: avoid this hack
+        # TODO: implement tempering (check tempered/annealing in VI)
         w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
         self.update_params(w_tensor)
         return super().update()
@@ -1379,7 +1380,9 @@ class qMuTau(VariationalDistribution):
                             rate: float = 5 ]
         Returns: self
         """
-        if method == 'fixed':
+        if self.fixed:
+            self._init_from_true_params()
+        elif method == 'fixed':
             self._initialize_with_values(**kwargs)
         # elif method == 'clust-data':
         #     self._init_from_clustered_data(**kwargs)
@@ -1540,6 +1543,12 @@ Initialize the mu and tau params given observations
             summary.append(f"partial ELBO\t{self.elbo():.2f}")
 
         return os.linesep.join(summary)
+
+    def _init_from_true_params(self):
+        self.alpha = self.alpha_0 + (self.config.chain_length + 1) * self.config.n_cells * .5
+        self.beta = self.alpha / self.true_params['tau']
+        self.nu = self.true_params['mu']
+        self.lmbda = torch.ones(self.config.n_cells) * 100.
 
 
 class qMuAndTauCellIndependent(VariationalDistribution):

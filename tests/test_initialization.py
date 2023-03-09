@@ -1,6 +1,6 @@
 import unittest
 
-from simul import simulate_full_dataset
+from simul import simulate_full_dataset, generate_dataset_var_tree
 from utils.config import Config, set_seed
 from variational_distributions.var_dists import qC, qEpsilonMulti, qT, qMuTau
 
@@ -48,6 +48,26 @@ class InitTestCase(unittest.TestCase):
 
         print(f"fixed init ELBO: {qmt_fixed_init.elbo()}")
         print(f"data init ELBO: {qmt_data_init.elbo()}")
+
+    def test_true_params_init(self):
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
+                        wis_sample_size=20, debug=True)
+        joint_q = generate_dataset_var_tree(config)
+        true_elbo = joint_q.mt.elbo()
+        print(joint_q.mt)
+        print(true_elbo)
+
+        qmt = qMuTau(config).initialize(method='fixed')
+        fix_init_elbo = qmt.elbo()
+        print(qmt)
+        print(fix_init_elbo)
+        qmt = qMuTau(config).initialize(method='data', obs=joint_q.obs)
+        data_init_elbo = qmt.elbo()
+        print(qmt)
+        print(data_init_elbo)
+
+        self.assertTrue(true_elbo > data_init_elbo > fix_init_elbo, msg="elbo of true distribution should be maximum"
+                                                                        "and fixed init lowest elbo")
 
 
 if __name__ == '__main__':
