@@ -755,7 +755,7 @@ class qT(VariationalDistribution):
         # negative cross_entropy = sum_t q(t) log p(t) = log p(t) = - log | T |
         # (number of possible labeled directed rooted trees)
         # FIXME: cayleys formula is for undirected trees
-        return -math_utils.cayleys_formula(self.config.n_nodes, log=True)
+        return -math_utils.cayleys_formula_rooted(self.config.n_nodes, log=True)
 
     def entropy(self, trees, weights):
         # H(qt) = - E_qt[ log qt(T) ] \approx -1/n sum_i w(T_i) log qt(T_i)
@@ -903,6 +903,15 @@ Sample trees from q(T) with importance sampling.
         min_size = min(self.config.wis_sample_size, l)
         self.T_list = trees[:min_size]
         return trees, weights.tolist()
+
+    def enumerate_trees(self):
+        # TODO: implement
+        #   use prufer sequences to generate all possible labeled unrooted trees
+        #   for each such tree create |V| rooted trees, one for each vertex
+        #   tip: assert that there are no duplicates
+        #   useful reference
+        #   https://stackoverflow.com/questions/42755811/enumerating-and-indexing-all-possible-trees-of-n-vertices
+        pass
 
     def __str__(self):
         np.set_printoptions(precision=3, suppress=True)

@@ -276,7 +276,7 @@ class updatesTestCase(unittest.TestCase):
 
         print(qt)
         # sample many trees and get the mode
-        n = 100
+        n = 500
         k = 10
         trees_sample = qt.get_trees_sample(sample_size=n)
         top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k, nx_graph=False)
