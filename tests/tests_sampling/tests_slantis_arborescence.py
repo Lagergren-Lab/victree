@@ -26,7 +26,7 @@ class slantisArborescenceTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         # create output dir (for graph and logfile)
-        self.output_dir = "./test_out"
+        self.output_dir = "./test_output"
         if not path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
