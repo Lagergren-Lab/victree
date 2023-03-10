@@ -9,6 +9,7 @@ import tests.model_variational_comparisons
 import utils.visualization_utils
 from inference.copy_tree import VarDistFixedTree, JointVarDist
 from simul import generate_dataset_var_tree
+from tests import model_variational_comparisons
 from utils.config import set_seed, Config
 from utils.tree_utils import tree_to_newick
 from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti, qT
@@ -346,6 +347,8 @@ class updatesTestCase(unittest.TestCase):
                                 joint_q.c.true_params["c"]).sum(2).sum(1) / (cfg.n_nodes * cfg.chain_length))
         print(f"copy number accuracy: {c_accuracy}")
         self.assertGreater(c_accuracy, .9)
+        model_variational_comparisons.compare_qC_and_true_C(true_C=joint_q.c.true_params["c"], q_c=qc)
+        model_variational_comparisons.compare_qZ_and_true_Z(true_Z=joint_q.z.true_params["z"], q_z=qz)
 
     def test_update_all(self):
 
@@ -426,7 +429,7 @@ class updatesTestCase(unittest.TestCase):
         fix_qpi = joint_q.pi
         fix_qeps = joint_q.eps
 
-        qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=.05, beta_prior=.05)
+        qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=1.5, beta_prior=1.5)
         qz = qZ(cfg)
         qc = qC(cfg)
         qmt.initialize(loc=1., precision_factor=.1, rate=5., shape=5.)

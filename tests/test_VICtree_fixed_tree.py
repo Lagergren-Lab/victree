@@ -253,8 +253,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize(eps_alpha=1., eps_beta=20.,
-                         loc=mu, precision_factor=.1, shape=5, rate=5)
+            q.initialize()
 
             copy_tree = CopyTree(config, q, y)
             copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
