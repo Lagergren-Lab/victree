@@ -445,13 +445,13 @@ def main(args):
     unconditioned_model = poutine.uncondition(model_tree_markov)
     # C_r, C_u, y_u = unconditioned_model(data, n_cells, n_sites, n_copy_states, )
     C, y, z = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, )
-    print(f"tree: {tree_to_newick(tree, 0)}")
+    print(f"tree: {tree_utils.tree_to_newick(tree, 0)}")
     print(f"C: {C}")
     print(f"y: {y}")
     print(f"z: {z}")
 
 
-def tree_to_newick(g: nx.DiGraph, root=None):
+def tree_to_newick_old(g: nx.DiGraph, root=None):
     """
     NetworkX tree topology to string in Newick format
     edited code from https://stackoverflow.com/a/57393072/11880992
@@ -466,7 +466,7 @@ def tree_to_newick(g: nx.DiGraph, root=None):
     subgs = []
     for child in g[root]:
         if len(g[child]) > 0:
-            subgs.append(tree_to_newick(g, root=child))
+            subgs.append(tree_to_newick_old(g, root=child))
         else:
             subgs.append(str(child))
     return "(" + ','.join(subgs) + ")" + str(root)
