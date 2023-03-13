@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -752,9 +753,9 @@ class qT(VariationalDistribution):
     def neg_cross_entropy(self):
         # sampled trees are not needed here
         # negative cross_entropy = sum_t q(t) log p(t) = log p(t) = - log | T |
-        # (number of possible labeled directed rooted trees)
-        # FIXME: cayleys formula is for undirected trees
-        return -math_utils.cayleys_formula_rooted(self.config.n_nodes, log=True)
+        # (number of possible labeled rooted trees)
+        # it's equal to Cayley's formula since we fix root = 0
+        return -math_utils.cayleys_formula(self.config.n_nodes, log=True)
 
     def entropy(self, trees, weights):
         # H(qt) = - E_qt[ log qt(T) ] \approx -1/n sum_i w(T_i) log qt(T_i)
@@ -914,14 +915,32 @@ Sample trees from q(T) with importance sampling.
 
         return trees, out_weights
 
-    def enumerate_trees(self):
-        # TODO: implement
-        #   use prufer sequences to generate all possible labeled unrooted trees
-        #   for each such tree create |V| rooted trees, one for each vertex
-        #   tip: assert that there are no duplicates
-        #   useful reference
-        #   https://stackoverflow.com/questions/42755811/enumerating-and-indexing-all-possible-trees-of-n-vertices
-        pass
+    def enumerate_trees(self) -> (list, torch.Tensor):
+        """
+Enumerate all labeled trees (rooted in 0) with their probability
+q(T) associated to the weighted graph which represents the current state
+of the variational distribution over the topology.
+        Returns
+        -------
+        tuple with list of nx.DiGraph (trees) and tensor with normalized log-probabilities
+        """
+        c = 0
+        tot_trees = math_utils.cayleys_formula(self.config.n_nodes)
+        trees = []
+        trees_log_prob = torch.empty(tot_trees)
+        for pruf_seq in itertools.product(range(self.config.n_nodes), repeat=self.config.n_nodes-2):
+            unrooted_tree = nx.from_prufer_sequence(list(pruf_seq))
+            rooted_tree = nx.dfs_tree(unrooted_tree, 0)
+            rooted_tree_with_weigths = copy.deepcopy(self.weighted_graph)
+            rooted_tree_with_weigths.remove_edges_from(e for e in self.weighted_graph.edges
+                                                       if e not in rooted_tree.edges)
+            trees.append(rooted_tree_with_weigths)
+            trees_log_prob[c] = rooted_tree_with_weigths.size(weight='weight')
+            c += 1
+
+        trees_log_prob[...] = trees_log_prob - trees_log_prob.logsumexp(dim=0)
+        assert tot_trees == c
+        return trees, trees_log_prob
 
     def __str__(self):
         np.set_printoptions(precision=3, suppress=True)
