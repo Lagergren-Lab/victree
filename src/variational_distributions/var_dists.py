@@ -850,7 +850,8 @@ other elbos such as qC.
         for e in self._weighted_graph.edges:
             self._weighted_graph.edges[e]['weight'] = torch.rand(1)[0].log()
 
-    def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None) -> Tuple[List, List]:
+    def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None,
+                         torch_tensor: bool = False, log_scale: bool = False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -862,6 +863,10 @@ Sample trees from q(T) with importance sampling.
             The weights are the result of the operation q'(T) / g'(T) where
                 - q'(T) is the unnormalized probability under q(T), product of arc weights
                 - g'(T) is the probability of the sample, product of Bernoulli trials (also unnormalized)
+
+        Parameters
+        ----------
+        torch_tensor: bool, if true, weights are returned as torch.Tensor
         """
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
@@ -893,15 +898,21 @@ Sample trees from q(T) with importance sampling.
                 if i < self.config.wis_sample_size:
                     self.g_T[i] = log_isw
                     self.w_T[i] = log_weights[i]
+            log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
-        weights = torch.exp(log_weights)
         # only first trees are saved (see comment above)
         # FIXME: this is just a temporary fix for sample_size param being different than config.wis_sample_size
         min_size = min(self.config.wis_sample_size, l)
         self.T_list = trees[:min_size]
-        return trees, weights.tolist()
+        out_weights = log_weights
+        if not log_scale:
+            out_weights = torch.exp(log_weights)
+        if not torch_tensor:
+            out_weights = out_weights.tolist()
+
+        return trees, out_weights
 
     def enumerate_trees(self):
         # TODO: implement
