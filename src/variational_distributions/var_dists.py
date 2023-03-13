@@ -272,7 +272,6 @@ class qC(VariationalDistribution):
         E_T = 0
         # v, m, j, j'
         L = len(T_list)
-        normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
             tree_CE = 0
             for a in T_list[l].edges:
@@ -280,7 +279,7 @@ class qC(VariationalDistribution):
                 arc_CE = self.neg_cross_entropy_arc(q_eps, u, v)
                 tree_CE += arc_CE
 
-            E_T += torch.exp(w_T_list[l] - normalizing_weight) * tree_CE
+            E_T += w_T_list[l] * tree_CE
         return E_T
 
     def neg_cross_entropy_arc(self, q_eps, u, v):
