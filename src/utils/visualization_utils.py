@@ -2,6 +2,7 @@ import os.path
 
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfFile, PdfPages
 import torch
 import tkinter
 
@@ -102,52 +103,124 @@ def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_
         plt.show()
 
 
-def plot_diagnostics_to_pdf(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_to_vis_idxs=[1], save_path: str = ''):
+def plot_diagnostics_to_pdf(diagnostics_dict: dict,
+                            cells_to_vis_idxs=[0],
+                            clones_to_vis_idxs=[1],
+                            edges_to_vis_idxs=[(0, 1)],
+                            save_path: str = ''):
     max_iter, N = diagnostics_dict["nu"].shape
     max_iter, K, M, A = diagnostics_dict["C"].shape
 
-    n_rows = 1 + len(clones_to_vis_idxs) + len(cells_to_vis_idxs)
+    # number of rows: 3 from qMuTau, pi plot and extra C_m^u plot
+    n_rows = 3 + len(clones_to_vis_idxs) + int(len(cells_to_vis_idxs)/4 + 1) + int(len(edges_to_vis_idxs)/2 + 1)
     n_cols = 4
-    fig, axs = plt.subplots(n_rows, n_cols)
-    fig.suptitle(f"Diagnostics - cells {cells_to_vis_idxs}")
-    axs[0, 0].plot(diagnostics_dict["nu"][:, cells_to_vis_idxs[0]])
-    axs[0, 0].title(r'$\nu$')
-    axs[0, 1].plot(diagnostics_dict["lmbda"][:, cells_to_vis_idxs[0]])
-    axs[0, 1].title(r'$\lambda$')
-    axs[0, 2].plot(diagnostics_dict["alpha"][:, cells_to_vis_idxs[0]])
-    axs[0, 2].title(r'$\alpha$')
-    axs[0, 3].plot(diagnostics_dict["beta"][:, cells_to_vis_idxs[0]])
-    axs[0, 3].title(r'$\beta$')
+    rows_per_page = 6
+    with PdfPages(save_path) as pdf:
+        fig, axs = plt.subplots(n_rows, n_cols, figsize=(n_cols*3, n_rows*3))
+        fig.tight_layout(pad=2.0)  # space between subplots
+        fig.suptitle(f"Diagnostics - cells {cells_to_vis_idxs} - clones {clones_to_vis_idxs}")
+        axs[0, 0].plot(diagnostics_dict["nu"][:, cells_to_vis_idxs[0]])
+        axs[0, 0].set_title(r'$\nu$')
+        axs[0, 1].plot(diagnostics_dict["lmbda"][:, cells_to_vis_idxs[0]])
+        axs[0, 1].set_title(r'$\lambda$')
+        axs[0, 2].plot(diagnostics_dict["alpha"][:, cells_to_vis_idxs[0]])
+        axs[0, 2].set_title(r'$\alpha$')
+        axs[0, 3].plot(diagnostics_dict["beta"][:, cells_to_vis_idxs[0]])
+        axs[0, 3].set_title(r'$\beta$')
 
-    i = 1
-    for clone_idx in range(clones_to_vis_idxs):
-    axs[1, 0].plot(diagnostics_dict["C"][0, clones_to_vis_idxs[0], :].argmax(dim=-1))
-    axs[1, 1].plot(diagnostics_dict["C"][int(max_iter / 4), clones_to_vis_idxs[0], :].argmax(dim=-1))
-    axs[1, 2].plot(diagnostics_dict["C"][int(max_iter / 2), clones_to_vis_idxs[0], :].argmax(dim=-1))
-    axs[1, 3].plot(diagnostics_dict["C"][max_iter - 1, clones_to_vis_idxs[0], :].argmax(dim=-1))
+        i = 1
+        for clone_idx in clones_to_vis_idxs:
+            axs[i, 0].plot(diagnostics_dict["C"][0, clone_idx, :].argmax(dim=-1))
+            axs[i, 1].plot(diagnostics_dict["C"][int(max_iter / 4), clone_idx, :].argmax(dim=-1))
+            axs[i, 2].plot(diagnostics_dict["C"][int(max_iter / 2), clone_idx, :].argmax(dim=-1))
+            axs[i, 3].plot(diagnostics_dict["C"][max_iter - 1, clone_idx, :].argmax(dim=-1))
 
-    for i, cell_idx in enumerate(cells_to_vis_idxs):
-        if i >= n_cols:
-            break
-        axs[2, i].plot(diagnostics_dict["Z"][:, cell_idx])
+            axs[i, 0].set_title(f'iter 0 - clone {clone_idx}')
+            axs[i, 1].set_title(f'iter {int(max_iter / 4)} - clone {clone_idx}')
+            axs[i, 2].set_title(f'iter {int(max_iter / 2)} - clone {clone_idx}')
+            axs[i, 3].set_title(f'iter {max_iter - 1} - clone {clone_idx}')
+            i += 1
 
-    axs[3, 0].plot(diagnostics_dict["pi"])
-    axs[3, 1].plot(diagnostics_dict["eps_a"][:, 0, 1])
-    axs[3, 2].plot(diagnostics_dict["eps_b"][:, 0, 1])
+        # C_m^u for single u and m over all iter
+        m0 = 0
+        m1 = int(M * 1/3)
+        m2 = int(M * 2/3)
+        m3 = M - 1
+        clone_idx = clones_to_vis_idxs[0]
+        axs[i, 0].plot(diagnostics_dict["C"][:, clone_idx, m0].argmax(dim=-1))
+        axs[i, 0].set_title(f'Clone {clone_idx} over iterations and m= {m0}')
+        axs[i, 1].plot(diagnostics_dict["C"][:, clone_idx, m1].argmax(dim=-1))
+        axs[i, 1].set_title(f'Clone {clone_idx}, m= {m1}')
+        axs[i, 2].plot(diagnostics_dict["C"][:, clone_idx, m2].argmax(dim=-1))
+        axs[i, 2].set_title(f'Clone {clone_idx}, m= {m2}')
+        axs[i, 3].plot(diagnostics_dict["C"][:, clone_idx, m3].argmax(dim=-1))
+        axs[i, 3].set_title(f'Clone {clone_idx}, m= {m3}')
 
-    plt.show()
+        i += 1
+        j = 0
+        for cell_idx in cells_to_vis_idxs:
+            if j >= n_cols:
+                j = 0
+                i += 1
+            axs[i, j].plot(diagnostics_dict["Z"][:, cell_idx])
+            axs[i, j].set_title(f'Z for cell {cell_idx}')
+            j += 1
 
-    fig.savefig(os.path.join(save_path, '.pdf'), bbox_inches='tight')
+        # visualize pi
+        i += 1
+        axs[i, 0].plot(diagnostics_dict["pi"])
+        axs[i, 0].set_title('pi over iterations')
+
+        i += 1
+        # visualize epsilon
+        even = True
+        for a in edges_to_vis_idxs:
+            if even:
+                axs[i, 0].plot(diagnostics_dict["eps_a"][:, a[0], a[1]])
+                axs[i, 1].plot(diagnostics_dict["eps_b"][:, a[0], a[1]])
+                axs[i, 0].set_title(f"Epsilon a param for arc: {a[0]}, {a[1]}")
+                axs[i, 1].set_title(f"Epsilon b param for arc: {a[0]}, {a[1]}")
+                even = False
+            else:
+                axs[i, 2].plot(diagnostics_dict["eps_a"][:, a[0], a[1]])
+                axs[i, 3].plot(diagnostics_dict["eps_b"][:, a[0], a[1]])
+                axs[i, 2].set_title(f"Epsilon a param for arc: {a[0]}, {a[1]}")
+                axs[i, 3].set_title(f"Epsilon b param for arc: {a[0]}, {a[1]}")
+                even = True
+                i += 1
+
+        plt.show()
+        pdf.savefig(fig)
 
 
 if __name__ == '__main__':
-    K_test, M_test = (5, 10)
+    K_test, M_test, A_test = (5, 10, 7)
     C_test = torch.ones((K_test, M_test))
     C_test[2, int(M_test / 2):] = 2.
     C_test[3, int(M_test / 2):] = 2.
-    visualize_copy_number_profiles(C_test)
+    #visualize_copy_number_profiles(C_test)
 
     N_test = 15
     mu_test = torch.ones(N_test) * 5. + torch.rand(N_test) * 2.0
     tau_test = torch.ones(N_test) * 0.1 * torch.rand(N_test)
-    visualize_mu_tau(mu_test, tau_test)
+    #visualize_mu_tau(mu_test, tau_test)
+
+    n_iter = 10
+    diag_C = torch.ones((n_iter, K_test, M_test, A_test))
+    diag_Z = torch.ones((n_iter, N_test, K_test))
+    diag_nu = torch.ones((n_iter, N_test))
+    diag_lmbda = torch.ones((n_iter, N_test))
+    diag_alpha = torch.ones((n_iter, N_test))
+    diag_beta = torch.ones((n_iter, N_test))
+
+    diag_epsilon_a = torch.ones((n_iter, K_test, K_test))
+    diag_epsilon_b = torch.ones((n_iter, K_test, K_test))
+    diag_pi = torch.ones((n_iter, K_test))
+
+    diag_dict = {"C": diag_C, "Z": diag_Z, "nu": diag_nu, "lmbda": diag_lmbda, "alpha": diag_alpha, "beta": diag_beta,
+                 "pi": diag_pi, "eps_a": diag_epsilon_a, "eps_b": diag_epsilon_b}
+    save_path = '../../tests/test_output/test.pdf'
+    plot_diagnostics_to_pdf(diagnostics_dict=diag_dict,
+                            cells_to_vis_idxs=[0, 3, 5, 10, 12, 14],
+                            clones_to_vis_idxs=[0, 1, 3],
+                            edges_to_vis_idxs=[(0, 1), (1, 2), (2, 4)], save_path=save_path)
