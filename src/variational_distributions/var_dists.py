@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -272,7 +273,6 @@ class qC(VariationalDistribution):
         E_T = 0
         # v, m, j, j'
         L = len(T_list)
-        normalizing_weight = torch.logsumexp(torch.tensor(w_T_list), dim=0)
         for l in range(L):
             tree_CE = 0
             for a in T_list[l].edges:
@@ -280,7 +280,7 @@ class qC(VariationalDistribution):
                 arc_CE = self.neg_cross_entropy_arc(q_eps, u, v)
                 tree_CE += arc_CE
 
-            E_T += torch.exp(w_T_list[l] - normalizing_weight) * tree_CE
+            E_T += w_T_list[l] * tree_CE
         return E_T
 
     def neg_cross_entropy_arc(self, q_eps, u, v):
@@ -753,8 +753,8 @@ class qT(VariationalDistribution):
     def neg_cross_entropy(self):
         # sampled trees are not needed here
         # negative cross_entropy = sum_t q(t) log p(t) = log p(t) = - log | T |
-        # (number of possible labeled directed rooted trees)
-        # FIXME: cayleys formula is for undirected trees
+        # (number of possible labeled rooted trees)
+        # it's equal to Cayley's formula since we fix root = 0
         return -math_utils.cayleys_formula(self.config.n_nodes, log=True)
 
     def entropy(self, trees, weights):
@@ -851,7 +851,8 @@ other elbos such as qC.
         for e in self._weighted_graph.edges:
             self._weighted_graph.edges[e]['weight'] = torch.rand(1)[0].log()
 
-    def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None) -> Tuple[List, List]:
+    def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None,
+                         torch_tensor: bool = False, log_scale: bool = False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -863,6 +864,10 @@ Sample trees from q(T) with importance sampling.
             The weights are the result of the operation q'(T) / g'(T) where
                 - q'(T) is the unnormalized probability under q(T), product of arc weights
                 - g'(T) is the probability of the sample, product of Bernoulli trials (also unnormalized)
+
+        Parameters
+        ----------
+        torch_tensor: bool, if true, weights are returned as torch.Tensor
         """
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
@@ -888,14 +893,54 @@ Sample trees from q(T) with importance sampling.
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
                 log_weights[i] = log_q - log_isw
-                self.g_T[i] = log_isw
-                self.w_T[i] = log_weights[i]
+                # get_trees_sample can be called with arbitrary sample_size
+                # e.g. in case of evaluation we might want more than config.wis_sample_size trees
+                # this avoids IndexOutOfRange error
+                if i < self.config.wis_sample_size:
+                    self.g_T[i] = log_isw
+                    self.w_T[i] = log_weights[i]
+            log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
-        weights = torch.exp(log_weights)
-        self.T_list = trees
-        return trees, weights.tolist()
+        # only first trees are saved (see comment above)
+        # FIXME: this is just a temporary fix for sample_size param being different than config.wis_sample_size
+        min_size = min(self.config.wis_sample_size, l)
+        self.T_list = trees[:min_size]
+        out_weights = log_weights
+        if not log_scale:
+            out_weights = torch.exp(log_weights)
+        if not torch_tensor:
+            out_weights = out_weights.tolist()
+
+        return trees, out_weights
+
+    def enumerate_trees(self) -> (list, torch.Tensor):
+        """
+Enumerate all labeled trees (rooted in 0) with their probability
+q(T) associated to the weighted graph which represents the current state
+of the variational distribution over the topology.
+        Returns
+        -------
+        tuple with list of nx.DiGraph (trees) and tensor with normalized log-probabilities
+        """
+        c = 0
+        tot_trees = math_utils.cayleys_formula(self.config.n_nodes)
+        trees = []
+        trees_log_prob = torch.empty(tot_trees)
+        for pruf_seq in itertools.product(range(self.config.n_nodes), repeat=self.config.n_nodes-2):
+            unrooted_tree = nx.from_prufer_sequence(list(pruf_seq))
+            rooted_tree = nx.dfs_tree(unrooted_tree, 0)
+            rooted_tree_with_weigths = copy.deepcopy(self.weighted_graph)
+            rooted_tree_with_weigths.remove_edges_from(e for e in self.weighted_graph.edges
+                                                       if e not in rooted_tree.edges)
+            trees.append(rooted_tree_with_weigths)
+            trees_log_prob[c] = rooted_tree_with_weigths.size(weight='weight')
+            c += 1
+
+        trees_log_prob[...] = trees_log_prob - trees_log_prob.logsumexp(dim=0)
+        assert tot_trees == c
+        return trees, trees_log_prob
 
     def __str__(self):
         np.set_printoptions(precision=3, suppress=True)

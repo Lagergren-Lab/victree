@@ -32,6 +32,7 @@ class InitTestCase(unittest.TestCase):
         qc_bw = qC(config).initialize(method='bw-cluster', obs=data['obs'], clusters=data['z'])
         bw_elbo = qc_bw.elbo(trees_sample, trees_weights, fix_qeps)
 
+        # print(bw_elbo, rand_elbo)
         self.assertGreater(bw_elbo, rand_elbo)
 
         fix_qc = qC(config, true_params={
