@@ -95,14 +95,17 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         copy_tree.run(80)
         diagnostics_dict = copy_tree.diagnostics_dict
-        visualization_utils.visualize_diagnostics(diagnostics_dict,
-                                                  cells_to_vis_idxs=[0, int(n_cells/2), int(n_cells/3), n_cells-1],
-                                                  save_path='./test_output/one_edge_tree_test.png')
+        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
+                                                    cells_to_vis_idxs=[0, int(n_cells/2), int(n_cells/3), n_cells-1],
+                                                    clones_to_vis_idxs=[1, 0],
+                                                    edges_to_vis_idxs=[(0, 1)],
+                                                    save_path='./test_output/one_edge_tree_test.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                           q_mt=copy_tree.q.mt)
+
 
     def test_three_node_tree(self):
         torch.manual_seed(2)
