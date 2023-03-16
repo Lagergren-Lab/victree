@@ -1,6 +1,9 @@
+import itertools
+
 import torch
 import torch.distributions as dist
 import torch.nn.functional as f
+from sklearn.metrics import adjusted_rand_score
 
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau
 
@@ -13,9 +16,11 @@ def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
     :param threshold:
     :return:
     """
+    K = true_C.shape[0]
     marginals = q_c.single_filtering_probs
-    max_prob_cat = torch.argmax(marginals, dim=-1)
-    n_diff = torch.sum(true_C != max_prob_cat)
+    perms = list(itertools.permutations(range(K)))
+    max_prob_cat = torch.argmax(marginals, dim=-1)  # Account for label switching
+    n_diff = torch.min((max_prob_cat[perms, :] != true_C).sum(2).sum(1))
     print(f"Number of different true C and argmax(q(C)): {n_diff}")
     #assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
 
@@ -28,9 +33,12 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     :return:
     """
     N, K = q_z.pi.shape
-    z_true_one_hot = f.one_hot(true_Z.long(), num_classes=K)
-
+    perms = list(itertools.permutations(range(K)))
     total_misclassifications = torch.sum(true_Z.float() != torch.argmax(q_z.pi, dim=1))
+    max_prob_qZ = torch.argmax(q_z.pi, dim=1)
+    ari = adjusted_rand_score(max_prob_qZ, true_Z)
+    #total_misclassifications = torch.min((max_prob_qZ[:, perms] != true_Z.float()).sum(2).sum(1))  # account for label switching
+    print(f"Adjust rand score: {ari}")
     print(f"Total number of mis-classifications: {total_misclassifications}")
     if total_misclassifications != 0:
         n_prints = 5
