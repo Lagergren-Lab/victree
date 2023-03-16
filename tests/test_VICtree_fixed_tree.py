@@ -20,20 +20,6 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuT
 
 class VICtreeFixedTreeTestCase(unittest.TestCase):
 
-    def setUp(self) -> None:
-        # build config
-        self.config = Config(n_nodes=3, n_states=7, n_cells=20, chain_length=10, debug=True)
-        self.qc = qC(self.config)
-        self.qc.initialize()
-        self.qt = qT(self.config)
-        self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
-        self.qz = qZ(self.config)
-        self.qpi = qPi(self.config)
-        self.qmt = qMuTau(self.config)
-        self.qmt.initialize(loc=1, precision_factor=.1, shape=1, rate=1)
-        torch.manual_seed(0)
-        random.seed(0)
-
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
@@ -42,28 +28,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qpi = qPi(config)
         qmt = qMuTau(config)
         return qc, qt, qeps, qz, qpi, qmt
-
-    def simul_data_pyro_fixed_parameters(self, data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                                         mu_0=torch.tensor(10.),
-                                         lambda_0=torch.tensor(.1),
-                                         alpha0=torch.tensor(10.),
-                                         beta0=torch.tensor(40.),
-                                         a0=torch.tensor(1.0),
-                                         b0=torch.tensor(20.0),
-                                         dir_alpha0=torch.tensor(1.0)
-                                         ):
-        model_tree_markov_full = simul.model_tree_markov_full
-        unconditioned_model = poutine.uncondition(model_tree_markov_full)
-        C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                        mu_0,
-                                                        lambda_0,
-                                                        alpha0,
-                                                        beta0,
-                                                        a0,
-                                                        b0,
-                                                        dir_alpha0)
-
-        return C, y, z, pi, mu, tau, eps
 
     def test_one_edge_tree(self):
         torch.manual_seed(0)
@@ -74,60 +38,66 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 200
         n_copy_states = 7
         dir_alpha = torch.tensor([1., 3.])
-        y, C, z, pi, mu, tau, eps, eps0 = pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree,
-                                                                     mu_0=torch.tensor(10.),
-                                                                     lambda_0=torch.tensor(10.),
-                                                                     alpha0=torch.tensor(500.),
-                                                                     beta0=torch.tensor(50.),
-                                                                     a0=torch.tensor(1.0),
-                                                                     b0=torch.tensor(20.0),
-                                                                     dir_alpha0=dir_alpha
-                                                                     )
-        print(f"C node 1 site 20: {C[1, 20]}")
-        print(f"Epsilon: {eps}")
+        nu_0 = torch.tensor(10.)
+        lambda_0 = torch.tensor(10.)
+        alpha0 = torch.tensor(500.)
+        beta0 = torch.tensor(50.)
+        a0 = torch.tensor(10.0)
+        b0 = torch.tensor(200.0)
+
+        y, C, z, pi, mu, tau, eps, eps0 = pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree, nu_0=nu_0,
+                                                                     lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
+                                                                     a0=a0, b0=b0, dir_alpha0=dir_alpha)
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False, diagnostics=True)
+
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
+
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-        # initialize all var dists
         q.initialize()
         copy_tree = CopyTree(config, q, y)
 
+        # Act
         copy_tree.run(80)
+
+        # Assert
         diagnostics_dict = copy_tree.diagnostics_dict
         visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells/2), int(n_cells/3), n_cells-1],
+                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
+                                                                       n_cells - 1],
                                                     clones_to_vis_idxs=[1, 0],
                                                     edges_to_vis_idxs=[(0, 1)],
-                                                    save_path='./test_output/one_edge_tree_test.pdf')
+                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                           q_mt=copy_tree.q.mt)
 
-
     def test_three_node_tree(self):
-        torch.manual_seed(2)
+        torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
         dir_alpha = torch.tensor([1., 3., 3.])
-        y, C, z, pi, mu, tau, eps, eps0 = pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree,
-                                                                     mu_0=torch.tensor(10.),
-                                                                     lambda_0=torch.tensor(10.),
-                                                                     alpha0=torch.tensor(500.),
-                                                                     beta0=torch.tensor(50.),
-                                                                     a0=torch.tensor(1.0),
-                                                                     b0=torch.tensor(20.0),
-                                                                     dir_alpha0=dir_alpha
-                                                                     )
+        nu_0 = torch.tensor(10.)
+        lambda_0 = torch.tensor(10.)
+        alpha0 = torch.tensor(500.)
+        beta0 = torch.tensor(50.)
+        a0 = torch.tensor(10.0)
+        b0 = torch.tensor(200.0)
+        y, C, z, pi, mu, tau, eps, eps0 = pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree, nu_0=nu_0,
+                                                                     lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
+                                                                     a0=a0, b0=b0, dir_alpha0=dir_alpha)
         print(f"C node 1 site 2: {C[1, 2]}")
         print(f"Epsilon: {eps}")
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False, diagnostics=True)
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
+
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
@@ -140,11 +110,14 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         copy_tree.run(50)
 
-        torch.set_printoptions(precision=2)
+        # Assert
         diagnostics_dict = copy_tree.diagnostics_dict
-        visualization_utils.visualize_diagnostics(diagnostics_dict,
-                                                  cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                     n_cells - 1])
+        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
+                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
+                                                                       n_cells - 1],
+                                                    clones_to_vis_idxs=[1, 0],
+                                                    edges_to_vis_idxs=[(0, 1)],
+                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
