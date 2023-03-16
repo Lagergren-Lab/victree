@@ -1,4 +1,5 @@
 import os.path
+import pathlib
 import pickle
 from typing import List, Tuple
 
@@ -108,18 +109,18 @@ def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.D
     return C, y, z, pi, mu, tau, eps
 
 
-def pyro_simulate_full_dataset(n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                               mu_0=torch.tensor(1.),
-                               lambda_0=torch.tensor(1.),
-                               alpha0=torch.tensor(1.),
-                               beta0=torch.tensor(1.),
-                               a0=torch.tensor(1.0),
-                               b0=torch.tensor(20.0),
-                               dir_alpha0=torch.tensor(1.0)
-                               ):
+def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
+                                  nu_0=torch.tensor(1.),
+                                  lambda_0=torch.tensor(1.),
+                                  alpha0=torch.tensor(1.),
+                                  beta0=torch.tensor(1.),
+                                  a0=torch.tensor(1.0),
+                                  b0=torch.tensor(20.0),
+                                  dir_alpha0=torch.tensor(1.0)
+                                  ):
     n_nodes = len(tree.nodes)
     config = Config(n_nodes=n_nodes, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
-    output_sim = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=mu_0, lambda0=lambda_0, alpha0=alpha0,
+    output_sim = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=nu_0, lambda0=lambda_0, alpha0=alpha0,
                                              beta0=beta0,
                                              dir_alpha=dir_alpha0)
     y = output_sim['obs']
@@ -238,3 +239,13 @@ def load_test_data(seed, K, M, N, A):
     tau = torch.load(path + 'tau.pt')
     eps = torch.load(path + 'eps.pt')
     return tree, C, y, z, pi, mu, tau, eps
+
+
+def create_test_output_catalog(config, test_specific_string, base_dir=None):
+    base_dir = base_dir if base_dir is not None else "./test_output"
+    path = base_dir + "/" + test_specific_string + f"/K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}"
+    try:
+        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        print("Dir already exists. Overwriting contents.")
+    return path
