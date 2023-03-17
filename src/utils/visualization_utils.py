@@ -1,4 +1,7 @@
 import os.path
+import pickle
+import sys
+import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -193,7 +196,7 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
         pdf.savefig(fig)
 
 
-if __name__ == '__main__':
+def test_visualization():
     K_test, M_test, A_test = (5, 10, 7)
     C_test = torch.ones((K_test, M_test))
     C_test[2, int(M_test / 2):] = 2.
@@ -224,3 +227,45 @@ if __name__ == '__main__':
                             cells_to_vis_idxs=[0, 3, 5, 10, 12, 14],
                             clones_to_vis_idxs=[0, 1, 3],
                             edges_to_vis_idxs=[(0, 1), (1, 2), (2, 4)], save_path=save_path)
+
+
+def edge_type(e):
+    try:
+        u, v = map(int, e.split(','))
+        return u, v
+    except Exception:
+        raise argparse.ArgumentTypeError("Edges must be u,v")
+
+
+if __name__ == '__main__':
+    cli = argparse.ArgumentParser()
+    cli.add_argument('--pickle-file',
+                     type=str,
+                     required=True, help="pickle file path (binary pickle)")
+    cli.add_argument('--out-path',
+                     type=str,
+                     required=True, help="output path e.g. ./diagnostics.pdf")
+    cli.add_argument('--cells-list',
+                     type=int,
+                     nargs='*',
+                     default=[0, 1, 2], help="list of cells e.g. 0 2 3")
+    cli.add_argument('--clones-list',
+                     type=int,
+                     nargs='*',
+                     default=[0, 1, 2], help="list of clones e.g. 0 2 3")
+    cli.add_argument('--edges-list',
+                     type=edge_type,
+                     nargs='*',
+                     default=[(0, 1), (0, 2), (1, 2), (2, 1)],
+                     help="list of edges with comma separated clone names e.g. 0,1 1,2 2,1")
+    # if empty list, print all related to clones
+    args = cli.parse_args()
+
+    with open(args.pickle_file, 'rb') as f:
+
+        diag_dict = pickle.load(f)
+        plot_diagnostics_to_pdf(diagnostics_dict=diag_dict,
+                                cells_to_vis_idxs=args.cells_list,
+                                clones_to_vis_idxs=args.clones_list,
+                                edges_to_vis_idxs=args.edges_list,
+                                save_path=args.out_path)
