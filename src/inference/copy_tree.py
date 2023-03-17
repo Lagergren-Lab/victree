@@ -188,6 +188,7 @@ class CopyTree:
 
         if self.diagnostics_dict is not None:
             self.init_diagnostics(n_iter)
+            self.update_diagnostics(0)
 
         if self.config.sieving_size > 1:
             self.compute_elbo()
@@ -200,7 +201,7 @@ class CopyTree:
             logging.info(f"ELBO after init: {self.elbo:.2f}")
 
         logging.info("Start updates...")
-        for it in range(n_iter):
+        for it in range(1, n_iter + 1):
             # do the updates
             if it % 10 == 0:
                 logging.info(f"It: {it}")
