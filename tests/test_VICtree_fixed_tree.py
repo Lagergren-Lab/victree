@@ -145,15 +145,24 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(n_nodes=K, chain_length=n_sites,
-                        n_cells=n_cells, n_states=n_copy_states)
+        config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites,
+                        n_cells=n_cells, n_states=n_copy_states, diagnostics=True)
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize()
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(30)
+        copy_tree.run(100)
 
+        # Assert
+        diagnostics_dict = copy_tree.diagnostics_dict
+        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
+                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
+                                                                       n_cells - 1],
+                                                    clones_to_vis_idxs=[1, 0],
+                                                    edges_to_vis_idxs=[(0, 1)],
+                                                    save_path=test_dir_name + '/diagnostics.pdf')
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
@@ -163,49 +172,46 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 1000
-        n_sites = 100
+        n_sites = 300
         n_copy_states = 7
-        data = torch.ones((n_sites, n_cells))
-        dir_alpha0 = 1.
-        C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                               dir_alpha0=dir_alpha0)
-        config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+        nu_0 = torch.tensor(10.)
+        lambda_0 = torch.tensor(10.)
+        alpha0 = torch.tensor(500.)
+        beta0 = torch.tensor(50.)
+        a0 = torch.tensor(10.0)
+        b0 = torch.tensor(200.0)
+        dir_alpha0 = torch.ones(K) * 2.
+        y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
+                                                                        nu_0=nu_0,
+                                                                        lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
+                                                                        a0=a0, b0=b0, dir_alpha0=dir_alpha0)
+        config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states, diagnostics=True)
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-        q.initialize(eps_alpha=10., eps_beta=40.,
-                     loc=mu, precision_factor=.1, shape=5, rate=5)
+        q.initialize()
 
         copy_tree = CopyTree(config, q, y)
-        copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
+        copy_tree.q.pi.concentration_param = dir_alpha0
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
         copy_tree.run(20)
-        q_C = copy_tree.q.c.single_filtering_probs
-        q_pi = copy_tree.q.z.pi
-        delta = copy_tree.q.pi.concentration_param
 
+        # Assert
+        diagnostics_dict = copy_tree.diagnostics_dict
+        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
+                                                    cells_to_vis_idxs=[0, 10, 20, 30, int(n_cells / 2), int(n_cells / 3),
+                                                                       n_cells - 1],
+                                                    clones_to_vis_idxs=[1, 0, 2, 3, 4],
+                                                    edges_to_vis_idxs=tree.edges,
+                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
-        verbose = False
-        if verbose:
-            print(f"Prior dirichlet param: {dir_alpha0 * torch.ones(K)} \n variational concentration param: {delta}")
-            print(f"True pi: {pi} \n variational categorical param: {torch.mean(q_pi, dim=0)}")
-            print(f"True C: {f.one_hot(C[1, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[1, 5:10, :]}")
-            print(f"True C: {f.one_hot(C[3, 5:10].long(), num_classes=n_copy_states)} \n q(C): {q_C[3, 5:10, :]}")
-            print(f"True C: {f.one_hot(C[4, 80:100].long(), num_classes=n_copy_states)} \n q(C): {q_C[4, 80:100, :]}")
-            print(f"True mu: {mu[0:5]} \n Expected mu: {qmt.nu[0:5]}")
-            print(f"True tau: {tau[0:5]} \n Expected var tau: {qmt.exp_tau()[0:5]}")
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                          q_mt=copy_tree.q.mt)
 
-        print(f'tree: {tree.edges}')
-
-        # Asserts
-        print(f"Number of differing argmax(qC) and true C: {torch.sum(C != torch.argmax(q_C, dim=-1))}")
-        threshold = 10
-        n_diff_qC_vs_true_C = torch.sum(C != torch.argmax(q_C, dim=-1))
-        self.assertTrue(n_diff_qC_vs_true_C < threshold, msg=f"N diff argmax q(C) vs true C: {n_diff_qC_vs_true_C}")
-        self.assertTrue(torch.allclose(pi, torch.mean(q_pi, dim=0), atol=0.1),
-                        msg=f"q(Z) mean over cells not close to true pi used for sampling Z."
-                            f" \n q(Z)) mean: {torch.mean(q_pi, dim=0)} \n true pi: {pi}")
 
     def test_large_tree_init_true_params_multiple_runs(self):
         logger = logging.getLogger()
