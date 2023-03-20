@@ -187,7 +187,8 @@ class CopyTree:
         close_runs = 0
 
         if self.diagnostics_dict is not None:
-            self.init_diagnostics(n_iter)
+            self.init_diagnostics(n_iter + 1)  # n_iter + 1 for initialization values
+            self.update_diagnostics(0)
 
         if self.config.sieving_size > 1:
             self.compute_elbo()
@@ -200,7 +201,7 @@ class CopyTree:
             logging.info(f"ELBO after init: {self.elbo:.2f}")
 
         logging.info("Start updates...")
-        for it in range(n_iter):
+        for it in range(1, n_iter + 1):
             # do the updates
             if it % 10 == 0:
                 logging.info(f"It: {it}")
@@ -220,7 +221,7 @@ class CopyTree:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     logging.debug(f"Run ended after {it}/{n_iter} iterations due to plateau")
-                    break
+                    #break
             elif self.elbo < old_elbo:
                 # elbo should only increase
                 # raise ValueError("Elbo is decreasing")
