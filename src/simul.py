@@ -7,6 +7,7 @@ Uses Pyro-PPL for modelling the data only with data generation purposes.
 
 import argparse
 import logging
+import os.path
 import random
 
 import h5py
@@ -370,17 +371,35 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
 
 
 def write_simulated_dataset_h5(dest_path, data):
+    """
+    Output data structure
+    - X: reads (dataset) shape (n_cells, chain_length)
+    - gt: ground truth(group)
+    - layers: group
+        - copy-number: dataset shape (n_cells, chain_length)
+
+    Parameters
+    ----------
+    dest_path str, filename with path
+    data dict, output of simulate_full_dataset, with keys:
+    [obs, c, z, pi, mu, tau, eps, eps0, tree]
+
+    Returns
+    -------
+    """
     f = h5py.File(dest_path, 'w')
     x_ds = f.create_dataset('X', data=data['obs'].T)
     layers_grp = f.create_group('layers')
     z = data['z']
-    cn_state = data['c'][z, :].T
+    cn_state = data['c'][z, :]
     assert cn_state.shape == x_ds.shape
     layers_grp.create_dataset('state', data=cn_state)
 
     gt_group = f.create_group('gt')
-    gt_group.create_dataset('cell_assignment', data=data['z'])
+    gt_group.create_dataset('z', data=data['z'])
     gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
+    mutau_tensor = torch.stack((data['mu'], data['tau']))
+    gt_group.create_dataset('mutau', data=torch.tensor(list(data['tree'].edges.data('weight'))))
     # TODO: write all remaining data 'eps, mu, tau, ...'
 
     f.close()
@@ -472,34 +491,6 @@ def tree_to_newick_old(g: nx.DiGraph, root=None):
     return "(" + ','.join(subgs) + ")" + str(root)
 
 
-if __name__ == '__main__':
-    # save data to h5 file
-    # write_sample_dataset_h5('../data_example.h5')
-
-    # simulate data and save it to file
-    set_seed(42)
-    data = simulate_full_dataset(Config(n_nodes=5, n_states=7, n_cells=300, chain_length=1000))
-    write_simulated_dataset_h5('../datasets/n5_c300_l1k.h5', data)
-
-    ## parse arguments
-    # parser = argparse.ArgumentParser(
-    #    description="Tree HMM test"
-    # )
-    # parser.add_argument("--seed", default=42, type=int)
-    # parser.add_argument("--cuda", action="store_true")
-    ## parser.add_argument("--tmc-num-samples", default=10, type=int)
-    # args = parser.parse_args()
-    ## seed for reproducibility
-    ## torch rng
-    # torch.manual_seed(args.seed)
-    # torch.cuda.manual_seed(args.seed)
-    # torch.cuda.manual_seed_all(args.seed)
-    ## python rng
-    # np.random.seed(args.seed)
-    # random.seed(args.seed)
-
-    # main(args)
-
 
 def generate_dataset_var_tree(config: Config) -> JointVarDist:
     nu_prior = 1.
@@ -536,3 +527,42 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
 
     joint_q = JointVarDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
     return joint_q
+
+
+# script for simulating data
+if __name__ == '__main__':
+    cli = argparse.ArgumentParser()
+    cli.add_argument('-o', '--out-path',
+                     type=str,
+                     default='../datasets/', help="output directory e.g. ../datasets/")
+    cli.add_argument('-K', '--n-nodes',
+                     type=int,
+                     default=5, help="number of nodes")
+    cli.add_argument('-A', '--n-states',
+                     type=int,
+                     default=7, help="number of copy number states from 0 to A")
+    cli.add_argument('-N', '--n-cells',
+                     type=int,
+                     default=300, help="number of cells")
+    cli.add_argument('-M', '--chain-length',
+                     type=int,
+                     default=1000, help="number of cells")
+    cli.add_argument('-s', '--seed',
+                     type=int,
+                     default=42, help="RNG seed")
+    logging.basicConfig(level=logging.INFO)
+    # if empty list, print all related to clones
+    args = cli.parse_args()
+
+    # save data to h5 file
+    # write_sample_dataset_h5('../data_example.h5')
+
+    # simulate data and save it to file
+    set_seed(args.seed)
+    data = simulate_full_dataset(Config(n_nodes=args.n_nodes, n_states=args.n_states,
+                                        n_cells=args.n_cells, chain_length=args.chain_length))
+    filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}.h5'
+    out_file = os.path.join(args.out_path, filename)
+    write_simulated_dataset_h5(out_file, data)
+    logging.info(f'simulated dateset saved successfully in {out_file}!')
+
