@@ -166,7 +166,7 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
                 j = 0
                 i += 1
             for k in range(K):
-                axs[i, j].plot(diagnostics_dict["Z"][k, cell_idx], label=f'{k}')
+                axs[i, j].plot(diagnostics_dict["Z"][:, cell_idx, k], label=f'{k}')
                 axs[i, j].set_title(f'Z for cell {cell_idx}')
 
             axs[i, j].legend()
@@ -177,6 +177,7 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
         i += 1
         axs[i, 0].plot(diagnostics_dict["pi"])
         axs[i, 0].set_title('pi over iterations')
+        axs[i, 0].legend()
 
         i += 1
         # visualize epsilon

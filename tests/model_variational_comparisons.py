@@ -16,12 +16,24 @@ def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
     :param threshold:
     :return:
     """
-    K = true_C.shape[0]
+    K, M = true_C.shape
     marginals = q_c.single_filtering_probs
-    perms = list(itertools.permutations(range(K)))
+    perms_non_root = list(itertools.permutations(range(1, K)))
+    perms = []
+    for perm in perms_non_root:
+        perms.append([0] + list(perm))
+
     max_prob_cat = torch.argmax(marginals, dim=-1)  # Account for label switching
-    n_diff = torch.min((max_prob_cat[perms, :] != true_C).sum(2).sum(1))
-    print(f"Number of different true C and argmax(q(C)): {n_diff}")
+    if K < 8:  # memory issues for larger K
+        n_diff = torch.min((max_prob_cat[perms, :] != true_C).sum(2).sum(1))
+    else:
+        print(f"Start q(C) evaluation w.r.t. label switching on {len(perms)} permutations")
+        n_diff = K * M
+        for perm in perms:
+            n_diff_i = (max_prob_cat[perm, :] != true_C).sum()
+            if n_diff_i < n_diff:
+                n_diff = n_diff_i
+    print(f"Number of different true C and argmax(q(C)): {n_diff} out of {K*M} states")
     #assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
 
 
@@ -37,27 +49,18 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     total_misclassifications = torch.sum(true_Z.float() != torch.argmax(q_z.pi, dim=1))
     max_prob_qZ = torch.argmax(q_z.pi, dim=1)
     ari = adjusted_rand_score(max_prob_qZ, true_Z)
-    #total_misclassifications = torch.min((max_prob_qZ[:, perms] != true_Z.float()).sum(2).sum(1))  # account for label switching
-    print(f"Adjust rand score: {ari}")
-    print(f"Total number of mis-classifications: {total_misclassifications}")
-    if total_misclassifications != 0:
-        n_prints = 5
-        mis_class_idx = torch.where(true_Z.float() != torch.argmax(q_z.pi, dim=1))
-        rand_idx = torch.randperm(total_misclassifications)
-        mis_class_shuffled = mis_class_idx[0][rand_idx]
-        i = 0
-        while (i < n_prints and i < total_misclassifications):
-            print(f"Misclassification of cell {mis_class_shuffled[i]}: qZ = {q_z.pi[mis_class_shuffled[i]]}, pZ = {true_Z[mis_class_shuffled[i]]}")
-            i += 1
+    print(f"Adjust rand score between q(Z) and true Z: {ari}")
 
 
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     N = true_mu.shape
     square_dist_mu = torch.pow(true_mu - q_mt.nu, 2)
-    print(f"mean square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
+    print(f"Mean square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
+    print(f"Max square dist mu: {square_dist_mu.max()}")
 
     square_dist_tau = torch.pow(true_tau - q_mt.exp_tau(), 2)
-    print(f"mean square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
+    print(f"Mean square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
+    print(f"Max square dist tau: {square_dist_tau.max()}")
 
 
 def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt):
