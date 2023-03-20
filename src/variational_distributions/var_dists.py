@@ -837,7 +837,7 @@ other elbos such as qC.
         E_CuCveps = torch.zeros((N, N))
         for u, v in unique_edges:
             E_eps_h = q_epsilon.exp_log_zipping((u, v))
-            E_CuCveps[u, v] = torch.einsum('mij, mkl, ijkl  -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+            E_CuCveps[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
                                            E_eps_h)
 
         for k, T in enumerate(T_list):
@@ -1011,13 +1011,13 @@ class qEpsilon(VariationalDistribution):
 
         E_CuCv_a = torch.zeros((N, N))
         E_CuCv_b = torch.zeros((N, N))
-        co_mut_mask, anti_sym_mask = self.create_masks(A)
+        comut_mask = get_zipping_mask(A)
         for uv in unique_edges:
             u, v = uv
-            E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
-                                          anti_sym_mask)
-            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
-                                          co_mut_mask)
+            E_CuCv_a[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+                                          (~comut_mask).float())
+            E_CuCv_b[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+                                          comut_mask.float())
 
         for k, T in enumerate(T_list):
             for uv in [e for e in T.edges]:
@@ -1126,16 +1126,16 @@ class qEpsilonMulti(VariationalDistribution):
         exp_cuv_a = {}
         # E_T[ sum_m sum_{A} Cu Cv ]
         exp_cuv_b = {}
-        co_mut_mask, anti_sym_mask = self.create_masks(A)
+        comut_mask = get_zipping_mask(A)
         for u, v in unique_edges:
-            exp_cuv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ',
+            exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
                                            cfp[u],
                                            cfp[v],
-                                           anti_sym_mask)
-            exp_cuv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
+                                           (~comut_mask).float())
+            exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
                                            cfp[u],
                                            cfp[v],
-                                           co_mut_mask)
+                                           comut_mask.float())
 
         for k, t in enumerate(tree_list):
             for e in t.edges:
