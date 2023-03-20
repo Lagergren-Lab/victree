@@ -165,8 +165,12 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
             if j >= n_cols:
                 j = 0
                 i += 1
-            axs[i, j].plot(diagnostics_dict["Z"][:, cell_idx])
-            axs[i, j].set_title(f'Z for cell {cell_idx}')
+            for k in range(K):
+                axs[i, j].plot(diagnostics_dict["Z"][k, cell_idx], label=f'{k}')
+                axs[i, j].set_title(f'Z for cell {cell_idx}')
+
+            axs[i, j].legend()
+
             j += 1
 
         # visualize pi

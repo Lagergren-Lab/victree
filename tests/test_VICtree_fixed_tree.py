@@ -118,7 +118,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                     cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
                                                                        n_cells - 1],
                                                     clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=[(0, 1)],
+                                                    edges_to_vis_idxs=list(tree.edges),
                                                     save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
