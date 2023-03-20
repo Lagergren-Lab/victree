@@ -985,15 +985,15 @@ class qEpsilon(VariationalDistribution):
         return super().initialize(**kwargs)
 
     def create_masks(self, A):
-        co_mut_mask = torch.zeros((A, A, A, A))
+        comut_mask = torch.zeros((A, A, A, A))
         anti_sym_mask = torch.zeros((A, A, A, A))
         # TODO: Find effecient way of indexing i-j = k-l
         for i, j, k, l in itertools.combinations_with_replacement(range(A), 4):
             if i - j == k - l:
-                co_mut_mask[i, j, k, l] = 1
+                comut_mask[i, j, k, l] = 1
             else:
                 anti_sym_mask[i, j, k, l] = 1
-        return co_mut_mask, anti_sym_mask
+        return comut_mask, anti_sym_mask
 
     def elbo(self) -> float:
         return super().elbo()
@@ -1067,7 +1067,7 @@ class qEpsilon(VariationalDistribution):
 # edge distance (multiple eps, one for each arc)
 class qEpsilonMulti(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_prior: float = 1., beta_prior: float = 1., gedges=None,
+    def __init__(self, config: Config, alpha_prior: float = 1., beta_prior: float = 5., gedges=None,
                  true_params=None):
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_prior)
