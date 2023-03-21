@@ -493,14 +493,13 @@ def tree_to_newick_old(g: nx.DiGraph, root=None):
     return "(" + ','.join(subgs) + ")" + str(root)
 
 
-
 def generate_dataset_var_tree(config: Config) -> JointVarDist:
     nu_prior = 1.
     lambda_prior = 100.
     alpha_prior = 500.
     beta_prior = 50.
     simul_data = simulate_full_dataset(config, mu0=nu_prior, lambda0=lambda_prior, alpha0=alpha_prior, beta0=beta_prior,
-                                       eps_a=2, eps_b=5)
+                                       eps_a=5., eps_b=50.)
 
     fix_qc = qC(config, true_params={
         "c": simul_data['c']

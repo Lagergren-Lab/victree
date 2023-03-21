@@ -1118,9 +1118,11 @@ class qEpsilonMulti(VariationalDistribution):
         K, M, A, A = cfp.shape
         new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha.keys()}
         new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta.keys()}
-        # TODO: check how many edges are effectively updated
-        #   after some iterations (might be very few)
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
+
+        # check how many edges are effectively updated
+        # after some iterations (might be very few)
+        logging.debug(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges")
 
         # E_T[ sum_m sum_{not A} Cu Cv ]
         exp_cuv_a = {}
