@@ -5,6 +5,7 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfFile, PdfPages
 import torch
 import tkinter
@@ -197,7 +198,15 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
                 even = True
                 i += 1
 
-        plt.show()
+        plt.close(fig)
+        pdf.savefig(fig)
+
+        # plot Pi dist
+        fig, ax = plt.subplots()
+        ax.stackplot(range(max_iter), *[diagnostics_dict["pi"][:, i] for i in range(K)], labels=range(K))
+        ax.legend(loc='upper left')
+        plt.title("qPi")
+        plt.close(fig)
         pdf.savefig(fig)
 
 
