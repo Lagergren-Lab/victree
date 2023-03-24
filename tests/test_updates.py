@@ -213,31 +213,33 @@ class updatesTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(qmt.nu, joint_q.mt.true_params['mu'], rtol=1e-2))
         self.assertTrue(torch.allclose(qmt.exp_tau(), joint_q.mt.true_params['tau'], rtol=.2))
 
-    def test_qeps(self):
+    def test_update_qeps(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
-        cfg = joint_q.config
-        fix_tree = joint_q.T
+        cfg = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
+                     wis_sample_size=20, debug=True)
+        joint_q = generate_dataset_var_tree(cfg)
+        fix_tree = joint_q.t
         fix_qc = joint_q.c
 
         qeps = qEpsilonMulti(cfg)
         qeps.initialize('uniform')
 
-        trees = [fix_tree] * cfg.wis_sample_size
-        wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
+        trees, weights = fix_tree.get_trees_sample()
 
         for i in range(10):
-            qeps.update(trees, wis_weights, fix_qc)
+            qeps.update(trees, weights, fix_qc)
 
         # print(qeps.mean()[[0, 0], [1, 2]])
         true_eps = joint_q.eps.true_params['eps']
         var_eps = qeps.mean()
-        self.assertAlmostEqual(var_eps[0, 1],
-                               true_eps[0, 1], delta=.1)
-        self.assertAlmostEqual(var_eps[0, 2],
-                               true_eps[0, 2], delta=.1)
+        self.assertAlmostEqual(var_eps[0, 4],
+                               true_eps[0, 4], delta=.1)
+        self.assertAlmostEqual(var_eps[4, 3],
+                               true_eps[4, 3], delta=.1)
+        self.assertAlmostEqual(var_eps[4, 1],
+                               true_eps[4, 1], delta=.1)
 
-        self.assertGreater(var_eps[0, 2], var_eps[0, 1])
+        self.assertLess(var_eps[1, 2], var_eps[2, 3])
 
     def test_update_qpi(self):
 

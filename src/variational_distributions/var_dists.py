@@ -837,7 +837,7 @@ other elbos such as qC.
         E_CuCveps = torch.zeros((N, N))
         for u, v in unique_edges:
             E_eps_h = q_epsilon.exp_log_zipping((u, v))
-            E_CuCveps[u, v] = torch.einsum('mij, mkl, ijkl  -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+            E_CuCveps[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
                                            E_eps_h)
 
         for k, T in enumerate(T_list):
@@ -985,15 +985,15 @@ class qEpsilon(VariationalDistribution):
         return super().initialize(**kwargs)
 
     def create_masks(self, A):
-        co_mut_mask = torch.zeros((A, A, A, A))
+        comut_mask = torch.zeros((A, A, A, A))
         anti_sym_mask = torch.zeros((A, A, A, A))
         # TODO: Find effecient way of indexing i-j = k-l
         for i, j, k, l in itertools.combinations_with_replacement(range(A), 4):
             if i - j == k - l:
-                co_mut_mask[i, j, k, l] = 1
+                comut_mask[i, j, k, l] = 1
             else:
                 anti_sym_mask[i, j, k, l] = 1
-        return co_mut_mask, anti_sym_mask
+        return comut_mask, anti_sym_mask
 
     def elbo(self) -> float:
         return super().elbo()
@@ -1011,13 +1011,13 @@ class qEpsilon(VariationalDistribution):
 
         E_CuCv_a = torch.zeros((N, N))
         E_CuCv_b = torch.zeros((N, N))
-        co_mut_mask, anti_sym_mask = self.create_masks(A)
+        comut_mask = get_zipping_mask(A)
         for uv in unique_edges:
             u, v = uv
-            E_CuCv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
-                                          anti_sym_mask)
-            E_CuCv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
-                                          co_mut_mask)
+            E_CuCv_a[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+                                          (~comut_mask).float())
+            E_CuCv_b[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
+                                          comut_mask.float())
 
         for k, T in enumerate(T_list):
             for uv in [e for e in T.edges]:
@@ -1067,7 +1067,7 @@ class qEpsilon(VariationalDistribution):
 # edge distance (multiple eps, one for each arc)
 class qEpsilonMulti(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_prior: float = 1., beta_prior: float = 1., gedges=None,
+    def __init__(self, config: Config, alpha_prior: float = 1., beta_prior: float = 5., gedges=None,
                  true_params=None):
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_prior)
@@ -1083,13 +1083,6 @@ class qEpsilonMulti(VariationalDistribution):
             assert "eps" in true_params
         self.true_params = true_params
         super().__init__(config, true_params is not None)
-
-    def update_params(self, alpha: dict, beta: dict):
-        rho = self.config.step_size
-        for e in self.alpha.keys():
-            self._alpha[e] = (1 - rho) * self.alpha[e] + rho * alpha[e]
-            self._beta[e] = (1 - rho) * self.beta[e] + rho * beta[e]
-        return self.alpha, self.beta
 
     @property
     def alpha(self):
@@ -1108,6 +1101,53 @@ class qEpsilonMulti(VariationalDistribution):
     def beta(self, b: dict):
         for e, w in b.items():
             self._beta[e] = w
+
+    def update_params(self, alpha: dict, beta: dict):
+        rho = self.config.step_size
+        for e in self.alpha.keys():
+            self._alpha[e] = (1 - rho) * self.alpha[e] + rho * alpha[e]
+            self._beta[e] = (1 - rho) * self.beta[e] + rho * beta[e]
+        return self.alpha, self.beta
+
+    def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
+        self.update_CAVI(tree_list, tree_weights, qc)
+        super().update()
+
+    def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
+        cfp = qc.couple_filtering_probs
+        K, M, A, A = cfp.shape
+        new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha.keys()}
+        new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta.keys()}
+        unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
+
+        # check how many edges are effectively updated
+        # after some iterations (might be very few)
+        logging.debug(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges")
+
+        # E_T[ sum_m sum_{not A} Cu Cv ]
+        exp_cuv_a = {}
+        # E_T[ sum_m sum_{A} Cu Cv ]
+        exp_cuv_b = {}
+        comut_mask = get_zipping_mask(A)
+        for u, v in unique_edges:
+            exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
+                                           cfp[u],
+                                           cfp[v],
+                                           (~comut_mask).float())
+            exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
+                                           cfp[u],
+                                           cfp[v],
+                                           comut_mask.float())
+
+        for k, t in enumerate(tree_list):
+            for e in t.edges:
+                ww = tree_weights[k]
+                # only change the values related to the tree edges
+                new_alpha[e] += ww * exp_cuv_a[e]
+                new_beta[e] += ww * exp_cuv_b[e]
+
+        self.update_params(new_alpha, new_beta)
+        return new_alpha, new_beta
 
     def _set_equal_params(self, eps_alpha: float, eps_beta: float):
         for e in self.alpha.keys():
@@ -1203,44 +1243,6 @@ class qEpsilonMulti(VariationalDistribution):
         entropy_eps = self.entropy(T_eval, w_T_eval)
         CE_eps = self.cross_entropy(T_eval, w_T_eval)
         return CE_eps + entropy_eps
-
-    def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
-        self.update_CAVI(tree_list, tree_weights, qc)
-        super().update()
-
-    def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
-        cfp = qc.couple_filtering_probs
-        K, M, A, A = cfp.shape
-        new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha.keys()}
-        new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta.keys()}
-        # TODO: check how many edges are effectively updated
-        #   after some iterations (might be very few)
-        unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
-
-        # E_T[ sum_m sum_{not A} Cu Cv ]
-        exp_cuv_a = {}
-        # E_T[ sum_m sum_{A} Cu Cv ]
-        exp_cuv_b = {}
-        co_mut_mask, anti_sym_mask = self.create_masks(A)
-        for u, v in unique_edges:
-            exp_cuv_a[u, v] = torch.einsum('mij, mkl, ijkl -> ',
-                                           cfp[u],
-                                           cfp[v],
-                                           anti_sym_mask)
-            exp_cuv_b[u, v] = torch.einsum('mij, mkl, ijkl -> ',
-                                           cfp[u],
-                                           cfp[v],
-                                           co_mut_mask)
-
-        for k, t in enumerate(tree_list):
-            for e in t.edges:
-                ww = tree_weights[k]
-                # only change the values related to the tree edges
-                new_alpha[e] += ww * exp_cuv_a[e]
-                new_beta[e] += ww * exp_cuv_b[e]
-
-        self.update_params(new_alpha, new_beta)
-        return new_alpha, new_beta
 
     def h_eps0(self, i: Optional[int] = None, j: Optional[int] = None) -> Union[float, torch.Tensor]:
         if i is not None and j is not None:

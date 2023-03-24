@@ -213,7 +213,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     return C, y, z, pi, mu, tau, eps
 
 
-def simulate_full_dataset(config: Config, eps_a=1., eps_b=3., mu0=1., lambda0=10.,
+def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50., dir_alpha=None, tree=None):
     """
 Generate full simulated dataset.
@@ -398,10 +398,12 @@ def write_simulated_dataset_h5(dest_path, data):
     gt_group = f.create_group('gt')
     gt_group.create_dataset('z', data=data['z'])
     gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
-    mutau_tensor = torch.stack((data['mu'], data['tau']))
-    gt_group.create_dataset('mutau', data=torch.tensor(list(data['tree'].edges.data('weight'))))
-    # TODO: write all remaining data 'eps, mu, tau, ...'
-
+    mutau_tensor = torch.stack((data['mu'], data['tau']), dim=-1)
+    gt_group.create_dataset('mutau', data=mutau_tensor)
+    g_eps = nx.DiGraph()
+    g_eps.add_weighted_edges_from([(u, v, e) for (u,v), e in data['eps'].items()])
+    eps_tensor = nx.to_numpy_array(g_eps)
+    gt_group.create_dataset('eps', data=eps_tensor)
     f.close()
 
 
@@ -491,14 +493,13 @@ def tree_to_newick_old(g: nx.DiGraph, root=None):
     return "(" + ','.join(subgs) + ")" + str(root)
 
 
-
 def generate_dataset_var_tree(config: Config) -> JointVarDist:
     nu_prior = 1.
     lambda_prior = 100.
     alpha_prior = 500.
     beta_prior = 50.
     simul_data = simulate_full_dataset(config, mu0=nu_prior, lambda0=lambda_prior, alpha0=alpha_prior, beta0=beta_prior,
-                                       eps_a=2, eps_b=5)
+                                       eps_a=5., eps_b=50.)
 
     fix_qc = qC(config, true_params={
         "c": simul_data['c']
@@ -564,5 +565,5 @@ if __name__ == '__main__':
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}.h5'
     out_file = os.path.join(args.out_path, filename)
     write_simulated_dataset_h5(out_file, data)
-    logging.info(f'simulated dateset saved successfully in {out_file}!')
+    logging.info(f'simulated dateset saved successfully in {out_file}')
 

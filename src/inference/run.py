@@ -39,6 +39,7 @@ def run(args):
     joint_q.initialize()
     joint_q.z.initialize(method='kmeans', obs=obs)
     joint_q.mt.initialize(method='data', obs=obs)
+    joint_q.eps.initialize(method='uniform')
 
     copy_tree = CopyTree(config, joint_q, obs)
 
