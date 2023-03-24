@@ -5,7 +5,7 @@ import torch.distributions as dist
 import torch.nn.functional as f
 from sklearn.metrics import adjusted_rand_score
 
-from variational_distributions.var_dists import qC, qZ, qPi, qMuTau
+from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
 
 def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
@@ -55,13 +55,25 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     N = true_mu.shape
     square_dist_mu = torch.pow(true_mu - q_mt.nu, 2)
-    print(f"Mean square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
-    print(f"Max square dist mu: {square_dist_mu.max()}")
+    print(f"MEAN square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
+    print(f"MAX square dist mu: {square_dist_mu.max()}")
 
     square_dist_tau = torch.pow(true_tau - q_mt.exp_tau(), 2)
-    print(f"Mean square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
-    print(f"Max square dist tau: {square_dist_tau.max()}")
+    print(f"MEAN square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
+    print(f"MAX square dist tau: {square_dist_tau.max()}")
+    largest_error_cells_idx = torch.topk(square_dist_mu.flatten(), 5).indices
+    return largest_error_cells_idx
 
+def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt: qMuTau, q_c: qC, q_z: qZ):
+    print(f"------- Compare particular cells {cells_idx} -----------")
+    torch.set_printoptions(precision=2)
+    q_exp_tau = q_mt.exp_tau()
+    for cell in cells_idx:
+        true_clone_idx = true_Z[cell]
+        q_clone_idx = q_z.pi[cell].argmax()
+        q_C_max = q_c.single_filtering_probs[q_clone_idx].argmax(-1)[0:10]
+        print(f"Cell {cell}: true mu {true_mu[cell]} tau {true_tau[cell]} C {true_C[true_clone_idx, 0:10]} (clone {true_clone_idx})")
+        print(f"Cell {cell}: q(mu) {q_mt.nu[cell]} q(tau) {q_exp_tau[cell]} q(C) {q_C_max} (clone {q_clone_idx})")
 
 def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt):
     """
@@ -100,9 +112,23 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
     print(f"tot log_L_var_model: {log_L_var_model.sum():,}")
 
 
-def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon, q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau):
+def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti):
+    q_means = q_epsilon.mean()
+    q_variance = q_epsilon.var()
+    print(f"-------------- qEpsilonMulti evaluations ---------")
+    for key in true_epsilon.keys():
+        print(f"Diff true epsilon E_q[epsilon] for edge {key}: {torch.abs(true_epsilon[key] - q_means[key])}")
+        print(f"Var_q[epsilon] for edge {key} {q_variance[key]}")
+
+
+def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
+                        q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None):
+    torch.set_printoptions(precision=2)
     compare_qC_and_true_C(true_C, q_c, threshold=50)
     compare_qZ_and_true_Z(true_Z, q_z)
-    compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
+    cell_idxs = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
+    compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
+    if q_eps is not None:
+        compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps)
     compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt)
 
