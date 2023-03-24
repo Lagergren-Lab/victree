@@ -286,7 +286,7 @@ class qC(VariationalDistribution):
     def neg_cross_entropy_arc(self, q_eps, u, v):
         log_h_eps0 = q_eps.h_eps0().log()
         # p(j' | j i' i)
-        E_h_eps = q_eps.exp_log_zipping((u, v))
+        e_log_h_eps = q_eps.exp_log_zipping((u, v))
         cross_ent_pos_1 = torch.einsum("i,j,ji->",
                                        self.single_filtering_probs[u, 0, :],
                                        self.single_filtering_probs[v, 0, :],
@@ -296,7 +296,7 @@ class qC(VariationalDistribution):
                                             self.couple_filtering_probs[u, :, :, :],
                                             # v, m, j, j'
                                             self.couple_filtering_probs[v, :, :, :],
-                                            E_h_eps)
+                                            e_log_h_eps)
 
         return cross_ent_pos_1 + cross_ent_pos_2_to_M
 

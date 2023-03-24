@@ -355,11 +355,11 @@ class updatesTestCase(unittest.TestCase):
     def test_update_all(self):
 
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50,
-                        wis_sample_size=20, debug=True, step_size=.1)
+                        wis_sample_size=30, debug=True, step_size=.1)
         true_joint_q = generate_dataset_var_tree(config)
         joint_q = JointVarDist(config, obs=true_joint_q.obs)
         joint_q.initialize()
-        for i in range(20):
+        for i in range(50):
             joint_q.update()
 
         print(f'true c at node 1: {true_joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
