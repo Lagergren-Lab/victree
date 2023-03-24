@@ -132,8 +132,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                          q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
 
     def test_large_tree_fixed_qMuTau_same_data_different_optimizations(self):
         logger = logging.getLogger()

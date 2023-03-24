@@ -478,11 +478,10 @@ class updatesTestCase(unittest.TestCase):
         self.assertGreater(ari, .85)
         self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
         tests.model_variational_comparisons.fixed_T_comparisons(obs, true_C=joint_q.c.true_params["c"],
-                                                                true_Z=joint_q.z.true_params["z"],
+                                                                true_Z=joint_q.z.true_params["z"], true_pi=None,
                                                                 true_mu=joint_q.mt.true_params["mu"],
                                                                 true_tau=joint_q.mt.true_params["tau"],
-                                                                true_epsilon=None, true_pi=None, q_c=qc, q_z=qz,
-                                                                q_mt=qmt, qpi=None)
+                                                                true_epsilon=None, q_c=qc, q_z=qz, qpi=None, q_mt=qmt)
 
     def test_label_switching(self):
         # define 3 clones besides root

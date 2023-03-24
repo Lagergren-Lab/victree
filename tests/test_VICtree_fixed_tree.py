@@ -74,8 +74,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                          q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
 
     def test_three_node_tree(self):
         torch.manual_seed(0)
@@ -124,8 +123,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                          q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
 
     def test_large_tree(self):
         torch.manual_seed(0)
@@ -166,8 +164,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                     save_path=test_dir_name + '/diagnostics.pdf')
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                          q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
 
     def test_large_tree_init_true_params(self):
         logger = logging.getLogger()
@@ -212,8 +209,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                          q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
 
     def test_large_tree_init_close_to_true_params(self):
         logger = logging.getLogger()
@@ -259,7 +255,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         print(f'q(C) marginals init offset: {off_set_z * 100}%')
 
         # Act
-        copy_tree.run(70)
+        copy_tree.run(80)
 
         # Assert
         diagnostics_dict = copy_tree.diagnostics_dict
@@ -272,8 +268,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                          q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
+                                                          q_eps=copy_tree.q.eps)
 
     def test_large_tree_good_init_multiple_runs(self):
         logger = logging.getLogger()
