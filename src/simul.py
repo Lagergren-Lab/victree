@@ -370,7 +370,7 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
     return C, y, z, pi, mu, tau, eps
 
 
-def write_simulated_dataset_h5(dest_path, data):
+def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
     """
     Output data structure
     - X: reads (dataset) shape (n_cells, chain_length)
@@ -380,14 +380,15 @@ def write_simulated_dataset_h5(dest_path, data):
 
     Parameters
     ----------
-    dest_path str, filename with path
+    filename name of simulated dataset (without extension)
+    out_dir directory
     data dict, output of simulate_full_dataset, with keys:
     [obs, c, z, pi, mu, tau, eps, eps0, tree]
 
     Returns
     -------
     """
-    f = h5py.File(dest_path, 'w')
+    f = h5py.File(os.path.join(out_dir, filename + '.h5'), 'w')
     x_ds = f.create_dataset('X', data=data['obs'].T)
     layers_grp = f.create_group('layers')
     z = data['z']
@@ -395,15 +396,39 @@ def write_simulated_dataset_h5(dest_path, data):
     assert cn_state.shape == x_ds.shape
     layers_grp.create_dataset('state', data=cn_state)
 
-    gt_group = f.create_group('gt')
-    gt_group.create_dataset('z', data=data['z'])
-    gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
-    mutau_tensor = torch.stack((data['mu'], data['tau']), dim=-1)
-    gt_group.create_dataset('mutau', data=mutau_tensor)
-    g_eps = nx.DiGraph()
-    g_eps.add_weighted_edges_from([(u, v, e) for (u,v), e in data['eps'].items()])
-    eps_tensor = nx.to_numpy_array(g_eps)
-    gt_group.create_dataset('eps', data=eps_tensor)
+    if gt_mode == 'h5':
+        gt_group = f.create_group('gt')
+        gt_group.create_dataset('z', data=data['z'])
+        gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
+        mutau_tensor = torch.stack((data['mu'], data['tau']), dim=-1)
+        gt_group.create_dataset('mutau', data=mutau_tensor)
+        g_eps = nx.DiGraph()
+        g_eps.add_weighted_edges_from([(u, v, e) for (u,v), e in data['eps'].items()])
+        eps_tensor = nx.to_numpy_array(g_eps)
+        gt_group.create_dataset('eps', data=eps_tensor)
+    elif gt_mode == 'numpy':
+        # write gt as numpy arrays which can be easily read into R
+        # with reticulate
+        gt_path = os.path.join(out_dir, 'gt_' + filename)
+        if not os.path.exists(gt_path):
+            os.mkdir(gt_path)
+        # copy numbers
+        np.save(os.path.join(gt_path, 'copy.npy'), data['c'].numpy())
+        # cell assignment
+        np.save(os.path.join(gt_path, 'cell_assignment.npy'), data['z'].numpy())
+        # pi
+        np.save(os.path.join(gt_path, 'pi.npy'), data['pi'].numpy())
+        # eps
+        k = data['c'].shape[0]
+        eps_npy = np.zeros((k, k))
+        for uv, e in data['eps'].items():
+            eps_npy[uv] = e
+        np.save(os.path.join(gt_path, 'eps.npy'), eps_npy)
+        # mu-tau
+        np.save(os.path.join(gt_path, 'mu.npy'), data['mu'].numpy())
+        np.save(os.path.join(gt_path, 'tau.npy'), data['tau'].numpy())
+        # tree can be retrieved from the non-zero values of eps matrix
+
     f.close()
 
 
@@ -555,15 +580,11 @@ if __name__ == '__main__':
     # if empty list, print all related to clones
     args = cli.parse_args()
 
-    # save data to h5 file
-    # write_sample_dataset_h5('../data_example.h5')
-
     # simulate data and save it to file
     set_seed(args.seed)
     data = simulate_full_dataset(Config(n_nodes=args.n_nodes, n_states=args.n_states,
                                         n_cells=args.n_cells, chain_length=args.chain_length))
-    filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}.h5'
-    out_file = os.path.join(args.out_path, filename)
-    write_simulated_dataset_h5(out_file, data)
-    logging.info(f'simulated dateset saved successfully in {out_file}')
+    filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
+    write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
+    logging.info(f'simulated dateset saved successfully in {args.out_path}')
 

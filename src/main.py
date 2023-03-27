@@ -34,7 +34,7 @@ def set_logger(debug: bool):
     logger.addHandler(f_handler)
     logger.addHandler(c_handler)
 
-def validate_file(f):
+def validate_path(f):
     if not os.path.exists(f):
         # Argparse uses the ArgumentTypeError to give a rejection message like:
         # error: argument input: x does not exist
@@ -52,10 +52,10 @@ if __name__ == '__main__':
     parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
     parser.add_argument("-i", "--input", dest="file_path",
-                        type=validate_file, default='./datasets/n5_c300_l1k.h5',
+                        type=validate_path, default='./datasets/n5_c300_l1k.h5',
                         help="input data file", metavar="FILE")
-    parser.add_argument("-o", "--output", dest="out_path",
-                        help="output data file", metavar="FILE")
+    parser.add_argument("-o", "--output", dest="out_dir",
+                        help="output dir", metavar="DIR")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
     parser.add_argument("--diagnostics", action="store_true", help="store data of var dists during optimization")
     parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")

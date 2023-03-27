@@ -92,6 +92,22 @@ class Config:
 
         return s
 
+    def to_dict(self):
+        return {
+            'n_nodes': self.n_nodes,
+            'step_size': self.step_size,
+            'n_states': self.n_states,
+            'eps0': self.eps0,
+            'n_cells': self.n_cells,
+            'chain_length': self.chain_length,
+            'wis_sample_size': self.wis_sample_size,
+            'elbo_tol': self.elbo_tol,
+            'max_close_runs': self.max_close_runs,
+            'sieving_size': self.sieving_size,
+            'n_sieving_runs': self.n_sieving_runs,
+            'debug': self.debug
+        }
+
 
 def set_seed(seed):
     # torch rng
