@@ -1,0 +1,61 @@
+---
+title: "Reticulate test"
+output: html_notebook
+---
+
+```{r}
+library(reticulate)
+setwd("~/phd/scilife/coPyTree/output/diagnostics")
+```
+
+Read numpy file
+
+```{r}
+np <- import('numpy', convert = TRUE)
+# read all diagnostics files
+copy_num <- np$load('copy.npy')
+cell_assignment <- np$load('cell_assignment.npy')
+pi <- np$load('pi.npy')
+
+eps_a <- np$load('eps_a.npy')
+eps_b <- np$load('eps_b.npy')
+
+nu <- np$load('nu.npy')
+lambda <- np$load('lambda.npy')
+alpha <- np$load('alpha.npy')
+beta <- np$load('beta.npy')
+
+elbo <- np$load('elbo.npy')
+```
+
+Import ggplot
+```{r}
+library(ggplot2)
+library(tibble)
+```
+
+```{r}
+elbo_df <- tibble(x = 1:length(elbo), y = elbo)
+ggplot(elbo_df) +
+  geom_line(aes(x, y)) +
+  labs(title = 'ELBO', x = 'it', y = 'elbo')
+```
+
+Copy number plot
+TODO: improve by plotting probability mass on each state with color scale mapping
+```{r}
+copy_dims <- dim(copy_num)
+n_iter <- copy_dims[1]
+K <- copy_dims[2]
+M <- copy_dims[3]
+A <- copy_dims[4]
+# select node 1 (with take, axis=1, el=1) and argmax
+copy_max_node1 <- np$argmax(np$take(copy_num, 1L, 1L), axis=-1L)
+
+# plot iteration 100
+copy_tibble <- tibble(cn = copy_max_node1[100,], site = 1:M)
+
+ggplot(copy_tibble) +
+  geom_line(aes(x=site, y=cn)) +
+  labs(title='CN clone 1 it 100')
+```
