@@ -5,57 +5,105 @@ output: html_notebook
 
 ```{r}
 library(reticulate)
-setwd("~/phd/scilife/coPyTree/output/diagnostics")
+copytree_path <- "/Users/zemp/phd/scilife/coPyTree"
 ```
 
 Read numpy file
 
 ```{r}
-np <- import('numpy', convert = TRUE)
-# read all diagnostics files
-copy_num <- np$load('copy.npy')
-cell_assignment <- np$load('cell_assignment.npy')
-pi <- np$load('pi.npy')
+read_diagnostics <- function(dir_path, convert = TRUE) {
+  np <- import('numpy', convert = convert)
+  # read all diagnostics files
+  out <- list(copy_num = np$load(file.path(dir_path, 'copy.npy')),
+              cell_assignment = np$load(file.path(dir_path, 'cell_assignment.npy')),
+              pi = np$load(file.path(dir_path, 'pi.npy')),
+              eps_a = np$load(file.path(dir_path, 'eps_a.npy')),
+              eps_b = np$load(file.path(dir_path, 'eps_b.npy')),
+              nu = np$load(file.path(dir_path, 'nu.npy')),
+              lambda = np$load(file.path(dir_path, 'lambda.npy')),
+              alpha = np$load(file.path(dir_path, 'alpha.npy')),
+              beta = np$load(file.path(dir_path, 'beta.npy')),
+              elbo = np$load(file.path(dir_path, 'elbo.npy'))
+              )
+  return(out)
+}
 
-eps_a <- np$load('eps_a.npy')
-eps_b <- np$load('eps_b.npy')
-
-nu <- np$load('nu.npy')
-lambda <- np$load('lambda.npy')
-alpha <- np$load('alpha.npy')
-beta <- np$load('beta.npy')
-
-elbo <- np$load('elbo.npy')
+diag_list <- read_diagnostics(file.path(copytree_path, "output/diagnostics"))
 ```
 
 Import ggplot
 ```{r}
 library(ggplot2)
+library(ggpubr)
 library(tibble)
+
+n_iter <- dim(diag_list$copy_num)[1]
+K <- dim(diag_list$copy_num)[2]
+M <- dim(diag_list$copy_num)[3]
+A <- dim(diag_list$copy_num)[4]
+N <- dim(diag_list$cell_assignment)[2]
 ```
 
 ```{r}
-elbo_df <- tibble(x = 1:length(elbo), y = elbo)
-ggplot(elbo_df) +
-  geom_line(aes(x, y)) +
-  labs(title = 'ELBO', x = 'it', y = 'elbo')
+with(diag_list, {
+  elbo_df <- tibble(x = 1:length(elbo), y = elbo)
+  ggplot(elbo_df) +
+    geom_line(aes(x, y)) +
+    labs(title = 'ELBO', x = 'it', y = 'elbo')
+})
 ```
 
 Copy number plot
 TODO: improve by plotting probability mass on each state with color scale mapping
 ```{r}
-copy_dims <- dim(copy_num)
-n_iter <- copy_dims[1]
-K <- copy_dims[2]
-M <- copy_dims[3]
-A <- copy_dims[4]
 # select node 1 (with take, axis=1, el=1) and argmax
-copy_max_node1 <- np$argmax(np$take(copy_num, 1L, 1L), axis=-1L)
+# np <- import('numpy')
+# copy_max_node1 <- np$argmax(np$take(diag_list$copy_num, 1L, 1L), axis=-1L)
+# or in base R
 
-# plot iteration 100
-copy_tibble <- tibble(cn = copy_max_node1[100,], site = 1:M)
+with(diag_list, {
+  it_step <- 50
+  li <- list()
+  pidx <- 1L
+  for (k in 1:K) {
+    for (it in seq(1, n_iter, it_step)) {
+      copy_it_k <- apply(copy_num[it, k,,], 1, which.max) - 1L
+      copy_tibble <- tibble(cn = copy_it_k, site = 1:M)
+      # make plot_cn function
+      p <- ggplot(copy_tibble) +
+        geom_line(aes(x=site, y=cn)) +
+        labs(title=paste('CN clone', k, 'it', it)) +
+        scale_y_continuous(breaks = 1:A - 1L)
+        
+      li[[pidx]] <- p
+      
+      pidx <- pidx + 1
+    }
+  }
+  print(length(li))
+  ggarrange(plotlist = li, nrow = K, ncol = ceiling(n_iter / it_step))
+})
+```
+TODO: implement quick comparison with true and inferred tree, clustering, copy
+numbers etc
 
-ggplot(copy_tibble) +
-  geom_line(aes(x=site, y=cn)) +
-  labs(title='CN clone 1 it 100')
+# Ground truth comparison
+
+```{r}
+read_gt <- function(dir_path, convert = TRUE) {
+  np <- import('numpy', convert = convert)
+  # read all diagnostics files
+  gt_out <- list(copy_num = np$load(file.path(dir_path, 'copy.npy')),
+              cell_assignment = np$load(file.path(dir_path, 'cell_assignment.npy')),
+              pi = np$load(file.path(dir_path, 'pi.npy')),
+              eps_a = np$load(file.path(dir_path, 'eps_a.npy')),
+              eps_b = np$load(file.path(dir_path, 'eps_b.npy')),
+              nu = np$load(file.path(dir_path, 'nu.npy')),
+              lambda = np$load(file.path(dir_path, 'lambda.npy')),
+              alpha = np$load(file.path(dir_path, 'alpha.npy')),
+              beta = np$load(file.path(dir_path, 'beta.npy')),
+              elbo = np$load(file.path(dir_path, 'elbo.npy'))
+              )
+  return(gt_out)
+}
 ```
