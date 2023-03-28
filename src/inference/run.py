@@ -38,7 +38,7 @@ def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, conf
     np.save(os.path.join(diag_dir, 'pi.npy'), diag_dict['pi'].numpy())
     # eps
     np.save(os.path.join(diag_dir, 'eps_a.npy'), diag_dict['eps_a'].numpy())
-    np.save(os.path.join(diag_dir, 'eps_b.npy'), diag_dict['eps_a'].numpy())
+    np.save(os.path.join(diag_dir, 'eps_b.npy'), diag_dict['eps_b'].numpy())
     # mu-tau
     np.save(os.path.join(diag_dir, 'nu.npy'), diag_dict['nu'].numpy())
     np.save(os.path.join(diag_dir, 'lambda.npy'), diag_dict['lmbda'].numpy())
