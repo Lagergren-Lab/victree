@@ -94,16 +94,44 @@ read_gt <- function(dir_path, convert = TRUE) {
   np <- import('numpy', convert = convert)
   # read all diagnostics files
   gt_out <- list(copy_num = np$load(file.path(dir_path, 'copy.npy')),
-              cell_assignment = np$load(file.path(dir_path, 'cell_assignment.npy')),
+              cell_assignment = as.integer(np$load(file.path(dir_path, 'cell_assignment.npy'))),
               pi = np$load(file.path(dir_path, 'pi.npy')),
-              eps_a = np$load(file.path(dir_path, 'eps_a.npy')),
-              eps_b = np$load(file.path(dir_path, 'eps_b.npy')),
-              nu = np$load(file.path(dir_path, 'nu.npy')),
-              lambda = np$load(file.path(dir_path, 'lambda.npy')),
-              alpha = np$load(file.path(dir_path, 'alpha.npy')),
-              beta = np$load(file.path(dir_path, 'beta.npy')),
-              elbo = np$load(file.path(dir_path, 'elbo.npy'))
+              eps = np$load(file.path(dir_path, 'eps.npy')),
+              mu = np$load(file.path(dir_path, 'mu.npy')),
+              tau = np$load(file.path(dir_path, 'tau.npy'))
               )
   return(gt_out)
 }
+
+gt_list <- read_gt(file.path(copytree_path, 'datasets/gt_simul_K4_A5_N100_M500'))
+
+```
+
+## Clustering evaluation
+
+```{r}
+library(aricode)
+
+ari <- c()
+for (it in 1:n_iter) {
+  c2 <- apply(diag_list$cell_assignment[it,,], 1, which.max) - 1L
+  ari <- append(ari, ARI(gt_list$cell_assignment, c2))
+}
+
+ari_df <- tibble(ari = ari, it = 1:n_iter)
+
+ggplot(ari_df) +
+  geom_line(aes(it, ari))
+
+```
+Clustering matchings table
+```{r}
+matchings <- matrix(rep(0, K^2), nrow = K)
+final_ca <- apply(diag_list$cell_assignment[101,,], 1, which.max) - 1L
+for (n in 1:N) {
+  a <- gt_list$cell_assignment[n] + 1
+  b <- final_ca[n] + 1
+  matchings[a, b] <- matchings[a, b] + 1
+}
+matchings
 ```
