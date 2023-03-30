@@ -252,7 +252,7 @@ class CopyTree:
 
         if type(self.q) is JointVarDist:
             L = self.config.wis_sample_size
-            self.diagnostics_dict["wG"] = []
+            self.diagnostics_dict["wG"] = torch.zeros((n_iter, K, K))
             self.diagnostics_dict["wT"] = torch.zeros((n_iter, L))
             self.diagnostics_dict["gT"] = torch.zeros((n_iter, L))
             self.diagnostics_dict["T"] = []
@@ -284,7 +284,7 @@ class CopyTree:
         self.diagnostics_dict["elbo"][iter] = self.elbo
 
         if type(self.q) is JointVarDist:
-            self.diagnostics_dict["wG"].append(self.q.t.weighted_graph)
+            self.diagnostics_dict["wG"][iter, ...] = torch.tensor(nx.to_numpy_array(self.q.t.weighted_graph))
             self.diagnostics_dict["wT"][iter] = self.q.t.w_T
             self.diagnostics_dict["gT"][iter] = self.q.t.g_T
             self.diagnostics_dict["T"].append(self.q.t.T_list)

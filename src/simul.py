@@ -231,6 +231,7 @@ Generate full simulated dataset.
     """
     # generate random tree
     tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph) if tree is None else tree
+    logging.debug(f'sampled tree: {tree_utils.tree_to_newick(tree)}')
     # generate eps from Beta(a, b)
     eps = {}
     for u, v in tree.edges:
@@ -576,9 +577,11 @@ if __name__ == '__main__':
     cli.add_argument('-s', '--seed',
                      type=int,
                      default=42, help="RNG seed")
-    logging.basicConfig(level=logging.INFO)
-    # if empty list, print all related to clones
+    cli.add_argument("-d", "--debug",
+                     action="store_true",
+                     help="additional inspection for debugging purposes")
     args = cli.parse_args()
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
     # simulate data and save it to file
     set_seed(args.seed)
