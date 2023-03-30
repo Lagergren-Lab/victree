@@ -3,31 +3,18 @@ title: "Reticulate test"
 output: html_notebook
 ---
 
+Import other functions from R script
 ```{r}
-library(reticulate)
+source("./r_analysis.R")
+```
+
+```{r}
 copytree_path <- "/Users/zemp/phd/scilife/coPyTree"
 ```
 
 Read numpy file
 
 ```{r}
-read_diagnostics <- function(dir_path, convert = TRUE) {
-  np <- import('numpy', convert = convert)
-  # read all diagnostics files
-  out <- list(copy_num = np$load(file.path(dir_path, 'copy.npy')),
-              cell_assignment = np$load(file.path(dir_path, 'cell_assignment.npy')),
-              pi = np$load(file.path(dir_path, 'pi.npy')),
-              eps_a = np$load(file.path(dir_path, 'eps_a.npy')),
-              eps_b = np$load(file.path(dir_path, 'eps_b.npy')),
-              nu = np$load(file.path(dir_path, 'nu.npy')),
-              lambda = np$load(file.path(dir_path, 'lambda.npy')),
-              alpha = np$load(file.path(dir_path, 'alpha.npy')),
-              beta = np$load(file.path(dir_path, 'beta.npy')),
-              elbo = np$load(file.path(dir_path, 'elbo.npy'))
-              )
-  return(out)
-}
-
 diag_list <- read_diagnostics(file.path(copytree_path, "output/diagnostics"))
 ```
 
@@ -45,12 +32,7 @@ N <- dim(diag_list$cell_assignment)[2]
 ```
 
 ```{r}
-with(diag_list, {
-  elbo_df <- tibble(x = 1:length(elbo), y = elbo)
-  ggplot(elbo_df) +
-    geom_line(aes(x, y)) +
-    labs(title = 'ELBO', x = 'it', y = 'elbo')
-})
+plot_elbo(diag_list)
 ```
 
 ## Cell assignment
@@ -59,12 +41,7 @@ with(diag_list, {
 # diag_list$cell_assignment shape (n_iter, N, K)
 library(reshape2)
 library(dplyr)
-melt(diag_list$cell_assignment, value.name = 'prob', varnames = c('iter', 'cell', 'clone')) %>%
-  filter(cell %in% sample(1:N, 20)) %>%
-  mutate(clone = factor(clone - 1L, levels = 0:(K-1))) %>%
-  ggplot() +
-    geom_line(aes(x = iter, y = prob, color = clone)) +
-    facet_wrap(~ cell)
+plot_cell_assignment(diag_list, gt_list)
 ```
 
 
@@ -72,7 +49,7 @@ melt(diag_list$cell_assignment, value.name = 'prob', varnames = c('iter', 'cell'
 TODO: improve by plotting probability mass on each state with color scale mapping
 ```{r}
 # select node 1 (with take, axis=1, el=1) and argmax
-# np <- import('numpy')
+# np <- import("numpy")
 # copy_max_node1 <- np$argmax(np$take(diag_list$copy_num, 1L, 1L), axis=-1L)
 # or in base R
 
@@ -87,7 +64,7 @@ with(diag_list, {
       # make plot_cn function
       p <- ggplot(copy_tibble) +
         geom_line(aes(x=site, y=cn)) +
-        labs(title=paste('CN clone', k, 'it', it)) +
+        labs(title=paste("CN clone", k, "it", it)) +
         scale_y_continuous(breaks = 1:A - 1L)
         
       li[[pidx]] <- p
@@ -104,21 +81,8 @@ numbers etc
 # Ground truth comparison
 
 ```{r}
-read_gt <- function(dir_path, convert = TRUE) {
-  np <- import('numpy', convert = convert)
-  # read all diagnostics files
-  gt_out <- list(copy_num = np$load(file.path(dir_path, 'copy.npy')),
-              cell_assignment = as.integer(np$load(file.path(dir_path, 'cell_assignment.npy'))),
-              pi = np$load(file.path(dir_path, 'pi.npy')),
-              eps = np$load(file.path(dir_path, 'eps.npy')),
-              mu = np$load(file.path(dir_path, 'mu.npy')),
-              tau = np$load(file.path(dir_path, 'tau.npy'))
-              )
-  return(gt_out)
-}
-
-gt_list <- read_gt(file.path(copytree_path, 'datasets/gt_simul_K4_A5_N100_M500'))
-
+gt_list <- read_gt(file.path(copytree_path,
+                             "datasets/gt_simul_K4_A5_N100_M500"))
 ```
 
 ## Clustering evaluation
@@ -153,7 +117,7 @@ matchings
 print vi clones map associated with ground truth
 ```{r}
 gt_vi_map <- matchings %>%
-  melt(value.name = 'count', varnames = c('gt', 'vi')) %>%
+  melt(value.name = "count", varnames = c("gt", "vi")) %>%
   mutate(gt = gt - 1, vi = vi - 1) %>%  # switch to 0-based clone names
   group_by(gt) %>%                      # for each clone 
   mutate(prop = count / sum(count)) %>% # find proportions of vi matches
@@ -191,7 +155,7 @@ for (e in 1:(K-1)) {
   
   eps_ab_plot <- eps_df %>%
     select(a, b, it) %>%
-    gather(key = 'param', value = 'value', a, b) %>%
+    gather(key = "param", value = "value", a, b) %>%
     ggplot() +
     geom_line(aes(x = it, y = value)) +
     facet_wrap(~ param, nrow = 2)
@@ -200,9 +164,9 @@ for (e in 1:(K-1)) {
     select(it, mm, stdev, gt) %>%
     ggplot(aes(x = it)) +
       geom_line(aes(y = mm)) +
-      geom_line(aes(y = gt), color = 'red') +
+      geom_line(aes(y = gt), color = "red") +
       geom_ribbon(aes(ymin = mm-stdev, ymax = mm+stdev), alpha = 0.3) +
-      labs(title = paste0('edge (', u, ',', v, ')'))
+      labs(title = paste0("edge (", u, ",", v, ")"))
   li[[idx]] <- eps_ab_plot
   li[[idx + K-1]] <- eps_mean_plot
   idx <- idx + 1
@@ -217,11 +181,11 @@ ggarrange(plotlist = li, nrow = K-1)
 li <- list()
 for (k in 1:K) {
   copy_it_k <- apply(diag_list$copy_num[n_iter, k,,], 1, which.max) - 1L
-  copy_tibble <- tibble(cn = c(copy_it_k, gt_list$copy_num[k,]), site = c(1:M, 1:M), kind = c(rep('vi', M), rep('gt', M)))
+  copy_tibble <- tibble(cn = c(copy_it_k, gt_list$copy_num[k,]), site = c(1:M, 1:M), kind = c(rep("vi", M), rep("gt", M)))
   p <- ggplot(copy_tibble) +
     geom_line(aes(x=site, y=cn, color=kind)) +
     geom_line(aes(x=site, y=cn, color=kind, linetype=kind)) +
-    labs(title=paste('CN clone', k-1L)) +
+    labs(title=paste("CN clone", k-1L)) +
     scale_y_continuous(breaks = 1:A - 1L)
   li[[k]] <- p
 }
