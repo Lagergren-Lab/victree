@@ -214,7 +214,7 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
 
 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha=None, tree=None):
+                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None):
     """
 Generate full simulated dataset.
     Args:
@@ -256,8 +256,11 @@ Generate full simulated dataset.
     mu = torch.distributions.Normal(mu0, 1. / torch.sqrt(lambda0 * tau)).sample()
     assert mu.shape == tau.shape
     # sample assignments
-    dir_alpha = torch.ones(config.n_nodes) if dir_alpha is None else dir_alpha
-    pi = torch.distributions.Dirichlet(dir_alpha).sample()
+    if isinstance(dir_alpha, float):
+        dir_alpha_tensor = torch.ones(config.n_nodes) * dir_alpha
+    else:
+        dir_alpha_tensor = torch.tensor(dir_alpha)
+    pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
@@ -524,8 +527,8 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
     lambda_prior = 100.
     alpha_prior = 500.
     beta_prior = 50.
-    simul_data = simulate_full_dataset(config, mu0=nu_prior, lambda0=lambda_prior, alpha0=alpha_prior, beta0=beta_prior,
-                                       eps_a=5., eps_b=50.)
+    simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
+                                       alpha0=alpha_prior, beta0=beta_prior)
 
     fix_qc = qC(config, true_params={
         "c": simul_data['c']
@@ -577,6 +580,10 @@ if __name__ == '__main__':
     cli.add_argument('-s', '--seed',
                      type=int,
                      default=42, help="RNG seed")
+    cli.add_argument('-cf', '--concentration-factor',
+                     type=float,
+                     nargs='*',
+                     default=[1.], help="concentration factor for Dirichlet distribution")
     cli.add_argument("-d", "--debug",
                      action="store_true",
                      help="additional inspection for debugging purposes")
@@ -585,8 +592,16 @@ if __name__ == '__main__':
 
     # simulate data and save it to file
     set_seed(args.seed)
+    # preprocess args
+    if len(args.concentration_factor) == 1:
+        args.concentration_factor = args.concentration_factor[0]
+    else:
+        assert len(args.concentration_factor) == args.n_nodes
+
     data = simulate_full_dataset(Config(n_nodes=args.n_nodes, n_states=args.n_states,
-                                        n_cells=args.n_cells, chain_length=args.chain_length))
+                                        n_cells=args.n_cells, chain_length=args.chain_length),
+                                 dir_alpha=args.concentration_factor)
+
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
     logging.info(f'simulated dateset saved successfully in {args.out_path}')
