@@ -49,11 +49,21 @@ plot_elbo <- function(diag_list) {
   return(p)
 }
 
-plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5) {
+plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5, gtvi_map = NULL) {
   ca_long_df <- melt(diag_list$cell_assignment,
     value.name = "prob",
     varnames = c("iter", "cell", "clone")
-  )
+  ) %>%
+    mutate(clone = clone - 1)
+
+  # change label names depending on gt_vi map
+  if (!is.null(gtvi_map)) {
+    ca_long_df <- ca_long_df %>%
+      left_join(gtvi_map, by = dplyr::join_by(clone == gt)) %>%
+      select(-clone) %>%
+      rename(clone = vi)
+  }
+
   p <- NULL
   if (is.null(gt)) {
     if (is.na(cell_sample_size)) {
@@ -63,12 +73,11 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
     ca_long_df <- ca_long_df %>%
       filter(cell %in% sample(1:N, cell_sample_size))
   } else {
-    # TODO: fix gt clone names
     ca_long_df <- ca_long_df %>%
       mutate(cell = paste(as.character(cell - 1L), gt_list$cell_assignment[cell], sep = ":"))
   }
   ca_long_df <- ca_long_df %>%
-    mutate(clone = factor(clone - 1L, levels = 0:(K - 1)))
+    mutate(clone = factor(clone, levels = 0:(K - 1)))
 
   p <- ca_long_df %>%
     ggplot() +
@@ -84,12 +93,20 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
   return(p_list)
 }
 
-plot_copy <- function(diag_list, gt_list = NULL, nrow = 5) {
+plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, gtvi_map = NULL) {
   li <- list()
   n_iter <- dim(diag_list$copy_num)[1]
   K <- dim(diag_list$copy_num)[2]
 
-  for (k in 1:K) {
+  clones <- 1:K
+  if (!is.null(gtvi_map)) {
+    clones <- gtvi_map %>%
+      arrange(gt) %>%
+      mutate(vi = vi + 1) %>%
+      pull(vi)
+  }
+
+  for (k in clones) {
     steps <- seq(1, n_iter, length.out = nrow)
     copy_k <- apply(diag_list$copy_num[, k, , ], c(1, 2), which.max) %>%
       melt(value.name = "cn", varnames = c("iter", "site")) %>%
@@ -106,7 +123,7 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5) {
 
   # ground truth page
   if (!is.null(gt_list)) {
-    copy_var <- apply(diag_list$copy_num[n_iter, , , ], c(1, 2), which.max) %>%
+    copy_var <- apply(diag_list$copy_num[n_iter, clones, , ], c(1, 2), which.max) %>%
       melt(value.name = "vi", varnames = c("clone", "site")) %>%
       mutate(vi = vi - 1)
     copy_gt <- gt_list$copy_num %>%
@@ -124,6 +141,115 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5) {
 
   return(li)
 }
+
+plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL) {
+
+  # get gt tree edges
+  if (!is.null(gt_list)) {
+    edges <- which(gt_list$eps > 0, arr.ind = TRUE)
+  } else {
+    # all edges
+    edges <- expand.grid(u = 1:K, v = 1:K) %>%
+      filter(v != 1, u != v)
+  }
+  n_iter <- dim(diag_list$copy_num)[1]
+  K <- dim(diag_list$copy_num)[2]
+
+  eps_df_a <- diag_list$eps_a %>%
+    melt(value.name = "a", varnames = c("iter", "u", "v")) %>%
+      filter(v != 1, u != v)
+  eps_df <- diag_list$eps_b %>%
+    melt(value.name = "b", varnames = c("iter", "u", "v")) %>%
+      filter(v != 1, u != v) %>%
+      left_join(eps_df_a, by = join_by(iter, u, v)) # %>%
+  # TODO: continue
+
+
+  plot_list <- list()
+  idx <- 1L
+  for (e in 1:(K-1)) {
+    u <- edges[e, 1]
+    v <- edges[e, 2]
+    eps_df <- tibble(
+      it = 1:n_iter,
+      a = diag_list$eps_a[, u, v], 
+      b = diag_list$eps_b[, u, v],
+      mm = a / (a + b), # eps mean (beta dist)
+      stdev = sqrt(a * b) / ((a + b) * sqrt(a + b + 1)))
+    if (!is.null(gt_list)) {
+      eps_df$gt <- rep(gt_list$eps[u, v], n_iter)
+    }
+
+    eps_ab_plot <- eps_df %>%
+      select(a, b, it) %>%
+      gather(key = "param", value = "value", a, b) %>%
+      ggplot() +
+      geom_line(aes(x = it, y = value)) +
+      facet_wrap(~ param, nrow = 2)
+
+    eps_mean_plot <- eps_df %>%
+      select(it, mm, stdev, gt) %>%
+      ggplot(aes(x = it)) +
+        geom_line(aes(y = mm)) +
+        geom_line(aes(y = gt), color = "red") +
+        geom_ribbon(aes(ymin = mm-stdev, ymax = mm+stdev), alpha = 0.3) +
+        labs(title = paste0("edge (", u, ",", v, ")"))
+    plot_list[[idx]] <- eps_ab_plot
+    plot_list[[idx + K-1]] <- eps_mean_plot
+    idx <- idx + 1
+  }
+
+  ggarrange(plotlist = plot_list, nrow = K-1)
+
+}
+
+# GROUND TRUTH ONLY
+
+plot_ari <- function(diag_list, gt_list) {
+  require(aricode)
+
+  ari <- c()
+  for (it in 1:n_iter) {
+    c2 <- apply(diag_list$cell_assignment[it,,], 1, which.max) - 1L
+    ari <- append(ari, ARI(gt_list$cell_assignment, c2))
+  }
+
+  ari_df <- tibble(ari = ari, it = 1:n_iter)
+
+  ari_plot <- ggplot(ari_df) +
+    geom_line(aes(it, ari))
+
+  # get matchings and likely mapping from gt to inferred clones
+
+  matchings <- matrix(rep(0, K^2), nrow = K)
+  final_ca <- apply(diag_list$cell_assignment[101,,], 1, which.max) - 1L
+  for (n in 1:N) {
+    a <- gt_list$cell_assignment[n] + 1
+    b <- final_ca[n] + 1
+    matchings[a, b] <- matchings[a, b] + 1
+  }
+
+  conf_mat <- matchings %>%
+    melt(value.name = "count", varnames = c("gt", "vi")) %>%
+    mutate(gt = gt - 1, vi = vi - 1) %>%  # switch to 0-based clone names
+    group_by(gt) %>%                      # for each clone 
+    mutate(prop = count / sum(count)) # find proportions of vi matches
+
+  conf_mat_heatmap <- conf_mat %>%
+    ggplot(aes(gt, vi)) +
+      geom_tile(aes(fill = prop)) +
+      geom_text(aes(label = prop)) +
+      theme(legend.position = "none")
+
+  gt_vi_map <- conf_mat %>%
+    filter(prop == max(prop)) %>%         # get the max proportion
+    select(gt, vi, prop)
+
+    p <- ggarrange(ari_plot, conf_mat_heatmap)
+  print(p)
+  return(gt_vi_map)
+}
+
 
 # set up variables
 copytree_path <- "/Users/zemp/phd/scilife/coPyTree"
@@ -153,7 +279,15 @@ plot_elbo(diag_list)
 
 plot_cell_assignment(diag_list, gt = gt_list)
 
+gt_vi_map <- NULL
+if (!is.null(gt_list)) {
+  gt_vi_map <- plot_ari(diag_list, gt_list)
+}
+
 # qc
-plot_copy(diag_list, gt_list)
+plot_copy(diag_list, gt_list, gtvi_map = gt_vi_map)
+
+# eps
+plot_eps(diag_list, gt_list, gtvi_map = gt_vi_map)
 
 graphics.off()
