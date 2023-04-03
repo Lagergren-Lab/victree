@@ -1,5 +1,6 @@
 import itertools
 import unittest
+from typing import Tuple, Any
 
 import networkx as nx
 import torch
@@ -34,7 +35,7 @@ class updatesTestCase(unittest.TestCase):
                                           mu_0=1., lambda_0=10.)
         return data + (tree,)
 
-    def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> VarDistFixedTree:
+    def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> tuple[VarDistFixedTree, Any]:
         """
         Args:
             mm: int. multiplier for longer chain. set it to no more than 10
@@ -42,7 +43,7 @@ class updatesTestCase(unittest.TestCase):
         """
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
-        cells_per_clone = 10
+        cells_per_clone = 100
         chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
         cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length,
                      wis_sample_size=2, debug=True, step_size=step_size)
@@ -66,15 +67,16 @@ class updatesTestCase(unittest.TestCase):
         self.assertEqual(cell_cn_profile.shape, (cfg.n_cells, cfg.chain_length))
 
         # mean
-        alpha_0 = 500
-        beta_0 = 50
+        alpha_0 = 50
+        beta_0 = 5
         tau_dist = torch.distributions.Gamma(alpha_0, beta_0)
         true_tau = tau_dist.sample(torch.tensor([cfg.n_cells]))
         true_gamma = cell_cn_profile.sum(dim=-1)
         R = torch.ones(cfg.n_cells) * 100
         y_dist = torch.distributions.Normal(cell_cn_profile * (R / true_gamma).view(N, 1).expand(N, M),
-                                            1. / true_tau.view(N,1).expand(N,M))
+                                            1. / true_tau.view(N, 1).expand(N, M))
         y = y_dist.sample()
+        y = y.T
 
         true_eps = {
             (0, 1): 1. / (cfg.chain_length - 1),
@@ -94,9 +96,10 @@ class updatesTestCase(unittest.TestCase):
             "eps": true_eps
         })
 
-        fix_qmt = qTauRG(cfg, true_params={
+        fix_qmt = qTauRG(cfg, R, true_params={
             "tau": true_tau
         })
+        fix_qmt.gamma = true_gamma
 
         fix_qpi = qPi(cfg, true_params={
             "pi": torch.ones(cfg.n_nodes) / 3.
@@ -111,7 +114,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qc(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree(step_size=.1)
+        joint_q, gamma = self.generate_test_dataset_fixed_tree(step_size=.1)
         cfg = joint_q.config
         obs = joint_q.obs
         fix_tree = joint_q.T
@@ -123,7 +126,7 @@ class updatesTestCase(unittest.TestCase):
         wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
 
         qc = qC(cfg)
-        qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
+        qc.initialize()
 
         for i in range(50):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt,
@@ -140,7 +143,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qz(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q, gamma = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs
         fix_qmt = joint_q.mt
@@ -156,24 +159,24 @@ class updatesTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
                                        torch.argmax(qz.exp_assignment(), dim=-1)))
 
-    def test_qmt(self):
+    def test_qtau(self):
         joint_q, gamma = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs
         fix_qc = joint_q.c
         fix_qz = joint_q.z
         R = joint_q.R
-        qmt = qTauRG(cfg)
+        qtau = qTauRG(cfg, R, alpha_0=50, beta_0=5)
         # uninformative initialization of mu0, tau0, alpha0, beta0
-        # qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)  # also works
-        qmt.initialize(method='data', obs=obs)
-        # qmt.initialize(method='data', obs=obs)
-        for i in range(10):
-            qmt.update(fix_qc, fix_qz, obs, R, gamma)
+        # qtau.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)  # also works
+        qtau.initialize()
+        # qtau.initialize(method='data', obs=obs)
+        for i in range(3):
+            qtau.update(fix_qc, fix_qz, obs)
 
-        print(qmt.exp_tau())
-        print(joint_q.mt.true_params['tau'])
-        self.assertTrue(torch.allclose(qmt.exp_tau(), joint_q.mt.true_params['tau'], rtol=.2))
+        print(f"qTauRG: {qtau.exp_tau()}")
+        print(f"true tau: {joint_q.mt.true_params['tau']}")
+        self.assertTrue(torch.allclose(qtau.exp_tau(), joint_q.mt.true_params['tau'], rtol=.2))
 
     def test_update_qeps(self):
 
@@ -205,7 +208,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qpi(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q, gamma = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         fix_qz = joint_q.z
 
@@ -260,7 +263,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qc_qz(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree(step_size=0.3)
+        joint_q, gamma = self.generate_test_dataset_fixed_tree(step_size=0.3)
         cfg = joint_q.config
         obs = joint_q.obs
         fix_tree = joint_q.T
@@ -347,7 +350,7 @@ class updatesTestCase(unittest.TestCase):
         print(joint_q)
 
     def test_update_qz_qmt(self):
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q, gamma = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs
         fix_qpi = joint_q.pi
@@ -368,7 +371,6 @@ class updatesTestCase(unittest.TestCase):
         # qz.initialize(method='kmeans', obs=obs)
 
         print(f"true z: {joint_q.z.true_params['z']}")
-        print(f"true mu: {joint_q.mt.true_params['mu']}")
         print(f"true tau: {joint_q.mt.true_params['tau']}")
         for i in range(n_iter):
             if i % 5 == 0:
@@ -376,29 +378,28 @@ class updatesTestCase(unittest.TestCase):
                 ari = adjusted_rand_score(joint_q.z.true_params['z'], var_cellassignment)
                 print(f"[{i}]")
                 print(f"- qz adjusted rand idx: {ari:.2f}")
-                print(f"- qmt dist: {torch.pow(qmt.nu - joint_q.mt.true_params['mu'], 2).sum():.2f}")
 
             qmt.update(fix_qc, qz, obs)
             qz.update(qmt, fix_qc, fix_qpi, obs)
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
-        print(f"- var mu: {qmt.nu}")
         print(f"- var tau: {qmt.exp_tau()}")
 
     def test_update_qc_qz_qmt(self):
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q, gamma = self.generate_test_dataset_fixed_tree()
         cfg = joint_q.config
         obs = joint_q.obs
         fix_tree = joint_q.T
         fix_qpi = joint_q.pi
         fix_qeps = joint_q.eps
 
-        qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=1.5, beta_prior=1.5)
+        R = joint_q.mt.R
+        qmt = qTauRG(cfg, R, alpha_0=25., beta_0=5.)
         qz = qZ(cfg)
         qc = qC(cfg)
-        qmt.initialize(loc=1., precision_factor=.1, rate=5., shape=5.)
         almost_true_z_init = joint_q.z.exp_assignment() + .2
         almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
+        qmt.initialize()
         qz.initialize(method='fixed', pi_init=joint_q.z.exp_assignment() + .2)
         # qz.initialize(method='kmeans', obs=obs)
         qc.initialize()
@@ -418,14 +419,14 @@ class updatesTestCase(unittest.TestCase):
                 # print(f"Iter {i} qZ: {qz.exp_assignment()}")
                 # print(f"iter {i} qmt mean for each cell: {qmt.nu}")
                 # print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
-                partial_elbo = qc.elbo([fix_tree], [1.], fix_qeps) + qz.elbo(fix_qpi) + qmt.elbo_old()
+                partial_elbo = qc.elbo([fix_tree], [1.], fix_qeps) + qz.elbo(fix_qpi)
                 utils.visualization_utils.visualize_copy_number_profiles(
                     torch.argmax(qc.single_filtering_probs, dim=-1),
                     save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
                     title_suff=f"- VI iter {i},"
                                f" elbo: {partial_elbo}")
-            qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
+            qz.update(qmt, qc, fix_qpi, obs)
             qc.update(obs, fix_qeps, qz, qmt,
                       trees=trees, tree_weights=wis_weights)
 

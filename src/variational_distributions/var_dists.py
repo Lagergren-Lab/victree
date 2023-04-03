@@ -1775,33 +1775,43 @@ class qMuAndTauCellIndependent(VariationalDistribution):
 
 class qTauRG(VariationalDistribution):
 
-    def __init__(self, config: Config, alpha_0: float = 50, beta_0: float = 10, true_params=None):
+    def __init__(self, config: Config, R: torch.Tensor, alpha_0: float = 50, beta_0: float = 10, true_params=None):
         self.alpha_0 = alpha_0
         self.beta_0 = beta_0
         self._alpha = torch.empty(config.n_cells)
         self._beta = torch.empty(config.n_cells)
+        self.R = R
+        self.gamma = torch.empty(config.n_cells)
         if true_params is not None:
             # for each cell, mean and precision of the emission model
             assert "tau" in true_params
         self.true_params = true_params
         super().__init__(config, true_params is not None)
 
-    def update(self, qc: qC, qz: qZ, obs: torch.Tensor, R: torch.Tensor, gamma: torch.Tensor):
+    def initialize(self, **kwargs):
+        self._alpha[:] = self.alpha_0
+        self._beta[:] = self.beta_0
+
+    def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
         A = self.config.n_states
         M = self.config.chain_length
         N = self.config.n_cells
+        R = self.R
+        self.update_gamma(qc, qz)
+        gamma = self.gamma
         c_tensor = torch.arange(A, dtype=torch.float)
         q_Z = qz.exp_assignment()
         q_C_marginals = qc.single_filtering_probs
 
         # tau update
         read_rates = c_tensor.expand(N, A) * (R / gamma).expand(A, N).T
-        read_rates = read_rates.expand(M, N, A).T
-        diff_term_squared = torch.pow(obs.expand(A, N, M) - read_rates, 2)
-        E_qZqC_diff = torch.einsum("nk, kma, anm -> n", q_Z, q_C_marginals, diff_term_squared)
+        read_rates = read_rates.expand(M, N, A)
+        read_rates = torch.einsum("mna -> amn", read_rates)
+        diff_term_squared = torch.pow(obs.expand(A, M, N) - read_rates, 2)
+        E_qZqC_diff = torch.einsum("nk, kma, amn -> n", q_Z, q_C_marginals, diff_term_squared)
         # mu update
         alpha = self.alpha_0 + M / 2  # Never updated
-        beta = self.beta_0 - .5 * E_qZqC_diff
+        beta = self.beta_0 + .5 * E_qZqC_diff
 
 
         # set new parameters
@@ -1818,6 +1828,13 @@ class qTauRG(VariationalDistribution):
         self.beta = new_beta
         return new_alpha, new_beta
 
+    def update_gamma(self, qc: qC, qz: qZ):
+        qc_umj = qc.single_filtering_probs
+        qz_nu = qz.pi
+        j = torch.arange(self.config.n_states, dtype=torch.float)
+        gamma = torch.einsum("umj, nu, j -> n", qc_umj, qz_nu, j)
+        self.gamma = gamma
+
     def cross_entropy(self) -> float:
         return super().elbo()
 
@@ -1827,10 +1844,12 @@ class qTauRG(VariationalDistribution):
     def elbo(self) -> float:
         return self.cross_entropy() + self.entropy()
 
-    def exp_log_emission(self, obs: torch.Tensor, R, gamma) -> torch.Tensor:
+    def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         N, M, A = (self.config.n_cells, self.config.chain_length, self.config.n_states)
         out_shape = (N, M, A)
         out_arr = torch.ones(out_shape)
+        R = self.R
+        gamma = self.gamma
         # obs is (m x n)
         if self.fixed:
             tau = self.true_params["tau"]
@@ -1846,17 +1865,19 @@ class qTauRG(VariationalDistribution):
             E_log_tau = self.exp_log_tau()
             E_tau = self.exp_tau()
             j = torch.arange(self.config.n_states)
-            out_arr = .5 * (E_log_tau - E_tau * (obs - j * R/gamma)**2)
+            means = torch.outer(j, R/gamma).expand(M, A, N)
+            means = torch.einsum("man->amn", means)
+            out_arr = .5 * (E_log_tau - E_tau * (obs.expand(A, M, N) - means)**2)
             out_arr = torch.einsum('imn->nmi', out_arr)
 
         assert out_arr.shape == out_shape
         return out_arr
 
     def exp_tau(self):
-        return self._alpha / self.beta
+        return self._alpha / self._beta
 
     def exp_log_tau(self):
-        return torch.digamma(self._alpha) - torch.log(self.beta)
+        return torch.digamma(self._alpha) - torch.log(self._beta)
 
 # dirichlet concentration
 class qPi(VariationalDistribution):
