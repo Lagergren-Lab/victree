@@ -77,14 +77,8 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         data = torch.ones((n_sites, n_cells))
         dir_alpha = torch.tensor([1., 3., 3.])
         config = Config(n_nodes=3, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
-        out_simul = simul.simulate_full_dataset(config=config,
-                                                tree=tree,
-                                                eps_a=1.0,
-                                                eps_b=10.,
-                                                mu0=10.,
-                                                lambda0=2.,
-                                                alpha0=50., beta0=10.,
-                                                dir_alpha=dir_alpha)
+        out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=10., mu0=10., lambda0=2., alpha0=50.,
+                                                beta0=10., dir_alpha=dir_alpha, tree=tree)
         y = out_simul['obs']
         C = out_simul['c']
         z = out_simul['z']
@@ -149,14 +143,8 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                         debug=False)
         sim_data_seed = 0
         torch.manual_seed(sim_data_seed)
-        out_simul = simul.simulate_full_dataset(config=config,
-                                                tree=tree,
-                                                eps_a=1.0,
-                                                eps_b=20.,
-                                                mu0=10.,
-                                                lambda0=2.,
-                                                alpha0=50., beta0=10.,
-                                                dir_alpha=dir_alpha0)
+        out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=20., mu0=10., lambda0=2., alpha0=50.,
+                                                beta0=10., dir_alpha=dir_alpha0, tree=tree)
         y = out_simul['obs']
         C = out_simul['c']
         z = out_simul['z']
@@ -210,14 +198,8 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                         debug=False)
         sim_data_seed = 0
         torch.manual_seed(sim_data_seed)
-        out_simul = simul.simulate_full_dataset(config=config,
-                                                tree=tree,
-                                                eps_a=1.0,
-                                                eps_b=20.,
-                                                mu0=10.,
-                                                lambda0=2.,
-                                                alpha0=50., beta0=10.,
-                                                dir_alpha=dir_alpha0)
+        out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=20., mu0=10., lambda0=2., alpha0=50.,
+                                                beta0=10., dir_alpha=dir_alpha0, tree=tree)
         y = out_simul['obs']
         C = out_simul['c']
         z = out_simul['z']
