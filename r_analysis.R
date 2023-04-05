@@ -59,7 +59,7 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
   # change label names depending on gt_vi map
   if (!is.null(gtvi_map)) {
     ca_long_df <- ca_long_df %>%
-      left_join(gtvi_map, by = dplyr::join_by(clone == gt)) %>%
+      left_join(gtvi_map, by = join_by(clone == gt)) %>%
       select(-clone) %>%
       rename(clone = vi)
   }
@@ -82,6 +82,7 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
   p <- ca_long_df %>%
     ggplot() +
     geom_line(aes(x = iter, y = prob, color = clone)) +
+    labs(title = "Cell assignment to clones") +
     facet_wrap_paginate(~cell, ncol = ncol, nrow = nrow, scales = "free")
 
   p_list <- list()
@@ -135,6 +136,7 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, gtvi_map = NULL) {
       geom_line(aes(x = site, y = cn, color = kind)) +
       geom_line(aes(x = site, y = cn, color = kind, linetype = kind)) +
       scale_y_continuous(breaks = 1:A - 1L) +
+      labs(title = "Last iteration against ground truth") +
       facet_wrap(~clone, ncol = 1)
     li[[length(li) + 1]] <- p
   }
@@ -142,66 +144,156 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, gtvi_map = NULL) {
   return(li)
 }
 
-plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL) {
+plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL, nrow = 5) {
 
-  # get gt tree edges
-  if (!is.null(gt_list)) {
-    edges <- which(gt_list$eps > 0, arr.ind = TRUE)
-  } else {
-    # all edges
-    edges <- expand.grid(u = 1:K, v = 1:K) %>%
-      filter(v != 1, u != v)
-  }
   n_iter <- dim(diag_list$copy_num)[1]
   K <- dim(diag_list$copy_num)[2]
 
   eps_df_a <- diag_list$eps_a %>%
-    melt(value.name = "a", varnames = c("iter", "u", "v")) %>%
+    melt(value.name = "a", varnames = c("it", "u", "v")) %>%
       filter(v != 1, u != v)
   eps_df <- diag_list$eps_b %>%
-    melt(value.name = "b", varnames = c("iter", "u", "v")) %>%
-      filter(v != 1, u != v) %>%
-      left_join(eps_df_a, by = join_by(iter, u, v)) # %>%
-  # TODO: continue
+    melt(value.name = "b", varnames = c("it", "u", "v")) %>%
+    filter(v != 1, u != v) %>%
+    left_join(eps_df_a, by = join_by(it, u, v)) %>%
+    mutate(mm = a / (a + b), stdev = sqrt(a * b) / ((a + b) * sqrt(a + b + 1)))
 
-
-  plot_list <- list()
-  idx <- 1L
-  for (e in 1:(K-1)) {
-    u <- edges[e, 1]
-    v <- edges[e, 2]
-    eps_df <- tibble(
-      it = 1:n_iter,
-      a = diag_list$eps_a[, u, v], 
-      b = diag_list$eps_b[, u, v],
-      mm = a / (a + b), # eps mean (beta dist)
-      stdev = sqrt(a * b) / ((a + b) * sqrt(a + b + 1)))
-    if (!is.null(gt_list)) {
-      eps_df$gt <- rep(gt_list$eps[u, v], n_iter)
-    }
-
-    eps_ab_plot <- eps_df %>%
-      select(a, b, it) %>%
-      gather(key = "param", value = "value", a, b) %>%
-      ggplot() +
-      geom_line(aes(x = it, y = value)) +
-      facet_wrap(~ param, nrow = 2)
-
-    eps_mean_plot <- eps_df %>%
-      select(it, mm, stdev, gt) %>%
-      ggplot(aes(x = it)) +
-        geom_line(aes(y = mm)) +
-        geom_line(aes(y = gt), color = "red") +
-        geom_ribbon(aes(ymin = mm-stdev, ymax = mm+stdev), alpha = 0.3) +
-        labs(title = paste0("edge (", u, ",", v, ")"))
-    plot_list[[idx]] <- eps_ab_plot
-    plot_list[[idx + K-1]] <- eps_mean_plot
-    idx <- idx + 1
+  # if map is available, remap vi clone labels to match the gt ones
+  if (!is.null(gtvi_map)) {
+    named_map <- gtvi_map$gt + 1
+    names(named_map) <- gtvi_map$vi + 1
+    eps_df <- eps_df %>%
+      mutate(u = recode(u, !!!named_map), v = recode(v, !!!named_map))
   }
 
-  ggarrange(plotlist = plot_list, nrow = K-1)
+  # plot a/b params along iterations
+  # two lines in same plot, two colors (one for a one for b)
+  p <- eps_df %>%
+    mutate(u = u - 1, v = v - 1) %>%
+    mutate(uv = paste(u, v, sep = ",")) %>%
+    select(a, b, it, uv) %>%
+    gather(key = "param", value = "value", a, b) %>% # to long format
+    ggplot() +
+      geom_line(aes(x = it, y = value, color = param)) +
+      labs(title = "eps ~ Beta(a,b) vi params") +
+      facet_wrap_paginate(~ uv, ncol = 3, nrow = nrow, scales = "free")
 
+  p_list <- list()
+  for (i in 1:n_pages(p)) {
+    p_list[[i]] <- p +
+    facet_wrap_paginate(~ uv, ncol = 3, nrow = nrow, scales = "free", page = i)
+  }
+
+  # get gt tree edges
+  if (!is.null(gt_list)) {
+    # split two dataframes
+    # first with gt data for edges in tree
+    vigt_df <- gt_list$eps %>%
+      melt(value.name = "gt_eps", varnames = c("u", "v")) %>%
+      filter(v != 1, u != v) %>%
+      left_join(eps_df, by = join_by(u, v))
+
+    gt_df <- vigt_df %>%
+      filter(gt_eps > 0)
+
+    # second without gt edges
+    eps_df <- vigt_df %>%
+      filter(gt_eps == 0) %>% # only select edges not in tree
+      select(it, u, v, mm, stdev)
+
+    # plot the ground truth edges
+    gt_plot <- gt_df %>%
+      mutate(u = u - 1, v = v - 1) %>%
+      mutate(uv = paste(u, v, sep = ",")) %>%
+      ggplot(aes(x = it)) +
+        geom_line(aes(y = mm, color = "vi")) +
+        geom_line(aes(y = gt_eps, color = "gt")) +
+        geom_ribbon(aes(ymin = mm - stdev, ymax = mm + stdev), alpha = 0.3) +
+        labs(title = "VI eps mean+stdev with ground truth") +
+        facet_wrap_paginate(~ uv, ncol = 1, nrow = nrow, scales = "free")
+
+    for (i in 1:n_pages(gt_plot)) {
+      p <- gt_plot +
+        facet_wrap_paginate(~ uv, ncol = 1, nrow = nrow, scales = "free", page = i)
+      p_list[[length(p_list) + 1]] <- p
+    }
+  }
+
+  # plot rest of edges, or all of them if no gt is av.
+  eps_mean_plot <- eps_df %>%
+    mutate(u = u - 1, v = v - 1) %>%
+    mutate(uv = paste(u, v, sep = ",")) %>%
+    select(it, mm, stdev, uv) %>%
+    ggplot(aes(x = it)) +
+      geom_line(aes(y = mm)) +
+      geom_ribbon(aes(ymin = mm-stdev, ymax = mm+stdev), alpha = 0.3) +
+      labs(title = "VI eps mean+stdev") +
+      facet_wrap_paginate(~ uv, ncol = 1, nrow = nrow, scales = "free")
+
+  for (i in 1:n_pages(eps_mean_plot)) {
+    p <- eps_mean_plot +
+      facet_wrap_paginate(~ uv, ncol = 1, nrow = nrow, scales = "free", page = i)
+    p_list[[length(p_list) + 1]] <- p
+  }
+
+  return(p_list)
 }
+
+plot_mutau <- function(diag_list, gt_list = NULL) {
+  N <- dim(diag_list$nu)[2]
+
+  nu_df <- melt(diag_list$nu, value.name = "nu", varnames = c("it", "cell"))
+  lambda_df <- melt(diag_list$lambda, value.name = "lambda", varnames = c("it", "cell"))
+  alpha_df <- melt(diag_list$alpha, value.name = "alpha", varnames = c("it", "cell"))
+  beta_df <- melt(diag_list$beta, value.name = "beta", varnames = c("it", "cell"))
+
+  mutau_df <- nu_df %>%
+    left_join(lambda_df, by = join_by(it, cell)) %>%
+    left_join(alpha_df, by = join_by(it, cell)) %>%
+    left_join(beta_df, by = join_by(it, cell)) %>%
+    mutate(tau_mean = alpha / beta, tau_sd = sqrt(alpha) / beta) %>%
+    mutate(mu_mean = nu, mu_sd = 1 / sqrt(lambda * tau_mean)) %>%
+    gather(key = "key", value = "value", tau_mean, mu_mean, tau_sd, mu_sd) %>%
+    mutate(param = ifelse(grepl("tau", key), "tau", "mu")) %>%
+    mutate(stat = ifelse(grepl("mean", key), "mean", "sd")) %>%
+    select(-key) %>%
+    spread(stat, value)
+
+  # add gt data to dataframe
+  if (!is.null(gt_list)) {
+    gt_mudf <- tibble(cell = 1:N, gt = gt_list$mu, param = "mu")
+    gt_df <- tibble(cell = 1:N, gt = gt_list$tau, param = "tau") %>%
+      bind_rows(gt_mudf)
+    mutau_df <- mutau_df %>%
+      left_join(gt_df, by = join_by(cell, param))
+  }
+
+  p <- mutau_df %>%
+    ggplot(aes(x = it)) +
+      geom_line(aes(y = mean)) +
+      geom_ribbon(aes(ymin = mean-sd, ymax = mean+sd), alpha = 0.3)
+
+  # draw gt red line
+  if (!is.null(gt_list)) {
+    p <- p +
+      geom_line(aes(y = gt, color = "gt"))
+  }
+
+  p <- p +
+    labs(title = "VI mu, tau ~ NormalGamma() expectations for each cell") +
+    facet_wrap_paginate(cell ~ param, nrow = 10, ncol = 2, scales = "free_y",
+                        strip.position = "right", labeller = label_wrap_gen(multi_line=FALSE))
+
+  p_list <- list()
+  for (i in 1:n_pages(p)) {
+    p_list[[i]] <- p +
+      facet_wrap_paginate(cell ~ param, nrow = 10, ncol = 2, scales = "free_y",
+                          strip.position = "right", labeller = label_wrap_gen(multi_line=FALSE), page = i)
+  }
+
+  return(p_list)
+}
+
 
 # GROUND TRUTH ONLY
 
@@ -217,7 +309,8 @@ plot_ari <- function(diag_list, gt_list) {
   ari_df <- tibble(ari = ari, it = 1:n_iter)
 
   ari_plot <- ggplot(ari_df) +
-    geom_line(aes(it, ari))
+    geom_line(aes(it, ari)) +
+    labs(title = "Adjusted Rand Index")
 
   # get matchings and likely mapping from gt to inferred clones
 
@@ -239,13 +332,19 @@ plot_ari <- function(diag_list, gt_list) {
     ggplot(aes(gt, vi)) +
       geom_tile(aes(fill = prop)) +
       geom_text(aes(label = prop)) +
-      theme(legend.position = "none")
+      theme(legend.position = "none", panel.background = element_blank()) +
+      labs(title = "Cell prevalence in gt/vi labels")
 
   gt_vi_map <- conf_mat %>%
     filter(prop == max(prop)) %>%         # get the max proportion
     select(gt, vi, prop)
 
-    p <- ggarrange(ari_plot, conf_mat_heatmap)
+  info_text <- ggparagraph(paste("In all following plots, vi clone labels are re-mapped",
+                                 "so to match the gt labels according to the table below (heatmap)",
+                                 "e.g clone", gt_vi_map[2, 2], "->", gt_vi_map[2, 1], ", clone",
+                                 gt_vi_map[3, 2], "->", gt_vi_map[3, 1], "etc."))
+
+  p <- ggarrange(info_text, ari_plot, conf_mat_heatmap, ncol = 1)
   print(p)
   return(gt_vi_map)
 }
@@ -275,19 +374,21 @@ N <- dim(diag_list$cell_assignment)[2]
 
 plot_elbo(diag_list)
 
-# qz
-
-plot_cell_assignment(diag_list, gt = gt_list)
-
 gt_vi_map <- NULL
 if (!is.null(gt_list)) {
   gt_vi_map <- plot_ari(diag_list, gt_list)
 }
+
+# qz
+plot_cell_assignment(diag_list, gt = gt_list, gtvi_map = gt_vi_map)
 
 # qc
 plot_copy(diag_list, gt_list, gtvi_map = gt_vi_map)
 
 # eps
 plot_eps(diag_list, gt_list, gtvi_map = gt_vi_map)
+
+# mutau
+plot_mutau(diag_list, gt_list)
 
 graphics.off()
