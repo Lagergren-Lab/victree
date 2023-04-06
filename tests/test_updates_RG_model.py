@@ -481,7 +481,7 @@ class updatesTestCase(unittest.TestCase):
         # qz = qZ(cfg).initialize(method='kmeans', obs=obs)
         # skewed towards true cluster, but not exact
         qz = qZ(cfg).initialize(method='fixed',
-                                z_init=torch.nn.functional.one_hot(true_z).float().clamp(.2 / (cfg.n_nodes - 1), .8))
+                                pi_init=torch.nn.functional.one_hot(true_z).float().clamp(.2 / (cfg.n_nodes - 1), .8))
         # qc = qC(cfg).initialize(method='bw-cluster', obs=obs, clusters=qz.kmeans_labels)
         qc = qC(cfg).initialize()
         qmt = qMuTau(cfg).initialize(method='data', obs=obs)
