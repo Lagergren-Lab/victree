@@ -88,7 +88,7 @@ class JointVarDist(VariationalDistribution):
 
 class VarDistFixedTree(VariationalDistribution):
     def __init__(self, config: Config,
-                 qc, qz, qeps, qmt, qpi, T: nx.DiGraph, obs: torch.Tensor):
+                 qc, qz, qeps, qmt, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
         super().__init__(config)
         self.c: qC = qc
         self.z: qZ = qz
@@ -96,6 +96,7 @@ class VarDistFixedTree(VariationalDistribution):
         self.mt: Union[qMuTau, qMuAndTauCellIndependent] = qmt
         self.pi: qPi = qpi
         self.obs = obs
+        self.R = R
         self.T = T
         self.w_T = [1.0]
 
