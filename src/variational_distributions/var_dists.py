@@ -1825,7 +1825,7 @@ class qTauRG(VariationalDistribution):
         new_alpha = (1 - rho) * self._alpha + rho * alpha
         new_beta = (1 - rho) * self._beta + rho * beta
         self._alpha = new_alpha
-        self.beta = new_beta
+        self._beta = new_beta
         return new_alpha, new_beta
 
     def update_gamma(self, qc: qC, qz: qZ):

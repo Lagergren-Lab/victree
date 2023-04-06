@@ -17,7 +17,7 @@ from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMul
 from tests.utils_testing import simul_data_pyro_full_model
 
 
-class updatesTestCase(unittest.TestCase):
+class updatesRGModelTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         # design simple test: fix all other variables
@@ -167,8 +167,6 @@ class updatesTestCase(unittest.TestCase):
         fix_qz = joint_q.z
         R = joint_q.R
         qtau = qTauRG(cfg, R, alpha_0=50, beta_0=5)
-        # uninformative initialization of mu0, tau0, alpha0, beta0
-        # qtau.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)  # also works
         qtau.initialize()
         # qtau.initialize(method='data', obs=obs)
         for i in range(3):
