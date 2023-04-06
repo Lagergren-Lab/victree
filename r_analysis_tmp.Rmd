@@ -35,13 +35,39 @@ N <- dim(diag_list$cell_assignment)[2]
 plot_elbo(diag_list)
 ```
 
+# Ground truth comparison
+
+```{r}
+gt_list <- read_gt(file.path(
+  copytree_path,
+  "datasets/gt_simul_K4_A5_N100_M500"
+))
+```
+
+## Clustering evaluation
+
+Clustering matchings table
+print vi clones map associated with ground truth
+
+```{r}
+gt_vi_map <- plot_ari(diag_list, gt_list)
+```
+
+```{r}
+# usage: to get the correspondent clone in vi names
+k <- 1
+gt_vi_map %>%
+  filter(gt == k) %>%
+  pull(vi)
+```
+
 ## Cell assignment
 
 ```{r}
 # diag_list$cell_assignment shape (n_iter, N, K)
 library(reshape2)
 library(dplyr)
-plot_cell_assignment(diag_list, gt_list)
+plot_cell_assignment(diag_list, gt_list, gtvi_map = gt_vi_map)
 ```
 
 
@@ -52,127 +78,18 @@ TODO: improve by plotting probability mass on each state with color scale mappin
 # np <- import("numpy")
 # copy_max_node1 <- np$argmax(np$take(diag_list$copy_num, 1L, 1L), axis=-1L)
 # or in base R
-
-with(diag_list, {
-  it_step <- 50
-  li <- list()
-  pidx <- 1L
-  for (k in 1:K) {
-    for (it in seq(1, n_iter, it_step)) {
-      copy_it_k <- apply(copy_num[it, k,,], 1, which.max) - 1L
-      copy_tibble <- tibble(cn = copy_it_k, site = 1:M)
-      # make plot_cn function
-      p <- ggplot(copy_tibble) +
-        geom_line(aes(x=site, y=cn)) +
-        labs(title=paste("CN clone", k, "it", it)) +
-        scale_y_continuous(breaks = 1:A - 1L)
-        
-      li[[pidx]] <- p
-      
-      pidx <- pidx + 1
-    }
-  }
-  ggarrange(plotlist = li, nrow = K, ncol = ceiling(n_iter / it_step))
-})
+plot_copy(diag_list, gt_list, gtvi_map = gt_vi_map)
 ```
 TODO: implement quick comparison with true and inferred tree, clustering, copy
 numbers etc
 
-# Ground truth comparison
 
-```{r}
-gt_list <- read_gt(file.path(copytree_path,
-                             "datasets/gt_simul_K4_A5_N100_M500"))
-```
-
-## Clustering evaluation
-
-```{r}
-library(aricode)
-
-ari <- c()
-for (it in 1:n_iter) {
-  c2 <- apply(diag_list$cell_assignment[it,,], 1, which.max) - 1L
-  ari <- append(ari, ARI(gt_list$cell_assignment, c2))
-}
-
-ari_df <- tibble(ari = ari, it = 1:n_iter)
-
-ggplot(ari_df) +
-  geom_line(aes(it, ari))
-
-```
-Clustering matchings table
-```{r}
-matchings <- matrix(rep(0, K^2), nrow = K)
-final_ca <- apply(diag_list$cell_assignment[101,,], 1, which.max) - 1L
-for (n in 1:N) {
-  a <- gt_list$cell_assignment[n] + 1
-  b <- final_ca[n] + 1
-  matchings[a, b] <- matchings[a, b] + 1
-}
-matchings
-```
-
-print vi clones map associated with ground truth
-```{r}
-gt_vi_map <- matchings %>%
-  melt(value.name = "count", varnames = c("gt", "vi")) %>%
-  mutate(gt = gt - 1, vi = vi - 1) %>%  # switch to 0-based clone names
-  group_by(gt) %>%                      # for each clone 
-  mutate(prop = count / sum(count)) %>% # find proportions of vi matches
-  filter(prop == max(prop)) %>%         # get the max proportion
-  select(gt, vi, prop)
-
-gt_vi_map
-```
-```{r}
-# usage: to get the correspondent clone in vi names
-k <- 1
-gt_vi_map %>%
-  filter(gt == k) %>%
-  pull(vi)
-```
 ## Tree evaluation
 
 ```{r}
 library(tidyr)
-# get gt tree edges
-edges <- which(gt_list$eps > 0, arr.ind = TRUE)
 
-li <- list()
-idx <- 1L
-for (e in 1:(K-1)) {
-  u <- edges[e, 1]
-  v <- edges[e, 2]
-  eps_df <- tibble(
-    it = 1:n_iter,
-    a = diag_list$eps_a[, u, v], 
-    b = diag_list$eps_b[, u, v],
-    mm = a / (a + b),
-    stdev = sqrt(a * b) / ((a + b) * sqrt(a + b + 1)),
-    gt = rep(gt_list$eps[u, v], n_iter))
-  
-  eps_ab_plot <- eps_df %>%
-    select(a, b, it) %>%
-    gather(key = "param", value = "value", a, b) %>%
-    ggplot() +
-    geom_line(aes(x = it, y = value)) +
-    facet_wrap(~ param, nrow = 2)
-  
-  eps_mean_plot <- eps_df %>%
-    select(it, mm, stdev, gt) %>%
-    ggplot(aes(x = it)) +
-      geom_line(aes(y = mm)) +
-      geom_line(aes(y = gt), color = "red") +
-      geom_ribbon(aes(ymin = mm-stdev, ymax = mm+stdev), alpha = 0.3) +
-      labs(title = paste0("edge (", u, ",", v, ")"))
-  li[[idx]] <- eps_ab_plot
-  li[[idx + K-1]] <- eps_mean_plot
-  idx <- idx + 1
-}
-
-ggarrange(plotlist = li, nrow = K-1)
+plot_eps(diag_list, gt_list, gt_vi_map)
 ```
 
 ## Copy eval
@@ -180,12 +97,12 @@ ggarrange(plotlist = li, nrow = K-1)
 ```{r}
 li <- list()
 for (k in 1:K) {
-  copy_it_k <- apply(diag_list$copy_num[n_iter, k,,], 1, which.max) - 1L
-  copy_tibble <- tibble(cn = c(copy_it_k, gt_list$copy_num[k,]), site = c(1:M, 1:M), kind = c(rep("vi", M), rep("gt", M)))
+  copy_it_k <- apply(diag_list$copy_num[n_iter, k, , ], 1, which.max) - 1L
+  copy_tibble <- tibble(cn = c(copy_it_k, gt_list$copy_num[k, ]), site = c(1:M, 1:M), kind = c(rep("vi", M), rep("gt", M)))
   p <- ggplot(copy_tibble) +
-    geom_line(aes(x=site, y=cn, color=kind)) +
-    geom_line(aes(x=site, y=cn, color=kind, linetype=kind)) +
-    labs(title=paste("CN clone", k-1L)) +
+    geom_line(aes(x = site, y = cn, color = kind)) +
+    geom_line(aes(x = site, y = cn, color = kind, linetype = kind)) +
+    labs(title = paste("CN clone", k - 1L)) +
     scale_y_continuous(breaks = 1:A - 1L)
   li[[k]] <- p
 }

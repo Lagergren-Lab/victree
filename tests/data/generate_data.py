@@ -27,12 +27,8 @@ def generate_data_balanced_tree(seed, n_cells, n_sites, n_copy_states):
                                                                dir_alpha0=dir_alpha)
         """
     config = Config(n_nodes=3, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
-    out_simul = simul.simulate_full_dataset(config=config,
-                                            eps_a=1.0,
-                                            eps_b=10.,
-                                            mu0=10.,
-                                            lambda0=10.,
-                                            alpha0=50., beta0=5.)
+    out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=10., mu0=10., lambda0=10., alpha0=50.,
+                                            beta0=5.)
     y = out_simul['obs']
     C = out_simul['c']
     z = out_simul['z']
