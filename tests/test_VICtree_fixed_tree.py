@@ -254,8 +254,19 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
         print(f'q(C) marginals init offset: {off_set_z * 100}%')
 
+        # Init single filter probs with off-set from true params
+        off_set_mutau = 0.1
+        mu_perturbed = mu + mu * off_set_mutau
+        tau_perturbed = tau + tau * off_set_mutau
+        alpha_perturbed = torch.ones(n_cells) * 50.
+        beta_perturbed = alpha_perturbed / tau_perturbed
+        copy_tree.q.mt.nu[...] = mu_perturbed
+        copy_tree.q.mt.alpha[...] = alpha_perturbed
+        copy_tree.q.mt.beta[...] = beta_perturbed
+        print(f'q(mu, tau) param init offset: {off_set_mutau * 100}%')
+
         # Act
-        copy_tree.run(80)
+        copy_tree.run(50)
 
         # Assert
         diagnostics_dict = copy_tree.diagnostics_dict
@@ -360,8 +371,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                             n_states=n_copy_states)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize(eps_alpha=10., eps_beta=40.,
-                         loc=mu, precision_factor=.1, shape=5, rate=5)
+            q.initialize()
 
             copy_tree = CopyTree(config, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
