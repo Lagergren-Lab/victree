@@ -10,6 +10,7 @@ library(dplyr)
 library(tidyr) # gather()
 
 suppressPackageStartupMessages(library("argparse"))
+
 read_diagnostics <- function(dir_path, convert = TRUE) {
   np <- import("numpy", convert = convert)
   # read all diagnostics files
@@ -23,7 +24,9 @@ read_diagnostics <- function(dir_path, convert = TRUE) {
     lambda = np$load(file.path(dir_path, "lambda.npy")),
     alpha = np$load(file.path(dir_path, "alpha.npy")),
     beta = np$load(file.path(dir_path, "beta.npy")),
-    elbo = np$load(file.path(dir_path, "elbo.npy"))
+    elbo = np$load(file.path(dir_path, "elbo.npy")),
+    trees = np$load(file.path(dir_path, "tree_samples.npy")),
+    tree_mat = np$load(file.path(dir_path, "tree_matrix.npy"))
   )
   return(out)
 }
@@ -386,10 +389,28 @@ plot_cell_prop <- function(diag_list) {
   return(p)
 }
 
+plot_trees <- function(diag_list, nsamples = 10) {
+  n_iter <- dim(diag_list$trees)[1]
+  nsamples <- min(nsamples, length(unique(diag_list$trees)))
+
+  # plot tree samples frequencies
+  p <- diag_list$trees[n_iter,] %>%
+    as_tibble_col(column_name = "newick") %>%
+    group_by(newick) %>%
+    count(sort = TRUE) %>%
+    ungroup() %>%
+    slice(1:nsamples) %>%
+    ggplot(aes(x = n, y = newick)) +
+      geom_col() +
+      labs(title = "Tree samples at last iteration")
+
+  return(p)
+}
+
 # arguments parsing
 parser <- ArgumentParser(description = "Draw diagnostics plots to pdf")
 parser$add_argument("diag_dir", nargs=1, type = "character", help="Directory with diagnostics files")
-parser$add_argument("-gt", "--gt-dir", type = "character", help="Directory with ground truth files")
+parser$add_argument("-gt", "--gt-dir", default = NULL, type = "character", help="Directory with ground truth files")
 parser$add_argument("-o", "--out-dir", type = "character", help = "Directory where to save results.pdf", default = NULL)
 parser$add_argument("-m", "--remap-clones", action = "store_true", default = FALSE,
                     help = "Remap clones to most likely matches with ground truth")
@@ -409,7 +430,7 @@ diag_list <- read_diagnostics(diag_dir)
 
 remap_clones <- FALSE
 gt_list <- NULL
-if (dir.exists(args$gt_dir)) {
+if (!is.null(args$gt_dir) && dir.exists(args$gt_dir)) {
   # gt_dir <- file.path(copytree_path, "datasets", "gt_simul_K4_A5_N100_M500")
   gt_list <- read_gt(args$gt_dir)
   gtK <- dim(gt_list$copy_num)[1]
@@ -433,6 +454,10 @@ pdf(pdf_path, onefile = TRUE, paper = "a4")
 # elbo
 ggarrange(plot_elbo(diag_list), plot_cell_prop(diag_list), ncol = 1)
 
+# trees
+plot_trees(diag_list, nsamples = 10)
+
+# cell assignments
 if (!is.null(gt_list)) {
   plot_ari_heatmap(diag_list, gt_list)
 }
