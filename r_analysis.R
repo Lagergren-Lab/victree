@@ -365,8 +365,8 @@ plot_ari_heatmap <- function(diag_list, gt_list) {
                                    "e.g clone", 2, "->", gt_vi_map[2], ", clone",
                                    3, "->", gt_vi_map[3], "etc."))
   } else {
-    info_text <- ggparagraph(paste("Note: clones in ground truth might have different labels"
-                                   "than those in VI results. Plots with ground truth comparison should be"
+    info_text <- ggparagraph(paste("Note: clones in ground truth might have different labels",
+                                   "than those in VI results. Plots with ground truth comparison should be",
                                    "viewed under such consideration."))
   }
 
@@ -374,6 +374,17 @@ plot_ari_heatmap <- function(diag_list, gt_list) {
   return(p)
 }
 
+plot_cell_prop <- function(diag_list) {
+  n_iter <- dim(diag_list$copy_num)[1]
+  K = dim(diag_list$cell_assignment)[3]
+  p <- apply(diag_list$cell_assignment[n_iter,,], 1, which.max) %>%
+    as_tibble_col(column_name = "clone") %>%
+    mutate(clone = clone - 1) %>%
+    mutate(clone = factor(clone, levels = 0:(K - 1))) %>%
+    ggplot(aes(y = clone)) +
+      geom_bar(aes(fill = clone))
+  return(p)
+}
 
 # arguments parsing
 parser <- ArgumentParser(description = "Draw diagnostics plots to pdf")
@@ -394,13 +405,15 @@ if (dir.exists(args$diag_dir)) {
   stop(paste0("Specified dir (", args$diag_dir, ") does not exist"))
 }
 
-remap_clones = FALSE
+diag_list <- read_diagnostics(diag_dir)
+
+remap_clones <- FALSE
 gt_list <- NULL
 if (dir.exists(args$gt_dir)) {
   # gt_dir <- file.path(copytree_path, "datasets", "gt_simul_K4_A5_N100_M500")
   gt_list <- read_gt(args$gt_dir)
-  gtK <- dim(gt_list$copy_num)[2]
-  diagK <- dim(diag_dir$copy_num)[2]
+  gtK <- dim(gt_list$copy_num)[1]
+  diagK <- dim(diag_list$copy_num)[2]
   if (gtK == diagK) {
     remap_clones <- args$remap_clones
   } else if (args$remap_clones) {
@@ -416,10 +429,9 @@ if (!is.null(args$out_dir)) {
 
 pdf(pdf_path, onefile = TRUE, paper = "a4")
 
-diag_list <- read_diagnostics(diag_dir)
 
 # elbo
-plot_elbo(diag_list)
+ggarrange(plot_elbo(diag_list), plot_cell_prop(diag_list), ncol = 1)
 
 if (!is.null(gt_list)) {
   plot_ari_heatmap(diag_list, gt_list)
