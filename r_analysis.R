@@ -49,30 +49,21 @@ plot_elbo <- function(diag_list) {
   return(p)
 }
 
-plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5, gtvi_map = NULL) {
+plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5, remap_clones = FALSE) {
   ca_long_df <- melt(diag_list$cell_assignment,
     value.name = "prob",
     varnames = c("iter", "cell", "clone")
   ) %>%
     mutate(clone = clone - 1)
 
-  # change label names depending on gt_vi map
-  if (!is.null(gtvi_map)) {
-    ca_long_df <- ca_long_df %>%
-      left_join(gtvi_map, by = join_by(clone == gt)) %>%
-      select(-clone) %>%
-      rename(clone = vi)
-  }
-
   p <- NULL
-  if (is.null(gt)) {
-    if (is.na(cell_sample_size)) {
-      cell_sample_size <- N
+  if (!is.null(gt)) {
+    if (remap_clones) {
+    # change label names depending on gt_vi map
+      clone_map <- get_clone_map(diag_list, gt_list, as_named_vector = TRUE)
+      ca_long_df <- ca_long_df %>%
+        mutate(clone = recode(clone, !!!clone_map))
     }
-
-    ca_long_df <- ca_long_df %>%
-      filter(cell %in% sample(1:N, cell_sample_size))
-  } else {
     ca_long_df <- ca_long_df %>%
       mutate(cell = paste(as.character(cell - 1L), gt_list$cell_assignment[cell], sep = ":"))
   }
@@ -94,14 +85,18 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
   return(p_list)
 }
 
-plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, gtvi_map = NULL) {
+plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE) {
   li <- list()
   n_iter <- dim(diag_list$copy_num)[1]
   K <- dim(diag_list$copy_num)[2]
 
   clones <- 1:K
-  if (!is.null(gtvi_map)) {
-    clones <- gtvi_map %>%
+  if (remap_clones & !is.null(gt_list)) {
+    clone_map <- get_clone_map(diag_list, gt_list, as_named_vector = FALSE)
+    # ca_long_df <- ca_long_df %>%
+    #   mutate(clone = recode(clone, !!!clone_map))
+
+    clones <- clone_map %>%
       arrange(gt) %>%
       mutate(vi = vi + 1) %>%
       pull(vi)
@@ -144,7 +139,7 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, gtvi_map = NULL) {
   return(li)
 }
 
-plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL, nrow = 5) {
+plot_eps <- function(diag_list, gt_list = NULL, remap_clones = FALSE, nrow = 5) {
 
   n_iter <- dim(diag_list$copy_num)[1]
   K <- dim(diag_list$copy_num)[2]
@@ -156,20 +151,19 @@ plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL, nrow = 5) {
     melt(value.name = "b", varnames = c("it", "u", "v")) %>%
     filter(v != 1, u != v) %>%
     left_join(eps_df_a, by = join_by(it, u, v)) %>%
+    mutate(u = u - 1, v = v - 1) %>%
     mutate(mm = a / (a + b), stdev = sqrt(a * b) / ((a + b) * sqrt(a + b + 1)))
 
   # if map is available, remap vi clone labels to match the gt ones
-  if (!is.null(gtvi_map)) {
-    named_map <- gtvi_map$gt + 1
-    names(named_map) <- gtvi_map$vi + 1
+  if (remap_clones && !is.null(gt_list)) {
+    clone_map <- get_clone_map(diag_list, gt_list, as_named_vector = TRUE)
     eps_df <- eps_df %>%
-      mutate(u = recode(u, !!!named_map), v = recode(v, !!!named_map))
+      mutate(u = recode(u, !!!clone_map), v = recode(v, !!!clone_map))
   }
 
   # plot a/b params along iterations
   # two lines in same plot, two colors (one for a one for b)
   p <- eps_df %>%
-    mutate(u = u - 1, v = v - 1) %>%
     mutate(uv = paste(u, v, sep = ",")) %>%
     select(a, b, it, uv) %>%
     gather(key = "param", value = "value", a, b) %>% # to long format
@@ -191,6 +185,7 @@ plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL, nrow = 5) {
     vigt_df <- gt_list$eps %>%
       melt(value.name = "gt_eps", varnames = c("u", "v")) %>%
       filter(v != 1, u != v) %>%
+      mutate(u = u - 1, v = v - 1) %>% # 0-based index
       left_join(eps_df, by = join_by(u, v))
 
     gt_df <- vigt_df %>%
@@ -203,7 +198,6 @@ plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL, nrow = 5) {
 
     # plot the ground truth edges
     gt_plot <- gt_df %>%
-      mutate(u = u - 1, v = v - 1) %>%
       mutate(uv = paste(u, v, sep = ",")) %>%
       ggplot(aes(x = it)) +
         geom_line(aes(y = mm, color = "vi")) +
@@ -221,7 +215,6 @@ plot_eps <- function(diag_list, gt_list = NULL, gtvi_map = NULL, nrow = 5) {
 
   # plot rest of edges, or all of them if no gt is av.
   eps_mean_plot <- eps_df %>%
-    mutate(u = u - 1, v = v - 1) %>%
     mutate(uv = paste(u, v, sep = ",")) %>%
     select(it, mm, stdev, uv) %>%
     ggplot(aes(x = it)) +
@@ -297,8 +290,45 @@ plot_mutau <- function(diag_list, gt_list = NULL) {
 
 # GROUND TRUTH ONLY
 
-plot_ari <- function(diag_list, gt_list) {
+get_confusion_mat <- function(diag_list, gt_list) {
+  K <- dim(diag_list$cell_assignment)[3]
+  N <- dim(diag_list$cell_assignment)[2]
+  n_iter <- dim(diag_list$cell_assignment)[1]
+
+  prop_df <- diag_list$cell_assignment[n_iter,,] %>%
+    melt(value.name = "prob", varnames = c("cell", "vi")) %>%
+    mutate(vi = vi - 1) %>% # switch to 0-based clone names
+    left_join(tibble(gt = gt_list$cell_assignment, cell = 1:N), by = join_by(cell)) %>%
+    group_by(vi, gt) %>%
+    summarise(prev = sum(prob)) %>%
+    mutate(sum_prev = sum(prev)) %>%
+    mutate(prop = ifelse(sum_prev > 0, prev / sum_prev, 0)) %>%
+    ungroup() %>%
+    select(vi, gt, prop)
+
+  return(prop_df)
+}
+
+get_clone_map <- function(diag_list, gt_list, as_named_vector = FALSE) {
+  clone_map <- get_confusion_mat(diag_list, gt_list) %>%
+    group_by(vi) %>%
+    filter(prop == max(prop)) %>%
+    ungroup()
+
+  if (as_named_vector) {
+    named_vec <- clone_map$gt
+    names(named_vec) <- clone_map$vi
+    clone_map <- named_vec
+  }
+
+  return(clone_map)
+}
+
+plot_ari_heatmap <- function(diag_list, gt_list) {
   require(aricode)
+  n_iter <- dim(diag_list$cell_assignment)[1]
+  N <- dim(diag_list$cell_assignment)[2]
+  K <- dim(diag_list$cell_assignment)[3]
 
   ari <- c()
   for (it in 1:n_iter) {
@@ -312,41 +342,24 @@ plot_ari <- function(diag_list, gt_list) {
     geom_line(aes(it, ari)) +
     labs(title = "Adjusted Rand Index")
 
-  # get matchings and likely mapping from gt to inferred clones
-
-  matchings <- matrix(rep(0, K^2), nrow = K)
-  final_ca <- apply(diag_list$cell_assignment[101,,], 1, which.max) - 1L
-  for (n in 1:N) {
-    a <- gt_list$cell_assignment[n] + 1
-    b <- final_ca[n] + 1
-    matchings[a, b] <- matchings[a, b] + 1
-  }
-
-  conf_mat <- matchings %>%
-    melt(value.name = "count", varnames = c("gt", "vi")) %>%
-    mutate(gt = gt - 1, vi = vi - 1) %>%  # switch to 0-based clone names
-    group_by(gt) %>%                      # for each clone 
-    mutate(prop = count / sum(count)) # find proportions of vi matches
+  conf_mat <- get_confusion_mat(diag_list, gt_list)
 
   conf_mat_heatmap <- conf_mat %>%
-    ggplot(aes(gt, vi)) +
+    ggplot(aes(x = gt, y = vi)) +
       geom_tile(aes(fill = prop)) +
-      geom_text(aes(label = prop)) +
+      geom_text(aes(label = round(prop, 3))) +
       theme(legend.position = "none", panel.background = element_blank()) +
-      labs(title = "Cell prevalence in gt/vi labels")
+      labs(title = "Cell proportion in gt/vi labels")
 
-  gt_vi_map <- conf_mat %>%
-    filter(prop == max(prop)) %>%         # get the max proportion
-    select(gt, vi, prop)
+  gt_vi_map <- get_clone_map(diag_list, gt_list, as_named_vector = T)
 
   info_text <- ggparagraph(paste("In all following plots, vi clone labels are re-mapped",
                                  "so to match the gt labels according to the table below (heatmap)",
-                                 "e.g clone", gt_vi_map[2, 2], "->", gt_vi_map[2, 1], ", clone",
-                                 gt_vi_map[3, 2], "->", gt_vi_map[3, 1], "etc."))
+                                 "e.g clone", 2, "->", gt_vi_map[2], ", clone",
+                                 3, "->", gt_vi_map[3], "etc."))
 
   p <- ggarrange(info_text, ari_plot, conf_mat_heatmap, ncol = 1)
-  print(p)
-  return(gt_vi_map)
+  return(p)
 }
 
 
@@ -374,19 +387,18 @@ N <- dim(diag_list$cell_assignment)[2]
 
 plot_elbo(diag_list)
 
-gt_vi_map <- NULL
 if (!is.null(gt_list)) {
-  gt_vi_map <- plot_ari(diag_list, gt_list)
+  plot_ari_heatmap(diag_list, gt_list)
 }
 
 # qz
-plot_cell_assignment(diag_list, gt = gt_list, gtvi_map = gt_vi_map)
+plot_cell_assignment(diag_list, gt = gt_list, remap_clones = TRUE)
 
 # qc
-plot_copy(diag_list, gt_list, gtvi_map = gt_vi_map)
+plot_copy(diag_list, gt_list, remap_clones = TRUE)
 
 # eps
-plot_eps(diag_list, gt_list, gtvi_map = gt_vi_map)
+plot_eps(diag_list, gt_list, remap_clones = TRUE)
 
 # mutau
 plot_mutau(diag_list, gt_list)
