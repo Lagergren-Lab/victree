@@ -27,7 +27,10 @@ def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, conf
     diag_dict
     out_dir
     """
-    diag_dir = os.path.join(out_dir, 'diagnostics')
+    diag_dir = os.path.join(out_dir, f"diag_k{config.n_nodes}"
+                                     f"a{config.n_states}"
+                                     f"n{config.n_cells}"
+                                     f"m{config.chain_length}")
     if not os.path.exists(diag_dir):
         os.mkdir(diag_dir)
     # copy numbers
@@ -79,7 +82,8 @@ def run(args):
     joint_q = JointVarDist(config, obs)
     logging.info('initializing distributions..')
     joint_q.initialize()
-    joint_q.z.initialize(method='kmeans', obs=obs)
+    joint_q.z.initialize(method='uniform')
+    # joint_q.z.initialize(method='kmeans', obs=obs)
     joint_q.mt.initialize(method='data', obs=obs)
     joint_q.eps.initialize(method='uniform')
 
