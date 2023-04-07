@@ -32,7 +32,7 @@ def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, conf
                                      f"n{config.n_cells}"
                                      f"m{config.chain_length}")
     if not os.path.exists(diag_dir):
-        os.mkdir(diag_dir)
+        os.makedirs(diag_dir)
     # copy numbers
     np.save(os.path.join(diag_dir, 'copy.npy'), diag_dict['C'].numpy())
     # cell assignment
@@ -47,6 +47,9 @@ def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, conf
     np.save(os.path.join(diag_dir, 'lambda.npy'), diag_dict['lmbda'].numpy())
     np.save(os.path.join(diag_dir, 'alpha.npy'), diag_dict['alpha'].numpy())
     np.save(os.path.join(diag_dir, 'beta.npy'), diag_dict['beta'].numpy())
+    # tree
+    np.save(os.path.join(diag_dir, 'tree_samples.npy'), np.array(diag_dict['T']))
+    np.save(os.path.join(diag_dir, 'tree_matrix.npy'), diag_dict['wG'].numpy())
     # elbo
     np.save(os.path.join(diag_dir, 'elbo.npy'), diag_dict['elbo'].numpy())
     # metadata

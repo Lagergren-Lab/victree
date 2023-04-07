@@ -8,6 +8,7 @@ import torch
 import torch.distributions as dist
 
 from utils.config import Config, set_seed
+from utils.tree_utils import tree_to_newick
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC, \
     qMuAndTauCellIndependent
@@ -288,7 +289,7 @@ class CopyTree:
             self.diagnostics_dict["wG"][iter, ...] = torch.tensor(nx.to_numpy_array(self.q.t.weighted_graph))
             self.diagnostics_dict["wT"][iter] = self.q.t.w_T
             self.diagnostics_dict["gT"][iter] = self.q.t.g_T
-            self.diagnostics_dict["T"].append(self.q.t.T_list)
+            self.diagnostics_dict["T"].append([tree_to_newick(t) for t in self.q.t.get_trees_sample()[0]])
 
 
     def sieve(self, n_sieve_iter=10, seed_list=None):
