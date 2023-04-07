@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 library(reticulate)
 library(ggplot2)
 library(ggpubr)
@@ -7,7 +9,7 @@ library(reshape2)
 library(dplyr)
 library(tidyr) # gather()
 
-
+suppressPackageStartupMessages(library("argparse"))
 read_diagnostics <- function(dir_path, convert = TRUE) {
   np <- import("numpy", convert = convert)
   # read all diagnostics files
@@ -50,6 +52,9 @@ plot_elbo <- function(diag_list) {
 }
 
 plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5, remap_clones = FALSE) {
+
+  K = dim(diag_list$cell_assignment)[3]
+
   ca_long_df <- melt(diag_list$cell_assignment,
     value.name = "prob",
     varnames = c("iter", "cell", "clone")
@@ -89,6 +94,7 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE)
   li <- list()
   n_iter <- dim(diag_list$copy_num)[1]
   K <- dim(diag_list$copy_num)[2]
+  A <- dim(diag_list$copy_num)[4]
 
   clones <- 1:K
   if (remap_clones & !is.null(gt_list)) {
@@ -353,52 +359,91 @@ plot_ari_heatmap <- function(diag_list, gt_list) {
 
   gt_vi_map <- get_clone_map(diag_list, gt_list, as_named_vector = T)
 
-  info_text <- ggparagraph(paste("In all following plots, vi clone labels are re-mapped",
-                                 "so to match the gt labels according to the table below (heatmap)",
-                                 "e.g clone", 2, "->", gt_vi_map[2], ", clone",
-                                 3, "->", gt_vi_map[3], "etc."))
+  if (remap_clones) {
+    info_text <- ggparagraph(paste("In all following plots, vi clone labels are re-mapped",
+                                   "so to match the gt labels according to the table below (heatmap)",
+                                   "e.g clone", 2, "->", gt_vi_map[2], ", clone",
+                                   3, "->", gt_vi_map[3], "etc."))
+  } else {
+    info_text <- ggparagraph(paste("Note: clones in ground truth might have different labels"
+                                   "than those in VI results. Plots with ground truth comparison should be"
+                                   "viewed under such consideration."))
+  }
 
   p <- ggarrange(info_text, ari_plot, conf_mat_heatmap, ncol = 1)
   return(p)
 }
 
 
+# arguments parsing
+parser <- ArgumentParser(description = "Draw diagnostics plots to pdf")
+parser$add_argument("diag_dir", nargs=1, type = "character", help="Directory with diagnostics files")
+parser$add_argument("-gt", "--gt-dir", type = "character", help="Directory with ground truth files")
+parser$add_argument("-o", "--out-dir", type = "character", help = "Directory where to save results.pdf", default = NULL)
+parser$add_argument("-m", "--remap-clones", action = "store_true", default = FALSE,
+                    help = "Remap clones to most likely matches with ground truth")
+
+args <- parser$parse_args()
+
 # set up variables
-copytree_path <- "/Users/zemp/phd/scilife/coPyTree"
-diag_path <- file.path(copytree_path, "output", "diagnostics")
-gt_path <- file.path(copytree_path, "datasets", "gt_simul_K4_A5_N100_M500")
-# gt_path <- NA
-pdf_path <- "./results.pdf"
+
+if (dir.exists(args$diag_dir)) {
+  diag_dir <- args$diag_dir
+  # diag_dir <- file.path(copytree_path, "output", "diagnostics")
+} else {
+  stop(paste0("Specified dir (", args$diag_dir, ") does not exist"))
+}
+
+remap_clones = FALSE
+gt_list <- NULL
+if (dir.exists(args$gt_dir)) {
+  # gt_dir <- file.path(copytree_path, "datasets", "gt_simul_K4_A5_N100_M500")
+  gt_list <- read_gt(args$gt_dir)
+  gtK <- dim(gt_list$copy_num)[2]
+  diagK <- dim(diag_dir$copy_num)[2]
+  if (gtK == diagK) {
+    remap_clones <- args$remap_clones
+  } else if (args$remap_clones) {
+      warning(paste("Clones cannot be remapped: ground truth number of clones differ",
+              "from inferred ones (", gtK, "!=", diagK, ")"))
+  }
+}
+
+pdf_path <- file.path(diag_dir, "results.pdf")
+if (!is.null(args$out_dir)) {
+  pdf_path <- file.path(args$out_dir, "./results.pdf")
+}
 
 pdf(pdf_path, onefile = TRUE, paper = "a4")
 
-if (!is.na(gt_path)) {
-  gt_list <- read_gt(gt_path)
-}
-diag_list <- read_diagnostics(diag_path)
-
-n_iter <- dim(diag_list$copy_num)[1]
-K <- dim(diag_list$copy_num)[2]
-M <- dim(diag_list$copy_num)[3]
-A <- dim(diag_list$copy_num)[4]
-N <- dim(diag_list$cell_assignment)[2]
+diag_list <- read_diagnostics(diag_dir)
 
 # elbo
-
 plot_elbo(diag_list)
 
 if (!is.null(gt_list)) {
   plot_ari_heatmap(diag_list, gt_list)
 }
 
+# if map is not 1-1, do not change labels
+if (remap_clones) {
+  clone_map <- get_clone_map(diag_list, gt_list, as_named_vector = TRUE)
+  if (!all(sort(names(clone_map)) == sort(clone_map))) {
+    warning(paste("Clones cannot be remapped: one or more gt clones",
+                  "have not been reconstructed.", names(clone_map),
+                  "->", as.numeric(clone_map)))
+    remap_clones <- FALSE
+  }
+}
+
 # qz
-plot_cell_assignment(diag_list, gt = gt_list, remap_clones = TRUE)
+plot_cell_assignment(diag_list, gt = gt_list, remap_clones = remap_clones)
 
 # qc
-plot_copy(diag_list, gt_list, remap_clones = TRUE)
+plot_copy(diag_list, gt_list, remap_clones = remap_clones)
 
 # eps
-plot_eps(diag_list, gt_list, remap_clones = TRUE)
+plot_eps(diag_list, gt_list, remap_clones = remap_clones)
 
 # mutau
 plot_mutau(diag_list, gt_list)
