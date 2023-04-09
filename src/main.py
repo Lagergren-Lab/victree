@@ -48,7 +48,6 @@ if __name__ == '__main__':
         description="CopyTree"
     )
     parser.add_argument("--seed", default=42, type=int)
-    parser.add_argument("--cuda", action="store_true")
     parser.add_argument("--n-iter", default=10, type=int)
     parser.add_argument("--log", default="DEBUG", action="store_true")
     parser.add_argument("-i", "--input", dest="file_path",
