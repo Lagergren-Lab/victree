@@ -283,6 +283,130 @@ Generate full simulated dataset.
     return out_simul
 
 
+def simulate_copy_tree_data(K, M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
+    eps = {}
+    logging.debug(f'Copy Tree data simulation - eps_a: {eps_a}, eps_b: {eps_b}, eps_0:{eps_0} ')
+    eps_dist = torch.distributions.Beta(eps_a, eps_b)
+    if eps_dist.variance > 0.1 * eps_dist.mean:
+        logging.warning(f'Large variance for epsilon: {eps_dist.variance} (mean: {eps_dist.mean}. Consider increasing '
+                        f'eps_b param.')
+
+    for u, v in tree.edges:
+        eps[u, v] = eps_dist.sample()
+        tree.edges[u, v]['weight'] = eps[u, v]
+
+    # generate copy numbers
+    c = torch.empty((K, M), dtype=torch.long)
+    c[0, :] = 2 * torch.ones(M)
+    h_eps0_cached = h_eps0(A, eps_0)
+    for u, v in nx.bfs_edges(tree, source=0):
+        t0 = h_eps0_cached[c[u, 0], :]
+        c[v, 0] = torch.distributions.Categorical(probs=t0).sample()
+        h_eps_uv = h_eps(A, eps[u, v])
+        for m in range(1, M):
+            # j', j, i', i
+            transition = h_eps_uv[:, c[v, m - 1], c[u, m], c[u, m - 1]]
+            c[v, m] = torch.distributions.Categorical(probs=transition).sample()
+
+    return eps, c
+
+
+def simulate_component_assignments(N, K, dir_delta):
+    logging.debug(f'Component assignments simulation - delta: {dir_delta}')
+    if isinstance(dir_delta, float):
+        dir_alpha_tensor = torch.ones(K) * dir_delta
+    else:
+        dir_alpha_tensor = torch.tensor(dir_delta)
+    pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
+    z = torch.distributions.Categorical(pi).sample((N,))
+    return pi, z
+
+
+def simulate_Psi_LogNormal(N, alpha0, beta0):
+    tau_dist = dist.Gamma(alpha0, beta0)
+    tau = tau_dist.sample((N,))
+    return tau
+
+
+def simulate_observations_LogNormal(N, M, c, z, R, gc, tau):
+    x = torch.zeros((N, M))
+    phi = torch.einsum("km, m -> k", c.float(), gc)
+    for n in range(N):
+        k = z[n]
+        mu_n = c[k] * R[n] / phi[k]
+        x_n_dist = dist.LogNormal(mu_n, 1. / tau[n])
+        x[n] = x_n_dist.sample()
+
+    return x, phi
+
+
+def simulate_total_reads(N, R_0):
+    a = int(R_0 - R_0 / 10.)
+    b = int(R_0 + R_0 / 10.)
+    logging.debug(f"Reads per cell simulation: R in  [{a},{b}] ")
+    R = torch.randint(a, b, (N,))
+    return R
+
+
+def simulate_gc_site_corrections(M):
+    a = 0.8
+    b = 1.0
+    logging.debug(f"GC correction per site simulation: g_m in  [{a},{b}] ")
+    gc_dist = dist.Uniform(a, b)
+    gc = gc_dist.sample((M,))
+    return gc
+
+
+def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, eps_a=5., eps_b=50., eps_0=1.,
+                                     alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1.):
+    """
+    Generate full simulated dataset.
+    Args:
+        config: configuration object
+        eps_a: float, param for Beta distribution over epsilon
+        eps_b: float, param for Beta distribution over epsilon
+        mu0: float, param for NormalGamma distribution over mu/tau
+        alpha0: float, param for NormalGamma distribution over mu/tau
+        beta0: float, param for NormalGamma distribution over mu/tau
+
+    Returns:
+        dictionary with keys: ['obs', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
+
+    """
+    # generate random tree
+    tree = nx.random_tree(K, create_using=nx.DiGraph) if tree is None else tree
+    logging.debug(f'sampled tree: {tree_utils.tree_to_newick(tree)}')
+
+    # Copy tree simulation
+    eps, c = simulate_copy_tree_data(K, M, A, tree, eps_a, eps_b, eps_0)
+
+    # Mixture model associated simulations
+    pi, z = simulate_component_assignments(N, K, dir_delta)
+
+    # Component variables
+    tau = simulate_Psi_LogNormal(N, alpha0, beta0)
+
+    # Observations
+    R = simulate_total_reads(N, R_0)
+    gc = simulate_gc_site_corrections(M)
+    x, phi = simulate_observations_LogNormal(N, M, c, z, R, gc, tau)
+
+    out_simul = {
+        'x': x,
+        'R': R,
+        'gc': gc,
+        'c': c,
+        'z': z,
+        'phi': phi,
+        'pi': pi,
+        'tau': tau,
+        'eps': eps,
+        'eps0': eps_0,
+        'tree': tree
+    }
+    return out_simul
+
+
 def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                                        mu: torch.Tensor,
                                        tau: torch.Tensor,
@@ -407,7 +531,7 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
         mutau_tensor = torch.stack((data['mu'], data['tau']), dim=-1)
         gt_group.create_dataset('mutau', data=mutau_tensor)
         g_eps = nx.DiGraph()
-        g_eps.add_weighted_edges_from([(u, v, e) for (u,v), e in data['eps'].items()])
+        g_eps.add_weighted_edges_from([(u, v, e) for (u, v), e in data['eps'].items()])
         eps_tensor = nx.to_numpy_array(g_eps)
         gt_group.create_dataset('eps', data=eps_tensor)
     elif gt_mode == 'numpy':
@@ -543,9 +667,9 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
     })
 
     fix_qmt = qMuTau(config, true_params={
-            "mu": simul_data['mu'],
-            "tau": simul_data['tau']
-        }).initialize()
+        "mu": simul_data['mu'],
+        "tau": simul_data['tau']
+    }).initialize()
 
     fix_qpi = qPi(config, true_params={
         "pi": simul_data['pi']
@@ -605,4 +729,3 @@ if __name__ == '__main__':
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
     logging.info(f'simulated dateset saved successfully in {args.out_path}')
-

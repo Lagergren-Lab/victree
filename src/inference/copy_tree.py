@@ -139,7 +139,7 @@ class VarDistFixedTree(VariationalDistribution):
         q_MuTau_elbo = self.mt.elbo()
         q_pi_elbo = self.pi.elbo()
         q_eps_elbo = self.eps.elbo([self.T], self.w_T)
-        elbo_obs = self.elbo_observations()
+        elbo_obs = 0# self.elbo_observations()
         return elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
 
     def elbo_observations(self):
