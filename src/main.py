@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Main CopyTree inference script.
 
@@ -45,22 +47,22 @@ def validate_path(f):
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
-        description="CopyTree"
+        description="VIC-Tree, variational inference on clonal tree with single-cell DNA data"
     )
-    parser.add_argument("--seed", default=42, type=int)
-    parser.add_argument("--n-iter", default=10, type=int)
-    parser.add_argument("--log", default="DEBUG", action="store_true")
+    # parser.add_argument("-l", "--log-level", default="DEBUG", action="store_true")
     parser.add_argument("-i", "--input", dest="file_path",
                         type=validate_path, default='./datasets/n5_c300_l1k.h5',
                         help="input data file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
                         help="output dir", metavar="DIR")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
-    parser.add_argument("--diagnostics", action="store_true", help="store data of var dists during optimization")
-    parser.add_argument("--K", default=5, type=int, help="Number of nodes/clones")
-    parser.add_argument("-s", "--step-size", default=.1, type=float, help="step-size for partial updates")
-    parser.add_argument("--A", default=7, type=int, help="Number of characters/copy number states")
-    parser.add_argument("--L", default=10, type=int, help="Number of sampled arborescences")
+    parser.add_argument("-s", "--seed", default=42, type=int, help="RNG seed")
+    parser.add_argument("-n", "--n-iter", default=10, type=int, help="VI iterations")
+    parser.add_argument("-a", "--diagnostics", action="store_true", help="store data of var dists during optimization")
+    parser.add_argument("-K", "--n-nodes", default=5, type=int, help="number of nodes/clones")
+    parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
+    parser.add_argument("-S", "--step-size", default=.1, type=float, help="step-size for partial updates")
+    parser.add_argument("-L", "--tree-sample-size", default=10, type=int, help="number of sampled arborescences")
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     # seed for reproducibility

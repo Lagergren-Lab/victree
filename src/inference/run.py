@@ -76,8 +76,8 @@ def run(args):
     n_bins, n_cells = obs.shape
     logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
-    config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.K, n_states=args.A,
-                    wis_sample_size=args.L, debug=args.debug, step_size=args.step_size,
+    config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.n_nodes, n_states=args.n_states,
+                    wis_sample_size=args.tree_sample_size, debug=args.debug, step_size=args.step_size,
                     diagnostics=args.diagnostics)
     logging.debug(str(config))
 

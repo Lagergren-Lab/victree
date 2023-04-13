@@ -408,12 +408,12 @@ plot_trees <- function(diag_list, nsamples = 10) {
 }
 
 # arguments parsing
-parser <- ArgumentParser(description = "Draw diagnostics plots to pdf")
-parser$add_argument("diag_dir", nargs=1, type = "character", help="Directory with diagnostics files")
-parser$add_argument("-gt", "--gt-dir", default = NULL, type = "character", help="Directory with ground truth files")
-parser$add_argument("-o", "--out-dir", type = "character", help = "Directory where to save results.pdf", default = NULL)
+parser <- ArgumentParser(description = "draw diagnostics plots to pdf")
+parser$add_argument("diag_dir", nargs=1, type = "character", help="directory with diagnostics files")
+parser$add_argument("-gt", "--gt-dir", default = NULL, type = "character", help="directory with ground truth files")
+parser$add_argument("-o", "--out-dir", type = "character", help = "directory where to save results.pdf", default = NULL)
 parser$add_argument("-m", "--remap-clones", action = "store_true", default = FALSE,
-                    help = "Remap clones to most likely matches with ground truth")
+                    help = "remap clones to most likely matches with ground truth")
 
 args <- parser$parse_args()
 

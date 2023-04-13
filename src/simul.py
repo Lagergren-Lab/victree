@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Data simulation script.
 Uses Pyro-PPL for modelling the data only with data generation purposes.
@@ -561,7 +563,9 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
 
 # script for simulating data
 if __name__ == '__main__':
-    cli = argparse.ArgumentParser()
+    cli = argparse.ArgumentParser(
+        description="Data simulation script. Output format is compatible with VIC-Tree interface."
+    )
     cli.add_argument('-o', '--out-path',
                      type=str,
                      default='../datasets/', help="output directory e.g. ../datasets/")
@@ -576,14 +580,19 @@ if __name__ == '__main__':
                      default=300, help="number of cells")
     cli.add_argument('-M', '--chain-length',
                      type=int,
-                     default=1000, help="number of cells")
+                     default=1000, help="number of sites in copy number and DNA sequence (seq. length)")
     cli.add_argument('-s', '--seed',
                      type=int,
                      default=42, help="RNG seed")
     cli.add_argument('-cf', '--concentration-factor',
                      type=float,
                      nargs='*',
-                     default=[1.], help="concentration factor for Dirichlet distribution")
+                     default=[1.], help="concentration factor for Dirichlet distribution. If only one value"
+                                        "is passed, this is replicated K-times to match the param vector length")
+    cli.add_argument('-e', '--eps-beta-params',
+                     type=float,
+                     nargs=2,
+                     default=[5., 50.], metavar=("ALPHA", "BETA"), help="alpha and beta parameters for Beta distribution")
     cli.add_argument("-d", "--debug",
                      action="store_true",
                      help="additional inspection for debugging purposes")
