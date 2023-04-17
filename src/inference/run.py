@@ -78,14 +78,14 @@ def run(args):
 
     config = Config(chain_length=n_bins, n_cells=n_cells, n_nodes=args.n_nodes, n_states=args.n_states,
                     wis_sample_size=args.tree_sample_size, debug=args.debug, step_size=args.step_size,
-                    diagnostics=args.diagnostics)
+                    diagnostics=args.diagnostics, sieving_size=args.sieving[0], n_sieving_iter=args.sieving[1])
     logging.debug(str(config))
 
     # instantiate all distributions
     joint_q = JointVarDist(config, obs)
     logging.info('initializing distributions..')
     joint_q.initialize()
-    joint_q.z.initialize(method='uniform')
+    joint_q.z.initialize(method='random')
     # joint_q.z.initialize(method='kmeans', obs=obs)
     joint_q.mt.initialize(method='data', obs=obs)
     joint_q.eps.initialize(method='uniform')

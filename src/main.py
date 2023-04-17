@@ -8,8 +8,10 @@ Outputs K MAP trees, with cell assignments and copy number profiles for each clo
 """
 import argparse
 import logging
+import math
 import sys
 import os
+import time
 
 from inference.run import run
 from utils.config import set_seed
@@ -17,11 +19,13 @@ from utils.config import set_seed
 
 def main(args):
     logging.info("running main program")
+    start = time.time()
     try:
         run(args)
     except Exception as e:
         logging.exception("main fail traceback")
-    logging.info("main is over")
+    tot_time = time.time() - start
+    logging.info(f"main is over. Total exec time: {tot_time // 60}m {math.ceil(tot_time % 60)}s")
 
 
 def set_logger(debug: bool):
@@ -63,6 +67,8 @@ if __name__ == '__main__':
     parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
     parser.add_argument("-S", "--step-size", default=.1, type=float, help="step-size for partial updates")
     parser.add_argument("-L", "--tree-sample-size", default=10, type=int, help="number of sampled arborescences")
+    parser.add_argument("--sieving", default=[1, 20], nargs=2, type=int, help="number of sieving runs prior to start",
+                        metavar=("N_RUNS", "N_ITER"))
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     # seed for reproducibility

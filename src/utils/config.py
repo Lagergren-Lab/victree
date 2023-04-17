@@ -15,7 +15,7 @@ class Config:
                  elbo_tol: float = 1e-10,
                  max_close_runs: int = 10,
                  sieving_size: int = 1,
-                 n_sieving_runs: int = 20,
+                 n_sieving_iter: int = 20,
                  step_size=1.,
                  debug=False,
                  diagnostics=False) -> None:
@@ -30,7 +30,7 @@ class Config:
         self._elbo_tol = elbo_tol
         self._max_close_runs = max_close_runs
         self._sieving_size = sieving_size
-        self._n_sieving_runs = n_sieving_runs
+        self._n_sieving_iter = n_sieving_iter
         self._debug = debug
 
     @property
@@ -70,8 +70,8 @@ class Config:
         return self._sieving_size
 
     @property
-    def n_sieving_runs(self):
-        return self._n_sieving_runs
+    def n_sieving_iter(self):
+        return self._n_sieving_iter
 
     @property
     def debug(self):
@@ -104,7 +104,7 @@ class Config:
             'elbo_tol': self.elbo_tol,
             'max_close_runs': self.max_close_runs,
             'sieving_size': self.sieving_size,
-            'n_sieving_runs': self.n_sieving_runs,
+            'n_sieving_runs': self.n_sieving_iter,
             'debug': self.debug
         }
 
