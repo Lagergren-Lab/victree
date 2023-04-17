@@ -407,6 +407,23 @@ plot_trees <- function(diag_list, nsamples = 10) {
   return(p)
 }
 
+plot_tree_matrix <- function(diag_list) {
+
+  long_mat <- diag_list$tree_mat %>%
+    melt(value.name = "weight", varnames = c("iter", "u", "v"))
+  
+  p <- long_mat %>%
+    mutate(u = u - 1, v = v - 1) %>% # 0-based index
+    filter(iter == max(iter)) %>%
+    select(-iter) %>%
+    ggplot(aes(x = u, y = v)) +
+      geom_raster(aes(fill = weight)) +
+      geom_text(aes(label = round(weight, 2))) +
+      labs(title = "Graph weight matrix at last it")
+
+  return(p)
+}
+
 # arguments parsing
 parser <- ArgumentParser(description = "draw diagnostics plots to pdf")
 parser$add_argument("diag_dir", nargs=1, type = "character", help="directory with diagnostics files")
@@ -443,7 +460,7 @@ if (!is.null(args$gt_dir) && dir.exists(args$gt_dir)) {
   }
 }
 
-pdf_path <- file.path(diag_dir, "results.pdf")
+pdf_path <- file.path(diag_dir, "results_matrix.pdf")
 if (!is.null(args$out_dir)) {
   pdf_path <- file.path(args$out_dir, "./results.pdf")
 }
@@ -456,6 +473,8 @@ ggarrange(plot_elbo(diag_list), plot_cell_prop(diag_list), ncol = 1)
 
 # trees
 plot_trees(diag_list, nsamples = 10)
+
+plot_tree_matrix(diag_list)
 
 # cell assignments
 if (!is.null(gt_list)) {
