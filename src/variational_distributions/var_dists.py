@@ -1122,7 +1122,8 @@ class qEpsilonMulti(VariationalDistribution):
 
         # check how many edges are effectively updated
         # after some iterations (might be very few)
-        logging.debug(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges")
+        if len(unique_edges) < len(new_alpha):
+            logging.warning(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges")
 
         # E_T[ sum_m sum_{not A} Cu Cv ]
         exp_cuv_a = {}
