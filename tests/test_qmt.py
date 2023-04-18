@@ -154,6 +154,6 @@ class qmtTestCase(unittest.TestCase):
             elbo_qmt = qmt.elbo()
             print(f"[{i}] old ELBO(mu, tau): {elbo_qmt:.2f}")
             print(f"[{i}]" + str(qmt))
-            qmt.update(qc=joint_q.c, qz=joint_q.z, obs=joint_q.obs)
+            qmt.update(qc=joint_q.c, qz=joint_q.z, x=joint_q.obs)
 
 

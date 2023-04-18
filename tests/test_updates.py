@@ -417,7 +417,7 @@ class updatesTestCase(unittest.TestCase):
                 print(f"- qmt dist: {torch.pow(qmt.nu - joint_q.mt.true_params['mu'], 2).sum():.2f}")
 
             qmt.update(fix_qc, qz, obs)
-            qz.update(qmt, fix_qc, fix_qpi, obs)
+            qz.update(qmt, fix_qc, fix_qpi)
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
         print(f"- var mu: {qmt.nu}")

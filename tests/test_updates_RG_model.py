@@ -378,7 +378,7 @@ class updatesRGModelTestCase(unittest.TestCase):
                 print(f"- qz adjusted rand idx: {ari:.2f}")
 
             qmt.update(fix_qc, qz, obs)
-            qz.update(qmt, fix_qc, fix_qpi, obs)
+            qz.update(qmt, fix_qc, fix_qpi)
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
         print(f"- var tau: {qmt.exp_tau()}")

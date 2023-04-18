@@ -52,6 +52,14 @@ def get_tree_K_nodes_random(K):
     return T
 
 
+def get_tree_K_nodes_one_level(K):
+    T = nx.DiGraph()
+    for k in range(K):
+        T.add_edge(0, k)
+
+    return T
+
+
 def get_random_q_C(M, A):
     q_C_init = torch.rand(A)
     q_C_transitions_unnormalized = torch.rand((M - 1, A, A))
