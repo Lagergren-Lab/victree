@@ -6,6 +6,7 @@ import networkx as nx
 from numpy import infty
 import torch
 import torch.distributions as dist
+from tqdm import tqdm
 
 from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick
@@ -44,13 +45,16 @@ class JointVarDist(VariationalDistribution):
             q.initialize(**kwargs)
         return super().initialize()
 
-    def elbo(self, T_eval, w_T_eval) -> float:
-        return self.c.elbo(T_eval, w_T_eval, self.eps) + \
+    def elbo(self, t_list: list | None = None, w_list: list | None = None) -> float:
+        if t_list is None and w_list is None:
+            t_list, w_list = self.t.get_trees_sample()
+
+        return self.c.elbo(t_list, w_list, self.eps) + \
                self.z.elbo(self.pi) + \
                self.mt.elbo() + \
                self.pi.elbo() + \
-               self.eps.elbo(T_eval, w_T_eval) + \
-               self.t.elbo(T_eval, w_T_eval) + \
+               self.eps.elbo(t_list, w_list) + \
+               self.t.elbo(t_list, w_list) + \
                self.elbo_observations()
 
     def elbo_observations(self):
@@ -180,8 +184,19 @@ class CopyTree:
 
         # counts the number of steps performed
         self.it_counter = 0
-        self.elbo: float = -infty
+        self._elbo: float = -infty
         self.sieve_models: List[Union[JointVarDist, VarDistFixedTree]] = []
+
+    @property
+    def elbo(self):
+        return self._elbo
+
+    @elbo.setter
+    def elbo(self, e):
+        if isinstance(e, torch.Tensor):
+            self._elbo = e.item()
+        else:
+            self._elbo = e
 
     def run(self, n_iter):
 
@@ -193,29 +208,27 @@ class CopyTree:
             self.update_diagnostics(0)
 
         if self.config.sieving_size > 1:
+            logging.info(f"Sieving {self.config.sieving_size} runs for "
+                         f"{self.config.n_sieving_iter} iter each")
             self.compute_elbo()
             logging.info(f"ELBO before sieving: {self.elbo:.2f}")
-            self.sieve(self.config.n_sieving_runs)
+            self.sieve()
             self.compute_elbo()
             logging.info(f"ELBO after sieving: {self.elbo:.2f}")
         else:
             self.compute_elbo()
             logging.info(f"ELBO after init: {self.elbo:.2f}")
 
-        logging.info("Start updates...")
-        for it in range(1, n_iter + 1):
+        logging.info("Start VI updates")
+        pbar = tqdm(range(1, n_iter + 1))
+        for it in pbar:
             # do the updates
-            if it % 10 == 0:
-                logging.info(f"It: {it}")
-            else:
-                logging.debug(f"It: {it}")
             self.step()
 
             old_elbo = self.elbo
             self.compute_elbo()
-            if it % 10 == 0:
-                logging.info(f"[{it}] ELBO: {self.elbo:.2f}")
 
+            pbar.set_postfix({'elbo': self.elbo})
             if self.diagnostics_dict is not None:
                 self.update_diagnostics(it)
 
@@ -226,8 +239,7 @@ class CopyTree:
                     #break
             elif self.elbo < old_elbo:
                 # elbo should only increase
-                # raise ValueError("Elbo is decreasing")
-                logging.debug("Elbo is decreasing")
+                logging.warning("Elbo is decreasing")
             else:
                 close_runs = 0
 
@@ -291,27 +303,38 @@ class CopyTree:
             self.diagnostics_dict["gT"][iter] = self.q.t.g_T
             self.diagnostics_dict["T"].append([tree_to_newick(t) for t in self.q.t.get_trees_sample()[0]])
 
-
-    def sieve(self, n_sieve_iter=10, seed_list=None):
+    def sieve(self, seed_list=None, **kwargs):
         """
         Creates self.config.sieving_size number of copies of self.q, re-initializes each q with different
         seeds, performs n_sieve_iter updates of q, calculates the ELBO of each copy and sets self.q to the best
         copy with largest ELBO.
         :param n_sieve_iter: number of updates before sieving selection
         :return:
+
+        Parameters
+        ----------
+        **kwargs key,value pairs for init params
         """
-        seed_list = range(self.config.sieving_size) if seed_list is None else seed_list
+        # TODO: parallelize this for loop (make sure that randomness is properly split)
+        top_model = None
+        top_model_elbo = -infty
         for i in range(self.config.sieving_size):
-            self.sieve_models.append(copy.deepcopy(self.q))
-            set_seed(seed_list[i])
-            self.sieve_models[i].initialize()
+            curr_model = copy.deepcopy(self.q)
+            curr_model.initialize(**kwargs)
 
-            for j in range(n_sieve_iter):
-                self.sieve_models[i].update()
+            logging.info(f"[S{i}] started")
+            for j in tqdm(range(self.config.n_sieving_iter)):
+                curr_model.update()
 
-        selected_model_idx = self.sieving_selection_ELBO()
-        logging.info(f"Selected sieve model index: {selected_model_idx} with seed: {seed_list[selected_model_idx]}")
-        self.q = self.sieve_models[selected_model_idx]
+            curr_elbo = curr_model.elbo()
+            logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({self.config.n_sieving_iter})")
+            if top_model_elbo < curr_elbo:
+                logging.info("new top model!")
+                top_model_elbo = curr_elbo
+                top_model = curr_model
+            # TODO: add diagnostics feat to sieving
+
+        self.q = top_model
 
     def sieving_selection_ELBO(self):
         elbos = []
@@ -355,5 +378,6 @@ class CopyTree:
     def step(self):
         self.q.update()
         self.it_counter += 1
-        # print info about dist
-        logging.debug(str(self.q))
+        # print info about dist every 10 it
+        if self.it_counter % 10 == 0:
+            logging.debug(str(self.q))

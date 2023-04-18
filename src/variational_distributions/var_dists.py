@@ -350,7 +350,7 @@ class qC(VariationalDistribution):
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
         self.compute_filtering_probs()
-        logging.debug("- copy number updated")
+        # logging.debug("- copy number updated")
         return super().update()
 
     def update_params(self, eta1, eta2):
@@ -672,7 +672,7 @@ class qZ(VariationalDistribution):
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
         pi = torch.softmax(gamma, dim=1)
         new_pi = self.update_params(pi)
-        logging.debug("- z updated")
+        # logging.debug("- z updated")
         return super().update()
 
     def update_params(self, pi: torch.Tensor):
@@ -784,7 +784,7 @@ other elbos such as qC.
     def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         # q_T = self.update_CAVI(T_list, qc, qeps)
         self.update_graph_weights(qc, qeps)
-        logging.debug("- tree updated")
+        # logging.debug("- tree updated")
         return super().update()
 
     def update_params(self, new_weights: torch.Tensor):
@@ -1001,7 +1001,7 @@ class qEpsilon(VariationalDistribution):
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
         self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
-        logging.debug("- eps updated")
+        # logging.debug("- eps updated")
         super().update()
 
     def update_CAVI(self, T_list: list, w_T: torch.Tensor, q_C_pairwise_marginals: torch.Tensor):
@@ -1123,7 +1123,9 @@ class qEpsilonMulti(VariationalDistribution):
 
         # check how many edges are effectively updated
         # after some iterations (might be very few)
-        logging.debug(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges")
+        if len(unique_edges) < len(new_alpha):
+            logging.debug(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges,"
+                          f" consider increasing trees sample size")
 
         # E_T[ sum_m sum_{not A} Cu Cv ]
         exp_cuv_a = {}
@@ -1403,7 +1405,7 @@ class qMuTau(VariationalDistribution):
         new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
 
         super().update()
-        logging.debug("- mu/tau updated")
+        # logging.debug("- mu/tau updated")
         return new_mu, new_lmbda, new_alpha, new_beta
 
     def update_params(self, mu, lmbda, alpha, beta):
@@ -2040,7 +2042,7 @@ class qPi(VariationalDistribution):
         new_concentration_param = self.update_params(concentration_param)
 
         super().update()
-        logging.debug("- pi updated")
+        # logging.debug("- pi updated")
         return new_concentration_param
 
     def exp_log_pi(self):
