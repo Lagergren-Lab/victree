@@ -16,11 +16,10 @@ from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent, \
-    qTauUrn
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn
 
 
-class VICtreeFixedTreeTestCase(unittest.TestCase):
+class RPhiModelFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config, R, gc):
         qc = qC(config)
@@ -56,7 +55,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         c = out['c']
         z = out['z']
         pi = out['pi']
-        tau = out['tau']
+        tau = out['psi']
         eps = out['eps']
         eps_0 = out['eps0']
 
@@ -102,7 +101,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         c = out['c']
         z = out['z']
         pi = out['pi']
-        tau = out['tau']
+        tau = out['psi']
         eps = out['eps']
         eps_0 = out['eps0']
 

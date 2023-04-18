@@ -333,8 +333,20 @@ def simulate_observations_LogNormal(N, M, c, z, R, gc, tau):
     phi = torch.einsum("km, m -> k", c.float(), gc)
     for n in range(N):
         k = z[n]
-        mu_n = c[k] * R[n] / phi[k]
+        mu_n = c[k] * gc * R[n] / phi[k]
         x_n_dist = dist.LogNormal(mu_n, 1. / tau[n])
+        x[n] = x_n_dist.sample()
+
+    return x, phi
+
+
+def simulate_observations_Poisson(N, M, c, z, R, gc):
+    x = torch.zeros((N, M))
+    phi = torch.einsum("km, m -> k", c.float(), gc)
+    for n in range(N):
+        k = z[n]
+        lmbda_n = c[k] * gc * R[n] / phi[k]
+        x_n_dist = dist.Poisson(lmbda_n)
         x[n] = x_n_dist.sample()
 
     return x, phi
@@ -357,7 +369,7 @@ def simulate_gc_site_corrections(M):
     return gc
 
 
-def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, eps_a=5., eps_b=50., eps_0=1.,
+def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, emission_model="poisson", eps_a=5., eps_b=50., eps_0=1.,
                                      alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1.):
     """
     Generate full simulated dataset.
@@ -383,13 +395,17 @@ def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, eps_a=5., eps_b=50.,
     # Mixture model associated simulations
     pi, z = simulate_component_assignments(N, K, dir_delta)
 
-    # Component variables
-    tau = simulate_Psi_LogNormal(N, alpha0, beta0)
-
-    # Observations
+    # Component variables and observations
     R = simulate_total_reads(N, R_0)
     gc = simulate_gc_site_corrections(M)
-    x, phi = simulate_observations_LogNormal(N, M, c, z, R, gc, tau)
+
+    if emission_model.lower() == "lognormal":
+        psi = simulate_Psi_LogNormal(N, alpha0, beta0)
+        x, phi = simulate_observations_LogNormal(N, M, c, z, R, gc, psi)
+    elif emission_model.lower() == "poisson":
+        psi = None
+        x, phi = simulate_observations_Poisson(N, M, c, z, R, gc)
+
 
     out_simul = {
         'x': x,
@@ -399,7 +415,7 @@ def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, eps_a=5., eps_b=50.,
         'z': z,
         'phi': phi,
         'pi': pi,
-        'tau': tau,
+        'psi': psi,
         'eps': eps,
         'eps0': eps_0,
         'tree': tree
