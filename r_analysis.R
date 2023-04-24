@@ -8,7 +8,6 @@ library(tibble)
 library(reshape2)
 library(dplyr)
 library(tidyr) # gather()
-
 suppressPackageStartupMessages(library("argparse"))
 
 read_diagnostics <- function(dir_path, convert = TRUE) {
@@ -26,6 +25,7 @@ read_diagnostics <- function(dir_path, convert = TRUE) {
     beta = np$load(file.path(dir_path, "beta.npy")),
     elbo = np$load(file.path(dir_path, "elbo.npy")),
     trees = np$load(file.path(dir_path, "tree_samples.npy")),
+    tree_weights = np$load(file.path(dir_path, "tree_weights.npy")),
     tree_mat = np$load(file.path(dir_path, "tree_matrix.npy"))
   )
   return(out)
@@ -379,7 +379,7 @@ plot_ari_heatmap <- function(diag_list, gt_list) {
 
 plot_cell_prop <- function(diag_list) {
   n_iter <- dim(diag_list$copy_num)[1]
-  K = dim(diag_list$cell_assignment)[3]
+  K <- dim(diag_list$cell_assignment)[3]
   p <- apply(diag_list$cell_assignment[n_iter,,], 1, which.max) %>%
     as_tibble_col(column_name = "clone") %>%
     mutate(clone = clone - 1) %>%
@@ -389,20 +389,30 @@ plot_cell_prop <- function(diag_list) {
   return(p)
 }
 
-plot_trees <- function(diag_list, nsamples = 10) {
+plot_trees <- function(diag_list, nsamples = 10, gt_list = NULL, remap_clones = FALSE) {
   n_iter <- dim(diag_list$trees)[1]
+  K <- dim(diag_list$cell_assignment)[3]
   nsamples <- min(nsamples, length(unique(diag_list$trees)))
+  trees_df <- tibble(newick = diag_list$trees[n_iter, ],
+                     weight = diag_list$tree_weights[n_iter, ])
 
+  str_clone_map <- as.character(1:K)
+  names(str_clone_map) <- str_clone_map # identity
+  if (remap_clones) {
+    str_clone_map <- get_clone_map(diag_list, gt_list, as_named_vector = TRUE)
+    str_clone_map <- setNames(as.character(str_clone_map),
+                              as.character(names(str_clone_map)))
+  }
   # plot tree samples frequencies
-  p <- diag_list$trees[n_iter,] %>%
-    as_tibble_col(column_name = "newick") %>%
+  p <- trees_df %>%
+    mutate(newick = recode(newick, !!!str_clone_map)) %>%  # TODO: check that it works
     group_by(newick) %>%
-    count(sort = TRUE) %>%
-    ungroup() %>%
+    summarise(weight = sum(weight)) %>%
+    arrange(desc(weight)) %>%
     slice(1:nsamples) %>%
-    ggplot(aes(x = n, y = newick)) +
+    ggplot(aes(x = weight, y = reorder(newick, weight))) +
       geom_col() +
-      labs(title = "Tree samples at last iteration")
+      labs(title = "Tree samples at last iteration", x = "sum(weight)", y = "newick")
 
   return(p)
 }
@@ -460,7 +470,7 @@ if (!is.null(args$gt_dir) && dir.exists(args$gt_dir)) {
   }
 }
 
-pdf_path <- file.path(diag_dir, "results_matrix.pdf")
+pdf_path <- file.path(diag_dir, "results.pdf")
 if (!is.null(args$out_dir)) {
   pdf_path <- file.path(args$out_dir, "./results.pdf")
 }
@@ -472,7 +482,7 @@ pdf(pdf_path, onefile = TRUE, paper = "a4")
 ggarrange(plot_elbo(diag_list), plot_cell_prop(diag_list), ncol = 1)
 
 # trees
-plot_trees(diag_list, nsamples = 10)
+plot_trees(diag_list, nsamples = 10, gt_list = gt_list, remap_clones = remap_clones)
 
 plot_tree_matrix(diag_list)
 
