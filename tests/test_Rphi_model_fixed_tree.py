@@ -16,7 +16,7 @@ from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn, qPhi
 
 
 class RPhiModelFixedTreeTestCase(unittest.TestCase):
@@ -27,10 +27,9 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
         qpi = qPi(config)
-        qtau = qTauUrn(config, R, gc)
-        return qc, qt, qeps, qz, qpi, qtau
+        return qc, qt, qeps, qz, qpi
 
-    def test_one_edge_tree(self):
+    def test_one_edge_tree_lognormal(self):
         torch.manual_seed(0)
         logging.getLogger().setLevel("INFO")
         tree = tests.utils_testing.get_two_node_tree()
@@ -45,8 +44,9 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         b0 = torch.tensor(200.0)
         R_0 = 100
 
-        out = simul.simulate_data_total_GC_urn_model(tree, n_cells, n_sites, n_nodes, n_copy_states, R_0, eps_a=a0,
-                                                     eps_b=b0, eps_0=1., alpha0=alpha0, beta0=beta0,
+        out = simul.simulate_data_total_GC_urn_model(tree, n_cells, n_sites, n_nodes, n_copy_states, R_0,
+                                                     emission_model='lognormal',
+                                                     eps_a=a0, eps_b=b0, eps_0=1., alpha0=alpha0, beta0=beta0,
                                                      dir_delta=dir_delta)
         x = out['x']
         R = out['R']
@@ -64,7 +64,8 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
-        qc, qt, qeps, qz, qpi, qtau = self.set_up_q(config, R, gc)
+        qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
+        qtau = qTauUrn(config, R, gc)
         q = VarDistFixedTree(config, qc, qz, qeps, qtau, qpi, tree, x)
         q.initialize()
         copy_tree = CopyTree(config, q, x)
@@ -77,6 +78,58 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         #model_variational_comparisons.fixed_T_comparisons(obs=x, true_C=c, true_Z=z, true_pi=pi, true_mu=mu,
         #                                                  true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
         #                                                  q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+
+
+    def test_one_edge_tree_poisson(self):
+        torch.manual_seed(0)
+        logging.getLogger().setLevel("INFO")
+        tree = tests.utils_testing.get_two_node_tree()
+        n_nodes = len(tree.nodes)
+        n_cells = 1000
+        n_sites = 100
+        n_copy_states = 7
+        dir_delta = torch.tensor([1., 3.])
+        alpha0 = torch.tensor(500.)
+        beta0 = torch.tensor(50.)
+        a0 = torch.tensor(10.0)
+        b0 = torch.tensor(200.0)
+        R_0 = 1000
+
+        out = simul.simulate_data_total_GC_urn_model(tree, n_cells, n_sites, n_nodes, n_copy_states, R_0,
+                                                     emission_model='poisson',
+                                                     eps_a=a0, eps_b=b0, eps_0=1., alpha0=alpha0, beta0=beta0,
+                                                     dir_delta=dir_delta)
+        x = out['x']
+        R = out['R']
+        gc = out['gc']
+        phi = out['phi']
+        c = out['c']
+        z = out['z']
+        pi = out['pi']
+        tau = out['psi']
+        eps = out['eps']
+        eps_0 = out['eps0']
+
+        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+                        debug=False, diagnostics=False)
+
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
+
+        qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
+        phi_init = 1.
+        qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
+        q = VarDistFixedTree(config, qc, qz, qeps, qpsi, qpi, tree, x)
+        q.initialize()
+        copy_tree = CopyTree(config, q, x)
+
+        # Act
+        copy_tree.run(50)
+
+        # Assert
+        torch.set_printoptions(precision=2)
+        model_variational_comparisons.compare_qZ_and_true_Z(z, copy_tree.q.z)
+        model_variational_comparisons.compare_qC_and_true_C(c, copy_tree.q.c)
+
 
     def test_three_node_tree(self):
         torch.manual_seed(0)
@@ -110,7 +163,8 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
                         debug=False, diagnostics=False)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
-        qc, qt, qeps, qz, qpi, qtau = self.set_up_q(config, R, gc)
+        qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
+        qtau = qTauUrn(config, R, gc)
         q = VarDistFixedTree(config, qc, qz, qeps, qtau, qpi, tree, x)
         q.initialize()
         copy_tree = CopyTree(config, q, x)
