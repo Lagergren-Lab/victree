@@ -201,8 +201,7 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     fix_tree = nx.DiGraph()
     fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-    joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps,
-                               fix_qmt, fix_qpi, fix_tree, obs)
+    joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
     return joint_q
 
 

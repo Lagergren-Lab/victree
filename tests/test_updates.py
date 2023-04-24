@@ -99,8 +99,7 @@ class updatesTestCase(unittest.TestCase):
         fix_tree = nx.DiGraph()
         fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-        joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps,
-                                   fix_qmt, fix_qpi, fix_tree, obs)
+        joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
         return joint_q
 
     def test_update_qt_simul_data(self):
@@ -162,8 +161,7 @@ class updatesTestCase(unittest.TestCase):
         qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
 
         for i in range(50):
-            qc.update(obs, fix_qeps, fix_qz, fix_qmt,
-                      trees=trees, tree_weights=wis_weights)
+            qc.update(obs, fix_qeps, fix_qz, fix_qmt, trees=trees, tree_weights=wis_weights)
 
         # compare estimated single filtering probs against true copy number profile
         print(joint_q.c)
@@ -323,8 +321,7 @@ class updatesTestCase(unittest.TestCase):
         print(f"true c: {joint_q.c.true_params['c']}")
         print(f"true z: {joint_q.z.true_params['z']}")
         for i in range(n_iter):
-            qc.update(obs, fix_qeps, qz, fix_qmt,
-                      trees=trees, tree_weights=wis_weights)
+            qc.update(obs, fix_qeps, qz, fix_qmt, trees=trees, tree_weights=wis_weights)
             qz.update(fix_qmt, qc, fix_qpi, obs)
             print(f"{qz.exp_assignment().mean(dim=0)}")
             print(f"{qc.single_filtering_probs[1].mean(dim=0)}")
@@ -417,7 +414,7 @@ class updatesTestCase(unittest.TestCase):
                 print(f"- qmt dist: {torch.pow(qmt.nu - joint_q.mt.true_params['mu'], 2).sum():.2f}")
 
             qmt.update(fix_qc, qz, obs)
-            qz.update(qmt, fix_qc, fix_qpi)
+            qz.update(qmt, fix_qc, fix_qpi,,
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
         print(f"- var mu: {qmt.nu}")
@@ -464,8 +461,7 @@ class updatesTestCase(unittest.TestCase):
                                f" elbo: {partial_elbo}")
             qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
-            qc.update(obs, fix_qeps, qz, qmt,
-                      trees=trees, tree_weights=wis_weights)
+            qc.update(obs, fix_qeps, qz, qmt, trees=trees, tree_weights=wis_weights)
 
         # print(qmt.exp_tau())
         # print(joint_q.mt.true_params['tau'])

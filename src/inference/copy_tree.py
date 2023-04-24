@@ -1,5 +1,6 @@
 import copy
 import logging
+import math
 from typing import Union, List
 
 import networkx as nx
@@ -8,11 +9,13 @@ import torch
 import torch.distributions as dist
 from tqdm import tqdm
 
+from utils import math_utils
 from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick
+from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.variational_distribution import VariationalDistribution
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qMuTau, qPi, qZ, qC, \
-    qMuAndTauCellIndependent
+    qMuAndTauCellIndependent, qPhi
 
 
 class JointVarDist(VariationalDistribution):
@@ -93,12 +96,12 @@ class JointVarDist(VariationalDistribution):
 
 class VarDistFixedTree(VariationalDistribution):
     def __init__(self, config: Config,
-                 qc, qz, qeps, qmt, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
+                 qc, qz, qeps, qpsi, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
         super().__init__(config)
         self.c: qC = qc
         self.z: qZ = qz
         self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
-        self.mt: Union[qMuTau, qMuAndTauCellIndependent] = qmt
+        self.mt: qPsi = qpsi
         self.pi: qPi = qpi
         self.obs = obs
         self.R = R
@@ -144,30 +147,43 @@ class VarDistFixedTree(VariationalDistribution):
         q_MuTau_elbo = self.mt.elbo()
         q_pi_elbo = self.pi.elbo()
         q_eps_elbo = self.eps.elbo([self.T], self.w_T)
-        elbo_obs = 0# self.elbo_observations()
+        elbo_obs = self.elbo_observations()
         return elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
 
     def elbo_observations(self):
-        E_log_tau = self.mt.exp_log_tau()
-        E_tau = self.mt.exp_tau()
-        E_mu_tau = self.mt.exp_mu_tau()
-        E_mu2_tau = self.mt.exp_mu2_tau()
-
         qC = self.c.single_filtering_probs
         qZ = self.z.pi
-        y = self.obs
         A = self.config.n_states
         c = torch.arange(0, A, dtype=torch.float)
-        c2 = c ** 2
-        M, N = y.shape
-        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
-            "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
-        E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
-            self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
-        E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
-        E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
-        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
-            torch.tensor(2 * torch.pi)))
+
+        if isinstance(self.mt, qMuTau):
+            E_log_tau = self.mt.exp_log_tau()
+            E_tau = self.mt.exp_tau()
+            E_mu_tau = self.mt.exp_mu_tau()
+            E_mu2_tau = self.mt.exp_mu2_tau()
+
+            y = self.obs
+            c2 = c ** 2
+            M, N = y.shape
+            E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
+                "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+            E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+                self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
+            E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
+            E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
+            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
+                torch.tensor(2 * torch.pi)))
+        elif isinstance(self.mt, qPhi):
+            x = self.obs
+            R = self.mt.R
+            gc = self.mt.gc
+            phi = self.mt.phi
+            if self.mt.emission_model.lower() == "poisson":
+                lmbda = torch.einsum("nm, m, n, v, j -> jvnm", x, gc, R, 1./phi, c) + 0.00001
+                log_x_factorial = math_utils.log_factorial(x)
+                log_p = -log_x_factorial.expand(lmbda.shape) + torch.log(lmbda) + x.expand(lmbda.shape) - lmbda
+                elbo = torch.einsum("vmj, nv, jvnm ->", qC, qZ, log_p)
+
         return elbo
 
 
