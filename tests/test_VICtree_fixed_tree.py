@@ -94,7 +94,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
-        print(f"C node 1 site 2: {C[1, 2]}")
         print(f"Epsilon: {eps}")
         config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
                         debug=False, diagnostics=True)
@@ -186,7 +185,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
-        config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states, diagnostics=True)
+        config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states, diagnostics=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
@@ -197,7 +196,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-        copy_tree.run(20)
+        copy_tree.run(50)
 
         # Assert
         diagnostics_dict = copy_tree.diagnostics_dict
@@ -288,7 +287,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         logger.level = logging.INFO
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 1000
+        n_cells = 2000
         n_sites_list = [100, 100, 100, 100, 100]
         n_copy_states = 7
         dir_alpha0 = 1.

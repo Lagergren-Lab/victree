@@ -34,7 +34,6 @@ def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
             if n_diff_i < n_diff:
                 n_diff = n_diff_i
     print(f"Number of different true C and argmax(q(C)): {n_diff} out of {K*M} states")
-    #assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
 
 
 def compare_qZ_and_true_Z(true_Z, q_z: qZ):
