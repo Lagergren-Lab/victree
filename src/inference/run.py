@@ -49,6 +49,7 @@ def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, conf
     np.save(os.path.join(diag_dir, 'beta.npy'), diag_dict['beta'].numpy())
     # tree
     np.save(os.path.join(diag_dir, 'tree_samples.npy'), np.array(diag_dict['T']))
+    np.save(os.path.join(diag_dir, 'tree_weights.npy'), diag_dict['wT'].numpy())
     np.save(os.path.join(diag_dir, 'tree_matrix.npy'), diag_dict['wG'].numpy())
     # elbo
     np.save(os.path.join(diag_dir, 'elbo.npy'), diag_dict['elbo'].numpy())
@@ -96,7 +97,7 @@ def run(args):
     copy_tree.run(args.n_iter)
     run_str = f'out_K{config.n_nodes}_A{config.n_states}_N{config.n_cells}_M{config.chain_length}'
     if args.diagnostics:
-        write_diagnostics_to_numpy(copy_tree.diagnostics_dict, out_dir=args.out_dir, config=config)
+        write_diagnostics_to_numpy(copy_tree.q.diagnostics_dict, out_dir=args.out_dir, config=config)
         # file_dir = './output/'
         # file_name = f'diagnostics_K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}' \
         #             f'_iter{args.n_iter}'
