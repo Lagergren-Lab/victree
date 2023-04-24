@@ -19,6 +19,7 @@ from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normaliz
 import utils.tree_utils as tree_utils
 from sampling.slantis_arborescence import sample_arborescence, sample_arborescence_from_weighted_graph
 from utils.config import Config
+from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.variational_distribution import VariationalDistribution
 
 
@@ -310,7 +311,7 @@ class qC(VariationalDistribution):
     def update(self, obs: torch.Tensor,
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                q_z: 'qZ',
-               q_mutau: 'qMuTau',
+               q_psi: 'qPsi',
                trees,
                tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -329,7 +330,7 @@ class qC(VariationalDistribution):
             exp_alpha1, exp_alpha2 = self._exp_alpha(tree, q_eps)
 
             # init tree-specific update
-            tree_eta1, tree_eta2 = self._exp_eta(obs, tree, q_eps, q_z, q_mutau)
+            tree_eta1, tree_eta2 = self._exp_eta(obs, tree, q_eps, q_z, q_psi)
             for u in range(self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]
@@ -651,14 +652,14 @@ class qZ(VariationalDistribution):
             m_labels = kmeans.labels_
         raise NotImplemented("kmeans_per_site_init not complete")
 
-    def update(self, qmt: 'qMuTau', qc: 'qC', qpi: 'qPi', obs: torch.Tensor):
+    def update(self, qpsi: 'qPsi', qc: 'qC', qpi: 'qPi', obs: torch.Tensor):
         """
         q(Z) is a Categorical with probabilities pi^{*}, where pi_k^{*} = exp(gamma_k) / sum_K exp(gamma_k)
         gamma_k = E[log \pi_k] + sum_{m,j} q(C_m^k = j) E_{\mu, \tau}[D_{nmj}]
         :param Y: observations
         :param q_C_marginal:
         :param q_pi_dist:
-        :param q_mu_tau:
+        :param qpsi:
         :return:
         """
         # single_filtering_probs: q(Cmk = j), shape: K x M x J
@@ -666,7 +667,7 @@ class qZ(VariationalDistribution):
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        d_nmj = qmt.exp_log_emission(obs)
+        d_nmj = qpsi.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
@@ -1325,7 +1326,7 @@ class qEpsilonMulti(VariationalDistribution):
 
 
 # observations (mu-tau)
-class qMuTau(VariationalDistribution):
+class qMuTau(qPsi):
 
     def __init__(self, config: Config, true_params=None,
                  nu_prior: float = 1., lambda_prior: float = .1,
@@ -1812,7 +1813,7 @@ class qTauUrn(VariationalDistribution):
         q_C_marginals = qc.single_filtering_probs
 
         # tau update
-        read_rates = torch.einsum("a, n, m -> anm", c_tensor, R/phi, gc)
+        read_rates = torch.einsum("a, n, m -> anm", c_tensor, R / phi, gc)
         diff_term_squared = torch.pow(x.expand(A, N, M) - read_rates, 2)
         E_qZqC_diff = torch.einsum("nk, kma, anm -> n", q_Z, q_C_marginals, diff_term_squared)
         # mu update
@@ -1870,8 +1871,9 @@ class qTauUrn(VariationalDistribution):
             E_log_tau = self.exp_log_tau()
             E_tau = self.exp_tau()
             j = torch.arange(self.config.n_states)
-            means = torch.einsum("j, n, m -> jnm", j, R/gamma, torch.ones((M,)))
-            out_arr = .5 * (E_log_tau.expand(A, M, N) - torch.einsum("n, jnm -> jmn", E_tau, (obs.expand(A, N, M) - means) ** 2))
+            means = torch.einsum("j, n, m -> jnm", j, R / gamma, torch.ones((M,)))
+            out_arr = .5 * (E_log_tau.expand(A, M, N) - torch.einsum("n, jnm -> jmn", E_tau,
+                                                                     (obs.expand(A, N, M) - means) ** 2))
             out_arr = torch.einsum('jmn -> nmj', out_arr)
 
         assert out_arr.shape == out_shape
@@ -1990,7 +1992,66 @@ class qTauRG(VariationalDistribution):
         return torch.digamma(self._alpha) - torch.log(self._beta)
 
 
-# dirichlet concentration
+class qPhi(qPsi):
+
+    def __init__(self, config: Config, phi_init, x, gc, R, A, emission_model="poisson", fixed=False):
+        self.phi = phi_init
+        self.x = x
+        self.gc = gc
+        self.R = R
+        self.emission_model = emission_model
+        super().__init__(config, fixed)
+
+    def initialize(self, **kwargs):
+        self.phi = torch.ones(self.config.n_nodes,) * 2. * self.config.chain_length
+
+    def update(self, qc: qC, qz: qZ, obs):
+        c_marginals = qc.single_filtering_probs
+        z_probs = qz.pi
+        j = torch.arange(self.config.n_states, dtype=float)
+        if self.emission_model.lower() == "poisson":
+            phi = self.update_poisson(c_marginals, z_probs, j)
+        self.phi = phi
+
+    def update_poisson(self, c_marginals, z_probs, j):
+        sum_means = torch.einsum("vmj, nv, m, n, j -> v", c_marginals, z_probs, self.gc, self.R.float(), j.float())
+        sum_reads = torch.einsum("vmj, nv, nm -> v", c_marginals, z_probs, self.x)
+        phi = sum_means / sum_reads
+        return phi
+
+    def update_lognormal(self):
+        raise NotImplementedError
+
+    def update_negbinomial(self):
+        raise NotImplementedError
+
+    def exp_log_emission(self, obs):
+        out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
+        out_arr = torch.ones(out_shape)
+        # obs is (m x n)
+        j = torch.arange(self.config.n_states)
+        if self.emission_model.lower() == "poisson":
+            self.exp_log_emissions_poisson(j)
+
+        assert out_arr.shape == out_shape
+        return out_arr
+
+    def exp_log_emissions_poisson(self, j):
+        if self.fixed:
+            phi = self.true_params["phi"]
+        else:
+            phi = self.phi
+
+        K = self.config.n_nodes
+        A = self.config.n_states
+        N = self.config.n_cells
+        M = self.config.chain_length
+        rates = torch.einsum("j, m, n, v -> vjnm", j.float(), self.gc, self.R.float(), 1. / phi) + 0.00001
+        poi_dist = torch.distributions.Poisson(rate=rates)
+        out_arr = torch.permute(poi_dist.log_prob(self.x.expand(K, A, N, M)), (2, 3, 0, 1))
+        return out_arr
+
+
 class qPi(VariationalDistribution):
 
     def __init__(self, config: Config, delta_prior: float = 1., true_params: dict | None = None):

@@ -137,14 +137,14 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
+        a0 = torch.tensor(5.0)
         b0 = torch.tensor(200.0)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
-        config = Config(step_size=0.3, n_nodes=K, chain_length=n_sites,
+        config = Config(step_size=0.1, n_nodes=K, chain_length=n_sites,
                         n_cells=n_cells, n_states=n_copy_states, diagnostics=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
@@ -153,6 +153,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         copy_tree.run(100)
+        print(q.c)
 
         # Assert
         diagnostics_dict = copy_tree.diagnostics_dict
