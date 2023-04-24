@@ -48,6 +48,11 @@ def validate_path(f):
     return f
 
 
+def validate_args(args):
+    if not args.sieving[0] > 1:
+        args.sieving[1] = 0
+
+
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
@@ -67,10 +72,11 @@ if __name__ == '__main__':
     parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
     parser.add_argument("-S", "--step-size", default=.1, type=float, help="step-size for partial updates")
     parser.add_argument("-L", "--tree-sample-size", default=10, type=int, help="number of sampled arborescences")
-    parser.add_argument("--sieving", default=[1, 20], nargs=2, type=int, help="number of sieving runs prior to start",
+    parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
+    validate_args(args)  # custom validation on args
     # seed for reproducibility
     set_seed(args.seed)
 
