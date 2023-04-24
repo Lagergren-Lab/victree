@@ -28,6 +28,8 @@ class JointVarDist(VariationalDistribution):
         self.pi: qPi = qPi(config) if qpi is None else qpi
         self.obs = obs
 
+        self.diagnostics_dict = {} if config.diagnostics else None
+
     def update(self):
         # T, C, eps, z, mt, pi
         self.t.update(self.c, self.eps)
@@ -80,7 +82,6 @@ class JointVarDist(VariationalDistribution):
             torch.tensor(2 * torch.pi)))
         return elbo
 
-
     def __str__(self):
         # summary for joint dist
         tot_str = "+++ Joint summary +++"
@@ -89,6 +90,62 @@ class JointVarDist(VariationalDistribution):
             tot_str += "\n --- \n"
         tot_str += "+++ end of summary +++"
         return tot_str
+
+    def init_diagnostics(self, n_iter: int):
+        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
+        # C, Z, pi diagnostics
+        self.diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
+        self.diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
+        self.diagnostics_dict["pi"] = torch.zeros((n_iter, K))
+
+        # eps diagnostics
+        self.diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
+        self.diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
+
+        # qMuTau diagnostics
+        self.diagnostics_dict["nu"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["alpha"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["beta"] = torch.zeros((n_iter, N))
+
+        self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
+
+        L = self.config.wis_sample_size
+        self.diagnostics_dict["wG"] = torch.zeros((n_iter, K, K))
+        self.diagnostics_dict["wT"] = torch.zeros((n_iter, L))
+        self.diagnostics_dict["gT"] = torch.zeros((n_iter, L))
+        self.diagnostics_dict["T"] = []
+
+    def update_diagnostics(self, iter: int):
+        # C, Z, pi diagnostics
+        self.diagnostics_dict["C"][iter] = self.c.single_filtering_probs
+        self.diagnostics_dict["Z"][iter] = self.z.pi
+        self.diagnostics_dict["pi"][iter] = self.pi.concentration_param
+
+        # eps diagnostics
+        K = self.config.n_nodes
+        eps_a = torch.zeros((K, K))
+        eps_b = torch.zeros((K, K))
+        for key in self.eps.alpha.keys():
+            eps_a[key] = self.eps.alpha[key]
+            eps_b[key] = self.eps.beta[key]
+
+        self.diagnostics_dict["eps_a"][iter] = eps_a
+        self.diagnostics_dict["eps_b"][iter] = eps_b
+
+        # qMuTau diagnostics
+        self.diagnostics_dict["nu"][iter] = self.mt.nu
+        self.diagnostics_dict["lmbda"][iter] = self.mt.lmbda
+        self.diagnostics_dict["alpha"][iter] = self.mt.alpha  # not updated
+        self.diagnostics_dict["beta"][iter] = self.mt.beta
+
+        # elbo
+        self.diagnostics_dict["elbo"][iter] = self.elbo()
+
+        self.diagnostics_dict["wG"][iter, ...] = torch.tensor(nx.to_numpy_array(self.t.weighted_graph))
+        self.diagnostics_dict["wT"][iter] = self.t.w_T
+        self.diagnostics_dict["gT"][iter] = self.t.g_T
+        self.diagnostics_dict["T"].append([tree_to_newick(t) for t in self.t.get_trees_sample()[0]])
 
 
 class VarDistFixedTree(VariationalDistribution):
@@ -104,6 +161,8 @@ class VarDistFixedTree(VariationalDistribution):
         self.R = R
         self.T = T
         self.w_T = [1.0]
+
+        self.diagnostics_dict = {} if config.diagnostics else None
 
     def update(self):
         # T, C, eps, z, mt, pi
@@ -170,6 +229,52 @@ class VarDistFixedTree(VariationalDistribution):
             torch.tensor(2 * torch.pi)))
         return elbo
 
+    def init_diagnostics(self, n_iter: int):
+        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
+        # C, Z, pi diagnostics
+        self.diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
+        self.diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
+        self.diagnostics_dict["pi"] = torch.zeros((n_iter, K))
+
+        # eps diagnostics
+        self.diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
+        self.diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
+
+        # qMuTau diagnostics
+        self.diagnostics_dict["nu"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["alpha"] = torch.zeros((n_iter, N))
+        self.diagnostics_dict["beta"] = torch.zeros((n_iter, N))
+
+        self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
+
+
+    def update_diagnostics(self, iter: int):
+        # C, Z, pi diagnostics
+        self.diagnostics_dict["C"][iter] = self.c.single_filtering_probs
+        self.diagnostics_dict["Z"][iter] = self.z.pi
+        self.diagnostics_dict["pi"][iter] = self.pi.concentration_param
+
+        # eps diagnostics
+        K = self.config.n_nodes
+        eps_a = torch.zeros((K, K))
+        eps_b = torch.zeros((K, K))
+        for key in self.eps.alpha.keys():
+            eps_a[key] = self.eps.alpha[key]
+            eps_b[key] = self.eps.beta[key]
+
+        self.diagnostics_dict["eps_a"][iter] = eps_a
+        self.diagnostics_dict["eps_b"][iter] = eps_b
+
+        # qMuTau diagnostics
+        self.diagnostics_dict["nu"][iter] = self.mt.nu
+        self.diagnostics_dict["lmbda"][iter] = self.mt.lmbda
+        self.diagnostics_dict["alpha"][iter] = self.mt.alpha  # not updated
+        self.diagnostics_dict["beta"][iter] = self.mt.beta
+
+        # elbo
+        self.diagnostics_dict["elbo"][iter] = self.elbo()
+
 
 class CopyTree:
 
@@ -180,7 +285,6 @@ class CopyTree:
         self.config = config
         self.q = q
         self.obs = obs
-        self.diagnostics_dict = {} if config.diagnostics else None
 
         # counts the number of steps performed
         self.it_counter = 0
@@ -203,24 +307,24 @@ class CopyTree:
         # counts the number of irrelevant updates
         close_runs = 0
 
-        if self.diagnostics_dict is not None:
-            self.init_diagnostics(n_iter + 1)  # n_iter + 1 for initialization values
-            self.update_diagnostics(0)
+        if self.q.diagnostics_dict is not None:
+            self.q.init_diagnostics(self.config.n_sieving_iter + n_iter + 1)  # n_iter + 1 for initialization values
+            self.q.update_diagnostics(0)
 
         if self.config.sieving_size > 1:
             logging.info(f"Sieving {self.config.sieving_size} runs for "
                          f"{self.config.n_sieving_iter} iter each")
-            self.compute_elbo()
-            logging.info(f"ELBO before sieving: {self.elbo:.2f}")
+            logging.info(f"ELBO before sieving: {self.compute_elbo():.2f}")
+
+            # run inference on separate initialization of copytree and select the best one
             self.sieve()
-            self.compute_elbo()
-            logging.info(f"ELBO after sieving: {self.elbo:.2f}")
+            logging.info(f"ELBO after sieving: {self.compute_elbo():.2f}")
+
         else:
-            self.compute_elbo()
-            logging.info(f"ELBO after init: {self.elbo:.2f}")
+            logging.info(f"ELBO after init: {self.compute_elbo():.2f}")
 
         logging.info("Start VI updates")
-        pbar = tqdm(range(1, n_iter + 1))
+        pbar = tqdm(range(self.config.n_sieving_iter + 1, n_iter + self.config.n_sieving_iter + 1))
         for it in pbar:
             # do the updates
             self.step()
@@ -229,8 +333,8 @@ class CopyTree:
             self.compute_elbo()
 
             pbar.set_postfix({'elbo': self.elbo})
-            if self.diagnostics_dict is not None:
-                self.update_diagnostics(it)
+            if self.q.diagnostics_dict is not None:
+                self.q.update_diagnostics(it)
 
             if abs(old_elbo - self.elbo) < self.config.elbo_tol:
                 close_runs += 1
@@ -245,65 +349,7 @@ class CopyTree:
 
         print(f"ELBO final: {self.elbo:.2f}")
 
-    def init_diagnostics(self, n_iter: int):
-        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
-        # C, Z, pi diagnostics
-        self.diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
-        self.diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
-        self.diagnostics_dict["pi"] = torch.zeros((n_iter, K))
-
-        # eps diagnostics
-        self.diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
-        self.diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
-
-        # qMuTau diagnostics
-        self.diagnostics_dict["nu"] = torch.zeros((n_iter, N))
-        self.diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
-        self.diagnostics_dict["alpha"] = torch.zeros((n_iter, N))
-        self.diagnostics_dict["beta"] = torch.zeros((n_iter, N))
-
-        self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
-
-        if type(self.q) is JointVarDist:
-            L = self.config.wis_sample_size
-            self.diagnostics_dict["wG"] = torch.zeros((n_iter, K, K))
-            self.diagnostics_dict["wT"] = torch.zeros((n_iter, L))
-            self.diagnostics_dict["gT"] = torch.zeros((n_iter, L))
-            self.diagnostics_dict["T"] = []
-
-    def update_diagnostics(self, iter: int):
-        # C, Z, pi diagnostics
-        self.diagnostics_dict["C"][iter] = self.q.c.single_filtering_probs
-        self.diagnostics_dict["Z"][iter] = self.q.z.pi
-        self.diagnostics_dict["pi"][iter] = self.q.pi.concentration_param
-
-        # eps diagnostics
-        K = self.config.n_nodes
-        eps_a = torch.zeros((K, K))
-        eps_b = torch.zeros((K, K))
-        for key in self.q.eps.alpha.keys():
-            eps_a[key] = self.q.eps.alpha[key]
-            eps_b[key] = self.q.eps.beta[key]
-
-        self.diagnostics_dict["eps_a"][iter] = eps_a
-        self.diagnostics_dict["eps_b"][iter] = eps_b
-
-        # qMuTau diagnostics
-        self.diagnostics_dict["nu"][iter] = self.q.mt.nu
-        self.diagnostics_dict["lmbda"][iter] = self.q.mt.lmbda
-        self.diagnostics_dict["alpha"][iter] = self.q.mt.alpha  # not updated
-        self.diagnostics_dict["beta"][iter] = self.q.mt.beta
-
-        # elbo
-        self.diagnostics_dict["elbo"][iter] = self.elbo
-
-        if type(self.q) is JointVarDist:
-            self.diagnostics_dict["wG"][iter, ...] = torch.tensor(nx.to_numpy_array(self.q.t.weighted_graph))
-            self.diagnostics_dict["wT"][iter] = self.q.t.w_T
-            self.diagnostics_dict["gT"][iter] = self.q.t.g_T
-            self.diagnostics_dict["T"].append([tree_to_newick(t) for t in self.q.t.get_trees_sample()[0]])
-
-    def sieve(self, seed_list=None, **kwargs):
+    def sieve(self, **kwargs):
         """
         Creates self.config.sieving_size number of copies of self.q, re-initializes each q with different
         seeds, performs n_sieve_iter updates of q, calculates the ELBO of each copy and sets self.q to the best
@@ -323,8 +369,10 @@ class CopyTree:
             curr_model.initialize(**kwargs)
 
             logging.info(f"[S{i}] started")
-            for j in tqdm(range(self.config.n_sieving_iter)):
+            for j in tqdm(range(1, self.config.n_sieving_iter + 1)):
                 curr_model.update()
+                if self.config.diagnostics:
+                    curr_model.update_diagnostics(j)
 
             curr_elbo = curr_model.elbo()
             logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({self.config.n_sieving_iter})")
