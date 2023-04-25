@@ -19,7 +19,7 @@ class qTTestCase(unittest.TestCase):
         M = 20
         A = 5
         N = 3
-        self.config = Config(chain_length=M, n_states=A, n_nodes=N)
+        self.config = Config(n_nodes=N, n_states=A, chain_length=M)
         self.q_T = qT(config=self.config)
         T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
         q_C = qC(config=self.config)

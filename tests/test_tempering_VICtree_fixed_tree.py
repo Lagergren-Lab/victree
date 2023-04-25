@@ -19,7 +19,7 @@ from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
-class VICtreeFixedTreeTestCase(unittest.TestCase):
+class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
         qc = qC(config)
@@ -35,8 +35,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         logging.getLogger().setLevel("INFO")
         tree = tests.utils_testing.get_two_node_tree()
         n_nodes = len(tree.nodes)
-        n_cells = 1000
-        n_sites = 200
+        n_cells = 100
+        n_sites = 20
         n_copy_states = 7
         dir_alpha = torch.tensor([1., 3.])
         nu_0 = torch.tensor(10.)
@@ -45,13 +45,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
         b0 = torch.tensor(200.0)
-
+        n_iter = 50
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
-                        debug=False, diagnostics=True)
+                        debug=False, diagnostics=False)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
@@ -60,21 +60,27 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         copy_tree = CopyTree(config, q, y)
 
+        config_temp = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+                             step_size=0.3, annealing=20, debug=False, diagnostics=False)
+
+        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_temp)
+        q_temp = VarDistFixedTree(config_temp, qc, qz, qeps, qmt, qpi, tree, y)
+        q_temp.initialize()
+        copy_tree_temp = CopyTree(config_temp, q_temp, y)
+
         # Act
-        copy_tree.run(80)
+        copy_tree.run(n_iter)
+        copy_tree_temp.run(n_iter)
 
         # Assert
-        diagnostics_dict = copy_tree.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=[(0, 1)],
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
+        self.assertGreater(copy_tree_temp.q.z.entropy(), copy_tree.q.z.entropy())
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree_temp.q.c,
+                                                          q_z=copy_tree_temp.q.z, qpi=copy_tree_temp.q.pi, q_mt=copy_tree_temp.q.mt)
 
     def test_three_node_tree(self):
         torch.manual_seed(0)

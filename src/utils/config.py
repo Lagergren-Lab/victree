@@ -17,10 +17,12 @@ class Config:
                  sieving_size: int = 1,
                  n_sieving_iter: int = 20,
                  step_size=1.,
+                 annealing=1.0,
                  debug=False,
                  diagnostics=False) -> None:
         self._diagnostics = diagnostics
         self.step_size = step_size
+        self.annealing = annealing
         self._n_nodes = n_nodes
         self._n_states = n_states
         self._eps0 = eps0

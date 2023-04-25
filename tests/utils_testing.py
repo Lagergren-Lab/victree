@@ -127,7 +127,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
                                   dir_alpha0=torch.tensor(1.0)
                                   ):
     n_nodes = len(tree.nodes)
-    config = Config(n_nodes=n_nodes, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
+    config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
     output_sim = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=nu_0, lambda0=lambda_0, alpha0=alpha0,
                                              beta0=beta0, dir_alpha=dir_alpha0, tree=tree)
     y = output_sim['obs']
@@ -148,8 +148,8 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     cells_per_clone = 10
     mm = 1  # change this to increase length
     chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
-    cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length,
-                 wis_sample_size=2, debug=True, step_size=0.8)
+    cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length, wis_sample_size=2,
+                 step_size=0.8, debug=True)
     # obs with 15 cells, 5 each to different clone
     # in order, clone 0, 1, 2
     true_cn_profile = torch.tensor(

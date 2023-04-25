@@ -51,8 +51,7 @@ class InitTestCase(unittest.TestCase):
         print(f"data init ELBO: {qmt_data_init.elbo()}")
 
     def test_true_params_init(self):
-        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
-                        wis_sample_size=20, debug=True)
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, debug=True)
         joint_q = generate_dataset_var_tree(config)
         true_elbo = joint_q.mt.elbo()
         print(joint_q.mt)

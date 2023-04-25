@@ -59,7 +59,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         eps = out['eps']
         eps_0 = out['eps0']
 
-        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False, diagnostics=False)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
@@ -110,7 +110,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         eps = out['eps']
         eps_0 = out['eps0']
 
-        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False, diagnostics=False)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
@@ -159,7 +159,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         eps_0 = out['eps0']
 
         print(f"Epsilon: {eps}")
-        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False, diagnostics=False)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 

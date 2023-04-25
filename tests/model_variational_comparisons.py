@@ -51,9 +51,9 @@ def compare_qC_and_true_C(true_C, q_c: qC, qz_perm=None, threshold=10):
             if n_diff_i < n_diff:
                 best_perm_idx = perm
                 n_diff = n_diff_i
-    if n_diff / (K*M) > 0.2:
-        n_shifted = detect_qC_shifts(true_C, max_prob_cat[perms[best_perm_idx], :])
-    print(f"Number of different true C and argmax(q(C)): {n_diff} ({n_shifted}) out of {K*M} states")
+
+    n_shifted = detect_qC_shifts(true_C, max_prob_cat[perms[best_perm_idx], :]) if n_diff / (K*M) > 0.2 else 0
+    print(f"Number of different true C and argmax(q(C)): {n_diff} ({n_shifted} shifted) out of {K*M} states")
 
 
 def compare_qZ_and_true_Z(true_Z, q_z: qZ):
@@ -81,7 +81,7 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
 
     ari = adjusted_rand_score(max_prob_qZ, true_Z)
     print(f"Adjust rand score between q(Z) and true Z: {ari}")
-    print(f"Accuracy q(Z) and true Z: {ari}")
+    print(f"Accuracy q(Z) and true Z: {accuracy_best}")
     print(f"Adjusted labeling: {best_perm}")
     print(f"----------------------------------------------")
     return ari, best_perm
@@ -99,6 +99,7 @@ def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     largest_error_cells_idx = torch.topk(square_dist_mu.flatten(), 5).indices
     return largest_error_cells_idx
 
+
 def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt: qMuTau, q_c: qC, q_z: qZ):
     print(f"------- Compare particular cells {cells_idx} -----------")
     torch.set_printoptions(precision=2)
@@ -110,7 +111,8 @@ def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt:
         print(f"Cell {cell}: true mu {true_mu[cell]} tau {true_tau[cell]} C {true_C[true_clone_idx, 0:10]} (clone {true_clone_idx})")
         print(f"Cell {cell}: q(mu) {q_mt.nu[cell]} q(tau) {q_exp_tau[cell]} q(C) {q_C_max} (clone {q_clone_idx})")
 
-def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt):
+
+def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, best_perm):
     """
     Evaluates the likelihood of the data, obs, using the variables and parameters of the true model used to generate
     the data with the variables and parameters of expectation values of the variational distributions.
@@ -165,5 +167,5 @@ def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_ep
     compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
     if q_eps is not None:
         compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps)
-    compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt)
+    compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, perm)
 

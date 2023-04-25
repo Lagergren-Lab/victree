@@ -14,7 +14,7 @@ class qZTestCase(unittest.TestCase):
         self.N = 20
         self.M = 5
         self.A = 4
-        self.config = Config(n_nodes=self.K, chain_length=self.M, n_cells=self.N, n_states=self.A)
+        self.config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M)
         self.q_Z_test = qZ(self.config)
         self.q_Z_test.initialize()
         self.q_pi_test = qPi(self.config)
@@ -38,10 +38,10 @@ class qZTestCase(unittest.TestCase):
         q_pi = qPi(self.config)
         q_pi.concentration_param = torch.ones(self.K)
         q_pi.concentration_param[1:] = 10
-        config_1 = Config(n_nodes=self.K, chain_length=self.M, n_cells=self.N, n_states=self.A)
+        config_1 = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M)
         q_Z_1 = qZ(config_1)
         q_Z_1.initialize(method='uniform')
-        config_2 = Config(n_nodes=self.K, chain_length=self.M, n_cells=self.N, n_states=self.A)
+        config_2 = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M)
         q_Z_2 = qZ(config_2)
         q_Z_2.initialize()
         q_Z_2.pi = torch.zeros((self.N, self.K))
