@@ -89,7 +89,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
-        b0 = torch.tensor(200.0)
+        b0 = torch.tensor(800.0)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
