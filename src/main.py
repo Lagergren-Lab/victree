@@ -13,6 +13,8 @@ import sys
 import os
 import time
 
+import yaml
+
 from inference.run import run
 from utils.config import set_seed
 
@@ -53,12 +55,22 @@ def validate_args(args):
         args.sieving[1] = 0
 
 
+def parse_args(parser):
+    args = parser.parse_args()
+    if args.config_file:
+        data = yaml.load(args.config_file)
+        delattr(args, 'config_file')
+    # TODO: continue implementation for yaml config with cli args
+    #   check this: https://codereview.stackexchange.com/questions/79008/parse-a-config-file-and-add-to-command-line-arguments-using-argparse-in-python
+    return args
+
+
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
         description="VIC-Tree, variational inference on clonal tree with single-cell DNA data"
     )
-    # parser.add_argument("-l", "--log-level", default="DEBUG", action="store_true")
+    # parser.add_argument("-c", "--config-file", dest='config_file', type=argparse.FileType(mode='r'))
     parser.add_argument("-i", "--input", dest="file_path",
                         type=validate_path, default='./datasets/n5_c300_l1k.h5',
                         help="input data file", metavar="FILE")
