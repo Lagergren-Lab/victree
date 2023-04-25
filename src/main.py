@@ -53,6 +53,8 @@ def validate_path(f):
 def validate_args(args):
     if not args.sieving[0] > 1:
         args.sieving[1] = 0
+    elif args.sieving[1] < 2:
+        raise argparse.ArgumentError(args.sieving, message=f"If sieving, num of sieving iterations must be > 1")
 
 
 def parse_args(parser):
