@@ -403,3 +403,4 @@ class CopyTree:
     def set_temperature(self, it, n_iter):
         # linear scheme: from annealing to 1 with equal steps between iterations
         self.q.z.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
+        self.q.mt.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)

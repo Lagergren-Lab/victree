@@ -78,6 +78,8 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+
+        print(f"\n ---- Annealed Model ------")
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree_temp.q.c,
                                                           q_z=copy_tree_temp.q.z, qpi=copy_tree_temp.q.pi, q_mt=copy_tree_temp.q.mt)
@@ -96,11 +98,14 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
         b0 = torch.tensor(800.0)
+        start_temp = 400
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
         print(f"Epsilon: {eps}")
+
+        # setup non-annealed model
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False, diagnostics=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
@@ -115,20 +120,31 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                           beta=torch.ones(n_cells) * 10)
         copy_tree = CopyTree(config, q, y)
 
+        # setup annealed model
+        config_temp = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+                             step_size=0.3, annealing=start_temp, debug=False, diagnostics=True)
+
+        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_temp)
+        q_temp = VarDistFixedTree(config_temp, qc, qz, qeps, qmt, qpi, tree, y)
+        q_temp.initialize()
+        copy_tree_temp = CopyTree(config_temp, q_temp, y)
+
+        # Act
         copy_tree.run(50)
+        copy_tree_temp.run(50)
 
         # Assert
-        diagnostics_dict = copy_tree.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=list(tree.edges),
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
+        self.assertGreater(copy_tree_temp.q.z.entropy(), copy_tree.q.z.entropy())
+
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+
+        print(f"\n ---- Annealed Model ------")
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree_temp.q.c,
+                                                          q_z=copy_tree_temp.q.z, qpi=copy_tree_temp.q.pi, q_mt=copy_tree_temp.q.mt)
 
     def test_large_tree(self):
         torch.manual_seed(0)
@@ -148,7 +164,6 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
-        print(f"C node 1 site 2: {C[1, 2]}")
         config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.1,
                         diagnostics=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
@@ -161,13 +176,6 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
         print(q.c)
 
         # Assert
-        diagnostics_dict = copy_tree.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=[(0, 1)],
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
