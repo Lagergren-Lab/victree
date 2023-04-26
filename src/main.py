@@ -77,7 +77,7 @@ if __name__ == '__main__':
                         type=validate_path, default='./datasets/n5_c300_l1k.h5',
                         help="input data file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
-                        help="output dir", metavar="DIR")
+                        help="output dir", metavar="DIR", default="./output")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
     parser.add_argument("-s", "--seed", default=42, type=int, help="RNG seed")
     parser.add_argument("-n", "--n-iter", default=10, type=int, help="VI iterations")

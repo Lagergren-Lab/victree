@@ -96,6 +96,11 @@ def run(args):
     logging.info('start inference')
     copy_tree.run(args.n_iter)
     run_str = f'out_K{config.n_nodes}_A{config.n_states}_N{config.n_cells}_M{config.chain_length}'
+
+    # create the output path if it does not exist
+    if not os.path.exists(args.out_dir):
+        os.mkdir(args.out_dir)
+
     if args.diagnostics:
         write_diagnostics_to_numpy(copy_tree.q.diagnostics_dict, out_dir=args.out_dir, config=config)
         # file_dir = './output/'
@@ -108,5 +113,6 @@ def run(args):
 
     out_file = os.path.join(args.out_dir, run_str + '.h5')
     write_output_h5(copy_tree, out_file)
+    logging.info(f"Results saved successfully: {out_file}")
 
     return copy_tree
