@@ -214,7 +214,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(50)
 
         # Assert
-        diagnostics_dict = copy_tree.diagnostics_dict
+        diagnostics_dict = q.diagnostics_dict
         visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
                                                     cells_to_vis_idxs=[0, 10, 20, 30, int(n_cells / 2), int(n_cells / 3),
                                                                        n_cells - 1],
@@ -285,7 +285,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(50)
 
         # Assert
-        diagnostics_dict = copy_tree.diagnostics_dict
+        diagnostics_dict = q.diagnostics_dict
         visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
                                                     cells_to_vis_idxs=[0, 10, 20, 30, int(n_cells / 2), int(n_cells / 3),
                                                                        n_cells - 1],
