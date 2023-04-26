@@ -13,6 +13,8 @@ import sys
 import os
 import time
 
+import yaml
+
 from inference.run import run
 from utils.config import set_seed
 
@@ -48,12 +50,29 @@ def validate_path(f):
     return f
 
 
+def validate_args(args):
+    if not args.sieving[0] > 1:
+        args.sieving[1] = 0
+    elif args.sieving[1] < 2:
+        raise argparse.ArgumentError(args.sieving, message=f"If sieving, num of sieving iterations must be > 1")
+
+
+def parse_args(parser):
+    args = parser.parse_args()
+    if args.config_file:
+        data = yaml.load(args.config_file)
+        delattr(args, 'config_file')
+    # TODO: continue implementation for yaml config with cli args
+    #   check this: https://codereview.stackexchange.com/questions/79008/parse-a-config-file-and-add-to-command-line-arguments-using-argparse-in-python
+    return args
+
+
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
         description="VIC-Tree, variational inference on clonal tree with single-cell DNA data"
     )
-    # parser.add_argument("-l", "--log-level", default="DEBUG", action="store_true")
+    # parser.add_argument("-c", "--config-file", dest='config_file', type=argparse.FileType(mode='r'))
     parser.add_argument("-i", "--input", dest="file_path",
                         type=validate_path, default='./datasets/n5_c300_l1k.h5',
                         help="input data file", metavar="FILE")
@@ -67,10 +86,11 @@ if __name__ == '__main__':
     parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
     parser.add_argument("-S", "--step-size", default=.1, type=float, help="step-size for partial updates")
     parser.add_argument("-L", "--tree-sample-size", default=10, type=int, help="number of sampled arborescences")
-    parser.add_argument("--sieving", default=[1, 20], nargs=2, type=int, help="number of sieving runs prior to start",
+    parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
+    validate_args(args)  # custom validation on args
     # seed for reproducibility
     set_seed(args.seed)
 
