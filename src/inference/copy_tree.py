@@ -96,6 +96,7 @@ class JointVarDist(VariationalDistribution):
         tot_str += "+++ end of summary +++"
         return tot_str
 
+    # TODO: create a diagnostics class object
     def init_diagnostics(self, n_iter: int):
         K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
         # C, Z, pi diagnostics
@@ -345,7 +346,7 @@ class CopyTree:
             logging.info(f"ELBO after init: {self.compute_elbo():.2f}")
 
         logging.info("Start VI updates")
-        pbar = tqdm(range(self.config.n_sieving_iter + 1, n_iter + self.config.n_sieving_iter + 1))
+        pbar = tqdm(range(1, n_iter + 1))
         for it in pbar:
             # do the updates
             self.step()
@@ -357,20 +358,20 @@ class CopyTree:
 
             pbar.set_postfix({'elbo': self.elbo})
             if self.q.diagnostics_dict is not None:
-                self.q.update_diagnostics(it)
+                self.q.update_diagnostics(it + self.config.n_sieving_iter)
 
-            if abs(old_elbo - self.elbo) < self.config.elbo_tol:
+            if abs((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
-                    logging.debug(f"Run ended after {it}/{n_iter} iterations due to plateau")
-                    #break
+                    logging.debug(f"*** Run ended after {it}/{n_iter} iterations due to plateau ***")
+                    break
             elif self.elbo < old_elbo:
                 # elbo should only increase
                 logging.warning("Elbo is decreasing")
             else:
                 close_runs = 0
 
-        print(f"ELBO final: {self.elbo:.2f}")
+        logging.info(f"ELBO final: {self.elbo:.2f}")
 
     def topk_sieve(self, ktop: int = 1, **kwargs):
         """
