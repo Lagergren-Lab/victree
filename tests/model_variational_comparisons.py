@@ -5,6 +5,7 @@ import torch.distributions as dist
 import torch.nn.functional as f
 from sklearn.metrics import adjusted_rand_score
 
+from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
 
@@ -46,10 +47,10 @@ def compare_qC_and_true_C(true_C, q_c: qC, qz_perm=None, threshold=10):
     else:
         print(f"Start q(C) evaluation w.r.t. label switching on {len(perms)} permutations")
         n_diff = K * M
-        for perm in perms:
+        for i, perm in enumerate(perms):
             n_diff_i = (max_prob_cat[perm, :] != true_C).sum()
             if n_diff_i < n_diff:
-                best_perm_idx = perm
+                best_perm_idx = i
                 n_diff = n_diff_i
 
     n_shifted = detect_qC_shifts(true_C, max_prob_cat[perms[best_perm_idx], :]) if n_diff / (K*M) > 0.2 else 0
@@ -169,3 +170,17 @@ def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_ep
         compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps)
     compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, perm)
 
+
+def compare_phi_and_true_phi(phi, q_psi, perm):
+    K = phi.shape[0]
+    for k in range(K):
+        print(f"Clone {k} - true: {phi[k]} - var: {q_psi.phi[perm[k]]}")
+
+def fixed_T_urn_model_comparisons(x, R, gc, phi, true_C, true_Z, true_pi, true_epsilon,
+                        q_c: qC, q_z: qZ, qpi: qPi, q_psi: qPsi, q_eps: qEpsilonMulti = None):
+    torch.set_printoptions(precision=2)
+    ari, perm = compare_qZ_and_true_Z(true_Z, q_z)
+    compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
+    compare_phi_and_true_phi(phi, q_psi, perm)
+    if q_eps is not None:
+        compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps)

@@ -13,6 +13,6 @@ class qPsi(VariationalDistribution):
         self.temp = 1.0
         super().__init__(config, fixed)
 
-    def exp_log_emissions(self):
+    def exp_log_emission(self):
         raise NotImplementedError
 
