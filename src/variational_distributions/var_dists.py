@@ -371,7 +371,7 @@ class qC(VariationalDistribution):
     def _exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                  q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                  q_z: 'qZ',
-                 q_mutau: 'qMuTau') -> Tuple[torch.Tensor, torch.Tensor]:
+                 q_psi: 'qPsi') -> Tuple[torch.Tensor, torch.Tensor]:
         """Expectation of natural parameter vector \\eta
 
         Parameters
@@ -382,7 +382,7 @@ class qC(VariationalDistribution):
             Variational distribution object of epsilon parameter
         q_z : VariationalDistribution
             Variational distribution object of cell assignment 
-        q_mutau : qMuTau
+        q_psi : qMuTau
             Variational distribution object of emission dist gaussian
             parameter (mu and tau)
 
@@ -401,9 +401,9 @@ class qC(VariationalDistribution):
         e_eta2 = torch.empty_like(self.eta2)
 
         # eta_1_iota(m, i)
-        e_eta1_m = torch.einsum('nv,nmi->vmi',
+        e_eta1_m = torch.einsum('nv,nmvi->vmi',
                                 q_z.exp_assignment(),
-                                q_mutau.exp_log_emission(obs))
+                                q_psi.exp_log_emission(obs))
         # eta_1_iota(1, i)
         e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
                                               self.single_filtering_probs[
@@ -634,6 +634,9 @@ class qZ(VariationalDistribution):
         # TODO: find a soft k-means version
         # https://github.com/omadson/fuzzy-c-means
         eps = 1e-4
+        N = self.config.n_cells
+        M = self.config.chain_length
+        obs = obs.T if obs.shape == (N, M) else obs
         m_obs = obs.mean(dim=0, keepdim=True)
         sd_obs = obs.std(dim=0, keepdim=True)
         # standardize to keep pattern
@@ -670,7 +673,7 @@ class qZ(VariationalDistribution):
         d_nmj = qpsi.exp_log_emission(obs)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
-        gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
+        gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
         T = self.config.annealing
         gamma = gamma * 1/T
         pi = torch.softmax(gamma, dim=1)
@@ -1525,8 +1528,11 @@ Initialize the mu and tau params given observations
         return self.neg_cross_entropy_old() + self.entropy_old()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
-        out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
-        out_arr = torch.ones(out_shape)
+        N = self.config.n_cells
+        M = self.config.chain_length
+        K = self.config.n_nodes
+        A = self.config.n_states
+        out_shape = (N, M, K, A)
         # obs is (m x n)
         if self.fixed:
             mu = self.true_params["mu"]
@@ -1546,7 +1552,8 @@ Initialize the mu and tau params given observations
             E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:,
                         None, :]
             out_arr = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
-            out_arr = torch.einsum('imn->nmi', out_arr)
+            out_arr = out_arr.expand(K, A, M, N)
+            out_arr = torch.einsum('vimn->nmvi', out_arr)
 
         assert out_arr.shape == out_shape
         return out_arr
@@ -2028,12 +2035,12 @@ class qPhi(qPsi):
         raise NotImplementedError
 
     def exp_log_emission(self, obs):
-        out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_states)
+        out_shape = (self.config.n_cells, self.config.chain_length, self.config.n_nodes, self.config.n_states)
         out_arr = torch.ones(out_shape)
         # obs is (m x n)
         j = torch.arange(self.config.n_states)
         if self.emission_model.lower() == "poisson":
-            self.exp_log_emissions_poisson(j)
+            out_arr = self.exp_log_emissions_poisson(j)
 
         assert out_arr.shape == out_shape
         return out_arr
@@ -2051,6 +2058,7 @@ class qPhi(qPsi):
         rates = torch.einsum("j, m, n, v -> vjnm", j.float(), self.gc, self.R.float(), 1. / phi) + 0.00001
         poi_dist = torch.distributions.Poisson(rate=rates)
         out_arr = torch.permute(poi_dist.log_prob(self.x.expand(K, A, N, M)), (2, 3, 0, 1))
+        assert out_arr.shape == (N, M, K, A)
         return out_arr
 
 
