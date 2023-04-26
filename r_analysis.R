@@ -130,10 +130,10 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE)
   if (!is.null(gt_list)) {
     copy_var <- apply(diag_list$copy_num[n_iter, clones, , ], c(1, 2), which.max) %>%
       melt(value.name = "vi", varnames = c("clone", "site")) %>%
-      mutate(vi = vi - 1)
+      mutate(clone = clone - 1, vi = vi - 1)
     copy_gt <- gt_list$copy_num %>%
       melt(value.name = "gt", varnames = c("clone", "site")) %>%
-      mutate(gt = gt)
+      mutate(clone = clone - 1)
     p <- left_join(copy_gt, copy_var) %>%
       gather(key = "kind", value = "cn", gt, vi) %>%
       ggplot() +
