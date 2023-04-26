@@ -76,7 +76,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         data = torch.ones((n_sites, n_cells))
         dir_alpha = torch.tensor([1., 3., 3.])
-        config = Config(n_nodes=3, n_cells=n_cells, chain_length=n_sites, n_states=n_copy_states)
+        config = Config(n_nodes=3, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
         out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=10., mu0=10., lambda0=2., alpha0=50.,
                                                 beta0=10., dir_alpha=dir_alpha, tree=tree)
         y = out_simul['obs']
@@ -94,7 +94,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         print(f"C: {C[vis_clone_idx, 40]} y: {y[80, 40]} z: {z[80]} \n"
               f"pi: {pi} mu: {mu[80]} tau: {tau[80]} eps: {eps}")
         visualization_utils.visualize_copy_number_profiles(C)
-        config = Config(step_size=0.3, n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         qmt = qMuAndTauCellIndependent(config)
@@ -138,8 +138,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         dir_alpha0 = torch.tensor([1., 3., 3., 3., 3.])
         n_tests = 3
-        config = Config(step_size=0.3, n_nodes=K, n_states=n_copy_states, n_cells=n_cells,
-                        chain_length=n_sites,
+        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False)
         sim_data_seed = 0
         torch.manual_seed(sim_data_seed)
@@ -163,7 +162,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
 
         for i in range(n_tests):
             torch.manual_seed(i)
-            config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+            config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qmt = qMuTau(config, true_params={"mu": mu, "tau": tau})
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
@@ -193,8 +192,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         n_copy_states = 7
         dir_alpha0 = torch.tensor([1., 3., 3., 3., 3.])
         n_tests = 3
-        config = Config(step_size=0.3, n_nodes=K, n_states=n_copy_states, n_cells=n_cells,
-                        chain_length=n_sites,
+        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False)
         sim_data_seed = 0
         torch.manual_seed(sim_data_seed)
@@ -218,7 +216,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
 
         for i in range(n_tests):
             torch.manual_seed(i)
-            config = Config(n_nodes=K, chain_length=n_sites, n_cells=n_cells, n_states=n_copy_states)
+            config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
@@ -265,12 +263,8 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
                                                                    b0=torch.tensor(20.0),
                                                                    dir_alpha0=torch.tensor(1.0))
 
-            config = Config(step_size=0.3,
-                            sieving_size=10,
-                            n_nodes=K,
-                            chain_length=n_sites,
-                            n_cells=n_cells,
-                            n_states=n_copy_states)
+            config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, sieving_size=10,
+                            step_size=0.3)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,

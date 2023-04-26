@@ -8,7 +8,20 @@ from sklearn.metrics import adjusted_rand_score
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
 
-def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
+def detect_qC_shifts(true_C, q_c_max):
+    K, M = true_C.shape
+    diff = (true_C - q_c_max).float()
+    mean_diff = torch.mean(diff, dim=-1)
+    diff_minus_mean = torch.abs(diff - mean_diff.expand(M, K).T)
+    n_shifted = 0
+    for k in range(K):
+        if torch.sum(diff_minus_mean[k]) < 0.1 and torch.sum(torch.abs(diff[k])) > (M * 0.9):
+            print(f"Shift detected of clone {k} (adjusted labeling), qC: {q_c_max[k]}")
+            print(f"True c: {true_C[k]}")
+            n_shifted += M
+    return n_shifted
+
+def compare_qC_and_true_C(true_C, q_c: qC, qz_perm=None, threshold=10):
     """
     Compares the argmax of the qC categorical distribution with the true C used to generate the data.
     :param true_C:
@@ -18,23 +31,29 @@ def compare_qC_and_true_C(true_C, q_c: qC, threshold=10):
     """
     K, M = true_C.shape
     marginals = q_c.single_filtering_probs
-    perms_non_root = list(itertools.permutations(range(1, K)))
     perms = []
-    for perm in perms_non_root:
-        perms.append([0] + list(perm))
+    if qz_perm is None:
+        perms_non_root = list(itertools.permutations(range(1, K)))
+        for perm in perms_non_root:
+            perms.append([0] + list(perm))
+    else:
+        perms.append(qz_perm)
 
     max_prob_cat = torch.argmax(marginals, dim=-1)  # Account for label switching
     if K < 8:  # memory issues for larger K
         n_diff = torch.min((max_prob_cat[perms, :] != true_C).sum(2).sum(1))
+        best_perm_idx = torch.argmin((max_prob_cat[perms, :] != true_C).sum(2).sum(1))
     else:
         print(f"Start q(C) evaluation w.r.t. label switching on {len(perms)} permutations")
         n_diff = K * M
         for perm in perms:
             n_diff_i = (max_prob_cat[perm, :] != true_C).sum()
             if n_diff_i < n_diff:
+                best_perm_idx = perm
                 n_diff = n_diff_i
-    print(f"Number of different true C and argmax(q(C)): {n_diff} out of {K*M} states")
-    #assert n_diff <= threshold, f"Number of different true C and argmax(q(C)): {n_diff}"
+
+    n_shifted = detect_qC_shifts(true_C, max_prob_cat[perms[best_perm_idx], :]) if n_diff / (K*M) > 0.2 else 0
+    print(f"Number of different true C and argmax(q(C)): {n_diff} ({n_shifted} shifted) out of {K*M} states")
 
 
 def compare_qZ_and_true_Z(true_Z, q_z: qZ):
@@ -44,12 +63,28 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     :param q_z: qZ variational distribtion object.
     :return:
     """
+    print(f"------- Compare qZ clustering -----------")
     N, K = q_z.pi.shape
-    perms = list(itertools.permutations(range(K)))
-    total_misclassifications = torch.sum(true_Z.float() != torch.argmax(q_z.pi, dim=1))
+    perms = []
+    perms_non_root = list(itertools.permutations(range(1, K)))
     max_prob_qZ = torch.argmax(q_z.pi, dim=1)
+    for perm in perms_non_root:
+        perms.append([0] + list(perm))
+    print(f"Start q(Z) evaluation w.r.t. label switching on {len(perms)} permutations")
+    accuracy_best = 0
+    for perm in perms:
+        max_prob_qZ_perm = torch.tensor([perm[i] for i in max_prob_qZ])
+        accuracy = torch.eq(max_prob_qZ_perm, true_Z).sum() / N
+        if accuracy > accuracy_best:
+            best_perm = perm
+            accuracy_best = accuracy
+
     ari = adjusted_rand_score(max_prob_qZ, true_Z)
     print(f"Adjust rand score between q(Z) and true Z: {ari}")
+    print(f"Accuracy q(Z) and true Z: {accuracy_best}")
+    print(f"Adjusted labeling: {best_perm}")
+    print(f"----------------------------------------------")
+    return ari, best_perm
 
 
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
@@ -64,6 +99,7 @@ def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     largest_error_cells_idx = torch.topk(square_dist_mu.flatten(), 5).indices
     return largest_error_cells_idx
 
+
 def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt: qMuTau, q_c: qC, q_z: qZ):
     print(f"------- Compare particular cells {cells_idx} -----------")
     torch.set_printoptions(precision=2)
@@ -75,7 +111,8 @@ def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt:
         print(f"Cell {cell}: true mu {true_mu[cell]} tau {true_tau[cell]} C {true_C[true_clone_idx, 0:10]} (clone {true_clone_idx})")
         print(f"Cell {cell}: q(mu) {q_mt.nu[cell]} q(tau) {q_exp_tau[cell]} q(C) {q_C_max} (clone {q_clone_idx})")
 
-def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt):
+
+def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, best_perm):
     """
     Evaluates the likelihood of the data, obs, using the variables and parameters of the true model used to generate
     the data with the variables and parameters of expectation values of the variational distributions.
@@ -124,11 +161,11 @@ def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti):
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
                         q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None):
     torch.set_printoptions(precision=2)
-    compare_qC_and_true_C(true_C, q_c, threshold=50)
-    compare_qZ_and_true_Z(true_Z, q_z)
+    ari, perm = compare_qZ_and_true_Z(true_Z, q_z)
+    compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
     cell_idxs = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
     compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
     if q_eps is not None:
         compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps)
-    compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt)
+    compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, perm)
 

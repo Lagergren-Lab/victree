@@ -25,7 +25,7 @@ class qEpsilonTestCase(unittest.TestCase):
         A=5
         N=3
 
-        config = Config(n_states=A, chain_length=M, n_nodes=N)
+        config = Config(n_nodes=N, n_states=A, chain_length=M)
 
         T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
         w_T = torch.tensor([0.3, 0.7])
@@ -66,7 +66,7 @@ class qEpsilonTestCase(unittest.TestCase):
         M = 2
         A = 5
 
-        config = Config(n_nodes=K, chain_length=M, n_states=A)
+        config = Config(n_nodes=K, n_states=A, chain_length=M)
         q_eps1 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
         q_eps2 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
         T = nx.DiGraph()

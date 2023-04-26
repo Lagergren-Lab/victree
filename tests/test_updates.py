@@ -44,8 +44,8 @@ class updatesTestCase(unittest.TestCase):
         # in order, clone 0, 1, 2
         cells_per_clone = 10
         chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
-        cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length,
-                     wis_sample_size=2, debug=True, step_size=step_size)
+        cfg = Config(n_nodes=3, n_states=5, n_cells=3 * cells_per_clone, chain_length=chain_length, wis_sample_size=2,
+                     step_size=step_size, debug=True)
         # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         true_cn_profile = torch.tensor(
@@ -103,8 +103,7 @@ class updatesTestCase(unittest.TestCase):
         return joint_q
 
     def test_update_qt_simul_data(self):
-        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10,
-                        debug=True)
+        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10, debug=True)
         joint_q = generate_dataset_var_tree(config)
         print(f'obs: {joint_q.obs}')
         print(f"true c: {joint_q.c.true_params['c']}")
@@ -213,8 +212,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_qeps(self):
 
-        cfg = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
-                     wis_sample_size=20, debug=True)
+        cfg = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, debug=True)
         joint_q = generate_dataset_var_tree(cfg)
         fix_tree = joint_q.t
         fix_qc = joint_q.c
@@ -259,8 +257,8 @@ class updatesTestCase(unittest.TestCase):
                                        joint_q.pi.exp_log_pi().exp(), rtol=1e-2))
 
     def test_update_large_qt(self):
-        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
-                        wis_sample_size=20, debug=True, step_size=.3)
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=.3,
+                        debug=True)
         joint_q = generate_dataset_var_tree(config)
         # print(f'obs: {joint_q.obs}')
         # print(f"true c: {joint_q.c.true_params['c']}")
@@ -351,8 +349,8 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_all(self):
 
-        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50,
-                        wis_sample_size=30, debug=True, step_size=.1)
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50, wis_sample_size=30, step_size=.1,
+                        debug=True)
         true_joint_q = generate_dataset_var_tree(config)
         joint_q = JointVarDist(config, obs=true_joint_q.obs)
         joint_q.initialize()
@@ -481,8 +479,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_label_switching(self):
         # define 3 clones besides root
-        cfg = Config(n_nodes=4, n_states=5, n_cells=40, chain_length=50,
-                     wis_sample_size=2, debug=True, step_size=1)
+        cfg = Config(n_nodes=4, n_states=5, n_cells=40, chain_length=50, wis_sample_size=2, step_size=1, debug=True)
         true_cn_profile = torch.tensor(
             [[2] * cfg.chain_length,
              [2] * 30 + [3] * 20,

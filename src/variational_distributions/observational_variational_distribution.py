@@ -10,6 +10,7 @@ from variational_distributions.variational_distribution import VariationalDistri
 class qPsi(VariationalDistribution):
 
     def __init__(self, config: Config, fixed: bool = False):
+        self.temp = 1.0
         super().__init__(config, fixed)
 
     def exp_log_emissions(self):

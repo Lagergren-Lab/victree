@@ -349,6 +349,8 @@ class CopyTree:
         for it in pbar:
             # do the updates
             self.step()
+            if self.config.annealing != 1.0:
+                self.set_temperature(it, n_iter)
 
             old_elbo = self.elbo
             self.compute_elbo()
@@ -517,3 +519,8 @@ class CopyTree:
         # print info about dist every 10 it
         if self.it_counter % 10 == 0:
             logging.debug(str(self.q))
+
+    def set_temperature(self, it, n_iter):
+        # linear scheme: from annealing to 1 with equal steps between iterations
+        self.q.z.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
+        self.q.mt.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)

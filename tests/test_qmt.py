@@ -17,7 +17,7 @@ class qmtTestCase(unittest.TestCase):
         self.M = 150
         self.N = 100
         self.A = 7
-        self.config = Config(n_nodes=self.K, chain_length=self.M, n_cells=self.N, n_states=self.A)
+        self.config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M)
         self.qc = qC(self.config)
         self.qc.initialize()
         self.qt = qT(self.config)
@@ -77,7 +77,7 @@ class qmtTestCase(unittest.TestCase):
         M = 10
         N = 5
         A = 7
-        config = Config(n_nodes=K, chain_length=M, n_cells=N, n_states=A)
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         C = torch.ones(M) * 2.
         C[0:50] = 6.
         mu = torch.ones(N) * 1
@@ -115,7 +115,7 @@ class qmtTestCase(unittest.TestCase):
         M = 10
         N = 5
         A = 7
-        config = Config(n_nodes=K, chain_length=M, n_cells=N, n_states=A)
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         C = torch.ones(M) * 2.
         C[0:50] = 6.
         mu = torch.ones(N) * 1

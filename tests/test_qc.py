@@ -63,7 +63,7 @@ class qCTestCase(unittest.TestCase):
         M = 5
         N = 2
         A = 7
-        config_1 = Config(n_nodes=K, n_cells=N, chain_length=M, n_states=A)
+        config_1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         qc_1 = qC(config_1)
         qc_1.initialize()
         entropy_rand = qc_1.marginal_entropy()
@@ -93,7 +93,7 @@ class qCTestCase(unittest.TestCase):
         M = 5
         N = 2
         A = 7
-        config_1 = Config(n_nodes=K, n_cells=N, chain_length=M, n_states=A)
+        config_1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         qc_1 = qC(config_1)
         qc_1.initialize()
         q_eps = qEpsilonMulti(config_1)
@@ -119,7 +119,7 @@ class qCTestCase(unittest.TestCase):
         M = 20
         N = 200
         A = 7
-        config_1 = Config(n_nodes=K, n_cells=N, chain_length=M, n_states=A)
+        config_1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         qc_1 = qC(config_1)
 
 

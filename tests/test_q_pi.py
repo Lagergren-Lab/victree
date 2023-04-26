@@ -35,7 +35,7 @@ class qPiTestCase(unittest.TestCase):
         # Arrange
         N = 200
         K = 10
-        config = Config(n_cells=N, n_nodes=K)
+        config = Config(n_nodes=K, n_cells=N)
         q_pi_1 = qPi(config)
         q_pi_2 = qPi(config)
 
@@ -62,7 +62,7 @@ class qPiTestCase(unittest.TestCase):
         # Arrange
         N = 20
         K = 10
-        config = Config(n_cells=N, n_nodes=K)
+        config = Config(n_nodes=K, n_cells=N)
         q_pi = qPi(config)
 
         q_z = qZ(config)  # uniform

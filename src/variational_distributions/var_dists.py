@@ -671,6 +671,8 @@ class qZ(VariationalDistribution):
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmj->nk', qc_kmj, d_nmj)
+        T = self.config.annealing
+        gamma = gamma * 1/T
         pi = torch.softmax(gamma, dim=1)
         new_pi = self.update_params(pi)
         # logging.debug("- z updated")
