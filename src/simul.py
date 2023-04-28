@@ -749,7 +749,8 @@ if __name__ == '__main__':
 
     data = simulate_full_dataset(
         Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length),
-        dir_alpha=args.concentration_factor)
+        dir_alpha=args.concentration_factor,
+        eps_a=args.eps_beta_params[0], eps_b=args.eps_beta_params[1])
 
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
