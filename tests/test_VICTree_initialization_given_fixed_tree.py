@@ -9,7 +9,8 @@ from pyro import poutine
 
 import simul
 import tests.utils_testing
-from inference.copy_tree import VarDistFixedTree, CopyTree
+from inference.copy_tree import CopyTree
+from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
 from tests.utils_testing import simul_data_pyro_full_model
 from utils import visualization_utils
@@ -99,7 +100,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         qmt = qMuAndTauCellIndependent(config)
 
-        q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize(loc=10., precision_factor=2., shape=50., rate=10.)
         #q.z.initialize('kmeans', obs=y)
@@ -165,7 +166,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qmt = qMuTau(config, true_params={"mu": mu, "tau": tau})
-            q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
             qmt.initialize(method='fixed', loc=10., precision_factor=2., shape=50., rate=10.)
             q.eps.initialize(method='non_mutation')
@@ -218,7 +219,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             torch.manual_seed(i)
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
             q.eps.initialize(method='non_mutation')
             #q.z.initialize('kmeans', obs=y)
@@ -266,7 +267,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, sieving_size=10,
                             step_size=0.3)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = VarDistFixedTree(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
 

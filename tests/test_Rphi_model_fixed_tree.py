@@ -11,7 +11,8 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 import utils.config
-from inference.copy_tree import VarDistFixedTree, CopyTree
+from inference.copy_tree import CopyTree
+from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils
@@ -66,7 +67,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
         qtau = qTauUrn(config, R, gc)
-        q = VarDistFixedTree(config, qc, qz, qeps, qtau, qpi, tree, x)
+        q = FixedTreeJointDist(config, qc, qz, qeps, qtau, qpi, tree, x)
         q.initialize()
         copy_tree = CopyTree(config, q, x)
 
@@ -119,7 +120,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
         phi_init = 1.
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
-        q = VarDistFixedTree(config, qc, qz, qeps, qpsi, qpi, tree, x)
+        q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
         q.initialize()
         copy_tree = CopyTree(config, q, x)
 
@@ -167,7 +168,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
         phi_init = 1.
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
-        q = VarDistFixedTree(config, qc, qz, qeps, qpsi, qpi, tree, x)
+        q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
         q.initialize()
         copy_tree = CopyTree(config, q, x)
 

@@ -11,7 +11,7 @@ import torch.nn.functional as f
 from pyro import poutine
 
 import simul
-from inference.copy_tree import VarDistFixedTree
+from variational_distributions.joint_dists import FixedTreeJointDist
 from utils import tree_utils, visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
@@ -142,7 +142,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
     return y, C, z, pi, mu, tau, eps, eps0
 
 
-def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
+def generate_test_dataset_fixed_tree() -> FixedTreeJointDist:
     # obs with 15 cells, 5 each to different clone
     # in order, clone 0, 1, 2
     cells_per_clone = 10
@@ -201,7 +201,7 @@ def generate_test_dataset_fixed_tree() -> VarDistFixedTree:
     fix_tree = nx.DiGraph()
     fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-    joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
+    joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
     return joint_q
 
 

@@ -23,7 +23,7 @@ import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
 
-from inference.copy_tree import JointVarDist
+from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils
 from utils.config import Config, set_seed
 from utils.eps_utils import TreeHMM, h_eps, h_eps0
@@ -272,8 +272,10 @@ Generate full simulated dataset.
     # sample assignments
     if isinstance(dir_alpha, float):
         dir_alpha_tensor = torch.ones(config.n_nodes) * dir_alpha
-    else:
+    elif isinstance(dir_alpha, list):
         dir_alpha_tensor = torch.tensor(dir_alpha)
+    else:
+        raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_alpha)})")
     pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
@@ -680,7 +682,7 @@ def tree_to_newick_old(g: nx.DiGraph, root=None):
     return "(" + ','.join(subgs) + ")" + str(root)
 
 
-def generate_dataset_var_tree(config: Config) -> JointVarDist:
+def generate_dataset_var_tree(config: Config) -> VarTreeJointDist:
     nu_prior = 1.
     lambda_prior = 100.
     alpha_prior = 500.
@@ -713,7 +715,7 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
         "tree": simul_data['tree']
     })
 
-    joint_q = JointVarDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
+    joint_q = VarTreeJointDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
     return joint_q
 
 

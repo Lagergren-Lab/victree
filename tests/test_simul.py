@@ -11,7 +11,8 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 import utils.config
-from inference.copy_tree import VarDistFixedTree, CopyTree
+from inference.copy_tree import CopyTree
+from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils

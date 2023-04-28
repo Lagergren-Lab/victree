@@ -5,7 +5,7 @@ import torch
 
 from utils.config import Config, set_seed
 from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qPi
-from inference.copy_tree import JointVarDist
+from variational_distributions.joint_dists import VarTreeJointDist
 
 
 class qCTestCase(unittest.TestCase):

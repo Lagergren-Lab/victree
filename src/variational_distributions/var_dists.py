@@ -28,20 +28,25 @@ class qC(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
 
+        super().__init__(config, fixed=true_params is not None)
+
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
         self._couple_filtering_probs = torch.empty(
             (config.n_nodes, config.chain_length - 1, config.n_states, config.n_states))
 
         # eta1 = log(pi) - log initial states probs
-        self._eta1 = torch.empty((config.n_nodes, config.n_states))
+        self._eta1: torch.Tensor = torch.empty((config.n_nodes, config.n_states))
         # eta2 = log(phi) - log transition probs
-        self._eta2 = torch.empty_like(self._couple_filtering_probs)
+        self._eta2: torch.Tensor = torch.empty_like(self._couple_filtering_probs)
 
         # validate true params
         if true_params is not None:
             assert "c" in true_params
         self.true_params = true_params
-        super().__init__(config, fixed=true_params is not None)
+
+        # define dist param names
+        self.params_history["eta1"] = []
+        self.params_history["eta2"] = []
 
     @property
     def single_filtering_probs(self):
@@ -121,6 +126,7 @@ class qC(VariationalDistribution):
             self._uniform_init()
         else:
             raise ValueError(f'method `{method}` for qC initialization is not implemented')
+
         return super().initialize(**kwargs)
 
     def _random_init(self):
@@ -352,7 +358,7 @@ class qC(VariationalDistribution):
         self.update_params(new_eta1_norm, new_eta2_norm)
         self.compute_filtering_probs()
         # logging.debug("- copy number updated")
-        return super().update()
+        super().update()
 
     def update_params(self, eta1, eta2):
         lrho = torch.tensor(self.config.step_size).log()
@@ -580,17 +586,24 @@ class qC(VariationalDistribution):
 
         return os.linesep.join(summary)
 
+    def get_checkpoint(self):
+        return {"eta1": self.eta1, "eta2": self.eta2}
+       # TODO: continue
+
 
 # cell assignments
 class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
+        super().__init__(config, true_params is not None)
+
         self._pi = torch.empty((config.n_cells, config.n_nodes))
 
         self.kmeans_labels = torch.empty(config.n_cells, dtype=torch.long)
         if true_params is not None:
             assert "z" in true_params
         self.true_params = true_params
-        super().__init__(config, true_params is not None)
+
+        self.params_history["pi"] = []
 
     @property
     def pi(self):
@@ -679,7 +692,7 @@ class qZ(VariationalDistribution):
         pi = torch.softmax(gamma, dim=1)
         new_pi = self.update_params(pi)
         # logging.debug("- z updated")
-        return super().update()
+        super().update()
 
     def update_params(self, pi: torch.Tensor):
         rho = self.config.step_size
@@ -733,6 +746,7 @@ class qZ(VariationalDistribution):
 class qT(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
+        super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
         self.g_T = torch.zeros(config.wis_sample_size)
@@ -746,11 +760,16 @@ class qT(VariationalDistribution):
         if true_params is not None:
             assert 'tree' in true_params
         self.true_params = true_params
-        super().__init__(config, fixed=true_params is not None)
+
+        self.params_history["weight_matrix"] = []
 
     @property
     def weighted_graph(self):
         return self._weighted_graph
+
+    @property
+    def weight_matrix(self):
+        return torch.tensor(nx.to_numpy_array(self.weighted_graph))
 
     def initialize(self, **kwargs):
         # rooted graph with random weights in (0, 1) - log transformed
@@ -791,7 +810,7 @@ other elbos such as qC.
         # q_T = self.update_CAVI(T_list, qc, qeps)
         self.update_graph_weights(qc, qeps)
         # logging.debug("- tree updated")
-        return super().update()
+        super().update()
 
     def update_params(self, new_weights: torch.Tensor):
         rho = self.config.step_size
@@ -814,7 +833,6 @@ other elbos such as qC.
         # TODO: implement tempering (check tempered/annealing in VI)
         w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
         self.update_params(w_tensor)
-        return super().update()
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
         """
@@ -871,6 +889,7 @@ Sample trees from q(T) with importance sampling.
             The weights are the result of the operation q'(T) / g'(T) where
                 - q'(T) is the unnormalized probability under q(T), product of arc weights
                 - g'(T) is the probability of the sample, product of Bernoulli trials (also unnormalized)
+            the output weights are also normalized among the sample
 
         Parameters
         ----------
@@ -906,6 +925,8 @@ Sample trees from q(T) with importance sampling.
                 if i < self.config.wis_sample_size:
                     self.g_T[i] = log_isw
                     self.w_T[i] = log_weights[i]
+            # the weights are normalized
+            # TODO: aggregate equal trees and adjust their weights accordingly
             log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
@@ -971,12 +992,16 @@ of the variational distribution over the topology.
 class qEpsilon(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_0: float = 1., beta_0: float = 1.):
+        super().__init__(config)
+
         self.alpha_prior = torch.tensor(alpha_0, dtype=torch.float32)
         self.beta_prior = torch.tensor(beta_0, dtype=torch.float32)
         self.alpha = torch.tensor(alpha_0, dtype=torch.float32)
         self.beta = torch.tensor(beta_0, dtype=torch.float32)
         self._exp_log_zipping = None
-        super().__init__(config)
+
+        self.params_history["alpha"] = []
+        self.params_history["beta"] = []
 
     def update_params(self, alpha: torch.Tensor, beta: torch.Tensor):
         rho = self.config.step_size
@@ -1076,6 +1101,8 @@ class qEpsilonMulti(VariationalDistribution):
 
     def __init__(self, config: Config, alpha_prior: float = 1., beta_prior: float = 5., gedges=None,
                  true_params=None):
+        super().__init__(config, true_params is not None)
+
         # so that only admitted arcs are present (and self arcs such as v->v are not accessible)
         self.alpha_prior = torch.tensor(alpha_prior)
         self.beta_prior = torch.tensor(beta_prior)
@@ -1089,7 +1116,9 @@ class qEpsilonMulti(VariationalDistribution):
         if true_params is not None:
             assert "eps" in true_params
         self.true_params = true_params
-        super().__init__(config, true_params is not None)
+
+        self.params_history["alpha"] = []
+        self.params_history["beta"] = []
 
     @property
     def alpha(self):
@@ -1336,6 +1365,8 @@ class qMuTau(qPsi):
     def __init__(self, config: Config, true_params=None,
                  nu_prior: float = 1., lambda_prior: float = .1,
                  alpha_prior: float = .5, beta_prior: float = .5):
+        super().__init__(config, true_params is not None)
+
         # params for each cell
         self._nu = torch.empty(config.n_cells)
         self._lmbda = torch.empty(config.n_cells)
@@ -1352,7 +1383,11 @@ class qMuTau(qPsi):
             assert "mu" in true_params
             assert "tau" in true_params
         self.true_params = true_params
-        super().__init__(config, true_params is not None)
+
+        self.params_history["nu"] = []
+        self.params_history["lmbda"] = []
+        self.params_history["alpha"] = []
+        self.params_history["beta"] = []
 
     # getter ensures that params are only updated in
     # the class' update method
@@ -1545,6 +1580,7 @@ Initialize the mu and tau params given observations
             true_dist = torch.distributions.Normal(loc=means,
                                                    scale=torch.ones(means.shape) / torch.sqrt(tau)[:, None])
             out_arr = torch.permute(true_dist.log_prob(obs[..., None]), (1, 0, 2))
+            # FIXME: out_arr in fixed (aka ground truth) distribution does not match the out shape of the function
         else:
             E_log_tau = self.exp_log_tau()
             E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
@@ -1614,6 +1650,8 @@ Initialize the mu and tau params given observations
 class qMuAndTauCellIndependent(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
+        super().__init__(config, true_params is not None)
+
         # params for each cell
         self._nu = torch.empty(config.n_cells)
         self._phi = torch.empty(config.n_cells)
@@ -1629,7 +1667,11 @@ class qMuAndTauCellIndependent(VariationalDistribution):
             assert "mu" in true_params
             assert "tau" in true_params
         self.true_params = true_params
-        super().__init__(config, true_params is not None)
+
+        self.params_history["nu"] = []
+        self.params_history["phi"] = []
+        self.params_history["alpha"] = []
+        self.params_history["beta"] = []
 
     # getter ensures that params are only updated in
     # the class' update method
@@ -1792,6 +1834,8 @@ class qTauUrn(VariationalDistribution):
     def __init__(self, config: Config, R: torch.Tensor, gc: torch.Tensor,
                  alpha_0: float = 50, beta_0: float = 10,
                  true_params=None):
+        super().__init__(config, true_params is not None)
+
         self.alpha_0 = alpha_0
         self.beta_0 = beta_0
         self._alpha = torch.empty(config.n_cells)
@@ -1803,11 +1847,34 @@ class qTauUrn(VariationalDistribution):
             # for each cell, mean and precision of the emission model
             assert "tau" in true_params
         self.true_params = true_params
-        super().__init__(config, true_params is not None)
+
+        # NOTE: key-names of params_history must match the attributes
+        #   so to be able to use `getattr(self, key_name)`
+        self.params_history["alpha"] = []
+        self.params_history["beta"] = []
+        self.params_history["R"] = []
+        self.params_history["gc"] = []
+        self.params_history["phi"] = []
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, a):
+        self._alpha[...] = a
+
+    @property
+    def beta(self):
+        return self._beta
+
+    @beta.setter
+    def beta(self, b):
+        self._beta[...] = b
 
     def initialize(self, **kwargs):
-        self._alpha[:] = self.alpha_0
-        self._beta[:] = self.beta_0
+        self.alpha = self.alpha_0
+        self.beta = self.beta_0
 
     def update(self, qc: qC, qz: qZ, x: torch.Tensor):
         A = self.config.n_states
@@ -1898,6 +1965,8 @@ class qTauUrn(VariationalDistribution):
 class qTauRG(VariationalDistribution):
 
     def __init__(self, config: Config, R: torch.Tensor, alpha_0: float = 50, beta_0: float = 10, true_params=None):
+        super().__init__(config, true_params is not None)
+
         self.alpha_0 = alpha_0
         self.beta_0 = beta_0
         self._alpha = torch.empty(config.n_cells)
@@ -1908,11 +1977,31 @@ class qTauRG(VariationalDistribution):
             # for each cell, mean and precision of the emission model
             assert "tau" in true_params
         self.true_params = true_params
-        super().__init__(config, true_params is not None)
+
+        self.params_history["alpha"] = []
+        self.params_history["beta"] = []
+        self.params_history["R"] = []
+        self.params_history["gamma"] = []
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, a):
+        self._alpha[...] = a
+
+    @property
+    def beta(self):
+        return self._beta
+
+    @beta.setter
+    def beta(self, b):
+        self._beta[...] = b
 
     def initialize(self, **kwargs):
-        self._alpha[:] = self.alpha_0
-        self._beta[:] = self.beta_0
+        self.alpha = self.alpha_0
+        self.beta = self.beta_0
 
     def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
         A = self.config.n_states
@@ -2004,12 +2093,18 @@ class qTauRG(VariationalDistribution):
 class qPhi(qPsi):
 
     def __init__(self, config: Config, phi_init, x, gc, R, A, emission_model="poisson", fixed=False):
+        super().__init__(config, fixed)
+
         self.phi = phi_init
         self.x = x
         self.gc = gc
         self.R = R
         self.emission_model = emission_model
-        super().__init__(config, fixed)
+
+        self.params_history["phi"] = []
+        self.params_history["x"] = []
+        self.params_history["gc"] = []
+        self.params_history["R"] = []
 
     def initialize(self, **kwargs):
         self.phi = torch.ones(self.config.n_nodes,) * 2. * self.config.chain_length
@@ -2065,13 +2160,16 @@ class qPhi(qPsi):
 class qPi(VariationalDistribution):
 
     def __init__(self, config: Config, delta_prior: float = 1., true_params: dict | None = None):
+        super().__init__(config, fixed=true_params is not None)
+
         self.concentration_param_prior = torch.ones(config.n_nodes) * delta_prior
         self._concentration_param = torch.empty_like(self.concentration_param_prior)
 
         if true_params is not None:
             assert "pi" in true_params
         self.true_params = true_params
-        super().__init__(config, fixed=true_params is not None)
+
+        self.params_history["concentration_param"] = []
 
     def update_params(self, concentration_param: torch.Tensor):
         rho = self.config.step_size

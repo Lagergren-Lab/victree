@@ -6,8 +6,8 @@ import numpy as np
 import pickle
 import yaml
 
-from inference.copy_tree import CopyTree, JointVarDist, VarDistFixedTree
-from utils import visualization_utils
+from inference.copy_tree import CopyTree
+from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config
 from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5
 
@@ -86,7 +86,7 @@ def run(args):
     logging.debug(str(config))
 
     # instantiate all distributions
-    joint_q = JointVarDist(config, obs)
+    joint_q = VarTreeJointDist(config, obs)
     logging.info('initializing distributions..')
     joint_q.initialize()
     joint_q.z.initialize(method='random')
