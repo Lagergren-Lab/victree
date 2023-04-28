@@ -770,4 +770,4 @@ if __name__ == '__main__':
 
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
-    logging.info(f'simulated dateset saved successfully in {args.out_path}')
+    logging.info(f'simulated dateset saved in {args.out_path}')

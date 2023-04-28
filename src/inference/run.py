@@ -57,7 +57,7 @@ def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, conf
     with open(os.path.join(diag_dir, 'metadata.yaml'), 'w') as f:
         yaml.dump(config.to_dict(), f)
 
-    logging.info(f"diagnostics saved successfully in {diag_dir}")
+    logging.info(f"diagnostics saved in {diag_dir}")
 
 
 def run(args):
@@ -116,6 +116,6 @@ def run(args):
 
     out_file = os.path.join(args.out_dir, run_str + '.h5')
     write_output_h5(copy_tree, out_file)
-    logging.info(f"Results saved successfully: {out_file}")
+    logging.info(f"results saved: {out_file}")
 
     return copy_tree
