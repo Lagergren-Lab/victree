@@ -1,4 +1,5 @@
 import networkx as nx
+import numpy as np
 import torch
 from typing import List, Tuple
 
@@ -148,3 +149,11 @@ def top_k_trees_from_sample(t_list, w_list, k, by_weight=True, nx_graph=False):
                      t_dat['weight'] if by_weight else t_dat['count'])
                     for t_str, t_dat in sorted(unique_trees.items(), key=lambda x: x[1]['weight'], reverse=True)]
     return sorted_trees[:k]
+
+
+def distances_to_true_tree(true_tree, trees_to_compare, labeling=None):
+    K = np.max(true_tree.nodes())
+    labeling = range(0, K) if labeling is None else labeling
+    distances = np.zeros(K,)
+    for k, T in enumerate(trees_to_compare):
+        distances[k] =
