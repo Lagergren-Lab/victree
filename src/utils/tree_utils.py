@@ -1,12 +1,15 @@
+import dendropy
 import networkx as nx
 import torch
 from typing import List, Tuple
 
+from Espalier import MAF
+from pylabeledrf.computeLRF import *
 from networkx import is_arborescence
 
 
-def generate_fixed_tree(n_nodes: int):
-    return nx.random_tree(n=n_nodes, seed=0, create_using=nx.DiGraph)
+def generate_fixed_tree(n_nodes: int, seed=0):
+    return nx.random_tree(n=n_nodes, seed=seed, create_using=nx.DiGraph)
 
 
 def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int = None) -> Tuple[List, torch.Tensor]:
@@ -75,15 +78,6 @@ def one_slice_marginals_markov_chain(initial_state: torch.Tensor, transition_pro
     return forward_messages_markov_chain(initial_state, transition_probabilities)
 
 
-if __name__ == '__main__':
-    N_states = 2
-    init_state = torch.ones(N_states) * 1.0 / N_states
-    N_stages = 5
-    transitions = torch.ones((N_stages, N_states, N_states)) * 1.0 / N_states
-    pairwise_joint = two_slice_marginals_markov_chain(init_state, transitions)
-    print(pairwise_joint)
-
-
 def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
     # make sure the graph is a tree
     assert is_arborescence(g)
@@ -148,3 +142,55 @@ def top_k_trees_from_sample(t_list, w_list, k, by_weight=True, nx_graph=False):
                      t_dat['weight'] if by_weight else t_dat['count'])
                     for t_str, t_dat in sorted(unique_trees.items(), key=lambda x: x[1]['weight'], reverse=True)]
     return sorted_trees[:k]
+
+
+def networkx_tree_to_dendropy(T: nx.DiGraph, root) -> dendropy.Tree:
+    return dendropy.Tree.get(data=tree_to_newick(T, root) + ";", schema="newick")
+
+
+def calculate_SPR_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    raise NotImplementedError("SPR distance not well defined for labeled trees.")
+    T_1 = networkx_tree_to_dendropy(T_1, 0)
+    T_2 = networkx_tree_to_dendropy(T_2, 0)
+    return MAF.get_spr_dist(T_1, T_2)
+
+
+def calculate_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    raise NotImplementedError("RF distance not well defined for labeled trees (only leaf labeled trees).")
+    T_1 = networkx_tree_to_dendropy(T_1, 0)
+    T_2 = networkx_tree_to_dendropy(T_2, 0)
+    return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
+
+
+def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    "Package from: https://github.com/DessimozLab/pylabeledrf"
+    T_1 = networkx_tree_to_dendropy(T_1, 0)
+    t1 = parseEnsemblLabels(T_1)
+    T_2 = networkx_tree_to_dendropy(T_2, 0)
+    t2 = parseEnsemblLabels(T_2)
+    computeLRF(t1, t2)
+    return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
+
+
+def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    distance = nx.graph_edit_distance(T_1, T_2)
+    return distance
+
+
+if __name__ == "__main__":
+    K = 5
+    T_1 = generate_fixed_tree(K, seed=0)
+    T_2 = generate_fixed_tree(K, seed=1)
+    T_3 = generate_fixed_tree(K, seed=2)
+    print(f" Tree 1: {networkx_tree_to_dendropy(T_1, 0)}")
+    print(f" Tree 2: {networkx_tree_to_dendropy(T_2, 0)}")
+    print(f" Tree 3: {networkx_tree_to_dendropy(T_3, 0)}")
+    graph_dist12 = calculate_graph_distance(T_1, T_2)
+    graph_dist13 = calculate_graph_distance(T_1, T_3)
+    print(f"Graph dist T2 to T1: {graph_dist12}")
+    print(f"Graph dist T3 to T1: {graph_dist13}")
+    rf_dist = calculate_Labeled_Robinson_Foulds_distance(T_1, T_2)
+    print(f'RF dist: {rf_dist}')
+
+    spr_dist = calculate_SPR_distance(T_1, T_2)
+    print(f'SPR dist: {spr_dist}')
