@@ -462,7 +462,7 @@ class CopyTree:
                         m.update_diagnostics(j)
 
                 curr_elbo = m.elbo()
-                logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({self.config.n_sieving_iter})")
+                logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({start_iter + step_iters})")
                 if np.any(sel_elbos < curr_elbo):
                     logging.info("new top model!")
                     sel = np.argmin(sel_elbos)  # take lowest elbo index
