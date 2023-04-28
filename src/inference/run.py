@@ -70,7 +70,10 @@ def run(args):
         if 'gt' in full_data.keys():
             logging.debug(f"gt tree: {np.array(full_data['gt']['tree'])}")
 
-        obs = torch.tensor(np.array(full_data['X']), dtype=torch.float).T
+        obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
+        # FIXME: temporary solution for nans in data. 1D interpolation should work best
+        if torch.any(torch.isnan(obs)):
+            obs = torch.nan_to_num(obs, nan=2.0)
     else:
         raise FileNotFoundError(f"file extension not recognized: {fext}")
 
