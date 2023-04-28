@@ -222,7 +222,7 @@ def sample_raw_counts_from_corrected_data(obs):
     #   it might be better
     # temporary solution, sample from poisson with mean rho * obs
     rho = 300.
-    raw_counts = torch.distributions.Poisson(obs * rho).sample((1,))[0]
+    raw_counts = torch.distributions.Poisson(torch.clamp(obs * rho, min=0.)).sample((1,))[0]
     assert raw_counts.shape == obs.shape
     return raw_counts
 
