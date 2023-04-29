@@ -27,3 +27,49 @@ class treeUtilTestCase(unittest.TestCase):
         self.assertEqual(edges_count[0, 2], 1)
         self.assertEqual(edges_count[1, 2], 1)
 
+
+    def test_tree_metrics(self):
+        K = 5
+        T_1 = tree_utils.generate_fixed_tree(K, seed=0)
+        T_2 = tree_utils.generate_fixed_tree(K, seed=1)
+        T_3 = tree_utils.generate_fixed_tree(K, seed=2)
+        print(f" Tree 1: {tree_utils.networkx_tree_to_dendropy(T_1, 0)}")
+        print(f" Tree 2: {tree_utils.networkx_tree_to_dendropy(T_2, 0)}")
+        print(f" Tree 3: {tree_utils.networkx_tree_to_dendropy(T_3, 0)}")
+        graph_dist12 = tree_utils.calculate_graph_distance(T_1, T_2)
+        graph_dist13 = tree_utils.calculate_graph_distance(T_1, T_3)
+        print(f"Graph dist T2 to T1: {graph_dist12}")
+        print(f"Graph dist T3 to T1: {graph_dist13}")
+        rf_dist = tree_utils.calculate_Labeled_Robinson_Foulds_distance(T_1, T_2)
+        print(f'RF dist: {rf_dist}')
+
+        spr_dist = tree_utils.calculate_SPR_distance(T_1, T_2)
+        print(f'SPR dist: {spr_dist}')
+
+    def test_get_unique_trees(self):
+        K = 5
+        T_1 = tree_utils.generate_fixed_tree(K, seed=0)
+        T_2 = tree_utils.generate_fixed_tree(K, seed=1)
+        T_3 = tree_utils.generate_fixed_tree(K, seed=2)
+        T_4 = tree_utils.generate_fixed_tree(K, seed=2)
+        T_list = [T_1, T_2, T_3, T_4]
+        T_undirected_list = tree_utils.to_undirected(T_list)
+        prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
+        unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list)
+        n_unique = len(unique_seq)
+        self.assertEqual(n_unique, 3)
+        self.assertEqual(unique_seq_idx, [0, 1, 2])
+
+    def test_get_distances(self):
+        K = 10
+        T = tree_utils.generate_fixed_tree(K, seed=0)
+        T_1 = tree_utils.generate_fixed_tree(K, seed=0)
+        T_2 = tree_utils.generate_fixed_tree(K, seed=1)
+        T_3 = tree_utils.generate_fixed_tree(K, seed=2)
+        T_4 = tree_utils.generate_fixed_tree(K, seed=2)
+        T_list = [T_1, T_2, T_3, T_4]
+        distances = tree_utils.distances_to_true_tree(T, T_list)
+        self.assertEqual(distances[0], 0.)
+        self.assertGreaterEqual(distances[1], distances[0])
+        self.assertGreaterEqual(distances[2], distances[0])
+        self.assertEqual(distances[2], distances[3])

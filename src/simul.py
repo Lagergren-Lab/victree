@@ -215,8 +215,20 @@ def model_tree_markov_full(data, n_cells, n_sites, n_copy_states, tree: nx.DiGra
     return C, y, z, pi, mu, tau, eps
 
 
+def sample_raw_counts_from_corrected_data(obs):
+    # TODO: generate counts from observation using DirichletMultinomial
+    #   trying to avoid computationally expensive sampling i.e. sampling high dimensional
+    #   multinomial might be costly but if each bin is sampled individually with BetaBinomial
+    #   it might be better
+    # temporary solution, sample from poisson with mean rho * obs
+    rho = 300.
+    raw_counts = torch.distributions.Poisson(obs * rho).sample((1,))[0]
+    assert raw_counts.shape == obs.shape
+    return raw_counts
+
+
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None):
+                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True):
     """
 Generate full simulated dataset.
     Args:
@@ -271,8 +283,11 @@ Generate full simulated dataset.
     obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
     obs = obs.T
     assert obs.shape == (config.chain_length, config.n_cells)
+
+    raw_counts = sample_raw_counts_from_corrected_data(obs) if raw_reads is True else None
     out_simul = {
         'obs': obs,
+        'raw': raw_counts,
         'c': c,
         'z': z,
         'pi': pi,
@@ -519,7 +534,7 @@ def model_tree_markov_fixed_parameters(data, n_cells, n_sites, n_copy_states, tr
 def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
     """
     Output data structure
-    - X: reads (dataset) shape (n_cells, chain_length)
+    - X: raw reads (dataset) shape (n_cells, chain_length)
     - gt: ground truth(group)
     - layers: group
         - copy-number: dataset shape (n_cells, chain_length)
@@ -535,12 +550,13 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
     -------
     """
     f = h5py.File(os.path.join(out_dir, filename + '.h5'), 'w')
-    x_ds = f.create_dataset('X', data=data['obs'].T)
+    x_ds = f.create_dataset('X', data=data['raw'].T)
     layers_grp = f.create_group('layers')
     z = data['z']
     cn_state = data['c'][z, :]
     assert cn_state.shape == x_ds.shape
     layers_grp.create_dataset('state', data=cn_state)
+    layers_grp.create_dataset('copy', data=data['obs'].T)
 
     if gt_mode == 'h5':
         gt_group = f.create_group('gt')
@@ -749,7 +765,8 @@ if __name__ == '__main__':
 
     data = simulate_full_dataset(
         Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length),
-        dir_alpha=args.concentration_factor)
+        dir_alpha=args.concentration_factor,
+        eps_a=args.eps_beta_params[0], eps_b=args.eps_beta_params[1])
 
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')

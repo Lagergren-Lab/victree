@@ -1,5 +1,6 @@
 import dendropy
 import networkx as nx
+import numpy as np
 import torch
 from typing import List, Tuple
 
@@ -172,25 +173,48 @@ def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph)
     return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
 
 
-def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
-    distance = nx.graph_edit_distance(T_1, T_2)
+def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0)):
+    distance = nx.graph_edit_distance(T_1, T_2, roots=roots)
     return distance
 
 
-if __name__ == "__main__":
-    K = 5
-    T_1 = generate_fixed_tree(K, seed=0)
-    T_2 = generate_fixed_tree(K, seed=1)
-    T_3 = generate_fixed_tree(K, seed=2)
-    print(f" Tree 1: {networkx_tree_to_dendropy(T_1, 0)}")
-    print(f" Tree 2: {networkx_tree_to_dendropy(T_2, 0)}")
-    print(f" Tree 3: {networkx_tree_to_dendropy(T_3, 0)}")
-    graph_dist12 = calculate_graph_distance(T_1, T_2)
-    graph_dist13 = calculate_graph_distance(T_1, T_3)
-    print(f"Graph dist T2 to T1: {graph_dist12}")
-    print(f"Graph dist T3 to T1: {graph_dist13}")
-    rf_dist = calculate_Labeled_Robinson_Foulds_distance(T_1, T_2)
-    print(f'RF dist: {rf_dist}')
+def relabel_nodes(T, labeling):
+    mapping = {}
+    orig = list(range(0, 1 + np.max(labeling)))
+    for (old, new) in zip(orig, labeling):
+        mapping[old] = new
+    return nx.relabel_nodes(T, mapping, copy=True)
 
-    spr_dist = calculate_SPR_distance(T_1, T_2)
-    print(f'SPR dist: {spr_dist}')
+
+def relabel_trees(T_list: list[nx.DiGraph], labeling):
+    return [relabel_nodes(T, labeling) for T in T_list]
+
+
+def distances_to_true_tree(true_tree, trees_to_compare: list[nx.DiGraph], labeling=None):
+    L = len(trees_to_compare)
+    distances = np.zeros(L,)
+    for l, T in enumerate(trees_to_compare):
+        if labeling is not None:
+            T = relabel_nodes(T, labeling)
+        distances[l] = calculate_graph_distance(true_tree, T)
+    return distances
+
+
+def to_prufer_sequences(T_list: list[nx.DiGraph]):
+    return [nx.to_prufer_sequence(T) for T in T_list]
+
+
+def unique_trees(prufer_list: list[list[int]]):
+    unique_seq = []
+    unique_seq_idx = []
+    for (i, seq) in enumerate(prufer_list):
+        if seq in unique_seq:
+            continue
+        else:
+            unique_seq.append(seq)
+            unique_seq_idx.append(i)
+    return unique_seq, unique_seq_idx
+
+
+def to_undirected(T_list: list[nx.DiGraph]):
+    return [nx.to_undirected(T) for T in T_list]
