@@ -3,12 +3,15 @@ import logging
 import os
 
 import hmmlearn.hmm
+import pandas as pd
 import torch
 import torch.nn.functional as torch_functional
 import networkx as nx
 import itertools
 import numpy as np
 from typing import List, Tuple, Union, Optional
+
+from utils.data_handling import dict_to_tensor
 from utils.evaluation import pm_uni
 
 from sklearn.cluster import KMeans
@@ -762,14 +765,24 @@ class qT(VariationalDistribution):
         self.true_params = true_params
 
         self.params_history["weight_matrix"] = []
+        self.params_history["trees_sample_newick"] = []
+        self.params_history["trees_sample_weights"] = []
 
     @property
     def weighted_graph(self):
         return self._weighted_graph
 
     @property
-    def weight_matrix(self):
-        return torch.tensor(nx.to_numpy_array(self.weighted_graph))
+    def weight_matrix(self) -> np.ndarray:
+        return nx.to_numpy_array(self.weighted_graph)
+
+    @property
+    def trees_sample_newick(self) -> np.ndarray:
+        return np.array([tree_utils.tree_to_newick(t) for t in self.T_list], dtype='S')
+
+    @property
+    def trees_sample_weights(self) -> np.ndarray:
+        return self.w_T.data.cpu().numpy()
 
     def initialize(self, **kwargs):
         # rooted graph with random weights in (0, 1) - log transformed
@@ -875,6 +888,8 @@ other elbos such as qC.
         # random initialization of the fully connected graph over the clones
         for e in self._weighted_graph.edges:
             self._weighted_graph.edges[e]['weight'] = torch.rand(1)[0].log()
+        # run sampling to store first sampled tree list and weights
+        self.get_trees_sample()
 
     def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None,
                          torch_tensor: bool = False, log_scale: bool = False) -> (list, list | torch.Tensor):
@@ -1110,8 +1125,8 @@ class qEpsilonMulti(VariationalDistribution):
             # one param for every arc except self referenced and v -> root for any v
             gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
                                                            range(config.n_nodes)) if v != 0 and u != v]
-        self._alpha = {e: torch.empty(1) for e in gedges}
-        self._beta = {e: torch.empty(1) for e in gedges}
+        self._alpha_dict = {e: torch.empty(1) for e in gedges}
+        self._beta_dict = {e: torch.empty(1) for e in gedges}
 
         if true_params is not None:
             assert "eps" in true_params
@@ -1121,29 +1136,43 @@ class qEpsilonMulti(VariationalDistribution):
         self.params_history["beta"] = []
 
     @property
-    def alpha(self):
-        return self._alpha
+    def alpha_dict(self):
+        return self._alpha_dict
 
-    @alpha.setter
-    def alpha(self, a: dict):
+    @alpha_dict.setter
+    def alpha_dict(self, a: dict):
         for e, w in a.items():
-            self._alpha[e] = w
+            self._alpha_dict[e] = w
+
+    @property
+    def beta_dict(self):
+        return self._beta_dict
+
+    @beta_dict.setter
+    def beta_dict(self, b: dict):
+        for e, w in b.items():
+            self._beta_dict[e] = w
+
+    @property
+    def alpha(self):
+        """
+        Numpy array version of the alpha parameter. To be used as a checkpoint.
+        """
+        return dict_to_tensor(self._alpha_dict).data.numpy()
 
     @property
     def beta(self):
-        return self._beta
-
-    @beta.setter
-    def beta(self, b: dict):
-        for e, w in b.items():
-            self._beta[e] = w
+        """
+        Numpy array version of the beta parameter. To be used as a checkpoint.
+        """
+        return dict_to_tensor(self._beta_dict).data.numpy()
 
     def update_params(self, alpha: dict, beta: dict):
         rho = self.config.step_size
-        for e in self.alpha.keys():
-            self._alpha[e] = (1 - rho) * self.alpha[e] + rho * alpha[e]
-            self._beta[e] = (1 - rho) * self.beta[e] + rho * beta[e]
-        return self.alpha, self.beta
+        for e in self.alpha_dict.keys():
+            self._alpha_dict[e] = (1 - rho) * self.alpha_dict[e] + rho * alpha[e]
+            self._beta_dict[e] = (1 - rho) * self.beta_dict[e] + rho * beta[e]
+        return self.alpha_dict, self.beta_dict
 
     def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
         self.update_CAVI(tree_list, tree_weights, qc)
@@ -1152,8 +1181,8 @@ class qEpsilonMulti(VariationalDistribution):
     def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
         cfp = qc.couple_filtering_probs
         K, M, A, A = cfp.shape
-        new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha.keys()}
-        new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta.keys()}
+        new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha_dict.keys()}
+        new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta_dict.keys()}
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
 
         # check how many edges are effectively updated
@@ -1188,9 +1217,9 @@ class qEpsilonMulti(VariationalDistribution):
         return new_alpha, new_beta
 
     def _set_equal_params(self, eps_alpha: float, eps_beta: float):
-        for e in self.alpha.keys():
-            self.alpha[e] = torch.tensor(eps_alpha)
-            self.beta[e] = torch.tensor(eps_beta)
+        for e in self.alpha_dict.keys():
+            self.alpha_dict[e] = torch.tensor(eps_alpha)
+            self.beta_dict[e] = torch.tensor(eps_beta)
 
     def initialize(self, method='random', **kwargs):
         if method == 'fixed':
@@ -1208,9 +1237,9 @@ class qEpsilonMulti(VariationalDistribution):
         return super().initialize(**kwargs)
 
     def _fixed_init(self, eps_alpha_dict, eps_beta_dict):
-        for e in self.alpha:
-            self.alpha[e] = eps_alpha_dict[e]
-            self.beta[e] = eps_beta_dict[e]
+        for e in self.alpha_dict:
+            self.alpha_dict[e] = eps_alpha_dict[e]
+            self.beta_dict[e] = eps_beta_dict[e]
 
     def _uniform_init(self):
         # results in uniform (0,1)
@@ -1220,10 +1249,10 @@ class qEpsilonMulti(VariationalDistribution):
         self._set_equal_params(1., 10.)
 
     def _random_init(self, gamma_shape=2., gamma_rate=2.):
-        for e in self.alpha.keys():
+        for e in self.alpha_dict.keys():
             a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
-            self.alpha[e] = a
-            self.beta[e] = b
+            self.alpha_dict[e] = a
+            self.beta_dict[e] = b
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -1237,9 +1266,9 @@ class qEpsilonMulti(VariationalDistribution):
         return co_mut_mask, anti_sym_mask
 
     def cross_entropy(self, T_eval, w_T_eval):
-        a = self.alpha
+        a = self.alpha_dict
         a_0 = self.alpha_prior
-        b = self.beta
+        b = self.beta_dict
         b_0 = self.beta_prior
         tot_H = 0
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_eval, self.config.n_nodes)
@@ -1259,8 +1288,8 @@ class qEpsilonMulti(VariationalDistribution):
         return tot_H
 
     def entropy(self, T_eval, w_T_eval):
-        a = self.alpha
-        b = self.beta
+        a = self.alpha_dict
+        b = self.beta_dict
         tot_H = 0
         # TODO: replace n_uv by weights*n_uv
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(T_eval, self.config.n_nodes)
@@ -1319,20 +1348,20 @@ class qEpsilonMulti(VariationalDistribution):
         else:
             comut_mask = get_zipping_mask(self.config.n_states)
             A = normalizing_zipping_constant(self.config.n_states)
-            digamma_a = torch.digamma(self.alpha[u, v])
-            digamma_b = torch.digamma(self.beta[u, v])
-            digamma_ab = torch.digamma(self.alpha[u, v] + self.beta[u, v])
+            digamma_a = torch.digamma(self.alpha_dict[u, v])
+            digamma_b = torch.digamma(self.beta_dict[u, v])
+            digamma_ab = torch.digamma(self.alpha_dict[u, v] + self.beta_dict[u, v])
             out_arr[...] = digamma_a - digamma_ab - A.log()
             out_arr[comut_mask] = digamma_b - digamma_ab
         return out_arr
 
     def mean(self) -> dict:
-        mean_dict = {e: self.alpha[e] / (self.alpha[e] + self.beta[e]) for e in self.alpha.keys()}
+        mean_dict = {e: self.alpha_dict[e] / (self.alpha_dict[e] + self.beta_dict[e]) for e in self.alpha_dict.keys()}
         return mean_dict
 
     def var(self) -> dict:
-        var_dict = {e: self.alpha[e] * self.beta[e] / ((self.alpha[e] + self.beta[e]) ** 2 *
-                                                       (self.alpha[e] + self.beta[e] + 1)) for e in self.alpha.keys()}
+        var_dict = {e: self.alpha_dict[e] * self.beta_dict[e] / ((self.alpha_dict[e] + self.beta_dict[e]) ** 2 *
+                                                                 (self.alpha_dict[e] + self.beta_dict[e] + 1)) for e in self.alpha_dict.keys()}
         return var_dict
 
     def __str__(self):
@@ -1343,7 +1372,7 @@ class qEpsilonMulti(VariationalDistribution):
             summary.append(f"-eps\t\n{self.true_params['eps']}")  # prints dict
         else:
             # print top k smallest epsilons
-            k = min(len(self.alpha), 5)
+            k = min(len(self.alpha_dict), 5)
             topk = sorted(self.mean().items(), key=lambda x: x[1])[:k]
             summary.append(f"-top{k}")
             var = self.var()
@@ -1352,7 +1381,7 @@ class qEpsilonMulti(VariationalDistribution):
                 e_var = var[u, v]
                 summary.append(f"({u},{v}): {e_mean:.2f} " +
                                pm_uni +
-                               f" {np.sqrt(e_var):.2f} (a={self.alpha[u, v]:.2f}, b={self.beta[u, v]:.2f})")
+                               f" {np.sqrt(e_var):.2f} (a={self.alpha_dict[u, v]:.2f}, b={self.beta_dict[u, v]:.2f})")
 
             summary.append(f"-prior\ta0={self.alpha_prior}, b0={self.beta_prior}")
 

@@ -4,6 +4,7 @@ Interface class for Variational distributions
 import copy
 import logging
 
+import numpy as np
 import torch
 
 from utils.config import Config
@@ -37,10 +38,14 @@ class VariationalDistribution:
             raise Exception("progress tracking is being called but diagnostics are not requested")
 
         for k in self.params_history.keys():
-            if isinstance(self.params_history[k], torch.Tensor):
-                param_copy = getattr(self, k).detach().clone()
+            arr = getattr(self, k)
+            if isinstance(arr, torch.Tensor):
+                param_copy = arr.data.cpu().numpy().copy()
+            elif isinstance(arr, np.ndarray):
+                param_copy = arr.copy()
             else:
-                param_copy = copy.deepcopy(getattr(self, k))
+                logging.warning(f"Saving non-array object to state checkpoint. Param {k} is of type {type(arr)}.")
+                param_copy = copy.deepcopy(arr)
             if reset:
                 self.params_history[k] = []
             self.params_history[k].append(param_copy)

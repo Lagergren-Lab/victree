@@ -57,9 +57,9 @@ class JointDist(VariationalDistribution):
         K = self.config.n_nodes
         eps_a = torch.zeros((K, K))
         eps_b = torch.zeros((K, K))
-        for key in self.eps.alpha.keys():
-            eps_a[key] = self.eps.alpha[key]
-            eps_b[key] = self.eps.beta[key]
+        for key in self.eps.alpha_dict.keys():
+            eps_a[key] = self.eps.alpha_dict[key]
+            eps_b[key] = self.eps.beta_dict[key]
 
         self.diagnostics_dict["eps_a"][iter] = eps_a
         self.diagnostics_dict["eps_b"][iter] = eps_b
@@ -67,12 +67,11 @@ class JointDist(VariationalDistribution):
         # qMuTau diagnostics
         self.diagnostics_dict["nu"][iter] = self.mt.nu
         self.diagnostics_dict["lmbda"][iter] = self.mt.lmbda
-        self.diagnostics_dict["alpha"][iter] = self.mt.alpha  # not updated
+        self.diagnostics_dict["alpha"][iter] = self.mt.alpha
         self.diagnostics_dict["beta"][iter] = self.mt.beta
 
         # elbo
         self.diagnostics_dict["elbo"][iter] = self.elbo()
-
 
     @abstractmethod
     def get_units(self) -> List[VariationalDistribution]:

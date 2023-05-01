@@ -28,6 +28,12 @@ class CopyTree:
         self._elbo: float = -np.infty
         self.sieve_models: List[Union[VarTreeJointDist, FixedTreeJointDist]] = []
 
+    def __str__(self):
+        return f"k{self.config.n_nodes}"\
+               f"a{self.config.n_states}"\
+               f"n{self.config.n_cells}"\
+               f"m{self.config.chain_length}"
+
     @property
     def elbo(self):
         return self._elbo

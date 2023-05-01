@@ -1,17 +1,24 @@
+import os.path
 import unittest
 
+import numpy as np
 import torch
 
 from inference.copy_tree import CopyTree
+from utils.data_handling import write_checkpoint_h5
 from variational_distributions.joint_dists import VarTreeJointDist
 from simul import generate_dataset_var_tree
 from utils.config import set_seed, Config
+from variational_distributions.var_dists import qT
 
 
 class InitTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(42)
+        self.output_dir = "./test_output"
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
 
     def test_halve_sieve(self):
         n_iter = 3
@@ -45,4 +52,10 @@ class InitTestCase(unittest.TestCase):
         for q in copytree.q.get_units():
             for k in q.params_history.keys():
                 self.assertEqual(len(q.params_history[k]), n_sieving_iter + n_iter + 1, msg=f"key issue: '{k}'")
+                self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
+                                msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
+                if k == "trees_sample_newick":
+                    print(q.params_history[k][0])
+
+        write_checkpoint_h5(copytree, path=os.path.join(self.output_dir, "checkpoint_" + str(copytree) + ".h5"))
 
