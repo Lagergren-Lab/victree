@@ -217,19 +217,19 @@ def visualize_T_given_true_tree_and_distances(w_T_list, distances, save_path=Non
     x_axis = np.arange(len(distances))
     w_T_list_sorted = [w_T_list[i] for i in sorted_dist_idx]
     fig = plt.plot(sorted_dist_idx, w_T_list_sorted, 'o')
-    distances_break_points_indexes = np.where(sorted_dist[1:] - sorted_dist[:-1] > 0)[0]
+    distances_break_points_indexes = np.where(sorted_dist[1:] - sorted_dist[:-1] > 0)[0] + 1
     labels = ['' if i not in distances_break_points_indexes else sorted_dist[i+1] for i in x_axis]
     labels[0] = sorted_dist[0]
     plt.xlabel("Distance to true tree")
     plt.ylabel("w(T)")
     plt.xticks(ticks=x_axis, labels=labels)
     if save_path is not None:
-        plt.savefig(save_path + 'sampled_trees_to_true_tree_distance_plot.png')
+        plt.savefig(save_path + '/sampled_trees_to_true_tree_distance_plot.png')
     return fig
 
 
 def visualize_and_save_T_plots(save_path, true_tree, T_list, w_T_list, distances):
-    with PdfPages(save_path + '_qT_visualization.pdf') as pdf:
+    with PdfPages(save_path + '/qT_visualization.pdf') as pdf:
         fig = visualize_T_given_true_tree_and_distances(w_T_list, distances, save_path=save_path)
 
 

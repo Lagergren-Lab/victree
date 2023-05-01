@@ -167,7 +167,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
 
     def test_large_tree_init_true_params(self):
         torch.manual_seed(0)
-        K = 12
+        K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 500
         n_sites = 500
@@ -198,7 +198,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-        copy_tree.run(30)
+        copy_tree.run(100)
 
         """
         Assert - in case of root + K edges.

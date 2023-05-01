@@ -71,7 +71,11 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     max_prob_qZ = torch.argmax(q_z.pi, dim=1)
     for perm in perms_non_root:
         perms.append([0] + list(perm))
-    print(f"Start q(Z) evaluation w.r.t. label switching on {len(perms)} permutations")
+    n_perms = len(perms)
+    print(f"Start q(Z) evaluation w.r.t. label switching on {n_perms} permutations")
+    if n_perms > 10**7:
+        raise RuntimeWarning("Large number of permutation might take very long execution time.")
+        # TODO: Implement DP-like algorithm for finding best permutation
     accuracy_best = 0
     for perm in perms:
         max_prob_qZ_perm = torch.tensor([perm[i] for i in max_prob_qZ])
