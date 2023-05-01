@@ -54,8 +54,6 @@ class InitTestCase(unittest.TestCase):
                 self.assertEqual(len(q.params_history[k]), n_sieving_iter + n_iter + 1, msg=f"key issue: '{k}'")
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
-                if k == "trees_sample_newick":
-                    print(q.params_history[k][0])
 
         write_checkpoint_h5(copytree, path=os.path.join(self.output_dir, "checkpoint_" + str(copytree) + ".h5"))
 
