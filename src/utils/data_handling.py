@@ -62,7 +62,7 @@ def write_checkpoint_h5(copytree, path=None):
     if path is None:
         path = "./checkpoint_" + str(copytree) + ".h5"
     f = h5py.File(path, 'w')
-    for q in copytree.q.get_units():
+    for q in copytree.q.get_units() + [copytree.q]:
         # TODO: add q names to group params (one layer for each var dist?)
         qlay = f.create_group(q.__class__.__name__)
         for k in q.params_history.keys():

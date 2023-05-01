@@ -39,7 +39,7 @@ class qEpsilonTestCase(unittest.TestCase):
         print(f"Beta param a: {a}")
         print(f"Beta param b: {b}")
 
-        elbo = self.qeps.elbo([T_list[0]], w_T[0])
+        elbo = self.qeps.compute_elbo([T_list[0]], w_T[0])
         print(f"ELBO: {elbo}")
 
     def test_expectation_size(self):
@@ -80,12 +80,12 @@ class qEpsilonTestCase(unittest.TestCase):
         q_C2.couple_filtering_probs[1] = torch.rand((A, A))
 
         # Act
-        self.assertTrue(q_eps1.elbo([T], w_T) == q_eps2.elbo([T], w_T))
+        self.assertTrue(q_eps1.compute_elbo([T], w_T) == q_eps2.compute_elbo([T], w_T))
 
         q_eps1.update([T], w_T, q_C1)
         q_eps1.update([T], w_T, q_C2)
-        elbo_1 = q_eps1.elbo([T], w_T)
-        elbo_2 = q_eps2.elbo([T], w_T)
+        elbo_1 = q_eps1.compute_elbo([T], w_T)
+        elbo_2 = q_eps2.compute_elbo([T], w_T)
 
         # Assert
         self.assertTrue(elbo_1 > elbo_2, msg="ELBO for no q(Epsilon) lower for ")

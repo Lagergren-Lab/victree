@@ -108,3 +108,32 @@ for (k in 1:K) {
 }
 ggarrange(plotlist = li, nrow = K, ncol = 1L)
 ```
+
+## H5 file read
+
+```{r}
+setwd("/Users/zemp/phd/scilife/coPyTree/")
+library(rhdf5)
+h5file_path <- file.path(getwd(), "tests/test_output/checkpoint_k3a3n30m5.h5")
+f <- H5Fopen(h5file_path)
+```
+
+```{r}
+h5ls(f) %>%
+  filter(otype == "H5I_DATASET")
+
+checkpoint <- list()
+by(h5ls(f), seq_len(nrow(h5ls(f))), function(row, checkpoint) {
+  print(row)
+  if (is.null(checkpoint$`row$group`)) {
+    checkpoint$`row$group` <- list()
+  }
+  checkpoint$`row$group`$`row$name` <- f$`row$group`$`row$name` 
+}, checkpoint = checkpoint)
+```
+
+```{r}
+H5Fclose(f)
+```
+
+

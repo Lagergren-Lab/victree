@@ -90,5 +90,5 @@ class qPiTestCase(unittest.TestCase):
 
     def test_ELBO(self):
         self.q_pi.concentration_param = torch.ones(self.K)*2
-        res = self.q_pi.elbo()
+        res = self.q_pi.compute_elbo()
         print(f"ELBO: {res}")

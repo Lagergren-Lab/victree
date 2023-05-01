@@ -311,7 +311,7 @@ class qC(VariationalDistribution):
 
         return cross_ent_pos_1 + cross_ent_pos_2_to_M
 
-    def elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+    def compute_elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # unique_arcs, unique_arcs_count = tree_utils.get_unique_edges(T_list, self.config.n_nodes)
         # for (a, a_count) in zip(unique_arcs, unique_arcs_count):
         # alpha_1, alpha_2 = self.exp_alpha()
@@ -722,7 +722,7 @@ class qZ(VariationalDistribution):
     def entropy(self) -> float:
         return torch.special.entr(self.pi).sum()
 
-    def elbo(self, qpi: 'qPi') -> float:
+    def compute_elbo(self, qpi: 'qPi') -> float:
         return self.neg_cross_entropy(qpi) + self.entropy()
 
     def __str__(self):
@@ -807,7 +807,7 @@ class qT(VariationalDistribution):
             entropy -= weights[i] * log_qt
         return entropy / sum(weights)
 
-    def elbo(self, trees, weights) -> float:
+    def compute_elbo(self, trees, weights) -> float:
         """
 Computes partial elbo for qT from the same trees-sample used for
 other elbos such as qC.
@@ -999,7 +999,7 @@ of the variational distribution over the topology.
             eval_trees, eval_weights = self.get_trees_sample(sample_size=10)
             for t, w in zip(eval_trees, eval_weights):
                 summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w:.4f}")
-            summary.append(f"partial ELBO\t{self.elbo(eval_trees, eval_weights):.2f}")
+            summary.append(f"partial ELBO\t{self.compute_elbo(eval_trees, eval_weights):.2f}")
 
         return os.linesep.join(summary)
 
@@ -1043,8 +1043,8 @@ class qEpsilon(VariationalDistribution):
                 anti_sym_mask[i, j, k, l] = 1
         return comut_mask, anti_sym_mask
 
-    def elbo(self) -> float:
-        return super().elbo()
+    def compute_elbo(self) -> float:
+        return super().compute_elbo()
 
     def update(self, T_list, w_T, q_C_pairwise_marginals):
         self.update_CAVI(T_list, w_T, q_C_pairwise_marginals)
@@ -1307,7 +1307,7 @@ class qEpsilonMulti(VariationalDistribution):
                                        (a_uv + b_uv - 2) * psi_a_plus_b_uv))
         return tot_H
 
-    def elbo(self, T_eval, w_T_eval) -> float:
+    def compute_elbo(self, T_eval, w_T_eval) -> float:
         entropy_eps = self.entropy(T_eval, w_T_eval)
         CE_eps = self.cross_entropy(T_eval, w_T_eval)
         return CE_eps + entropy_eps
@@ -1586,7 +1586,7 @@ Initialize the mu and tau params given observations
 
         return torch.sum(neg_ce)
 
-    def elbo(self) -> float:
+    def compute_elbo(self) -> float:
         return self.neg_cross_entropy() + self.entropy()
 
     def elbo_old(self) -> float:
@@ -1666,7 +1666,7 @@ Initialize the mu and tau params given observations
             summary.append(f"-lambda\t{self.lmbda.mean(dim=-1):.2f} " +
                            pm_uni + f" {self.lmbda.std(dim=-1):.2f}" +
                            f" (prior {self.lmbda_0:.2f})")
-            summary.append(f"partial ELBO\t{self.elbo():.2f}")
+            summary.append(f"partial ELBO\t{self.compute_elbo():.2f}")
 
         return os.linesep.join(summary)
 
@@ -1806,12 +1806,12 @@ class qMuAndTauCellIndependent(VariationalDistribution):
         return super().initialize(**kwargs)
 
     def cross_entropy(self) -> float:
-        return super().elbo()
+        return super().compute_elbo()
 
     def entropy(self) -> float:
-        return super().elbo()
+        return super().compute_elbo()
 
-    def elbo(self) -> float:
+    def compute_elbo(self) -> float:
         return self.cross_entropy() + self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
@@ -1948,12 +1948,12 @@ class qTauUrn(VariationalDistribution):
         self.phi = phi
 
     def cross_entropy(self) -> float:
-        return super().elbo()
+        return super().compute_elbo()
 
     def entropy(self) -> float:
-        return super().elbo()
+        return super().compute_elbo()
 
-    def elbo(self) -> float:
+    def compute_elbo(self) -> float:
         return self.cross_entropy() + self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
@@ -2076,12 +2076,12 @@ class qTauRG(VariationalDistribution):
         self.gamma = gamma
 
     def cross_entropy(self) -> float:
-        return super().elbo()
+        return super().compute_elbo()
 
     def entropy(self) -> float:
-        return super().elbo()
+        return super().compute_elbo()
 
-    def elbo(self) -> float:
+    def compute_elbo(self) -> float:
         return self.cross_entropy() + self.entropy()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
@@ -2282,7 +2282,7 @@ class qPi(VariationalDistribution):
         log_B_q = math_utils.log_beta_function(delta_q)
         return log_B_q + (delta_q_0 - K) * digamma_q_0 - torch.sum((delta_q - 1) * digamma_q)
 
-    def elbo(self) -> float:
+    def compute_elbo(self) -> float:
         cross_entropy = self.neg_cross_entropy()
         entropy = self.entropy()
         return cross_entropy + entropy

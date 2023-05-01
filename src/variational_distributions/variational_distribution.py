@@ -27,7 +27,7 @@ class VariationalDistribution:
         if self.fixed:
             logging.warning("Warn: fixed dist is updated!")
 
-    def elbo(self) -> float:
+    def compute_elbo(self) -> float:
         return 0.
 
     def track_progress(self, reset=False):
@@ -40,10 +40,16 @@ class VariationalDistribution:
         for k in self.params_history.keys():
             arr = getattr(self, k)
             if isinstance(arr, torch.Tensor):
+                # deep-copy torch tensor with torch functions
                 param_copy = arr.data.cpu().numpy().copy()
             elif isinstance(arr, np.ndarray):
+                # copy an already existing numpy array
                 param_copy = arr.copy()
+            elif isinstance(arr, float) or isinstance(arr, int):
+                # build 0-D np.ndarray (e.g. with elbo or iteration values)
+                param_copy = np.array(arr)
             else:
+                # params not recognized, launch warning, but deep-copy anyway
                 logging.warning(f"Saving non-array object to state checkpoint. Param {k} is of type {type(arr)}.")
                 param_copy = copy.deepcopy(arr)
             if reset:
