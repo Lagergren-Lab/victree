@@ -48,8 +48,9 @@ class qC(VariationalDistribution):
         self.true_params = true_params
 
         # define dist param names
-        self.params_history["eta1"] = []
-        self.params_history["eta2"] = []
+        self.params_history["single_filtering_probs"] = []
+        # # not needed at the moment
+        # self.params_history["couple_filtering_probs"] = []
 
     @property
     def single_filtering_probs(self):
