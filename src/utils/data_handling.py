@@ -1,10 +1,11 @@
+import os.path
 from typing import List, Tuple, Union
 from pathlib import Path
+
+import numpy as np
 import torch
 import h5py
 import networkx as nx
-
-from inference.copy_tree import CopyTree
 
 
 def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]:
@@ -35,15 +36,15 @@ def dict_to_tensor(a: dict):
     return a_tensor
 
 
-def write_output_h5(out_copytree: CopyTree, out_path):
+def write_output_h5(out_copytree, out_path):
     f = h5py.File(out_path, 'w')
     x_ds = f.create_dataset('X', data=out_copytree.obs.T)
     out_grp = f.create_group('result')
 
     graph_data = out_copytree.q.t.weighted_graph.edges.data('weight')
     graph_adj_matrix = nx.to_numpy_array(out_copytree.q.t.weighted_graph)
-    alpha_tensor = dict_to_tensor(out_copytree.q.eps.alpha)
-    beta_tensor = dict_to_tensor(out_copytree.q.eps.beta)
+    alpha_tensor = dict_to_tensor(out_copytree.q.eps.alpha_dict)
+    beta_tensor = dict_to_tensor(out_copytree.q.eps.beta_dict)
 
     graph_weights = out_grp.create_dataset('graph', data=graph_adj_matrix)
     cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi)
@@ -54,6 +55,19 @@ def write_output_h5(out_copytree: CopyTree, out_path):
 
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
 
+    f.close()
+
+
+def write_checkpoint_h5(copytree, path=None):
+    if path is None:
+        path = "./checkpoint_" + str(copytree) + ".h5"
+    f = h5py.File(path, 'w')
+    for q in copytree.q.get_units():
+        # TODO: add q names to group params (one layer for each var dist?)
+        qlay = f.create_group(q.__class__.__name__)
+        for k in q.params_history.keys():
+            stacked_arr = np.stack(q.params_history[k], axis=0)
+            ds = qlay.create_dataset(k, data=stacked_arr)
     f.close()
 
 
