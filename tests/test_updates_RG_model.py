@@ -8,7 +8,7 @@ from sklearn.metrics.cluster import adjusted_rand_score
 
 import tests.model_variational_comparisons
 import utils.visualization_utils
-from inference.copy_tree import VarDistFixedTree, JointVarDist
+from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from simul import generate_dataset_var_tree
 from tests import model_variational_comparisons
 from utils.config import set_seed, Config
@@ -35,7 +35,7 @@ class updatesRGModelTestCase(unittest.TestCase):
                                           mu_0=1., lambda_0=10.)
         return data + (tree,)
 
-    def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> tuple[VarDistFixedTree, Any]:
+    def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> tuple[FixedTreeJointDist, Any]:
         """
         Args:
             mm: int. multiplier for longer chain. set it to no more than 10
@@ -108,7 +108,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         fix_tree = nx.DiGraph()
         fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-        joint_q = VarDistFixedTree(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, y, R)
+        joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, y, R)
         return joint_q, true_gamma
 
     def test_update_qc(self):
@@ -316,7 +316,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50, wis_sample_size=30, step_size=.1,
                         debug=True)
         true_joint_q = generate_dataset_var_tree(config)
-        joint_q = JointVarDist(config, obs=true_joint_q.obs)
+        joint_q = VarTreeJointDist(config, obs=true_joint_q.obs)
         joint_q.initialize()
         for i in range(50):
             joint_q.update()
@@ -374,7 +374,7 @@ class updatesRGModelTestCase(unittest.TestCase):
                 print(f"- qz adjusted rand idx: {ari:.2f}")
 
             qmt.update(fix_qc, qz, obs)
-            qz.update(qmt, fix_qc, fix_qpi,,
+            qz.update(qmt, fix_qc, fix_qpi)
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
         print(f"- var tau: {qmt.exp_tau()}")
@@ -480,7 +480,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         qeps = qEpsilonMulti(cfg).initialize()
         qpi = qPi(cfg).initialize()
         qt = qT(cfg).initialize()
-        joint_q = JointVarDist(cfg, qc=qc, qz=qz, qmt=qmt, qeps=qeps, qpi=qpi, qt=qt, obs=obs)
+        joint_q = VarTreeJointDist(cfg, qc=qc, qz=qz, qmt=qmt, qeps=qeps, qpi=qpi, qt=qt, obs=obs)
 
         # update and check copy numbers
         print(f"[init] elbo: {joint_q.elbo(*joint_q.t.get_trees_sample(sample_size=10))}")

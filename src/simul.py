@@ -23,7 +23,7 @@ import pyro.distributions as dist
 import pyro.poutine as poutine
 from matplotlib import pyplot as plt
 
-from inference.copy_tree import JointVarDist
+from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils
 from utils.config import Config, set_seed
 from utils.eps_utils import TreeHMM, h_eps, h_eps0
@@ -222,7 +222,7 @@ def sample_raw_counts_from_corrected_data(obs):
     #   it might be better
     # temporary solution, sample from poisson with mean rho * obs
     rho = 300.
-    raw_counts = torch.distributions.Poisson(obs * rho).sample((1,))[0]
+    raw_counts = torch.distributions.Poisson(torch.clamp(obs * rho, min=0.)).sample((1,))[0]
     assert raw_counts.shape == obs.shape
     return raw_counts
 
@@ -272,8 +272,10 @@ Generate full simulated dataset.
     # sample assignments
     if isinstance(dir_alpha, float):
         dir_alpha_tensor = torch.ones(config.n_nodes) * dir_alpha
-    else:
+    elif isinstance(dir_alpha, list):
         dir_alpha_tensor = torch.tensor(dir_alpha)
+    else:
+        raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_alpha)})")
     pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
@@ -680,7 +682,7 @@ def tree_to_newick_old(g: nx.DiGraph, root=None):
     return "(" + ','.join(subgs) + ")" + str(root)
 
 
-def generate_dataset_var_tree(config: Config) -> JointVarDist:
+def generate_dataset_var_tree(config: Config) -> VarTreeJointDist:
     nu_prior = 1.
     lambda_prior = 100.
     alpha_prior = 500.
@@ -713,7 +715,7 @@ def generate_dataset_var_tree(config: Config) -> JointVarDist:
         "tree": simul_data['tree']
     })
 
-    joint_q = JointVarDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
+    joint_q = VarTreeJointDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
     return joint_q
 
 
@@ -770,4 +772,4 @@ if __name__ == '__main__':
 
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
-    logging.info(f'simulated dateset saved successfully in {args.out_path}')
+    logging.info(f'simulated dateset saved in {args.out_path}')
