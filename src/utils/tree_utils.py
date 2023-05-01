@@ -1,12 +1,16 @@
+import dendropy
 import networkx as nx
+import numpy as np
 import torch
 from typing import List, Tuple
 
+from Espalier import MAF
+from pylabeledrf.computeLRF import *
 from networkx import is_arborescence
 
 
-def generate_fixed_tree(n_nodes: int):
-    return nx.random_tree(n=n_nodes, seed=0, create_using=nx.DiGraph)
+def generate_fixed_tree(n_nodes: int, seed=0):
+    return nx.random_tree(n=n_nodes, seed=seed, create_using=nx.DiGraph)
 
 
 def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int = None) -> Tuple[List, torch.Tensor]:
@@ -75,15 +79,6 @@ def one_slice_marginals_markov_chain(initial_state: torch.Tensor, transition_pro
     return forward_messages_markov_chain(initial_state, transition_probabilities)
 
 
-if __name__ == '__main__':
-    N_states = 2
-    init_state = torch.ones(N_states) * 1.0 / N_states
-    N_stages = 5
-    transitions = torch.ones((N_stages, N_states, N_states)) * 1.0 / N_states
-    pairwise_joint = two_slice_marginals_markov_chain(init_state, transitions)
-    print(pairwise_joint)
-
-
 def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
     # make sure the graph is a tree
     assert is_arborescence(g)
@@ -148,3 +143,78 @@ def top_k_trees_from_sample(t_list, w_list, k, by_weight=True, nx_graph=False):
                      t_dat['weight'] if by_weight else t_dat['count'])
                     for t_str, t_dat in sorted(unique_trees.items(), key=lambda x: x[1]['weight'], reverse=True)]
     return sorted_trees[:k]
+
+
+def networkx_tree_to_dendropy(T: nx.DiGraph, root) -> dendropy.Tree:
+    return dendropy.Tree.get(data=tree_to_newick(T, root) + ";", schema="newick")
+
+
+def calculate_SPR_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    raise NotImplementedError("SPR distance not well defined for labeled trees.")
+    T_1 = networkx_tree_to_dendropy(T_1, 0)
+    T_2 = networkx_tree_to_dendropy(T_2, 0)
+    return MAF.get_spr_dist(T_1, T_2)
+
+
+def calculate_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    raise NotImplementedError("RF distance not well defined for labeled trees (only leaf labeled trees).")
+    T_1 = networkx_tree_to_dendropy(T_1, 0)
+    T_2 = networkx_tree_to_dendropy(T_2, 0)
+    return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
+
+
+def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
+    "Package from: https://github.com/DessimozLab/pylabeledrf"
+    T_1 = networkx_tree_to_dendropy(T_1, 0)
+    t1 = parseEnsemblLabels(T_1)
+    T_2 = networkx_tree_to_dendropy(T_2, 0)
+    t2 = parseEnsemblLabels(T_2)
+    computeLRF(t1, t2)
+    return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
+
+
+def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0)):
+    distance = nx.graph_edit_distance(T_1, T_2, roots=roots)
+    return distance
+
+
+def relabel_nodes(T, labeling):
+    mapping = {}
+    orig = list(range(0, 1 + np.max(labeling)))
+    for (old, new) in zip(orig, labeling):
+        mapping[old] = new
+    return nx.relabel_nodes(T, mapping, copy=True)
+
+
+def relabel_trees(T_list: list[nx.DiGraph], labeling):
+    return [relabel_nodes(T, labeling) for T in T_list]
+
+
+def distances_to_true_tree(true_tree, trees_to_compare: list[nx.DiGraph], labeling=None):
+    L = len(trees_to_compare)
+    distances = np.zeros(L,)
+    for l, T in enumerate(trees_to_compare):
+        if labeling is not None:
+            T = relabel_nodes(T, labeling)
+        distances[l] = calculate_graph_distance(true_tree, T)
+    return distances
+
+
+def to_prufer_sequences(T_list: list[nx.DiGraph]):
+    return [nx.to_prufer_sequence(T) for T in T_list]
+
+
+def unique_trees(prufer_list: list[list[int]]):
+    unique_seq = []
+    unique_seq_idx = []
+    for (i, seq) in enumerate(prufer_list):
+        if seq in unique_seq:
+            continue
+        else:
+            unique_seq.append(seq)
+            unique_seq_idx.append(i)
+    return unique_seq, unique_seq_idx
+
+
+def to_undirected(T_list: list[nx.DiGraph]):
+    return [nx.to_undirected(T) for T in T_list]

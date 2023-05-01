@@ -71,7 +71,11 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     max_prob_qZ = torch.argmax(q_z.pi, dim=1)
     for perm in perms_non_root:
         perms.append([0] + list(perm))
-    print(f"Start q(Z) evaluation w.r.t. label switching on {len(perms)} permutations")
+    n_perms = len(perms)
+    print(f"Start q(Z) evaluation w.r.t. label switching on {n_perms} permutations")
+    if n_perms > 10**7:
+        raise RuntimeWarning("Large number of permutation might take very long execution time.")
+        # TODO: Implement DP-like algorithm for finding best permutation
     accuracy_best = 0
     for perm in perms:
         max_prob_qZ_perm = torch.tensor([perm[i] for i in max_prob_qZ])
@@ -85,7 +89,7 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     print(f"Accuracy q(Z) and true Z: {accuracy_best}")
     print(f"Adjusted labeling: {best_perm}")
     print(f"----------------------------------------------")
-    return ari, best_perm
+    return ari, best_perm, accuracy_best
 
 
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
@@ -162,7 +166,7 @@ def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti):
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
                         q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None):
     torch.set_printoptions(precision=2)
-    ari, perm = compare_qZ_and_true_Z(true_Z, q_z)
+    ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z)
     compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
     cell_idxs = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
     compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
@@ -179,7 +183,7 @@ def compare_phi_and_true_phi(phi, q_psi, perm):
 def fixed_T_urn_model_comparisons(x, R, gc, phi, true_C, true_Z, true_pi, true_epsilon,
                         q_c: qC, q_z: qZ, qpi: qPi, q_psi: qPsi, q_eps: qEpsilonMulti = None):
     torch.set_printoptions(precision=2)
-    ari, perm = compare_qZ_and_true_Z(true_Z, q_z)
+    ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z)
     compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
     compare_phi_and_true_phi(phi, q_psi, perm)
     if q_eps is not None:

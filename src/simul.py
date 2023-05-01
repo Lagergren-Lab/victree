@@ -228,7 +228,7 @@ def sample_raw_counts_from_corrected_data(obs):
 
 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None):
+                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True):
     """
 Generate full simulated dataset.
     Args:
@@ -286,7 +286,7 @@ Generate full simulated dataset.
     obs = obs.T
     assert obs.shape == (config.chain_length, config.n_cells)
 
-    raw_counts = sample_raw_counts_from_corrected_data(obs)
+    raw_counts = sample_raw_counts_from_corrected_data(obs) if raw_reads is True else None
     out_simul = {
         'obs': obs,
         'raw': raw_counts,
