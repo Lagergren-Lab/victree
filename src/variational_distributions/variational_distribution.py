@@ -18,7 +18,8 @@ class VariationalDistribution:
         self.params_history: dict = {}
 
     def initialize(self, **kwargs):
-        self.track_progress(reset=True)
+        if self.config.diagnostics:
+            self.track_progress(reset=True)
         return self
 
     def update(self):
