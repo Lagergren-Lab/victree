@@ -36,6 +36,17 @@ def dict_to_tensor(a: dict):
     return a_tensor
 
 
+def edge_dict_to_matrix(a: dict, k: int):
+    """
+    zero pads the edges which are not in the dict keys
+    k: size of matrix (num_nodes)
+    """
+    np_mat = np.zeros((k, k))
+    for uv, e in a.items():
+        np_mat[uv] = e
+    return np_mat
+
+
 def write_output_h5(out_copytree, out_path):
     f = h5py.File(out_path, 'w')
     x_ds = f.create_dataset('X', data=out_copytree.obs.T)
@@ -43,15 +54,17 @@ def write_output_h5(out_copytree, out_path):
 
     graph_data = out_copytree.q.t.weighted_graph.edges.data('weight')
     graph_adj_matrix = nx.to_numpy_array(out_copytree.q.t.weighted_graph)
-    alpha_tensor = dict_to_tensor(out_copytree.q.eps.alpha_dict)
-    beta_tensor = dict_to_tensor(out_copytree.q.eps.beta_dict)
+    k = graph_adj_matrix.shape[0]
+    alpha_tensor = edge_dict_to_matrix(out_copytree.q.eps.alpha_dict, k)
+    beta_tensor = edge_dict_to_matrix(out_copytree.q.eps.beta_dict, k)
 
     graph_weights = out_grp.create_dataset('graph', data=graph_adj_matrix)
     cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi)
     eps_alpha = out_grp.create_dataset('eps_alpha', data=alpha_tensor)
     eps_beta = out_grp.create_dataset('eps_beta', data=beta_tensor)
 
-    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda, out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
+    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda,
+                          out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
 
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
 

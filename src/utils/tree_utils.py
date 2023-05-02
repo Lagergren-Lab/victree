@@ -28,6 +28,12 @@ def get_unique_edges(T_list: List[nx.DiGraph], N_nodes: int = None) -> Tuple[Lis
     return unique_edges_list, unique_edges_count
 
 
+def newick_from_eps_arr(eps_arr: np.ndarray):
+    t = nx.DiGraph()
+    for u, v in zip(*np.where(eps_arr > 0)):
+        t.add_edge(u, v)
+    return tree_to_newick(t)
+
 def forward_messages_markov_chain(initial_probs: torch.Tensor, transition_probabilities: torch.Tensor):
     chain_length = transition_probabilities.shape[0] + 1
     n_states = initial_probs.shape[0]

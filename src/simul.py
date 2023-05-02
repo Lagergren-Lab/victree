@@ -560,16 +560,19 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
     layers_grp.create_dataset('state', data=cn_state)
     layers_grp.create_dataset('copy', data=data['obs'].T)
 
+    k = data['c'].shape[0]
     if gt_mode == 'h5':
         gt_group = f.create_group('gt')
-        gt_group.create_dataset('z', data=data['z'])
-        gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
-        mutau_tensor = torch.stack((data['mu'], data['tau']), dim=-1)
-        gt_group.create_dataset('mutau', data=mutau_tensor)
-        g_eps = nx.DiGraph()
-        g_eps.add_weighted_edges_from([(u, v, e) for (u, v), e in data['eps'].items()])
-        eps_tensor = nx.to_numpy_array(g_eps)
-        gt_group.create_dataset('eps', data=eps_tensor)
+        gt_group.create_dataset('copy', data=data['c'].numpy())
+        gt_group.create_dataset('cell_assignment', data=data['z'].numpy())
+        gt_group.create_dataset('pi', data=data['pi'].numpy())
+        eps_npy = np.zeros((k, k))
+        for uv, e in data['eps'].items():
+            eps_npy[uv] = e
+        gt_group.create_dataset('eps', data=eps_npy)
+        # gt_group.create_dataset('tree', data=torch.tensor(list(data['tree'].edges.data('weight'))))
+        gt_group.create_dataset('mu', data=data['mu'].numpy())
+        gt_group.create_dataset('tau', data=data['tau'].numpy())
     elif gt_mode == 'numpy':
         # write gt as numpy arrays which can be easily read into R
         # with reticulate
@@ -583,7 +586,6 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
         # pi
         np.save(os.path.join(gt_path, 'pi.npy'), data['pi'].numpy())
         # eps
-        k = data['c'].shape[0]
         eps_npy = np.zeros((k, k))
         for uv, e in data['eps'].items():
             eps_npy[uv] = e
@@ -771,5 +773,5 @@ if __name__ == '__main__':
         eps_a=args.eps_beta_params[0], eps_b=args.eps_beta_params[1])
 
     filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
-    write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='numpy')
+    write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')

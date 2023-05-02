@@ -11,7 +11,7 @@ import itertools
 import numpy as np
 from typing import List, Tuple, Union, Optional
 
-from utils.data_handling import dict_to_tensor
+from utils.data_handling import dict_to_tensor, edge_dict_to_matrix
 from utils.evaluation import pm_uni
 
 from sklearn.cluster import KMeans
@@ -1159,14 +1159,14 @@ class qEpsilonMulti(VariationalDistribution):
         """
         Numpy array version of the alpha parameter. To be used as a checkpoint.
         """
-        return dict_to_tensor(self._alpha_dict).data.numpy()
+        return edge_dict_to_matrix(self._alpha_dict, self.config.n_nodes)
 
     @property
     def beta(self):
         """
         Numpy array version of the beta parameter. To be used as a checkpoint.
         """
-        return dict_to_tensor(self._beta_dict).data.numpy()
+        return edge_dict_to_matrix(self._beta_dict, self.config.n_nodes)
 
     def update_params(self, alpha: dict, beta: dict):
         rho = self.config.step_size

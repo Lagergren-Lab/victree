@@ -8,6 +8,8 @@ library(tibble)
 library(reshape2)
 library(dplyr)
 library(tidyr) # gather()
+library(rhdf5)
+
 suppressPackageStartupMessages(library("argparse"))
 
 read_diagnostics <- function(dir_path, convert = TRUE) {
@@ -31,6 +33,64 @@ read_diagnostics <- function(dir_path, convert = TRUE) {
   return(out)
 }
 
+read_h5_checkpoint <- function(h5_file_path) {
+  h5 <- H5Fopen(h5_file_path, "H5F_ACC_RDONLY")
+  group_names <- h5ls(h5, recursive = FALSE)$name
+  
+  # initialize an empty list
+  h5_list <- vector("list", length(group_names))
+  
+  # iterate through group names
+  for (i in seq_along(group_names)) {
+    group_name <- group_names[[i]]
+    
+    # open the current group
+    group <- H5Gopen(h5, group_name)
+    # get a list of dataset names in the current group
+    dataset_names <- h5ls(group, recursive = FALSE)$name
+    # initialize an empty list for the datasets
+    dataset_list <- vector("list", length(dataset_names))
+    # iterate through dataset names
+    for (j in seq_along(dataset_names)) {
+      dataset_name <- dataset_names[[j]]
+      
+      # read the current dataset
+      dataset <- h5read(group, dataset_name)
+      # transpose the array because h5read reads the data
+      # in inverse order for efficiency reasons
+      dataset_list[[j]] <- aperm(dataset, length(dim(dataset)):1)
+    }
+    
+    # assign the dataset list to the h5 list with the current group name as a key
+    h5_list[[i]] <- setNames(dataset_list, dataset_names)
+    
+    H5Gclose(group)
+  }
+  H5Fclose(h5)
+  return(setNames(h5_list, group_names))
+}
+
+read_h5_gt <- function(h5_file_path) {
+  h5 <- H5Fopen(h5_file_path, "H5F_ACC_RDONLY")
+  gt_group <- H5Gopen(h5, "gt")
+  # select the ground truth group of simulated data
+  dataset_names<- h5ls(gt_group, recursive = FALSE)$name
+  
+  # Initialize an empty list
+  h5_list <- vector("list", length(dataset_names))
+  
+  # Iterate through group names
+  for (i in seq_along(dataset_names)) {
+    dataset_name <- dataset_names[[i]]
+    
+    dataset <- h5read(gt_group, dataset_name)
+    h5_list[[i]] <- aperm(dataset, length(dim(dataset)):1)
+  }
+  H5Gclose(gt_group)
+  H5Fclose(h5)
+  return(setNames(h5_list, dataset_names))
+}
+
 read_gt <- function(dir_path, convert = TRUE) {
   np <- import("numpy", convert = convert)
   # read all diagnostics files
@@ -46,7 +106,7 @@ read_gt <- function(dir_path, convert = TRUE) {
 }
 
 plot_elbo <- function(diag_list) {
-  elbo_df <- tibble(it = 1:length(diag_list$elbo), elbo = diag_list$elbo)
+  elbo_df <- tibble(it = 1:length(diag_list$VarTreeJointDist$elbo), elbo = diag_list$VarTreeJointDist$elbo)
   p <- ggplot(elbo_df) +
     geom_line(aes(it, elbo)) +
     labs(title = "ELBO") +
@@ -56,9 +116,9 @@ plot_elbo <- function(diag_list) {
 
 plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5, remap_clones = FALSE) {
 
-  K = dim(diag_list$cell_assignment)[3]
+  K = dim(diag_list$qZ$pi)[3]
 
-  ca_long_df <- melt(diag_list$cell_assignment,
+  ca_long_df <- melt(diag_list$qZ$pi,
     value.name = "prob",
     varnames = c("iter", "cell", "clone")
   ) %>%
@@ -95,9 +155,9 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
 
 plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE) {
   li <- list()
-  n_iter <- dim(diag_list$copy_num)[1]
-  K <- dim(diag_list$copy_num)[2]
-  A <- dim(diag_list$copy_num)[4]
+  n_iter <- dim(diag_list$qC$single_filtering_probs)[1]
+  K <- dim(diag_list$qC$single_filtering_probs)[2]
+  A <- dim(diag_list$qC$single_filtering_probs)[4]
 
   clones <- 1:K
   if (remap_clones & !is.null(gt_list)) {
@@ -113,7 +173,7 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE)
 
   for (k in clones) {
     steps <- seq(1, n_iter, length.out = nrow)
-    copy_k <- apply(diag_list$copy_num[, k, , ], c(1, 2), which.max) %>%
+    copy_k <- apply(diag_list$qC$single_filtering_probs[, k, , ], c(1, 2), which.max) %>%
       melt(value.name = "cn", varnames = c("iter", "site")) %>%
       filter(iter %in% steps) %>%
       mutate(cn = cn - 1)
@@ -128,10 +188,10 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE)
 
   # ground truth page
   if (!is.null(gt_list)) {
-    copy_var <- apply(diag_list$copy_num[n_iter, clones, , ], c(1, 2), which.max) %>%
+    copy_var <- apply(diag_list$qC$single_filtering_probs[n_iter, clones, , ], c(1, 2), which.max) %>%
       melt(value.name = "vi", varnames = c("clone", "site")) %>%
       mutate(clone = clone - 1, vi = vi - 1)
-    copy_gt <- gt_list$copy_num %>%
+    copy_gt <- gt_list$copy %>%
       melt(value.name = "gt", varnames = c("clone", "site")) %>%
       mutate(clone = clone - 1)
     p <- left_join(copy_gt, copy_var) %>%
@@ -150,13 +210,13 @@ plot_copy <- function(diag_list, gt_list = NULL, nrow = 5, remap_clones = FALSE)
 
 plot_eps <- function(diag_list, gt_list = NULL, remap_clones = FALSE, nrow = 5) {
 
-  n_iter <- dim(diag_list$copy_num)[1]
-  K <- dim(diag_list$copy_num)[2]
+  n_iter <- dim(diag_list$qC$single_filtering_probs)[1]
+  K <- dim(diag_list$qC$single_filtering_probs)[2]
 
-  eps_df_a <- diag_list$eps_a %>%
+  eps_df_a <- diag_list$qEpsilonMulti$alpha %>%
     melt(value.name = "a", varnames = c("it", "u", "v")) %>%
       filter(v != 1, u != v)
-  eps_df <- diag_list$eps_b %>%
+  eps_df <- diag_list$qEpsilonMulti$beta %>%
     melt(value.name = "b", varnames = c("it", "u", "v")) %>%
     filter(v != 1, u != v) %>%
     left_join(eps_df_a, by = join_by(it, u, v)) %>%
@@ -242,12 +302,12 @@ plot_eps <- function(diag_list, gt_list = NULL, remap_clones = FALSE, nrow = 5) 
 }
 
 plot_mutau <- function(diag_list, gt_list = NULL) {
-  N <- dim(diag_list$nu)[2]
+  N <- dim(diag_list$qMuTau$nu)[2]
 
-  nu_df <- melt(diag_list$nu, value.name = "nu", varnames = c("it", "cell"))
-  lambda_df <- melt(diag_list$lambda, value.name = "lambda", varnames = c("it", "cell"))
-  alpha_df <- melt(diag_list$alpha, value.name = "alpha", varnames = c("it", "cell"))
-  beta_df <- melt(diag_list$beta, value.name = "beta", varnames = c("it", "cell"))
+  nu_df <- melt(diag_list$qMuTau$nu, value.name = "nu", varnames = c("it", "cell"))
+  lambda_df <- melt(diag_list$qMuTau$lmbda, value.name = "lambda", varnames = c("it", "cell"))
+  alpha_df <- melt(diag_list$qMuTau$alpha, value.name = "alpha", varnames = c("it", "cell"))
+  beta_df <- melt(diag_list$qMuTau$beta, value.name = "beta", varnames = c("it", "cell"))
 
   mutau_df <- nu_df %>%
     left_join(lambda_df, by = join_by(it, cell)) %>%
@@ -300,11 +360,11 @@ plot_mutau <- function(diag_list, gt_list = NULL) {
 # GROUND TRUTH ONLY
 
 get_confusion_mat <- function(diag_list, gt_list) {
-  K <- dim(diag_list$cell_assignment)[3]
-  N <- dim(diag_list$cell_assignment)[2]
-  n_iter <- dim(diag_list$cell_assignment)[1]
+  K <- dim(diag_list$qZ$pi)[3]
+  N <- dim(diag_list$qZ$pi)[2]
+  n_iter <- dim(diag_list$qZ$pi)[1]
 
-  prop_df <- diag_list$cell_assignment[n_iter,,] %>%
+  prop_df <- diag_list$qZ$pi[n_iter,,] %>%
     melt(value.name = "prob", varnames = c("cell", "vi")) %>%
     mutate(vi = vi - 1) %>% # switch to 0-based clone names
     left_join(tibble(gt = gt_list$cell_assignment, cell = 1:N), by = join_by(cell)) %>%
@@ -335,14 +395,14 @@ get_clone_map <- function(diag_list, gt_list, as_named_vector = FALSE) {
 
 plot_ari_heatmap <- function(diag_list, gt_list) {
   require(aricode)
-  n_iter <- dim(diag_list$cell_assignment)[1]
-  N <- dim(diag_list$cell_assignment)[2]
-  K <- dim(diag_list$cell_assignment)[3]
+  n_iter <- dim(diag_list$qZ$pi)[1]
+  N <- dim(diag_list$qZ$pi)[2]
+  K <- dim(diag_list$qZ$pi)[3]
 
   ari <- c()
   for (it in 1:n_iter) {
-    c2 <- apply(diag_list$cell_assignment[it,,], 1, which.max) - 1L
-    ari <- append(ari, ARI(gt_list$cell_assignment, c2))
+    c2 <- apply(diag_list$qZ$pi[it,,], 1, which.max) - 1L
+    ari <- append(ari, ARI(as.numeric(gt_list$cell_assignment), c2))
   }
 
   ari_df <- tibble(ari = ari, it = 1:n_iter)
@@ -378,9 +438,9 @@ plot_ari_heatmap <- function(diag_list, gt_list) {
 }
 
 plot_cell_prop <- function(diag_list) {
-  n_iter <- dim(diag_list$copy_num)[1]
-  K <- dim(diag_list$cell_assignment)[3]
-  p <- apply(diag_list$cell_assignment[n_iter,,], 1, which.max) %>%
+  n_iter <- dim(diag_list$qC$single_filtering_probs)[1]
+  K <- dim(diag_list$qZ$pi)[3]
+  p <- apply(diag_list$qZ$pi[n_iter,,], 1, which.max) %>%
     as_tibble_col(column_name = "clone") %>%
     mutate(clone = clone - 1) %>%
     mutate(clone = factor(clone, levels = 0:(K - 1))) %>%
@@ -390,11 +450,11 @@ plot_cell_prop <- function(diag_list) {
 }
 
 plot_trees <- function(diag_list, nsamples = 10, gt_list = NULL, remap_clones = FALSE) {
-  n_iter <- dim(diag_list$trees)[1]
-  K <- dim(diag_list$cell_assignment)[3]
-  nsamples <- min(nsamples, length(unique(diag_list$trees)))
-  trees_df <- tibble(newick = diag_list$trees[n_iter, ],
-                     weight = diag_list$tree_weights[n_iter, ])
+  n_iter <- dim(diag_list$qT$trees_sample_newick)[1]
+  K <- dim(diag_list$qZ$pi)[3]
+  nsamples <- min(nsamples, length(unique(diag_list$qT$trees_sample_newick)))
+  trees_df <- tibble(newick = diag_list$qT$trees_sample_newick[n_iter, ],
+                     weight = diag_list$qT$trees_sample_weights[n_iter, ])
 
   str_clone_map <- as.character(1:K)
   names(str_clone_map) <- str_clone_map # identity
@@ -419,7 +479,7 @@ plot_trees <- function(diag_list, nsamples = 10, gt_list = NULL, remap_clones = 
 
 plot_tree_matrix <- function(diag_list) {
 
-  long_mat <- diag_list$tree_mat %>%
+  long_mat <- diag_list$qT$weight_matrix %>%
     melt(value.name = "weight", varnames = c("iter", "u", "v"))
   
   p <- long_mat %>%
@@ -446,22 +506,24 @@ args <- parser$parse_args()
 
 # set up variables
 
-if (dir.exists(args$diag_dir)) {
-  diag_dir <- args$diag_dir
-  # diag_dir <- file.path(copytree_path, "output", "diagnostics")
-} else {
-  stop(paste0("Specified dir (", args$diag_dir, ") does not exist"))
-}
+# if (dir.exists(args$diag_dir)) {
+#   diag_dir <- args$diag_dir
+#   # diag_dir <- file.path(copytree_path, "output", "diagnostics")
+# } else {
+#   stop(paste0("Specified dir (", args$diag_dir, ") does not exist"))
+# }
 
-diag_list <- read_diagnostics(diag_dir)
+diag_list <- read_h5_checkpoint(args$diag_dir)
+# diag_list <- read_diagnostics(diag_dir)
 
 remap_clones <- FALSE
 gt_list <- NULL
-if (!is.null(args$gt_dir) && dir.exists(args$gt_dir)) {
+if (!is.null(args$gt_dir) && file.exists(args$gt_dir)) {
   # gt_dir <- file.path(copytree_path, "datasets", "gt_simul_K4_A5_N100_M500")
-  gt_list <- read_gt(args$gt_dir)
-  gtK <- dim(gt_list$copy_num)[1]
-  diagK <- dim(diag_list$copy_num)[2]
+  # gt_list <- read_gt(args$gt_dir)
+  gt_list <- read_h5_gt(args$gt_dir)
+  gtK <- dim(gt_list$copy)[1]
+  diagK <- dim(diag_list$qC$single_filtering_probs)[2]
   if (gtK == diagK) {
     remap_clones <- args$remap_clones
   } else if (args$remap_clones) {
@@ -470,10 +532,14 @@ if (!is.null(args$gt_dir) && dir.exists(args$gt_dir)) {
   }
 }
 
-pdf_path <- file.path(diag_dir, "results.pdf")
+pdf_dir <- file.path(dirname(args$diag_dir), "results")
 if (!is.null(args$out_dir)) {
-  pdf_path <- file.path(args$out_dir, "./results.pdf")
+  pdf_dir <- args$out_dir
 }
+if (!dir.exists(pdf_dir)) {
+  dir.create(pdf_dir)
+}
+pdf_path <- file.path(pdf_dir, "./plots.pdf")
 
 pdf(pdf_path, onefile = TRUE, paper = "a4")
 
