@@ -4,6 +4,7 @@ import numpy as np
 import scipy.special as sp_spec
 import scipy.stats as sp_stats
 
+
 def log_beta_function(x: torch.Tensor) -> torch.float:
     x_0 = torch.sum(x)
     return torch.sum(torch.lgamma(x)) - torch.lgamma(x_0)
@@ -49,5 +50,5 @@ https://math.berkeley.edu/~mhaiman/math172-spring10/matrixtree.pdf )
 
 
 def log_factorial(x: torch.Tensor):
-    log_x_factorial = torch.lgamma(x+1)
+    log_x_factorial = torch.lgamma(x + 1)
     return torch.tensor(log_x_factorial)
