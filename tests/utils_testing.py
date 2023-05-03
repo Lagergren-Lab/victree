@@ -256,3 +256,17 @@ def create_test_output_catalog(config=None, test_specific_string=None, base_dir=
     except FileExistsError:
         print("Dir already exists. Overwriting contents.")
     return path
+
+
+def get_two_sliced_marginals_from_one_slice_marginals(marginals, A):
+    K, M = marginals.shape
+    two_sliced_marginals = torch.zeros((K, M-1, A, A))
+    marginals_one_hot = torch.nn.functional.one_hot(marginals, A)
+
+    for u in range(K):
+        for m in range(0, M-1):
+            a_1 = marginals[u, m]
+            a_2 = marginals[u, m+1]
+            two_sliced_marginals[u, m, a_1, a_2] = 1.
+
+    return two_sliced_marginals
