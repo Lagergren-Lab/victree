@@ -760,7 +760,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
     # mkdir if it does not exist
-    if os.path.exists(args.out_path):
+    if not os.path.exists(args.out_path):
         os.mkdir(args.out_path)
         logging.info(f"{args.out_path} did not exist. Path created!")
 
