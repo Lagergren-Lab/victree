@@ -413,7 +413,7 @@ class updatesRGModelTestCase(unittest.TestCase):
                 # print(f"Iter {i} qZ: {qz.exp_assignment()}")
                 # print(f"iter {i} qmt mean for each cell: {qmt.nu}")
                 # print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
-                partial_elbo = qc.elbo([fix_tree], [1.], fix_qeps) + qz.elbo(fix_qpi)
+                partial_elbo = qc.compute_elbo([fix_tree], [1.], fix_qeps) + qz.compute_elbo(fix_qpi)
                 utils.visualization_utils.visualize_copy_number_profiles(
                     torch.argmax(qc.single_filtering_probs, dim=-1),
                     save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
@@ -483,7 +483,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         joint_q = VarTreeJointDist(cfg, qc=qc, qz=qz, qmt=qmt, qeps=qeps, qpi=qpi, qt=qt, obs=obs)
 
         # update and check copy numbers
-        print(f"[init] elbo: {joint_q.elbo(*joint_q.t.get_trees_sample(sample_size=10))}")
+        print(f"[init] elbo: {joint_q.compute_elbo(*joint_q.t.get_trees_sample(sample_size=10))}")
         utils.visualization_utils.visualize_copy_number_profiles(true_cn_profile)
         print(f"true z: {true_z}")
         print(f"[init] var z: {qz.exp_assignment()}")
@@ -495,7 +495,7 @@ class updatesRGModelTestCase(unittest.TestCase):
                 print(f"[{i}] var z: {qz.exp_assignment()}")
 
                 trees, weights = joint_q.t.get_trees_sample(sample_size=10)
-                print(f"[{i}] elbo: {joint_q.elbo(trees, weights)}")
+                print(f"[{i}] elbo: {joint_q.compute_elbo(trees, weights)}")
 
         # same but with z at current pos
 

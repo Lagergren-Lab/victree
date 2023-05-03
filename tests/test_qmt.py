@@ -107,7 +107,7 @@ class qmtTestCase(unittest.TestCase):
         self.qc.single_filtering_probs = torch.zeros((self.K, self.M, self.A)) + eps
         self.qc.single_filtering_probs[:, :, 1] = 1 - eps
         self.qmt.update(qc=self.qc, qz=self.qz, obs=obs)
-        elbo_qmt = self.qmt.elbo()
+        elbo_qmt = self.qmt.compute_elbo()
         print(f"ELBO(mu, tau): {elbo_qmt}")
 
     def test_log_emissions_cell_independent_tau(self):
@@ -151,7 +151,7 @@ class qmtTestCase(unittest.TestCase):
         print(f"[OBS] {joint_q.obs.mean():.2f} " + pm_uni + f" {joint_q.obs.std():.2f}")
         print(joint_q.mt)
         for i in range(2):
-            elbo_qmt = qmt.elbo()
+            elbo_qmt = qmt.compute_elbo()
             print(f"[{i}] old ELBO(mu, tau): {elbo_qmt:.2f}")
             print(f"[{i}]" + str(qmt))
             qmt.update(joint_q.c, joint_q.z, joint_q.obs)

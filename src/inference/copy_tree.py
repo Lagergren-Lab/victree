@@ -123,7 +123,7 @@ class CopyTree:
                 if self.config.diagnostics:
                     curr_model.update_diagnostics(j)
 
-            curr_elbo = curr_model.elbo()
+            curr_elbo = curr_model.compute_elbo()
             logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({self.config.n_sieving_iter})")
             if np.any(top_k_elbos < curr_elbo):
                 logging.info("new top model!")
@@ -152,7 +152,7 @@ class CopyTree:
             model = copy.deepcopy(self.q)
             model.initialize(**kwargs)
             models.append(model)
-            elbos[i] = model.elbo()
+            elbos[i] = model.compute_elbo()
 
         # reduce sieving iterations per step so that total sieving iterations
         # match the number specified in config
@@ -184,7 +184,7 @@ class CopyTree:
                     if self.config.diagnostics:
                         m.update_diagnostics(j)
 
-                curr_elbo = m.elbo()
+                curr_elbo = m.compute_elbo()
                 logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({start_iter + step_iters})")
                 if np.any(sel_elbos < curr_elbo):
                     logging.info("new top model!")
@@ -201,7 +201,7 @@ class CopyTree:
     def sieving_selection_ELBO(self):
         elbos = []
         for i in range(self.config.sieving_size):
-            elbos.append(self.sieve_models[i].elbo())
+            elbos.append(self.sieve_models[i].compute_elbo())
 
         logging.info(f"Sieved elbos: {elbos}")
         max_elbo_idx = torch.argmax(torch.tensor(elbos))
@@ -232,9 +232,9 @@ class CopyTree:
     def compute_elbo(self) -> float:
         if type(self.q) is VarTreeJointDist:
             T_eval, w_T_eval = self.q.t.get_trees_sample()
-            self.elbo = self.q.elbo(T_eval, w_T_eval)
+            self.elbo = self.q.compute_elbo(T_eval, w_T_eval)
         else:
-            self.elbo = self.q.elbo()
+            self.elbo = self.q.compute_elbo()
         return self.elbo
 
     def step(self):

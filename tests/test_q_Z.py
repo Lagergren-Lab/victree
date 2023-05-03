@@ -48,8 +48,8 @@ class qZTestCase(unittest.TestCase):
         q_Z_2.pi[:, 0] = 1
 
         # Act
-        res_1 = q_Z_1.elbo(q_pi)
-        res_2 = q_Z_2.elbo(q_pi)
+        res_1 = q_Z_1.compute_elbo(q_pi)
+        res_2 = q_Z_2.compute_elbo(q_pi)
 
         # Assert
         self.assertGreater(res_1, res_2, f"ELBO for uniform assignment over clusters smaller than all probability to one cluster")
@@ -69,8 +69,8 @@ class qZTestCase(unittest.TestCase):
         q_Z_2.pi = torch.zeros((self.N, self.K))
         q_Z_2.pi[:, skew_cluster_idx] = 1
 
-        res_1 = q_Z_1.elbo(pi_1)
-        res_2 = q_Z_2.elbo(pi_2)
+        res_1 = q_Z_1.compute_elbo(pi_1)
+        res_2 = q_Z_2.compute_elbo(pi_2)
         print(f"Uniform: {res_1} \n Skewed: {res_2}")
         self.assertLess(res_1, res_2, f"ELBO for uniform assignment over clusters greater than all probability to one cluster")
 
@@ -90,8 +90,8 @@ class qZTestCase(unittest.TestCase):
         q_Z_2.pi[:, skew_cluster_idx] = 0.11
         q_Z_2.pi = q_Z_2.pi / q_Z_2.pi.sum(dim=1, keepdim=True)
 
-        res_1 = q_Z_1.elbo(pi_1)
-        res_2 = q_Z_2.elbo(pi_2)
+        res_1 = q_Z_1.compute_elbo(pi_1)
+        res_2 = q_Z_2.compute_elbo(pi_2)
         print(f"Uniform: {res_1} \n Skewed: {res_2}")
         self.assertLess(res_1, res_2, f"ELBO for uniform assignment over clusters greater than all probability to one cluster")
 
@@ -101,13 +101,13 @@ class qZTestCase(unittest.TestCase):
         obs = sim_joint_q.obs
 
         qz = qZ(sim_joint_q.config).initialize(method='uniform')
-        unif_elbo = qz.elbo(sim_joint_q.pi)
+        unif_elbo = qz.compute_elbo(sim_joint_q.pi)
 
         qz.initialize(method='random')
-        rand_elbo = qz.elbo(sim_joint_q.pi)
+        rand_elbo = qz.compute_elbo(sim_joint_q.pi)
 
         qz.initialize(method='kmeans', obs=obs)
-        kmeans_elbo = qz.elbo(sim_joint_q.pi)
+        kmeans_elbo = qz.compute_elbo(sim_joint_q.pi)
 
         print(unif_elbo)
         print(rand_elbo)

@@ -54,7 +54,7 @@ class qCTestCase(unittest.TestCase):
             new_trees, new_weights = self.qt.get_trees_sample(sample_size=(L - L_prev))
             trees = trees + new_trees
             weights = weights + new_weights
-            res_1 = self.qc.elbo(trees, weights, self.qeps)
+            res_1 = self.qc.compute_elbo(trees, weights, self.qeps)
             print(f" {res_1}")
             L_prev = L
 

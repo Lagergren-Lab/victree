@@ -26,11 +26,11 @@ class InitTestCase(unittest.TestCase):
 
         # random init
         qc_rand = qC(config).initialize(method='random')
-        rand_elbo = qc_rand.elbo(trees_sample, trees_weights, fix_qeps)
+        rand_elbo = qc_rand.compute_elbo(trees_sample, trees_weights, fix_qeps)
 
         # Baum-Welch init
         qc_bw = qC(config).initialize(method='bw-cluster', obs=data['obs'], clusters=data['z'])
-        bw_elbo = qc_bw.elbo(trees_sample, trees_weights, fix_qeps)
+        bw_elbo = qc_bw.compute_elbo(trees_sample, trees_weights, fix_qeps)
 
         # print(bw_elbo, rand_elbo)
         self.assertGreater(bw_elbo, rand_elbo)
@@ -47,22 +47,22 @@ class InitTestCase(unittest.TestCase):
                                                    shape=5., rate=50.)
         qmt_data_init = qMuTau(config).initialize(method='data', obs=data['obs'])
 
-        print(f"fixed init ELBO: {qmt_fixed_init.elbo()}")
-        print(f"data init ELBO: {qmt_data_init.elbo()}")
+        print(f"fixed init ELBO: {qmt_fixed_init.compute_elbo()}")
+        print(f"data init ELBO: {qmt_data_init.compute_elbo()}")
 
     def test_true_params_init(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, debug=True)
         joint_q = generate_dataset_var_tree(config)
-        true_elbo = joint_q.mt.elbo()
+        true_elbo = joint_q.mt.compute_elbo()
         print(joint_q.mt)
         print(true_elbo)
 
         qmt = qMuTau(config).initialize(method='fixed')
-        fix_init_elbo = qmt.elbo()
+        fix_init_elbo = qmt.compute_elbo()
         print(qmt)
         print(fix_init_elbo)
         qmt = qMuTau(config).initialize(method='data', obs=joint_q.obs)
-        data_init_elbo = qmt.elbo()
+        data_init_elbo = qmt.compute_elbo()
         print(qmt)
         print(data_init_elbo)
 

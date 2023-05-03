@@ -1,15 +1,17 @@
 import logging
 import os
 
+import networkx as nx
 import torch
 import numpy as np
 import pickle
 import yaml
 
 from inference.copy_tree import CopyTree
+from utils.tree_utils import newick_from_eps_arr
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config
-from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5
+from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5, write_checkpoint_h5
 
 
 def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, config: Config):
@@ -68,7 +70,7 @@ def run(args):
     elif fext == '.h5':
         full_data = load_h5_anndata(args.file_path)
         if 'gt' in full_data.keys():
-            logging.debug(f"gt tree: {np.array(full_data['gt']['tree'])}")
+            logging.debug(f"gt tree: {newick_from_eps_arr(full_data['gt']['eps'][...])}")
 
         obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
         # FIXME: temporary solution for nans in data. 1D interpolation should work best
@@ -105,7 +107,8 @@ def run(args):
         os.mkdir(args.out_dir)
 
     if args.diagnostics:
-        write_diagnostics_to_numpy(copy_tree.q.diagnostics_dict, out_dir=args.out_dir, config=config)
+
+        ## first version
         # file_dir = './output/'
         # file_name = f'diagnostics_K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}' \
         #             f'_iter{args.n_iter}'
@@ -113,6 +116,11 @@ def run(args):
         # file_path = os.path.join(file_dir, file_name)
         # with open(file_path, 'wb') as pickle_file:
         #     pickle.dump(copy_tree.diagnostics_dict, pickle_file)
+
+        ## second version
+        # write_diagnostics_to_numpy(copy_tree.q.diagnostics_dict, out_dir=args.out_dir, config=config)
+        ## third version
+        write_checkpoint_h5(copy_tree, path=os.path.join(args.out_dir, "checkpoint_" + str(copy_tree) + ".h5"))
 
     out_file = os.path.join(args.out_dir, run_str + '.h5')
     write_output_h5(copy_tree, out_file)

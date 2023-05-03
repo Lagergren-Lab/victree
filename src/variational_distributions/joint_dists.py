@@ -2,7 +2,9 @@ from abc import abstractmethod
 from typing import Union, List
 
 import networkx as nx
+import numpy as np
 import torch
+from numpy import infty
 
 from utils import math_utils
 from utils.config import Config
@@ -16,6 +18,17 @@ class JointDist(VariationalDistribution):
     def __init__(self, config: Config, fixed: bool = False):
         super().__init__(config, fixed)
         self.diagnostics_dict = {} if config.diagnostics else None
+        self._elbo: float = -infty
+
+        self.params_history["elbo"] = []
+
+    @property
+    def elbo(self):
+        return self._elbo
+
+    @elbo.setter
+    def elbo(self, e):
+        self._elbo = e
 
     def initialize(self, **kwargs):
         for q in self.get_units():
@@ -23,10 +36,12 @@ class JointDist(VariationalDistribution):
         return super().initialize(**kwargs)
 
     def update(self):
+        # save elbo
+        self.elbo = self.compute_elbo()
         super().update()
 
-    def elbo(self) -> float:
-        return super().elbo()
+    def compute_elbo(self) -> float:
+        return super().compute_elbo()
 
     def init_diagnostics(self, n_iter: int):
         K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
@@ -71,15 +86,14 @@ class JointDist(VariationalDistribution):
         self.diagnostics_dict["beta"][iter] = self.mt.beta
 
         # elbo
-        self.diagnostics_dict["elbo"][iter] = self.elbo()
+        self.diagnostics_dict["elbo"][iter] = self.elbo
 
     @abstractmethod
     def get_units(self) -> List[VariationalDistribution]:
         return []
 
     def track_progress(self, reset=False):
-        # track all the variational dists in the joint model
-        pass
+        super().track_progress(reset)
 
 
 class VarTreeJointDist(JointDist):
@@ -109,19 +123,21 @@ class VarTreeJointDist(JointDist):
         self.z.update(self.mt, self.c, self.pi, self.obs)
         self.mt.update(self.c, self.z, self.obs)
 
+        super().update()
+
     def initialize(self, **kwargs):
         return super().initialize(**kwargs)
 
-    def elbo(self, t_list: list | None = None, w_list: list | None = None) -> float:
+    def compute_elbo(self, t_list: list | None = None, w_list: list | None = None) -> float:
         if t_list is None and w_list is None:
             t_list, w_list = self.t.get_trees_sample()
 
-        elbo_tensor = self.c.elbo(t_list, w_list, self.eps) + \
-                      self.z.elbo(self.pi) + \
-                      self.mt.elbo() + \
-                      self.pi.elbo() + \
-                      self.eps.elbo(t_list, w_list) + \
-                      self.t.elbo(t_list, w_list) + \
+        elbo_tensor = self.c.compute_elbo(t_list, w_list, self.eps) + \
+                      self.z.compute_elbo(self.pi) + \
+                      self.mt.compute_elbo() + \
+                      self.pi.compute_elbo() + \
+                      self.eps.compute_elbo(t_list, w_list) + \
+                      self.t.compute_elbo(t_list, w_list) + \
                       self.elbo_observations()
         return elbo_tensor.item()
 
@@ -199,7 +215,8 @@ class FixedTreeJointDist(JointDist):
         self.eps.update([self.T], self.w_T, self.c)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        return super().update()
+
+        super().update()
 
     def get_units(self) -> list:
         # TODO: if needed, specify an ordering
@@ -226,12 +243,12 @@ class FixedTreeJointDist(JointDist):
     def initialize(self, **kwargs):
         return super().initialize(**kwargs)
 
-    def elbo(self) -> float:
-        q_C_elbo = self.c.elbo([self.T], self.w_T, self.eps)
-        q_Z_elbo = self.z.elbo(self.pi)
-        q_MuTau_elbo = self.mt.elbo()
-        q_pi_elbo = self.pi.elbo()
-        q_eps_elbo = self.eps.elbo([self.T], self.w_T)
+    def compute_elbo(self) -> float:
+        q_C_elbo = self.c.compute_elbo([self.T], self.w_T, self.eps)
+        q_Z_elbo = self.z.compute_elbo(self.pi)
+        q_MuTau_elbo = self.mt.compute_elbo()
+        q_pi_elbo = self.pi.compute_elbo()
+        q_eps_elbo = self.eps.compute_elbo([self.T], self.w_T)
         elbo_obs = self.elbo_observations()
         elbo_tensor = elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
         return elbo_tensor.item()

@@ -42,6 +42,7 @@ def set_logger(debug: bool):
     logger.addHandler(f_handler)
     logger.addHandler(c_handler)
 
+
 def validate_path(f):
     if not os.path.exists(f):
         # Argparse uses the ArgumentTypeError to give a rejection message like:
