@@ -728,7 +728,7 @@ if __name__ == '__main__':
     )
     cli.add_argument('-o', '--out-path',
                      type=str,
-                     default='../datasets/', help="output directory e.g. ../datasets/")
+                     default='./datasets', help="output directory e.g. ./datasets")
     cli.add_argument('-K', '--n-nodes',
                      type=int,
                      default=5, help="number of nodes")
@@ -757,7 +757,12 @@ if __name__ == '__main__':
                      action="store_true",
                      help="additional inspection for debugging purposes")
     args = cli.parse_args()
+
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    # mkdir if it does not exist
+    if os.path.exists(args.out_path):
+        os.mkdir(args.out_path)
+        logging.info(f"{args.out_path} did not exist. Path created!")
 
     # simulate data and save it to file
     set_seed(args.seed)
