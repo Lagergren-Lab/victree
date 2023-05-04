@@ -9,7 +9,6 @@ Outputs K MAP trees, with cell assignments and copy number profiles for each clo
 import argparse
 import logging
 import math
-import sys
 import os
 import time
 
@@ -33,14 +32,14 @@ def main(args):
 def set_logger(debug: bool):
     level = logging.DEBUG if debug else logging.INFO
     f_handler = logging.FileHandler('out.log')
-    c_handler = logging.StreamHandler(sys.stdout)
+    # c_handler = logging.StreamHandler(sys.stdout)
 
     f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
-    c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    # c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
     logger = logging.root
     logger.setLevel(level)
     logger.addHandler(f_handler)
-    logger.addHandler(c_handler)
+    # logger.addHandler(c_handler)
 
 
 def validate_path(f):
