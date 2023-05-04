@@ -79,6 +79,27 @@ class VarTreeJointDist(JointDist):
 
         super().update()
 
+    def update_shuffle(self):
+        # T, C, eps, z, mt, pi
+        n_updates = 5
+        self.t.update(self.c, self.eps)
+        rnd_order = torch.randperm(n_updates)
+        trees, weights = self.t.get_trees_sample()
+        for i in range(n_updates):
+            if rnd_order[i] == 0:
+                self.mt.update(self.c, self.z, self.obs)
+            elif rnd_order[i] == 1:
+                self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
+            elif rnd_order[i] == 2:
+                self.eps.update(trees, weights, self.c)
+            elif rnd_order[i] == 3:
+                self.pi.update(self.z)
+            elif rnd_order[i] == 4:
+                self.z.update(self.mt, self.c, self.pi, self.obs)
+
+
+        return super().update()
+
     def initialize(self, **kwargs):
         return super().initialize(**kwargs)
 

@@ -124,7 +124,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
     log_W = torch.tensor(nx.to_numpy_array(skimmed_graph))
     # counts how many times arborescences cannot be found
     miss_counter = 0
-    log_isw = 0.
+    log_g = 0.
     candidate_arcs = get_ordered_arcs(skimmed_graph.edges)
 
     while s.number_of_edges() < graph.number_of_nodes() - 1:
@@ -156,11 +156,12 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 # no arc allows for both t_w and t_wo to exist
                 # must choose one of the feasible ones (for which t_w exists)
                 # obliged choice -> theta = 1
-                theta = torch.tensor(1.)
+                # theta = torch.tensor(1.)
                 # randomize selection based on weights
-                u, v = _sample_feasible_arc(feasible_arcs)
+                (u, v), theta = _sample_feasible_arc(feasible_arcs)
             elif num_candidates_left == 0:
                 # heuristic: reset s
+                logging.debug("Number of candidates in DIR-SLANTIS zero. Restarting algorithm.")
                 s = nx.DiGraph()
                 s.add_node(root)
                 #skimmed_graph = copy.deepcopy(graph)
@@ -183,11 +184,11 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 candidates_to_remove.append((v, u))
                 candidate_arcs = [a for a in candidate_arcs if a not in candidates_to_remove]
                 # prob of sampling the tree: prod of bernoulli trials
-                log_isw += torch.log(theta)
+                log_g += torch.log(theta)
                 # go to while and check if s is complete
                 break
 
-    return s, log_isw
+    return s, log_g
 
 
 def _sample_feasible_arc(weighted_arcs):
@@ -195,7 +196,7 @@ def _sample_feasible_arc(weighted_arcs):
     unnorm_probs = torch.stack([w for u, v, w in weighted_arcs])
     probs = unnorm_probs / unnorm_probs.sum()
     c = np.random.choice(np.arange(len(weighted_arcs)), p=probs.numpy())
-    return weighted_arcs[c][:2]
+    return weighted_arcs[c][:2], torch.tensor(probs[c])
 
 
 def get_ordered_arcs(edges, method='random'):

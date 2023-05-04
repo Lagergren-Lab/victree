@@ -73,3 +73,28 @@ class treeUtilTestCase(unittest.TestCase):
         self.assertGreaterEqual(distances[1], distances[0])
         self.assertGreaterEqual(distances[2], distances[0])
         self.assertEqual(distances[2], distances[3])
+
+    def test_unique_trees_and_multiplicity(self):
+        T_0 = nx.DiGraph()
+        T_1 = nx.DiGraph()
+        T_2 = nx.DiGraph()
+        T_3 = nx.DiGraph()
+        # T_0 and T_1: Two identical trees
+        T_0.add_edge(0, 1)
+        T_0.add_edge(0, 2)
+        T_1.add_edge(0, 1)
+        T_1.add_edge(0, 2)
+        # T_2: different topology should give unique tree
+        T_2.add_edge(0, 1)
+        T_2.add_edge(1, 2)
+        # T_3: Order in which edges are added shouldn't matter
+        T_3.add_edge(0, 2)
+        T_3.add_edge(0, 1)
+
+        T_list = [T_0, T_1, T_2, T_3]
+        T_list_undirected = tree_utils.to_undirected(T_list)
+        prufer_seqs = tree_utils.to_prufer_sequences(T_list_undirected)
+        unique_Ts, unique_Ts_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(prufer_seqs)
+        self.assertEqual(len(unique_Ts), 2)
+        self.assertEqual(unique_Ts_idx, [0, 2])
+        self.assertEqual(multiplicity, [3, 1])

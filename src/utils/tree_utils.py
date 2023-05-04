@@ -179,8 +179,11 @@ def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph)
     return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
 
 
-def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0)):
-    distance = nx.graph_edit_distance(T_1, T_2, roots=roots)
+def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0), labeled_distance=True):
+    if labeled_distance:
+        #edge_match = lambda (u1,v1), (u2,v2) : u1==u2 and v1
+        node_match = lambda u1, u2: u1 == u2
+    distance = nx.graph_edit_distance(T_1, T_2, roots=roots, node_match=node_match)
     return distance
 
 
@@ -222,5 +225,41 @@ def unique_trees(prufer_list: list[list[int]]):
     return unique_seq, unique_seq_idx
 
 
+def unique_trees_and_multiplicity(prufer_list: list[list[int]]):
+    unique_seq = []
+    unique_seq_idx = []
+    multiplicity = []
+    for (i, seq) in enumerate(prufer_list):
+        if seq in unique_seq:
+            idx = unique_seq.index(seq)
+            multiplicity[idx] += 1
+        else:
+            unique_seq.append(seq)
+            unique_seq_idx.append(i)
+            multiplicity.append(1)
+    return unique_seq, unique_seq_idx, multiplicity
+
+
 def to_undirected(T_list: list[nx.DiGraph]):
     return [nx.to_undirected(T) for T in T_list]
+
+
+def get_unique_trees_and_multiplicity(T_list: list[nx.DiGraph]):
+    T_list_undir = to_undirected(T_list)
+    prufer_seqs_list = to_prufer_sequences(T_list_undir)
+    unique_seq, unique_seq_idx, multiplicity = unique_trees_and_multiplicity(prufer_seqs_list)
+    return [T_list[i] for i in unique_seq_idx], unique_seq_idx, multiplicity
+
+
+def get_all_prufer_seq(K):
+    seq = list(range(0, K-2))
+    return itertools.permutations(seq)
+
+
+def get_all_topologies(K):
+    raise NotImplementedError
+    T_list = []
+    prufer_seq = get_all_prufer_seq(K)
+    for pruf in prufer_seq:
+        T_list.append(nx.from_prufer_sequence(pruf))
+    return T_list
