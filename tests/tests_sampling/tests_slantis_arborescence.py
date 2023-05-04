@@ -51,8 +51,8 @@ class slantisArborescenceTestCase(unittest.TestCase):
         log_W = torch.log(W)
         G = nx.DiGraph()
         G.add_edges_from([(u, v) for u, v in itertools.permutations(range(n_nodes), 2) if u != v and v != 0])
-        for u in range(0, n_nodes-1):
-            for v in range(u+1, n_nodes):
+        for u in range(0, n_nodes - 1):
+            for v in range(u + 1, n_nodes):
                 G.edges[u, v]['weight'] = log_W[u, v]
                 if u != 0:
                     G.edges[v, u]['weight'] = log_W[v, u]
@@ -68,6 +68,39 @@ class slantisArborescenceTestCase(unittest.TestCase):
         edges_freq = unique_edges_count / unique_edges_count.sum()
         print(f"Frequency edges: {edges_freq} \n W: {W}")
         print(f"Diff: {torch.abs(edges_freq - W)}")
+
+    def test_slantis_random_weight_matrix_K8(self):
+        config.set_seed(0)
+        n_nodes = 8
+        W = torch.rand(n_nodes, n_nodes)
+        W.fill_diagonal_(0.)
+        W[:, 0] = 0.
+        W = W / W.sum()
+        log_W = torch.log(W)
+        G = nx.DiGraph()
+        G.add_edges_from([(u, v) for u, v in itertools.permutations(range(n_nodes), 2) if u != v and v != 0])
+        for u in range(0, n_nodes - 1):
+            for v in range(u + 1, n_nodes):
+                G.edges[u, v]['weight'] = log_W[u, v]
+                if u != 0:
+                    G.edges[v, u]['weight'] = log_W[v, u]
+        T_list = []
+        log_T_list = []
+        L = 200
+        for l in range(L):
+            T, log_T = slantis_arborescence.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
+            T_list.append(T)
+            log_T_list.append(log_T)
+
+        unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list)
+        edges_freq = unique_edges_count / unique_edges_count.sum()
+        T_undirected = tree_utils.to_undirected(T_list)
+        prufer_seqs = tree_utils.to_prufer_sequences(T_undirected)
+        unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list=prufer_seqs)
+        print(f"N unique trees: {len(unique_seq)}")
+        torch.set_printoptions(precision=2)
+        print(f"Frequency edges: {edges_freq} \n W: {W}")
+        print(f"Diff: {torch.abs(edges_freq - W) / W }")
 
     def test_edmonds(self):
         graph = nx.DiGraph(directed=True)
@@ -116,12 +149,11 @@ class slantisArborescenceTestCase(unittest.TestCase):
                           for u, v in itertools.product(range(n_nodes), range(n_nodes)) if v != 0 and u != v]
         graph.add_weighted_edges_from(weighted_edges)
         l = 500
-        log_iws_tensor = torch.empty((l, ))
+        log_iws_tensor = torch.empty((l,))
         for i in range(l):
             s, log_iws_tensor[i] = sample_arborescence_from_weighted_graph(graph)
 
         print(torch.histogram(log_iws_tensor, bins=20))
-
 
     def test_tree_sampling(self):
         graph = nx.DiGraph(directed=True)
@@ -155,7 +187,6 @@ class slantisArborescenceTestCase(unittest.TestCase):
         print(f'(3,1): {e31_cnt / l}')
         print(f'(1,3): {e13_cnt / l}')
         print(f'(3,2): {e32_cnt / l}')
-
 
     def test_tree_to_newick(self):
         graph = nx.DiGraph(directed=True)

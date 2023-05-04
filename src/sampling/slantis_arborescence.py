@@ -121,6 +121,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
     # copy graph so to remove arcs which shouldn't be considered
     # while S gets constructed
     skimmed_graph = copy.deepcopy(graph)
+    log_W = torch.tensor(nx.to_numpy_array(skimmed_graph))
     # counts how many times arborescences cannot be found
     miss_counter = 0
     log_isw = 0.
@@ -167,7 +168,10 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
                     raise Exception('t_w and t_wo are empty but being called')
-                theta = torch.exp(t_w.size(weight='weight') -
+                w_Tw = torch.tensor([log_W[u, v] for (u, v) in t_w.edges()]).sum()
+                w_To = torch.tensor([log_W[u, v] for (u, v) in t_wo.edges()]).sum()
+                theta = torch.exp(w_Tw - torch.logaddexp(w_Tw, w_To))
+                theta2 = torch.exp(t_w.size(weight='weight') -
                                   torch.logaddexp(t_w.size(weight='weight'), t_wo.size(weight='weight')))
 
             if torch.rand(1) < theta:

@@ -753,8 +753,8 @@ class qT(VariationalDistribution):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
-        self.log_g_t = torch.zeros(config.wis_sample_size)
-        self.log_w_t = torch.zeros(config.wis_sample_size)
+        self.log_g_t = torch.empty((config.wis_sample_size, ), dtype=torch.float64)
+        self.log_w_t = torch.zeros((config.wis_sample_size, ))
         self.nx_trees_sample = []
         self._weighted_graph = nx.DiGraph()
         self._weighted_graph.add_edges_from([(u, v)
@@ -831,7 +831,7 @@ other elbos such as qC.
         super().update()
 
     def update_params(self, new_weights: torch.Tensor):
-        rho = self.config.step_size
+        rho = self.config.step_size  # TODO: step size not applicable here?
         prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
         stepped_weights = (1 - rho) * prev_weights + rho * new_weights
 
@@ -897,7 +897,8 @@ other elbos such as qC.
         self.get_trees_sample()
 
     def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None,
-                         torch_tensor: bool = False, log_scale: bool = False) -> (list, list | torch.Tensor):
+                         torch_tensor: bool = False, log_scale: bool = False,
+                         add_log_g = False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -921,6 +922,7 @@ Sample trees from q(T) with importance sampling.
         trees = []
         l = self.config.wis_sample_size if sample_size is None else sample_size
         log_weights = torch.empty(l)
+        log_gs = torch.empty(l)
         if self.fixed:
             trees = [self.true_params['tree']] * l
             log_weights[...] = torch.ones(l)
@@ -934,16 +936,16 @@ Sample trees from q(T) with importance sampling.
 
         elif alg == "dslantis":
             for i in range(l):
-                # t, w = sample_arborescence(log_W=log_W, root=0)
-                t, log_isw = sample_arborescence_from_weighted_graph(self.weighted_graph)
+                t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph)
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
-                log_weights[i] = log_q - log_isw
+                log_weights[i] = log_q - log_g
+                log_gs[i] = log_g
                 # get_trees_sample can be called with arbitrary sample_size
                 # e.g. in case of evaluation we might want more than config.wis_sample_size trees
                 # this avoids IndexOutOfRange error
                 if i < self.config.wis_sample_size:
-                    self.log_g_t[i] = log_isw
+                    self.log_g_t[i] = log_g.detach().clone()
                     self.log_w_t[i] = log_weights[i]
             # the weights are normalized
             # TODO: aggregate equal trees and adjust their weights accordingly
@@ -958,10 +960,15 @@ Sample trees from q(T) with importance sampling.
         out_weights = log_weights
         if not log_scale:
             out_weights = torch.exp(log_weights)
+            out_log_g = torch.exp(log_gs)
         if not torch_tensor:
             out_weights = out_weights.tolist()
+            out_log_g = log_gs.tolist()
 
-        return trees, out_weights
+        if add_log_g:
+            return trees, out_weights, out_log_g
+        else:
+            return trees, out_weights
 
     def enumerate_trees(self) -> (list, torch.Tensor):
         """
@@ -1000,7 +1007,6 @@ of the variational distribution over the topology.
         else:
             summary.append(f"-adj matrix\t{nx.to_numpy_array(self._weighted_graph)}")
             summary.append(f"-sampled trees:")
-            # eval_trees, eval_weights = self.get_trees_sample(sample_size=10)
             qdist = self.get_pmf_estimate()
             display_num = min(10, len(qdist.keys()))
             for t_nwk in sorted(qdist, key=qdist.get, reverse=True)[:display_num]:
