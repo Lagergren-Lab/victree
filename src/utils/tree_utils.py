@@ -249,3 +249,17 @@ def get_unique_trees_and_multiplicity(T_list: list[nx.DiGraph]):
     prufer_seqs_list = to_prufer_sequences(T_list_undir)
     unique_seq, unique_seq_idx, multiplicity = unique_trees_and_multiplicity(prufer_seqs_list)
     return [T_list[i] for i in unique_seq_idx], unique_seq_idx, multiplicity
+
+
+def get_all_prufer_seq(K):
+    seq = list(range(0, K-2))
+    return itertools.permutations(seq)
+
+
+def get_all_topologies(K):
+    raise NotImplementedError
+    T_list = []
+    prufer_seq = get_all_prufer_seq(K)
+    for pruf in prufer_seq:
+        T_list.append(nx.from_prufer_sequence(pruf))
+    return T_list

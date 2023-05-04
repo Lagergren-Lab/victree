@@ -116,11 +116,11 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
 
     def test_large_tree(self):
         torch.manual_seed(0)
-        L_train = 20
+        L_train = 40
         L_eval = 50
-        K = 7
+        K = 10
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 100
+        n_cells = 200
         n_sites = 200
         n_copy_states = 7
         dir_alpha0 = list(np.ones(K) * 2.)
@@ -128,11 +128,70 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
-        a0 = torch.tensor(50.0)
+        a0 = torch.tensor(5.0)
         b0 = torch.tensor(200.0)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
+                                                                        a0=a0, b0=b0, dir_alpha0=dir_alpha0)
+        print(f"Epsilon: {eps}")
+        config = Config(step_size=0.3, n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
+                        diagnostics=False, wis_sample_size=L_train)
+
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"))
+
+        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+        q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
+        q.initialize()
+        copy_tree = CopyTree(config, q, y)
+
+        # Act
+        copy_tree.run(100)
+
+        """
+        Assert - in case of root + K edges.
+        """
+        T_list, w_T_list, log_g_list = qt.get_trees_sample(sample_size=L_eval, add_log_g=True)
+        ari, best_perm, acc = model_variational_comparisons.compare_qZ_and_true_Z(z, copy_tree.q.z)
+        T_list_remapped = tree_utils.relabel_trees(T_list, best_perm)
+        T_undirected_list = tree_utils.to_undirected(T_list_remapped)
+        prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
+        unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(prufer_list)
+        print(f"N unique trees: {len(unique_seq_idx)}")
+        distances = tree_utils.distances_to_true_tree(tree, [T_list_remapped[l] for l in unique_seq_idx], best_perm)
+        sorted_dist = np.sort(distances)
+        sorted_dist_idx = np.argsort(distances)
+        T_list_unique = [T_list_remapped[i] for i in unique_seq_idx]
+        w_T_list_unique = [w_T_list[i] for i in unique_seq_idx]
+        w_T_list_unique_with_multiplicity = list(np.multiply(w_T_list_unique, multiplicity))
+        visualization_utils.visualize_and_save_T_plots(test_dir_name, tree, T_list_unique, w_T_list_unique_with_multiplicity, distances)
+        print(f"Distances to true tree: {distances}")
+        print(f"Weights: {w_T_list_unique_with_multiplicity}")
+        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
+                                                          q_eps=copy_tree.q.eps)
+
+    def test_large_tree_small_epsilon(self):
+        torch.manual_seed(0)
+        L_train = 40
+        L_eval = 50
+        K = 9
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        n_cells = 200
+        n_sites = 50
+        n_copy_states = 7
+        dir_alpha0 = list(np.ones(K) * 2.)
+        nu_0 = torch.tensor(10.)
+        lambda_0 = torch.tensor(10.)
+        alpha0 = torch.tensor(500.)
+        beta0 = torch.tensor(50.)
+        a0 = torch.tensor(5.0)
+        b0 = torch.tensor(200.0)
+        y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
+                                                                        nu_0=nu_0,
+                                                                        lambda_0=lambda_0, alpha0=alpha0,
+                                                                        beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
         print(f"Epsilon: {eps}")
         config = Config(step_size=0.3, n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
@@ -159,17 +218,20 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(prufer_list)
         print(f"N unique trees: {len(unique_seq_idx)}")
         distances = tree_utils.distances_to_true_tree(tree, [T_list_remapped[l] for l in unique_seq_idx], best_perm)
-        sorted_dist = np.sort(distances)
-        sorted_dist_idx = np.argsort(distances)
         T_list_unique = [T_list_remapped[i] for i in unique_seq_idx]
         w_T_list_unique = [w_T_list[i] for i in unique_seq_idx]
+        log_g_list_unique = [log_g_list[i] for i in unique_seq_idx]
         w_T_list_unique_with_multiplicity = list(np.multiply(w_T_list_unique, multiplicity))
-        visualization_utils.visualize_and_save_T_plots(test_dir_name, tree, T_list_unique, w_T_list_unique_with_multiplicity, distances)
+        visualization_utils.visualize_and_save_T_plots(test_dir_name, tree, T_list_unique,
+                                                       w_T_list_unique_with_multiplicity, distances, log_g_list_unique)
         print(f"Distances to true tree: {distances}")
         print(f"Weights: {w_T_list_unique_with_multiplicity}")
+        print(f"Weights: {log_g_list_unique}")
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                          q_mt=copy_tree.q.mt,
+                                                          q_eps=copy_tree.q.eps)
 
 
     def test_large_tree_init_true_params(self):
@@ -228,4 +290,5 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         print(f"Weights: {w_T_list_unique_with_multiplicity}")
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
+                                                          q_eps=copy_tree.q.eps)
