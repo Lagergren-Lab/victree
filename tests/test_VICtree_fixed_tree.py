@@ -65,6 +65,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(80)
 
         # Assert
+        # FIXME: use q.params_history for each distribution of interest
         diagnostics_dict = q.diagnostics_dict
         visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
                                                     cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),

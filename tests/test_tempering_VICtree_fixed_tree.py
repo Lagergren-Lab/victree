@@ -287,6 +287,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         diagnostics_dict = q.diagnostics_dict
+        # FIXME: change to q.params_history instead of diag dict
         visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
                                                     cells_to_vis_idxs=[0, 10, 20, 30, int(n_cells / 2), int(n_cells / 3),
                                                                        n_cells - 1],
