@@ -189,8 +189,8 @@ class VarTreeJointDist(JointDist):
         super().update_diagnostics(iter)
 
         self.diagnostics_dict["wG"][iter, ...] = torch.tensor(nx.to_numpy_array(self.t.weighted_graph))
-        self.diagnostics_dict["wT"][iter] = self.t.w_T
-        self.diagnostics_dict["gT"][iter] = self.t.g_T
+        self.diagnostics_dict["wT"][iter] = self.t.log_w_t
+        self.diagnostics_dict["gT"][iter] = self.t.log_g_t
         self.diagnostics_dict["T"].append([tree_to_newick(t) for t in self.t.get_trees_sample()[0]])
 
 
