@@ -17,7 +17,6 @@ from variational_distributions.variational_distribution import VariationalDistri
 class JointDist(VariationalDistribution):
     def __init__(self, config: Config, fixed: bool = False):
         super().__init__(config, fixed)
-        self.diagnostics_dict = {} if config.diagnostics else None
         self._elbo: float = -infty
 
         self.params_history["elbo"] = []
@@ -42,51 +41,6 @@ class JointDist(VariationalDistribution):
 
     def compute_elbo(self) -> float:
         return super().compute_elbo()
-
-    def init_diagnostics(self, n_iter: int):
-        K, N, M, A = self.config.n_nodes, self.config.n_cells, self.config.chain_length, self.config.n_states
-        # C, Z, pi diagnostics
-        self.diagnostics_dict["C"] = torch.zeros((n_iter, K, M, A))
-        self.diagnostics_dict["Z"] = torch.zeros((n_iter, N, K))
-        self.diagnostics_dict["pi"] = torch.zeros((n_iter, K))
-
-        # eps diagnostics
-        self.diagnostics_dict["eps_a"] = torch.zeros((n_iter, K, K))
-        self.diagnostics_dict["eps_b"] = torch.zeros((n_iter, K, K))
-
-        # qMuTau diagnostics
-        self.diagnostics_dict["nu"] = torch.zeros((n_iter, N))
-        self.diagnostics_dict["lmbda"] = torch.zeros((n_iter, N))
-        self.diagnostics_dict["alpha"] = torch.zeros((n_iter, N))
-        self.diagnostics_dict["beta"] = torch.zeros((n_iter, N))
-
-        self.diagnostics_dict["elbo"] = torch.zeros(n_iter)
-
-    def update_diagnostics(self, iter: int):
-        # C, Z, pi diagnostics
-        self.diagnostics_dict["C"][iter] = self.c.single_filtering_probs
-        self.diagnostics_dict["Z"][iter] = self.z.pi
-        self.diagnostics_dict["pi"][iter] = self.pi.concentration_param
-
-        # eps diagnostics
-        K = self.config.n_nodes
-        eps_a = torch.zeros((K, K))
-        eps_b = torch.zeros((K, K))
-        for key in self.eps.alpha_dict.keys():
-            eps_a[key] = self.eps.alpha_dict[key]
-            eps_b[key] = self.eps.beta_dict[key]
-
-        self.diagnostics_dict["eps_a"][iter] = eps_a
-        self.diagnostics_dict["eps_b"][iter] = eps_b
-
-        # qMuTau diagnostics
-        self.diagnostics_dict["nu"][iter] = self.mt.nu
-        self.diagnostics_dict["lmbda"][iter] = self.mt.lmbda
-        self.diagnostics_dict["alpha"][iter] = self.mt.alpha
-        self.diagnostics_dict["beta"][iter] = self.mt.beta
-
-        # elbo
-        self.diagnostics_dict["elbo"][iter] = self.elbo
 
     @abstractmethod
     def get_units(self) -> List[VariationalDistribution]:
@@ -172,26 +126,6 @@ class VarTreeJointDist(JointDist):
             tot_str += "\n --- \n"
         tot_str += "+++ end of summary +++"
         return tot_str
-
-    # TODO: create a diagnostics class object
-
-    def init_diagnostics(self, n_iter: int):
-        super().init_diagnostics(n_iter)
-
-        # add VarTree specific additional params
-        L = self.config.wis_sample_size
-        self.diagnostics_dict["wG"] = torch.zeros((n_iter, self.config.n_nodes, self.config.n_nodes))
-        self.diagnostics_dict["wT"] = torch.zeros((n_iter, L))
-        self.diagnostics_dict["gT"] = torch.zeros((n_iter, L))
-        self.diagnostics_dict["T"] = []
-
-    def update_diagnostics(self, iter: int):
-        super().update_diagnostics(iter)
-
-        self.diagnostics_dict["wG"][iter, ...] = torch.tensor(nx.to_numpy_array(self.t.weighted_graph))
-        self.diagnostics_dict["wT"][iter] = self.t.log_w_t
-        self.diagnostics_dict["gT"][iter] = self.t.log_g_t
-        self.diagnostics_dict["T"].append([tree_to_newick(t) for t in self.t.get_trees_sample()[0]])
 
 
 class FixedTreeJointDist(JointDist):

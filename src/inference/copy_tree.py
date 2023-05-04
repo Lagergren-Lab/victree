@@ -50,10 +50,6 @@ class CopyTree:
         # counts the number of irrelevant updates
         close_runs = 0
 
-        if self.q.diagnostics_dict is not None:
-            self.q.init_diagnostics(self.config.n_sieving_iter + n_iter + 1)  # n_iter + 1 for initialization values
-            self.q.update_diagnostics(0)
-
         if self.config.sieving_size > 1:
             logging.info(f"Sieving {self.config.sieving_size} runs with "
                          f"{self.config.n_sieving_iter} iterations")
@@ -181,8 +177,6 @@ class CopyTree:
                 logging.info(f"[S{i}] started")
                 for j in tqdm(range(start_iter, start_iter + step_iters)):
                     m.update()
-                    if self.config.diagnostics:
-                        m.update_diagnostics(j)
 
                 curr_elbo = m.compute_elbo()
                 logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({start_iter + step_iters})")
