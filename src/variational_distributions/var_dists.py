@@ -753,7 +753,7 @@ class qT(VariationalDistribution):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
-        self.log_g_t = torch.empty((config.wis_sample_size, ), dtype=torch.float64)
+        self.log_g_t = torch.empty((config.wis_sample_size, ))
         self.log_w_t = torch.zeros((config.wis_sample_size, ))
         self.nx_trees_sample = []
         self._weighted_graph = nx.DiGraph()

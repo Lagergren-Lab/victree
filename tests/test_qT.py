@@ -113,7 +113,7 @@ class qTTestCase(unittest.TestCase):
 
 
     def test_qT_update_low_weights_for_improbable_epsilon(self):
-        utils.config.set_seed(0)
+        set_seed(0)
         N = 100
         M = 100
         K = 10
@@ -183,24 +183,24 @@ class qTTestCase(unittest.TestCase):
 
         print(q_T)
         print(f"True tree: {tree_utils.tree_to_newick(true_tree, 0)}")
-        T_list, w_T_list, g_T_list = q_T.get_trees_sample(sample_size=L)
-        print(f"g(T): {g_T_list}")
+        nx_trees_sample, log_w_t, log_g_t = q_T.get_trees_sample(sample_size=L, add_log_g=True)
+        print(f"g(T): {log_g_t}")
 
-        T_undirected_list = tree_utils.to_undirected(T_list)
+        T_undirected_list = tree_utils.to_undirected(nx_trees_sample)
         prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
         unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list)
         print(f"N unique trees: {len(unique_seq_idx)}")
-        T_list_unique = [T_list[i] for i in unique_seq_idx]
-        w_T_list_unique = [w_T_list[i] for i in unique_seq_idx]
-        g_T_list_unique = [g_T_list[i] for i in unique_seq_idx]
-        distances = tree_utils.distances_to_true_tree(true_tree, T_list_unique)
-        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, T_list_unique, w_T_list_unique, distances)
+        t_list_unique = [nx_trees_sample[i] for i in unique_seq_idx]
+        log_w_t_unique = [log_w_t[i] for i in unique_seq_idx]
+        log_g_t_unique = [log_g_t[i] for i in unique_seq_idx]
+        distances = tree_utils.distances_to_true_tree(true_tree, t_list_unique)
+        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, t_list_unique, log_w_t_unique, distances)
         print(f"Distances to true tree: {distances}")
-        print(f"Weights: {w_T_list_unique}")
-        print(f"g(T): {g_T_list_unique}")
-        tree_of_distance_0 = T_list_unique[np.where(distances == 0.)[0][0]]
-        tree_of_distance_2 = T_list_unique[np.where(distances == 2.)[0][0]]
-        tree_of_distance_4 = T_list_unique[np.where(distances == 4.)[0][0]]
+        print(f"Weights: {log_w_t_unique}")
+        print(f"g(T): {log_g_t_unique}")
+        tree_of_distance_0 = t_list_unique[np.where(distances == 0.)[0][0]]
+        tree_of_distance_2 = t_list_unique[np.where(distances == 2.)[0][0]]
+        tree_of_distance_4 = t_list_unique[np.where(distances == 4.)[0][0]]
         print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
         print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
         print(f"Tree distance 6: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
