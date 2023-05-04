@@ -70,7 +70,7 @@ class VarTreeJointDist(JointDist):
     def update(self):
         # T, C, eps, z, mt, pi
         self.t.update(self.c, self.eps)
-        trees, weights, log_g = self.t.get_trees_sample()
+        trees, weights = self.t.get_trees_sample()
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
@@ -84,7 +84,7 @@ class VarTreeJointDist(JointDist):
 
     def compute_elbo(self, t_list: list | None = None, w_list: list | None = None) -> float:
         if t_list is None and w_list is None:
-            t_list, w_list, log_g = self.t.get_trees_sample()
+            t_list, w_list = self.t.get_trees_sample()
 
         elbo_tensor = self.c.compute_elbo(t_list, w_list, self.eps) + \
                       self.z.compute_elbo(self.pi) + \

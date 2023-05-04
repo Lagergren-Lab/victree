@@ -221,7 +221,7 @@ class CopyTree:
 
     def compute_elbo(self) -> float:
         if type(self.q) is VarTreeJointDist:
-            T_eval, w_T_eval, log_g_T_eval = self.q.t.get_trees_sample()
+            T_eval, w_T_eval = self.q.t.get_trees_sample()
             self.elbo = self.q.compute_elbo(T_eval, w_T_eval)
         else:
             self.elbo = self.q.compute_elbo()

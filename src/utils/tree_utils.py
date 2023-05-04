@@ -242,3 +242,10 @@ def unique_trees_and_multiplicity(prufer_list: list[list[int]]):
 
 def to_undirected(T_list: list[nx.DiGraph]):
     return [nx.to_undirected(T) for T in T_list]
+
+
+def get_unique_trees_and_multiplicity(T_list: list[nx.DiGraph]):
+    T_list_undir = to_undirected(T_list)
+    prufer_seqs_list = to_prufer_sequences(T_list_undir)
+    unique_seq, unique_seq_idx, multiplicity = unique_trees_and_multiplicity(prufer_seqs_list)
+    return [T_list[i] for i in unique_seq_idx], unique_seq_idx, multiplicity
