@@ -29,9 +29,9 @@ def main(args):
     logging.info(f"main is over. Total exec time: {tot_time // 60}m {math.ceil(tot_time % 60)}s")
 
 
-def set_logger(debug: bool):
+def set_logger(debug: bool, out_dir: str):
     level = logging.DEBUG if debug else logging.INFO
-    f_handler = logging.FileHandler('out.log')
+    f_handler = logging.FileHandler(os.path.join(out_dir, "out.log"))
     # c_handler = logging.StreamHandler(sys.stdout)
 
     f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
@@ -94,8 +94,12 @@ if __name__ == '__main__':
     # seed for reproducibility
     set_seed(args.seed)
 
+    # create the output path if it does not exist
+    if not os.path.exists(args.out_dir):
+        os.mkdir(args.out_dir)
+
     # logger setup
-    set_logger(args.debug)
+    set_logger(args.debug, args.out_dir)
 
     # main program
     main(args)

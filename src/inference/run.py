@@ -54,10 +54,6 @@ def run(args):
     copy_tree.run(args.n_iter)
     run_str = f'out_K{config.n_nodes}_A{config.n_states}_N{config.n_cells}_M{config.chain_length}'
 
-    # create the output path if it does not exist
-    if not os.path.exists(args.out_dir):
-        os.mkdir(args.out_dir)
-
     if args.diagnostics:
 
         ## first version
