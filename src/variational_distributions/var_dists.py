@@ -753,9 +753,9 @@ class qT(VariationalDistribution):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
-        self.g_T = torch.empty((config.wis_sample_size, ), dtype=torch.float64)
-        self.w_T = torch.zeros((config.wis_sample_size, ))
-        self.T_list = []
+        self.log_g_t = torch.empty((config.wis_sample_size, ))
+        self.log_w_t = torch.zeros((config.wis_sample_size, ))
+        self.nx_trees_sample = []
         self._weighted_graph = nx.DiGraph()
         self._weighted_graph.add_edges_from([(u, v)
                                              for u, v in itertools.permutations(range(config.n_nodes), 2)
@@ -779,11 +779,11 @@ class qT(VariationalDistribution):
 
     @property
     def trees_sample_newick(self) -> np.ndarray:
-        return np.array([tree_utils.tree_to_newick(t) for t in self.T_list], dtype='S')
+        return np.array([tree_utils.tree_to_newick(t) for t in self.nx_trees_sample], dtype='S')
 
     @property
     def trees_sample_weights(self) -> np.ndarray:
-        return self.w_T.data.cpu().numpy()
+        return self.log_w_t.exp().data.cpu().numpy()
 
     def initialize(self, **kwargs):
         # rooted graph with random weights in (0, 1) - log transformed
@@ -807,7 +807,7 @@ class qT(VariationalDistribution):
             entropy -= weights[i] * log_qt
         return entropy / sum(weights)
 
-    def compute_elbo(self, trees, weights) -> float:
+    def compute_elbo(self, trees: list | None = None, weights: torch.Tensor | None = None) -> float:
         """
 Computes partial elbo for qT from the same trees-sample used for
 other elbos such as qC.
@@ -817,8 +817,12 @@ other elbos such as qC.
         Returns:
             float, value of ELBO for qT
         """
-        # FIXME: gives weird values
-        return self.neg_cross_entropy() + self.entropy(trees, weights)
+        if trees is None or weights is None:
+            trees = self.nx_trees_sample
+            weights = self.log_w_t.exp()
+        elbo = self.neg_cross_entropy() + self.entropy(trees, weights)
+        # convert to python float
+        return elbo.item()
 
     def update(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         # q_T = self.update_CAVI(T_list, qc, qeps)
@@ -893,7 +897,8 @@ other elbos such as qC.
         self.get_trees_sample()
 
     def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None,
-                         torch_tensor: bool = False, log_scale: bool = False) -> (list, list | torch.Tensor):
+                         torch_tensor: bool = False, log_scale: bool = False,
+                         add_log_g = False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -940,8 +945,8 @@ Sample trees from q(T) with importance sampling.
                 # e.g. in case of evaluation we might want more than config.wis_sample_size trees
                 # this avoids IndexOutOfRange error
                 if i < self.config.wis_sample_size:
-                    self.g_T[i] = log_g.detach()
-                    self.w_T[i] = log_weights[i]
+                    self.log_g_t[i] = log_g.detach().clone()
+                    self.log_w_t[i] = log_weights[i]
             # the weights are normalized
             # TODO: aggregate equal trees and adjust their weights accordingly
             log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
@@ -951,7 +956,7 @@ Sample trees from q(T) with importance sampling.
         # only first trees are saved (see comment above)
         # FIXME: this is just a temporary fix for sample_size param being different than config.wis_sample_size
         min_size = min(self.config.wis_sample_size, l)
-        self.T_list = trees[:min_size]
+        self.nx_trees_sample = trees[:min_size]
         out_weights = log_weights
         if not log_scale:
             out_weights = torch.exp(log_weights)
@@ -960,7 +965,10 @@ Sample trees from q(T) with importance sampling.
             out_weights = out_weights.tolist()
             out_log_g = log_gs.tolist()
 
-        return trees, out_weights, out_log_g
+        if add_log_g:
+            return trees, out_weights, out_log_g
+        else:
+            return trees, out_weights
 
     def enumerate_trees(self) -> (list, torch.Tensor):
         """
@@ -999,12 +1007,35 @@ of the variational distribution over the topology.
         else:
             summary.append(f"-adj matrix\t{nx.to_numpy_array(self._weighted_graph)}")
             summary.append(f"-sampled trees:")
-            eval_trees, eval_weights, log_gs = self.get_trees_sample(sample_size=10)
-            for t, w in zip(eval_trees, eval_weights):
-                summary.append(f"\t\t{tree_utils.tree_to_newick(t)} | {w:.4f}")
-            summary.append(f"partial ELBO\t{self.compute_elbo(eval_trees, eval_weights):.2f}")
+            qdist = self.get_pmf_estimate()
+            display_num = min(10, len(qdist.keys()))
+            for t_nwk in sorted(qdist, key=qdist.get, reverse=True)[:display_num]:
+                summary.append(f"\t\t{t_nwk} | {qdist[t_nwk]:.4f}")
+            summary.append(f"partial ELBO\t{self.compute_elbo():.2f}")
 
         return os.linesep.join(summary)
+
+    def get_pmf_estimate(self, normalized: bool = False) -> dict:
+        """
+        Returns
+        -------
+        dict with values (newick_tree: sum of importance_weights)
+        """
+        qdist = {}
+        for t, log_w in zip(self.nx_trees_sample, self.log_w_t):
+            # build a pmf from the sample by summing up the importance weights
+            w = log_w.exp()
+            newick = tree_utils.tree_to_newick(t)
+            if newick not in qdist:
+                qdist[newick] = 0.
+            qdist[newick] += w
+
+        if normalized:
+            norm_const = sum(qdist.values())
+            for t in qdist.keys():
+                qdist[t] /= norm_const
+
+        return qdist
 
 
 # edge distance (single eps for all nodes)

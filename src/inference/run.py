@@ -14,54 +14,6 @@ from utils.config import Config
 from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5, write_checkpoint_h5
 
 
-def write_diagnostics_to_numpy(diag_dict: dict[str, torch.Tensor], out_dir, config: Config):
-    """
-    Diagnostics files contain:
-    - copy.npy (n_iter, K, M, A) single filtering probs
-    - cell_assignment.npy (n_iter, N, K) z
-    - pi.npy (n_iter, K) concentration factor
-    - eps_a.npy, eps_b.npy (n_iter, K) beta params for epsilon
-    - nu.npy, lmbda.npy, alpha.npy, beta.npy (n_iter, N) NormalGamma params
-    - elbo.npy (n_iter, ) elbo
-
-    Parameters
-    ----------
-    diag_dict
-    out_dir
-    """
-    diag_dir = os.path.join(out_dir, f"diag_k{config.n_nodes}"
-                                     f"a{config.n_states}"
-                                     f"n{config.n_cells}"
-                                     f"m{config.chain_length}")
-    if not os.path.exists(diag_dir):
-        os.makedirs(diag_dir)
-    # copy numbers
-    np.save(os.path.join(diag_dir, 'copy.npy'), diag_dict['C'].numpy())
-    # cell assignment
-    np.save(os.path.join(diag_dir, 'cell_assignment.npy'), diag_dict['Z'].numpy())
-    # pi
-    np.save(os.path.join(diag_dir, 'pi.npy'), diag_dict['pi'].numpy())
-    # eps
-    np.save(os.path.join(diag_dir, 'eps_a.npy'), diag_dict['eps_a'].numpy())
-    np.save(os.path.join(diag_dir, 'eps_b.npy'), diag_dict['eps_b'].numpy())
-    # mu-tau
-    np.save(os.path.join(diag_dir, 'nu.npy'), diag_dict['nu'].numpy())
-    np.save(os.path.join(diag_dir, 'lambda.npy'), diag_dict['lmbda'].numpy())
-    np.save(os.path.join(diag_dir, 'alpha.npy'), diag_dict['alpha'].numpy())
-    np.save(os.path.join(diag_dir, 'beta.npy'), diag_dict['beta'].numpy())
-    # tree
-    np.save(os.path.join(diag_dir, 'tree_samples.npy'), np.array(diag_dict['T']))
-    np.save(os.path.join(diag_dir, 'tree_weights.npy'), diag_dict['wT'].numpy())
-    np.save(os.path.join(diag_dir, 'tree_matrix.npy'), diag_dict['wG'].numpy())
-    # elbo
-    np.save(os.path.join(diag_dir, 'elbo.npy'), diag_dict['elbo'].numpy())
-    # metadata
-    with open(os.path.join(diag_dir, 'metadata.yaml'), 'w') as f:
-        yaml.dump(config.to_dict(), f)
-
-    logging.info(f"diagnostics saved in {diag_dir}")
-
-
 def run(args):
     fname, fext = os.path.splitext(args.file_path)
     if fext == '.txt':

@@ -5,10 +5,9 @@ import numpy as np
 import torch
 
 import simul
-import utils.config
 from tests import utils_testing
 from utils import tree_utils, visualization_utils
-from utils.config import Config
+from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick
 from variational_distributions.var_dists import qEpsilonMulti, qT, qC, qEpsilon
 
@@ -16,7 +15,7 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qC, qEpsilon
 class qTTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        pass
+        set_seed(42)
 
     def test_q_T_running_for_two_simple_Ts_random_qC(self):
         M = 20
@@ -80,9 +79,41 @@ class qTTestCase(unittest.TestCase):
         for t_str, lw in zip(topk_sampled_str, sampled_lw):
             print(f"{t_str}: {lw.exp()}")
 
+    def test_inference_fixed_ceps(self):
+        # build ad-hoc c
+        c = torch.tensor([
+            [2] * 20,
+            [3] * 10 + [2] * 10,
+            [2] * 5 + [3] * 5 + [2] * 10,
+            [2] * 3 + [3] * 3 + [1] * 3 + [2] * 3 + [3] * 3 + [2] * 5
+        ])
+        config = Config(4, n_states=7, eps0=1e-2, chain_length=c.shape[1],
+                        wis_sample_size=100, step_size=.2, debug=True)
+
+        qt = qT(config).initialize()
+        qeps = qEpsilonMulti(config).initialize()
+        qc = qC(config, true_params={'c': c})
+
+        for i in range(10):
+            qt.update(qc, qeps)
+            t, w = qt.get_trees_sample()
+            qeps.update(t, w, qc)
+
+        # print(qc)
+        # print(qt)
+        # print(qeps)
+        gt_tree_newick = "((2)1,3)0"
+        tol = 3
+        qt_pmf = qt.get_pmf_estimate()
+        sorted_newick = sorted(qt_pmf, key=qt_pmf.get, reverse=True)
+        self.assertTrue(gt_tree_newick in sorted_newick[:tol],
+                        msg=f"true " + gt_tree_newick + f" not in the first {tol} trees. those are:"
+                                                        f"{sorted_newick[0]} | {sorted_newick[1]} | {sorted_newick[2]}")
+
+
 
     def test_qT_update_low_weights_for_improbable_epsilon(self):
-        utils.config.set_seed(0)
+        set_seed(0)
         N = 100
         M = 100
         K = 10
@@ -120,7 +151,7 @@ class qTTestCase(unittest.TestCase):
                     self.assertGreater(min_weight, q_T.weight_matrix[u, v])
 
     def test_qT_given_true_parameters(self):
-        utils.config.set_seed(0)
+        set_seed(0)
         N = 100
         M = 100
         K = 5
@@ -152,28 +183,25 @@ class qTTestCase(unittest.TestCase):
 
         print(q_T)
         print(f"True tree: {tree_utils.tree_to_newick(true_tree, 0)}")
-        T_list, w_T_list, log_g_T_list = q_T.get_trees_sample(sample_size=L)
-        g_T_list = np.exp(log_g_T_list)
-        print(f"g(T): {g_T_list}")
+        nx_trees_sample, log_w_t, log_g_t = q_T.get_trees_sample(sample_size=L, add_log_g=True)
+        print(f"g(T): {log_g_t}")
 
-
-        T_undirected_list = tree_utils.to_undirected(T_list)
+        T_undirected_list = tree_utils.to_undirected(nx_trees_sample)
         prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
         unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list)
         print(f"N unique trees: {len(unique_seq_idx)}")
-        T_list_unique = [T_list[i] for i in unique_seq_idx]
-        w_T_list_unique = [w_T_list[i] for i in unique_seq_idx]
-        g_T_list_unique = [g_T_list[i] for i in unique_seq_idx]
-        distances = tree_utils.distances_to_true_tree(true_tree, T_list_unique)
-        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, T_list_unique, w_T_list_unique, distances, g_T_list_unique)
+        t_list_unique = [nx_trees_sample[i] for i in unique_seq_idx]
+        log_w_t_unique = [log_w_t[i] for i in unique_seq_idx]
+        log_g_t_unique = [log_g_t[i] for i in unique_seq_idx]
+        distances = tree_utils.distances_to_true_tree(true_tree, t_list_unique)
+        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, t_list_unique, log_w_t_unique, distances)
         print(f"Distances to true tree: {distances}")
-        print(f"Weights: {w_T_list_unique}")
-        print(f"g(T): {g_T_list_unique}")
-        tree_of_distance_0 = T_list_unique[np.where(distances == 0.)[0][0]]
-        tree_of_distance_2 = T_list_unique[np.where(distances == 2.)[0][0]]
-        tree_of_distance_4 = T_list_unique[np.where(distances == 4.)[0][0]]
-        if len(tree_of_distance_0) != 0:
-            print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
+        print(f"Weights: {log_w_t_unique}")
+        print(f"g(T): {log_g_t_unique}")
+        tree_of_distance_0 = t_list_unique[np.where(distances == 0.)[0][0]]
+        tree_of_distance_2 = t_list_unique[np.where(distances == 2.)[0][0]]
+        tree_of_distance_4 = t_list_unique[np.where(distances == 4.)[0][0]]
+        print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
         print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
         print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
 

@@ -29,15 +29,11 @@ class InitTestCase(unittest.TestCase):
             joint_q = VarTreeJointDist(config, simul_joint.obs).initialize()
             tot_num_iter = config.n_sieving_iter + n_iter + 1
             copytree = CopyTree(config, joint_q, joint_q.obs)
-            joint_q.init_diagnostics(tot_num_iter)
-            joint_q.update_diagnostics(0)
             copytree.halve_sieve()
             # assert that in any case, the diagnostics value in the last n_iter slots are all zero
             # and in the previous slots there's at least one value != 0
-            self.assertTrue(torch.all(copytree.q.diagnostics_dict["C"][-n_iter:, ...] == 0),
-                            msg=f"Not valid for config: {sieving_size}, {n_sieving_iter}")
-            self.assertTrue(torch.any(copytree.q.diagnostics_dict["C"][-n_iter-1, ...] != 0),
-                            msg=f"Not valid for config: {sieving_size}, {n_sieving_iter}")
+            self.assertEqual(len(copytree.q.c.params_history["single_filtering_probs"]), config.n_sieving_iter + 1,
+                             msg=f"Not valid for config: {sieving_size}, {n_sieving_iter}")
 
     def test_progress_tracking(self):
         n_iter = 3

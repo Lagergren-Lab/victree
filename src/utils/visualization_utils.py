@@ -74,6 +74,7 @@ def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save_path=None, pyplot
 
 
 def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_to_vis_idxs=[1], save_path: str = ''):
+    # FIXME: change from diagnostics dict to params_history values in each var dist
     plt.switch_backend("TkAgg")
     max_iter, N = diagnostics_dict["nu"].shape
     max_iter, K, M, A = diagnostics_dict["C"].shape

@@ -241,7 +241,7 @@ Generate full simulated dataset.
         beta0: float, param for NormalGamma distribution over mu/tau
 
     Returns:
-        dictionary with keys: ['obs', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
+        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
     """
     # generate random tree
     tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph) if tree is None else tree

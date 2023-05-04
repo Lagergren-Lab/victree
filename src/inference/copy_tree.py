@@ -50,10 +50,6 @@ class CopyTree:
         # counts the number of irrelevant updates
         close_runs = 0
 
-        if self.q.diagnostics_dict is not None:
-            self.q.init_diagnostics(self.config.n_sieving_iter + n_iter + 1)  # n_iter + 1 for initialization values
-            self.q.update_diagnostics(0)
-
         if self.config.sieving_size > 1:
             logging.info(f"Sieving {self.config.sieving_size} runs with "
                          f"{self.config.n_sieving_iter} iterations")
@@ -80,8 +76,6 @@ class CopyTree:
             self.compute_elbo()
 
             pbar.set_postfix({'elbo': self.elbo})
-            if self.q.diagnostics_dict is not None:
-                self.q.update_diagnostics(it + self.config.n_sieving_iter)
 
             if abs((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
                 close_runs += 1
@@ -120,8 +114,6 @@ class CopyTree:
             logging.info(f"[S{i}] started")
             for j in tqdm(range(1, self.config.n_sieving_iter + 1)):
                 curr_model.update()
-                if self.config.diagnostics:
-                    curr_model.update_diagnostics(j)
 
             curr_elbo = curr_model.compute_elbo()
             logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({self.config.n_sieving_iter})")
@@ -181,8 +173,6 @@ class CopyTree:
                 logging.info(f"[S{i}] started")
                 for j in tqdm(range(start_iter, start_iter + step_iters)):
                     m.update()
-                    if self.config.diagnostics:
-                        m.update_diagnostics(j)
 
                 curr_elbo = m.compute_elbo()
                 logging.info(f"[S{i}] elbo: {curr_elbo} at final iter ({start_iter + step_iters})")
