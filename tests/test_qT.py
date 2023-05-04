@@ -123,11 +123,11 @@ class qTTestCase(unittest.TestCase):
         utils.config.set_seed(0)
         N = 100
         M = 100
-        K = 8
+        K = 5
         A = 7
-        L = 20
+        L = 100
         eps_a = 5.
-        eps_b = 20.
+        eps_b = 200.
         off_set_factor = 1 / 100.
         true_tree = utils_testing.get_tree_K_nodes_random(K)
         config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A, wis_sample_size=L)
@@ -152,8 +152,10 @@ class qTTestCase(unittest.TestCase):
 
         print(q_T)
         print(f"True tree: {tree_utils.tree_to_newick(true_tree, 0)}")
-        T_list, w_T_list, g_T_list = q_T.get_trees_sample(sample_size=L)
+        T_list, w_T_list, log_g_T_list = q_T.get_trees_sample(sample_size=L)
+        g_T_list = np.exp(log_g_T_list)
         print(f"g(T): {g_T_list}")
+
 
         T_undirected_list = tree_utils.to_undirected(T_list)
         prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
@@ -163,14 +165,15 @@ class qTTestCase(unittest.TestCase):
         w_T_list_unique = [w_T_list[i] for i in unique_seq_idx]
         g_T_list_unique = [g_T_list[i] for i in unique_seq_idx]
         distances = tree_utils.distances_to_true_tree(true_tree, T_list_unique)
-        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, T_list_unique, w_T_list_unique, distances)
+        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, T_list_unique, w_T_list_unique, distances, g_T_list_unique)
         print(f"Distances to true tree: {distances}")
         print(f"Weights: {w_T_list_unique}")
         print(f"g(T): {g_T_list_unique}")
         tree_of_distance_0 = T_list_unique[np.where(distances == 0.)[0][0]]
         tree_of_distance_2 = T_list_unique[np.where(distances == 2.)[0][0]]
         tree_of_distance_4 = T_list_unique[np.where(distances == 4.)[0][0]]
-        print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
+        if len(tree_of_distance_0) != 0:
+            print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
         print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
-        print(f"Tree distance 6: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
+        print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
 

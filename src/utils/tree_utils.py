@@ -179,8 +179,11 @@ def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph)
     return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
 
 
-def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0)):
-    distance = nx.graph_edit_distance(T_1, T_2, roots=roots)
+def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0), labeled_distance=True):
+    if labeled_distance:
+        #edge_match = lambda (u1,v1), (u2,v2) : u1==u2 and v1
+        node_match = lambda u1, u2: u1 == u2
+    distance = nx.graph_edit_distance(T_1, T_2, roots=roots, node_match=node_match)
     return distance
 
 
@@ -220,6 +223,21 @@ def unique_trees(prufer_list: list[list[int]]):
             unique_seq.append(seq)
             unique_seq_idx.append(i)
     return unique_seq, unique_seq_idx
+
+
+def unique_trees_and_multiplicity(prufer_list: list[list[int]]):
+    unique_seq = []
+    unique_seq_idx = []
+    multiplicity = []
+    for (i, seq) in enumerate(prufer_list):
+        if seq in unique_seq:
+            idx = unique_seq.index(seq)
+            multiplicity[idx] += 1
+        else:
+            unique_seq.append(seq)
+            unique_seq_idx.append(i)
+            multiplicity.append(1)
+    return unique_seq, unique_seq_idx, multiplicity
 
 
 def to_undirected(T_list: list[nx.DiGraph]):
