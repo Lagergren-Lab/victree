@@ -154,11 +154,11 @@ class qTTestCase(unittest.TestCase):
         set_seed(0)
         N = 100
         M = 100
-        K = 8
+        K = 5
         A = 7
-        L = 20
+        L = 100
         eps_a = 5.
-        eps_b = 20.
+        eps_b = 200.
         off_set_factor = 1 / 100.
         true_tree = utils_testing.get_tree_K_nodes_random(K)
         config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A, wis_sample_size=L)
@@ -203,5 +203,5 @@ class qTTestCase(unittest.TestCase):
         tree_of_distance_4 = t_list_unique[np.where(distances == 4.)[0][0]]
         print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
         print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
-        print(f"Tree distance 6: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
+        print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
 
