@@ -52,3 +52,25 @@ class InitTestCase(unittest.TestCase):
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
         write_checkpoint_h5(copytree, path=os.path.join(self.output_dir, "checkpoint_" + str(copytree) + ".h5"))
+
+    def test_append_checkpoint(self):
+
+        file_path = os.path.join(self.output_dir, "append_test.h5")
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        with h5py.File(file_path, 'a') as f:
+            self.assertEqual(len(f.keys()), 0)
+            g = f.create_group("group")
+            dim2 = 5
+            init_data_size = 5
+            dset = g.create_dataset("data", data=np.arange(init_data_size * dim2).reshape((init_data_size, -1)),
+                                    maxshape=(None, dim2),
+                                    chunks=True)
+            # keys only view first level (not recursive)
+            self.assertEqual(len(f.keys()), 1)
+
+            new_data_size = 4
+            dset.resize(len(dset) + new_data_size, axis=0)
+            dset[-new_data_size:] = np.arange(new_data_size * dim2).reshape((new_data_size, -1))
+            self.assertEqual(dset.shape, (init_data_size + new_data_size, dim2))
+
