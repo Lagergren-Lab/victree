@@ -48,7 +48,7 @@ class VariationalDistribution:
                 param_copy = arr.copy()
             elif isinstance(arr, float) or isinstance(arr, int):
                 # build 0-D np.ndarray (e.g. with elbo or iteration values)
-                param_copy = np.array(arr)
+                param_copy = np.array(arr, dtype=np.float32)
             else:
                 # params not recognized, launch warning, but deep-copy anyway
                 logging.warning(f"Saving non-array object to state checkpoint. Param {k} is of type {type(arr)}.")

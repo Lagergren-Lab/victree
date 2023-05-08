@@ -42,7 +42,7 @@ def edge_dict_to_matrix(a: dict, k: int):
     zero pads the edges which are not in the dict keys
     k: size of matrix (num_nodes)
     """
-    np_mat = np.zeros((k, k))
+    np_mat = np.zeros((k, k), dtype=np.float32)
     for uv, e in a.items():
         np_mat[uv] = e
     return np_mat
