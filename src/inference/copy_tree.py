@@ -99,7 +99,7 @@ class CopyTree:
             if abs((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
-                    logging.debug(f"*** Run ended after {it}/{n_iter} iterations due to plateau ***")
+                    logging.debug(f"run converged after {it}/{n_iter} iterations")
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
