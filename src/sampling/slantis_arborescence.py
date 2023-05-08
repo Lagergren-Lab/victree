@@ -196,7 +196,7 @@ def _sample_feasible_arc(weighted_arcs):
     unnorm_probs = torch.stack([w for u, v, w in weighted_arcs])
     probs = unnorm_probs / unnorm_probs.sum()
     c = np.random.choice(np.arange(len(weighted_arcs)), p=probs.numpy())
-    return weighted_arcs[c][:2], torch.tensor(probs[c])
+    return weighted_arcs[c][:2], probs[c]
 
 
 def get_ordered_arcs(edges, method='random'):

@@ -1,15 +1,14 @@
 import os.path
 import unittest
 
+import h5py
 import numpy as np
-import torch
 
 from inference.copy_tree import CopyTree
 from utils.data_handling import write_checkpoint_h5
 from variational_distributions.joint_dists import VarTreeJointDist
 from simul import generate_dataset_var_tree
 from utils.config import set_seed, Config
-from variational_distributions.var_dists import qT
 
 
 class InitTestCase(unittest.TestCase):

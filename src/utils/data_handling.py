@@ -1,3 +1,4 @@
+import logging
 import os.path
 from typing import List, Tuple, Union
 from pathlib import Path
@@ -69,19 +70,42 @@ def write_output_h5(out_copytree, out_path):
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
 
     f.close()
+    logging.debug(f"results saved: {out_path}")
 
 
 def write_checkpoint_h5(copytree, path=None):
-    if path is None:
-        path = "./checkpoint_" + str(copytree) + ".h5"
-    f = h5py.File(path, 'w')
-    for q in copytree.q.get_units() + [copytree.q]:
-        # TODO: add q names to group params (one layer for each var dist?)
-        qlay = f.create_group(q.__class__.__name__)
-        for k in q.params_history.keys():
-            stacked_arr = np.stack(q.params_history[k], axis=0)
-            ds = qlay.create_dataset(k, data=stacked_arr)
-    f.close()
+    if copytree.cache_size > 0:
+        if path is None:
+            path = "./checkpoint_" + str(copytree) + ".h5"
+
+        # append mode, so that if the file already exist, then the data is appended
+        with h5py.File(path, 'a') as f:
+            # for each of the individual q dist + the joint dist itself (e.g. to monitor joint_q.elbo)
+            if len(f.keys()) == 0:
+                # init h5 file
+                for q in copytree.q.get_units() + [copytree.q]:
+                    qlay = f.create_group(q.__class__.__name__)
+                    for k in q.params_history.keys():
+                        stacked_arr = np.stack(q.params_history[k], axis=0)
+                        # init dset with unlimited number of iteration and fix other dims
+                        ds = qlay.create_dataset(k, data=stacked_arr,
+                                                 maxshape=(copytree.config.n_sieving_iter + copytree.config.n_run_iter + 1,
+                                                           *stacked_arr.shape[1:]), chunks=True)
+            else:
+                # resize and append
+                for q in copytree.q.get_units() + [copytree.q]:
+                    qlay = f[q.__class__.__name__]
+                    for k in q.params_history.keys():
+                        stacked_arr = np.stack(q.params_history[k], axis=0)
+                        ds = qlay[k]
+                        ds.resize(ds.shape[0] + stacked_arr.shape[0], axis=0)
+                        ds[-stacked_arr.shape[0]:] = stacked_arr
+
+            # wipe cache
+            for q in copytree.q.get_units() + [copytree.q]:
+                q.params_history = {k: [] for k in q.params_history.keys()}
+
+        logging.debug("checkpoint saved!")
 
 
 def load_h5_anndata(file_path):

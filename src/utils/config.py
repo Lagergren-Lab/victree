@@ -12,14 +12,16 @@ class Config:
                  n_cells: int = 20,
                  chain_length: int = 200,
                  wis_sample_size: int = 5,
-                 elbo_rtol: float = 1e-5,  # TODO: check if this is too low/too large
-                 max_close_runs: int = 10,
+                 elbo_rtol: float = 1e-5,  # TODO: check if this is too low
+                 max_close_runs: int = 5,
                  sieving_size: int = 1,
                  n_sieving_iter: int = 20,
                  step_size=1.,
                  annealing=1.0,
                  debug=False,
-                 diagnostics=False) -> None:
+                 diagnostics=False,
+                 out_dir="./output",
+                 n_run_iter: int = 10) -> None:
         self._diagnostics = diagnostics
         self.step_size = step_size
         self.annealing = annealing
@@ -32,8 +34,10 @@ class Config:
         self._elbo_rtol = elbo_rtol
         self._max_close_runs = max_close_runs
         self._sieving_size = sieving_size
+        self._n_run_iter = n_run_iter
         self._n_sieving_iter = n_sieving_iter
         self._debug = debug
+        self._out_dir = out_dir
 
     @property
     def n_nodes(self):
@@ -72,6 +76,10 @@ class Config:
         return self._sieving_size
 
     @property
+    def n_run_iter(self):
+        return self._n_run_iter
+
+    @property
     def n_sieving_iter(self):
         return self._n_sieving_iter
 
@@ -82,6 +90,10 @@ class Config:
     @property
     def diagnostics(self):
         return self._diagnostics
+
+    @property
+    def out_dir(self):
+        return self._out_dir
 
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \

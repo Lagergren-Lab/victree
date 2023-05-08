@@ -142,6 +142,7 @@ class VarTreeJointDist(JointDist):
     def __str__(self):
         # summary for joint dist
         tot_str = "+++ Joint summary +++"
+        tot_str += f"\n ELBO: {self.elbo}"
         for q in [self.t, self.c, self.eps, self.pi, self.z, self.mt]:
             tot_str += str(q)
             tot_str += "\n --- \n"

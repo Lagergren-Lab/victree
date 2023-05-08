@@ -1,11 +1,8 @@
 import logging
 import os
 
-import networkx as nx
 import torch
 import numpy as np
-import pickle
-import yaml
 
 from inference.copy_tree import CopyTree
 from utils.tree_utils import newick_from_eps_arr
@@ -36,7 +33,8 @@ def run(args):
 
     config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=n_cells, chain_length=n_bins,
                     wis_sample_size=args.tree_sample_size, sieving_size=args.sieving[0], n_sieving_iter=args.sieving[1],
-                    step_size=args.step_size, debug=args.debug, diagnostics=args.diagnostics)
+                    step_size=args.step_size, debug=args.debug, diagnostics=args.diagnostics, out_dir=args.out_dir,
+                    n_run_iter=args.n_iter, elbo_rtol=args.r_tol)
     logging.debug(str(config))
 
     # instantiate all distributions
@@ -51,27 +49,8 @@ def run(args):
     copy_tree = CopyTree(config, joint_q, obs)
 
     logging.info('start inference')
-    copy_tree.run(args.n_iter)
-    run_str = f'out_K{config.n_nodes}_A{config.n_states}_N{config.n_cells}_M{config.chain_length}'
+    copy_tree.run()
 
-    if args.diagnostics:
-
-        ## first version
-        # file_dir = './output/'
-        # file_name = f'diagnostics_K{config.n_nodes}_N{config.n_cells}_M{config.chain_length}_A{config.n_states}' \
-        #             f'_iter{args.n_iter}'
-        # file_name += f'_L{config.wis_sample_size}.pkl' if type(copy_tree.q) is JointVarDist else '.pkl'
-        # file_path = os.path.join(file_dir, file_name)
-        # with open(file_path, 'wb') as pickle_file:
-        #     pickle.dump(copy_tree.diagnostics_dict, pickle_file)
-
-        ## second version
-        # write_diagnostics_to_numpy(copy_tree.q.diagnostics_dict, out_dir=args.out_dir, config=config)
-        ## third version
-        write_checkpoint_h5(copy_tree, path=os.path.join(args.out_dir, "checkpoint_" + str(copy_tree) + ".h5"))
-
-    out_file = os.path.join(args.out_dir, run_str + '.h5')
-    write_output_h5(copy_tree, out_file)
-    logging.info(f"results saved: {out_file}")
+    write_output_h5(copy_tree, os.path.join(args.out_dir, "out_" + str(copy_tree) + ".h5"))
 
     return copy_tree

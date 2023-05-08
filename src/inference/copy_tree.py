@@ -1,6 +1,7 @@
 import copy
 import logging
 import math
+import os
 import random
 from typing import Union, List
 
@@ -10,6 +11,7 @@ import torch.distributions as dist
 from tqdm import tqdm
 
 from utils.config import Config
+from utils.data_handling import write_checkpoint_h5
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 
 
@@ -45,7 +47,24 @@ class CopyTree:
         else:
             self._elbo = e
 
-    def run(self, n_iter):
+    @property
+    def cache_size(self):
+        # returns the number of iterations that are currently saved in the params_history variables
+        assert 'elbo' in self.q.params_history
+        return len(self.q.params_history['elbo'])
+
+    def run(self, n_iter = -1):
+
+        # TODO: clean if-case and use just config param
+        if n_iter == -1:
+            n_iter = self.config.n_run_iter
+        if self.config.diagnostics:
+            checkpoint_path = os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5")
+            # check if checkpoint already exists, then print warning
+            # TODO: implement checkpoint loading
+            if os.path.exists(checkpoint_path):
+                logging.warning("checkpoint already exists, will be overwritten")
+                os.remove(checkpoint_path)
 
         # counts the number of irrelevant updates
         close_runs = 0
@@ -89,6 +108,9 @@ class CopyTree:
                 close_runs = 0
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
+        # write last chunks
+        if self.config.diagnostics:
+            write_checkpoint_h5(self, path=checkpoint_path)
 
     def topk_sieve(self, ktop: int = 1, **kwargs):
         """
@@ -232,7 +254,11 @@ class CopyTree:
         self.it_counter += 1
         # print info about dist every 10 it
         if self.it_counter % 10 == 0:
+            logging.debug(f"-------- it: {self.it_counter} --------")
             logging.debug(str(self.q))
+        # save checkpoint every 20 iterations
+        if self.config.diagnostics and self.it_counter % 20 == 0:
+            write_checkpoint_h5(self, path=os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5"))
 
     def set_temperature(self, it, n_iter):
         # linear scheme: from annealing to 1 with equal steps between iterations
