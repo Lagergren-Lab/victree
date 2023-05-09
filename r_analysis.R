@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-source("~/phd/scilife/coPyTree/diagnostics_lib.r")
+source("./diagnostics_lib.r")
 # arguments parsing
 parser <- ArgumentParser(description = "draw diagnostics plots to pdf")
 parser$add_argument("diag_dir", nargs=1, type = "character", help="directory with diagnostics files")
