@@ -8,21 +8,19 @@ if [[ $# -ne 1 ]]; then
 fi
 
 config_dir="$1"
-input_file="$2"
+# input_file="$2"
 # remote_dir="$3"
 
 # Set output directory prefix
-output_prefix="output_batch"
+output_prefix="./output/$(basename "$config_dir")"
 mkdir -p "${output_prefix}"
 
 # Create zip directory if it doesn't exist
-zip_dir="./zip"
-mkdir -p "${zip_dir}"
+# zip_dir="./zip"
+# mkdir -p "${zip_dir}"
 
 # Loop over configuration files in directory
 for config_file in "${config_dir}"/*.yml; do
-  # Load parameters from YAML file
-  # eval $(yq -r 'to_entries | .[] | "export \(.key)=\(.value)"' "${config_file}")
   
   # Set output directory for this run
   output_dir="${output_prefix}/$(basename "${config_file}" .yml)"
@@ -33,19 +31,20 @@ for config_file in "${config_dir}"/*.yml; do
     # replace underscores with dashes
     key=${key//_/-}
     # flag param
-    if [[ "$value" == "true" ]]; then
-      args+=("--$key")
-    elif [[ "$key" == "input" ]]; then
-      args+=("--$key $(pwd)/$value")
+    if [[ "${value}" == "true" ]]; then
+      args+=("--${key}")
+    elif [[ "${key}" == "input" ]]; then
+      args+=("--${key} ${value}")
     else
-      args+=("--$key $value")
+      args+=("--${key} ${value}")
     fi
   done < <(
     yq 'to_entries | map([.key, .value] | join("=")) | .[]' "${config_file}"
   )
+  # load params from yaml config file
 
   # Run script with parameters
-  full_cmd="/Users/zemp/phd/scilife/coPyTree/src/main.py ${args[@]}"
+  full_cmd="/home/x_vitza/coPy-tree/src/main.py ${args[@]}"
   echo "executing: ${full_cmd}"
   eval "$full_cmd"
   
