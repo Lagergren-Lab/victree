@@ -14,7 +14,7 @@ process_yaml() {
   local yaml_file="$1"
 
   srun --exclusive --ntasks=1 --cpus-per-task=8 --mem=1024 \
-    --name="${yaml_file}" run_victree_analysis.sh "${yaml_file}"&
+    run_victree_analysis.sh "${yaml_file}"&
 }
 
 # Function to recursively search for YAML files
