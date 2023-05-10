@@ -831,7 +831,7 @@ other elbos such as qC.
         super().update()
 
     def update_params(self, new_weights: torch.Tensor):
-        rho = 1. # self.config.step_size  # TODO: step size not applicable here?
+        rho = self.config.step_size  # TODO: step size not applicable here?
         prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
         stepped_weights = (1 - rho) * prev_weights + rho * new_weights
 
