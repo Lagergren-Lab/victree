@@ -12,8 +12,9 @@ config_dir="$1"
 # remote_dir="$3"
 
 # Set output directory prefix
-output_prefix="./output/$(basename "$config_dir")"
-mkdir -p "${output_prefix}"
+output_prefix="${config_dir}/out_"
+
+#mkdir -p "${output_prefix}"
 
 # Create zip directory if it doesn't exist
 # zip_dir="./zip"
@@ -23,7 +24,8 @@ mkdir -p "${output_prefix}"
 for config_file in "${config_dir}"/*.yml; do
   
   # Set output directory for this run
-  output_dir="${output_prefix}/$(basename "${config_file}" .yml)"
+  # which looks like configs/out_<config_file>
+  output_dir="${output_prefix}$(basename "${config_file}" .yml)"
 
   args=("--output" "${output_dir}")
 
