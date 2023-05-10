@@ -10,7 +10,7 @@ create_output_dir() {
     mkdir "$output_dir"
   else
     echo "ERROR: Output dir was already present. Exit." >&2
-    # exit 1
+    exit 1
   fi
 
   echo "${output_dir}"
@@ -60,17 +60,16 @@ yaml_file="$1"
 yaml_dir="$(dirname "$yaml_file")"
 start_dir="$(pwd)"
 
-echo "Setting up output directory"
+echo "setting up output directory"
 output_dir=$(create_output_dir "${yaml_file}")
-echo "OUTPUT: ${output_dir}"
-# echo "Parsing config"
-# args=($(parse_yaml_args "${yaml_file}" "${output_dir}"))
-# echo "Running VI"
-# "${victree}" "${args[@]}" || {
-#   echo "Something went wrong. Cleaning up output dir"
-#   rm -r "${output_dir}"
-#   exit 1
-# }
+echo "Parsing config"
+args=($(parse_yaml_args "${yaml_file}" "${output_dir}"))
+echo "Running VI"
+"${victree}" "${args[@]}" || {
+  echo "Something went wrong. Cleaning up output dir"
+  rm -r "${output_dir}"
+  exit 1
+}
 
 checkpoint="$(realpath "$(find "${output_dir}" -maxdepth 1 -type f -name "checkpoint*.h5")")"
 if [ -f "$checkpoint" ]; then
@@ -86,7 +85,7 @@ input_file="$(yq eval '.input' ${yaml_file})"
 echo "moving into ${copytree_dir}"
 cd "${copytree_dir}" || exit 1
 
-echo "Running R analysis"
+echo "running R analysis"
 ./r_analysis.R -gt "$input_file" -m -p 2 "$checkpoint" 
 echo "Finish."
 

@@ -13,6 +13,7 @@
 process_yaml() {
   local yaml_file="$1"
 
+  echo "running config $1"
   srun --exclusive --ntasks=1 --cpus-per-task=8 --mem=1024 \
     run_victree_analysis.sh "${yaml_file}"&
 }
