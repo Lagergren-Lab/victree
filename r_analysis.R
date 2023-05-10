@@ -3,7 +3,7 @@
 source("./diagnostics_lib.r")
 # arguments parsing
 parser <- ArgumentParser(description = "draw diagnostics plots to pdf")
-parser$add_argument("diag_dir", nargs=1, type = "character", help="directory with diagnostics files")
+parser$add_argument("diag_dir", nargs=1, type = "character", help="checkpoint h5 file")
 parser$add_argument("-gt", "--gt-dir", default = NULL, type = "character", help="directory with ground truth files")
 parser$add_argument("-o", "--out-dir", type = "character", help = "directory where to save results.pdf", default = NULL)
 parser$add_argument("-m", "--remap-clones", action = "store_true", default = FALSE,
@@ -42,17 +42,14 @@ if (!is.null(args$gt_dir) && file.exists(args$gt_dir)) {
   }
 }
 
-pdf_dir <- file.path(dirname(args$diag_dir), "results")
+pdf_dir <- dirname(args$diag_dir)
 if (!is.null(args$out_dir)) {
   pdf_dir <- args$out_dir
 }
-if (!dir.exists(pdf_dir)) {
-  dir.create(pdf_dir)
-}
-pdf_path <- file.path(pdf_dir, "./plots.pdf")
+
+pdf_path <- file.path(pdf_dir, "results.pdf")
 
 pdf(pdf_path, onefile = TRUE, paper = "a4")
-
 
 # elbo
 print("elbo plot")
