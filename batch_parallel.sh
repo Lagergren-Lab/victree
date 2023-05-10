@@ -4,7 +4,7 @@
 #SBATCH -t 10:00:00
 #SBATCH --mem=8192
 #SBATCH --ntasks 8
-#SBATCH --cpus-per-task 8
+#SBATCH --cpus-per-task 4
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=zampinetti@gmail.com
 #
