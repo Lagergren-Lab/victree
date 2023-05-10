@@ -29,8 +29,8 @@ parse_yaml_args() {
     # flag param
     if [[ "${value}" == "true" ]]; then
       args+=("--${key}")
-    elif [[ "${key}" == "input" ]]; then
-      args+=("--${key} ${yaml_dir}/${value}")
+    # elif [[ "${key}" == "input" ]]; then
+    #   args+=("--${key} ${yaml_dir}/${value}")
     else
       args+=("--${key} ${value}")
     fi
@@ -80,7 +80,7 @@ else
   exit
 fi
 
-input_file="$(realpath "${yaml_dir}/$(yq eval '.input' ${yaml_file})")"
+input_file="$(yq eval '.input' ${yaml_file})"
 
 # go in copytree_dir so to use catch scripts dependencies
 echo "moving into ${copytree_dir}"

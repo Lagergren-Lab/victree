@@ -9,21 +9,6 @@
 #SBATCH --mail-user=zampinetti@gmail.com
 #
 
-
-launch_srun() {
-  local yaml_file="$1"
-  local output_dir="$2"
-
-  args=$(parse_yaml_args "$yaml_file")
-
-  full_cmd="${victree} ${args[@]}"
-  echo "Executing: ${full_cmd}"
-  srun --name="$yaml_file" --ntasks=1 --cpus-per-task=8 \
-    --exclusive --mem=1024 "$full_cmd"&
-  "${analysis}" "$(echo "${outpud_dir}/checkpoint*.h5")
-  -gt $(yq eval '.input' ${yaml_file}) -m -p 2"
-}
-
 # Function to process each YAML file
 process_yaml() {
   local yaml_file="$1"
@@ -53,6 +38,12 @@ search_yaml() {
   done
 }
 
+# validate input
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
 # load all required modules and libraries
 module add Python/3.10.4-env-nsc1-gcc-2022a-eb
 source "/proj/sc_ml/shared/envs/copytree-venv/bin/activate"
@@ -60,12 +51,6 @@ module add R/4.2.2-nsc1-gcc-11.3.0-bare
 export R_LIBS="/proj/sc_ml/shared/envs/r-libs"
 #export R_LIBS_USER="/proj/sc_ml/shared/envs/r-libs"
 export NUMEXPR_MAX_THREADS=32
-
-# validate input
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 <directory>"
-  exit 1
-fi
 
 directory="$1"
 
