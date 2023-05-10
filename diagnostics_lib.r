@@ -121,7 +121,7 @@ plot_elbo <- function(diag_list) {
   return(p)
 }
 
-plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nrow = 5, ncol = 5, remap_clones = FALSE) {
+plot_cell_assignment <- function(diag_list, gt = NULL, nrow = 5, ncol = 5, remap_clones = FALSE, cpages = 0) {
 
   K = dim(diag_list$qZ$pi)[3]
 
@@ -152,7 +152,13 @@ plot_cell_assignment <- function(diag_list, gt = NULL, cell_sample_size = NA, nr
     facet_wrap_paginate(~cell, ncol = ncol, nrow = nrow, scales = "free")
 
   p_list <- list()
-  for (i in 1:n_pages(p)) {
+  if (cpages < 1) {
+    cpages <- n_pages(p)
+  } else {
+    cpages <- min(n_pages(p), cpages)
+  }
+
+  for (i in 1:cpages) {
     p_list[[i]] <- p +
       facet_wrap_paginate(~cell, ncol = ncol, nrow = nrow, scales = "free", page = i)
   }
@@ -308,7 +314,7 @@ plot_eps <- function(diag_list, gt_list = NULL, remap_clones = FALSE, nrow = 5) 
   return(p_list)
 }
 
-plot_mutau <- function(diag_list, gt_list = NULL) {
+plot_mutau <- function(diag_list, gt_list = NULL, cpages = 0) {
   N <- dim(diag_list$qMuTau$nu)[2]
 
   nu_df <- melt(diag_list$qMuTau$nu, value.name = "nu", varnames = c("it", "cell"))
@@ -354,7 +360,14 @@ plot_mutau <- function(diag_list, gt_list = NULL) {
                         strip.position = "right", labeller = label_wrap_gen(multi_line=FALSE))
 
   p_list <- list()
-  for (i in 1:n_pages(p)) {
+
+  if (cpages < 1) {
+    cpages <- n_pages(p)
+  } else {
+    cpages <- min(n_pages(p), cpages)
+  }
+
+  for (i in 1:cpages) {
     p_list[[i]] <- p +
       facet_wrap_paginate(cell ~ param, nrow = 10, ncol = 2, scales = "free_y",
                           strip.position = "right", labeller = label_wrap_gen(multi_line=FALSE), page = i)

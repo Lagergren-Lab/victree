@@ -8,6 +8,8 @@ parser$add_argument("-gt", "--gt-dir", default = NULL, type = "character", help=
 parser$add_argument("-o", "--out-dir", type = "character", help = "directory where to save results.pdf", default = NULL)
 parser$add_argument("-m", "--remap-clones", action = "store_true", default = FALSE,
                     help = "remap clones to most likely matches with ground truth")
+parser$add_argument("-p", "--cell-pages", type = "numeric", default = 0,
+                    help = "number of pages with cell specific details (default 0, i.e. all cells)")
 
 args <- parser$parse_args()
 
@@ -53,15 +55,19 @@ pdf(pdf_path, onefile = TRUE, paper = "a4")
 
 
 # elbo
+print("elbo plot")
 ggarrange(plot_elbo(diag_list), plot_cell_prop(diag_list), ncol = 1)
 
 # trees
+print("tree plot")
 plot_trees(diag_list, nsamples = 10, gt_list = gt_list, remap_clones = remap_clones)
 
+print("matrix plot")
 plot_tree_matrix(diag_list)
 
 # cell assignments
 if (!is.null(gt_list)) {
+  print("ari plot")
   plot_ari_heatmap(diag_list, gt_list)
 }
 
@@ -77,18 +83,24 @@ if (remap_clones) {
 }
 
 # qz
-plot_cell_assignment(diag_list, gt = gt_list, remap_clones = remap_clones)
+print("cell assignment plot")
+plot_cell_assignment(diag_list, gt = gt_list, remap_clones = remap_clones, cpages = args$cell_pages)
 
 # qc
+print("copy number plot")
 plot_copy(diag_list, gt_list, remap_clones = remap_clones)
 
+print("observation plot")
 plot_cn_obs(diag_list, obs, gt_list, remap_clones = T)
 
 # eps
+print("eps plot")
 plot_eps(diag_list, gt_list, remap_clones = remap_clones)
 
 # mutau
-plot_mutau(diag_list, gt_list)
+print("mutau plot")
+plot_mutau(diag_list, gt_list, cpages = args$cell_pages)
 
 
 graphics.off()
+print(paste0("pdf saved in ", pdf_path))
