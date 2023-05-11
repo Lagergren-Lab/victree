@@ -431,10 +431,10 @@ if __name__ == '__main__':
     # simulate data and save it to file
     set_seed(args.seed)
     # preprocess args
-    conc_fact_str = "-".join(map(str, args.concentration_factor))
+    conc_fact_str = "-".join(map(str, map(int, args.concentration_factor)))
     if len(args.concentration_factor) == 1:
         args.concentration_factor = args.concentration_factor[0]
-        conc_fact_str = str(args.concentration_factor)
+        conc_fact_str = str(int(args.concentration_factor))
     else:
         assert len(args.concentration_factor) == args.n_nodes
 
@@ -446,8 +446,8 @@ if __name__ == '__main__':
 
     filename = f'simul_' \
                f'k{args.n_nodes}a{args.n_states}n{args.n_cells}m{args.chain_length}' \
-               f'e{args.eps_params[0]}-{args.eps_params[1]}' \
+               f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \
                f'd{conc_fact_str}'\
-               f'mt{"-".join(map(str, args.mutau_params))}'
+               f'mt{"-".join(map(str, map(int, args.mutau_params)))}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')
