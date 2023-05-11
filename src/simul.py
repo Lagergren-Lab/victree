@@ -407,12 +407,16 @@ if __name__ == '__main__':
     cli.add_argument('-cf', '--concentration-factor',
                      type=float,
                      nargs='*',
-                     default=[1.], help="concentration factor for Dirichlet distribution. If only one value"
-                                        "is passed, this is replicated K-times to match the param vector length")
-    cli.add_argument('-e', '--eps-beta-params',
+                     metavar="DELTA",
+                     default=[10.], help="concentration factor for Dirichlet distribution. If only one value"
+                                         "is passed, this is replicated K-times to match the param vector length")
+    cli.add_argument('-e', '--eps-params',
                      type=float,
                      nargs=2,
-                     default=[5., 50.], metavar=("ALPHA", "BETA"), help="alpha and beta parameters for Beta distribution")
+                     default=[1., 50.], metavar=("ALPHA", "BETA"), help="alpha and beta parameters for Beta distribution")
+    cli.add_argument("--mutau-params", default=[1., 10., 500., 50.], nargs=4, type=float,
+                     help="prior on mu-tau (Normal-Gamma dist)",
+                     metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
     cli.add_argument("-d", "--debug",
                      action="store_true",
                      help="additional inspection for debugging purposes")
@@ -427,16 +431,23 @@ if __name__ == '__main__':
     # simulate data and save it to file
     set_seed(args.seed)
     # preprocess args
+    conc_fact_str = "-".join(map(str, args.concentration_factor))
     if len(args.concentration_factor) == 1:
         args.concentration_factor = args.concentration_factor[0]
+        conc_fact_str = str(args.concentration_factor)
     else:
         assert len(args.concentration_factor) == args.n_nodes
 
     data = simulate_full_dataset(
         Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length),
         dir_alpha=args.concentration_factor,
-        eps_a=args.eps_beta_params[0], eps_b=args.eps_beta_params[1])
+        mu0=args.mutau_params[0], lambda0=args.mutau_params[1], alpha0=args.mutau_params[2], beta0=args.mutau_params[3],
+        eps_a=args.eps_params[0], eps_b=args.eps_params[1])
 
-    filename = f'simul_K{args.n_nodes}_A{args.n_states}_N{args.n_cells}_M{args.chain_length}'
+    filename = f'simul_' \
+               f'k{args.n_nodes}a{args.n_states}n{args.n_cells}m{args.chain_length}' \
+               f'e{args.eps_params[0]}-{args.eps_params[1]}' \
+               f'd{conc_fact_str}'\
+               f'mt{"-".join(map(str, args.mutau_params))}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')
