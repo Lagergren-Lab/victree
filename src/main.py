@@ -102,7 +102,7 @@ if __name__ == '__main__':
     parser.add_argument("--prior-mutau", default=[1., 10., 500, 50], nargs=4, type=float,
                         help="prior on mu-tau (Normal-Gamma dist)",
                         metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
-    parser.add_argument("--prior-pi", default=[1.], nargs='*', type=float,
+    parser.add_argument("--prior-pi", default=[10.], nargs='*', type=float,
                         help="prior on pi  (Dirichlet dist). If uniform, one single value can be specified,"
                              "otherwise provide as many values as the specified K parameter (number of nodes)",
                         metavar="DELTA")
