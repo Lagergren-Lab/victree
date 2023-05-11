@@ -9,6 +9,7 @@ from utils.tree_utils import newick_from_eps_arr
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config
 from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5, write_checkpoint_h5
+from variational_distributions.var_dists import qMuTau, qEpsilonMulti, qPi
 
 
 def run(args):
@@ -37,8 +38,13 @@ def run(args):
                     n_run_iter=args.n_iter, elbo_rtol=args.r_tol)
     logging.debug(str(config))
 
-    # instantiate all distributions
-    joint_q = VarTreeJointDist(config, obs)
+    # instantiate all distributions with prior params
+    qmt = qMuTau(config, nu_prior=args.prior_mutau[0], lambda_prior=args.prior_mutau[1],
+                 alpha_prior=args.prior_mutau[2], beta_prior=args.prior_mutau[3])
+    qeps = qEpsilonMulti(config, alpha_prior=args.prior_eps[0], beta_prior=args.prior_eps[1])
+    qpi = qPi(config, delta_prior=args.prior_pi)
+
+    joint_q = VarTreeJointDist(config, obs, qmt=qmt, qeps=qeps, qpi=qpi)
     logging.info('initializing distributions..')
     joint_q.initialize()
     joint_q.z.initialize(method='random')

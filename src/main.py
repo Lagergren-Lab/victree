@@ -56,6 +56,13 @@ def validate_args(args):
     elif args.sieving[1] < 2:
         raise argparse.ArgumentError(args.sieving, message=f"If sieving, num of sieving iterations must be > 1")
 
+    if len(args.prior_pi) == 1:
+        args.prior_pi = args.prior_pi[0]
+    elif len(args.prior_pi) != args.n_nodes:
+        raise argparse.ArgumentError(args.prior_pi, message=f"Prior for pi must be either length 1 or K. "
+                                                            f"K was set to {args.n_nodes}, but pi prior "
+                                                            f"has length {len(args.prior_pi)}")
+
 
 def parse_args(parser):
     args = parser.parse_args()
@@ -89,6 +96,17 @@ if __name__ == '__main__':
     parser.add_argument("--r-tol", default=10e-4, type=float, help="relative tolerance for early stopping")
     parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))
+    # priors parameters
+    parser.add_argument("--prior-eps", default=[1., 50.], nargs=2, type=float, help="prior on epsilon  (Beta dist)",
+                        metavar=("ALPHA", "BETA"))
+    parser.add_argument("--prior-mutau", default=[1., 10., 500, 50], nargs=4, type=float,
+                        help="prior on mu-tau (Normal-Gamma dist)",
+                        metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
+    parser.add_argument("--prior-pi", default=[1.], nargs='*', type=float,
+                        help="prior on pi  (Dirichlet dist). If uniform, one single value can be specified,"
+                             "otherwise provide as many values as the specified K parameter (number of nodes)",
+                        metavar="DELTA")
+
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
     validate_args(args)  # custom validation on args
