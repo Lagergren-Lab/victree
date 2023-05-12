@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #SBATCH -J victree
-#SBATCH -t 10:00:00
+#SBATCH -t 15:00:00
 #SBATCH --mem=8192
 #SBATCH --ntasks 8
 #SBATCH --cpus-per-task 4
@@ -14,7 +14,7 @@ process_yaml() {
   local yaml_file="$1"
 
   echo "running config $1"
-  srun --exclusive --ntasks=1 --cpus-per-task=8 --mem=1024 \
+  srun --exclusive --ntasks=1 --cpus-per-task=4 --mem=1024 \
     run_victree_analysis.sh "${yaml_file}"&
 }
 
