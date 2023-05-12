@@ -123,9 +123,11 @@ plot_elbo <- function(diag_list) {
 
 plot_cell_assignment <- function(diag_list, gt = NULL, nrow = 5, ncol = 5, remap_clones = FALSE, cpages = 0) {
 
-  K = dim(diag_list$qZ$pi)[3]
+  K <- dim(diag_list$qZ$pi)[3]
+  N <- dim(diag_list$qZ$pi)[2]
 
-  ca_long_df <- melt(diag_list$qZ$pi,
+  sampled_cells <- sample(1:N, nrow * ncol)
+  ca_long_df <- melt(diag_list$qZ$pi[, sampled_cells, ],
     value.name = "prob",
     varnames = c("iter", "cell", "clone")
   ) %>%
