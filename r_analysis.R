@@ -87,8 +87,8 @@ plot_cell_assignment(diag_list, gt = gt_list, remap_clones = remap_clones, cpage
 print("copy number plot")
 plot_copy(diag_list, gt_list, remap_clones = remap_clones)
 
-print("observation plot")
-plot_cn_obs(diag_list, obs, gt_list, remap_clones = T)
+# print("observation plot")
+# plot_cn_obs(diag_list, obs, gt_list, remap_clones = T)
 
 # eps
 print("eps plot")
