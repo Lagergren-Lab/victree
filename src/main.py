@@ -62,6 +62,9 @@ def validate_args(args):
         raise argparse.ArgumentError(args.prior_pi, message=f"Prior for pi must be either length 1 or K. "
                                                             f"K was set to {args.n_nodes}, but pi prior "
                                                             f"has length {len(args.prior_pi)}")
+    if args.z_init not in ["random", "uniform", "kmeans"]:
+        raise argparse.ArgumentError(args.z_init, message=f"Init method {args.z_init} for"
+                                                          f"qZ variational distribution is not valid. Check usage.")
 
 
 def parse_args(parser):
@@ -106,6 +109,11 @@ if __name__ == '__main__':
                         help="prior on pi  (Dirichlet dist). If uniform, one single value can be specified,"
                              "otherwise provide as many values as the specified K parameter (number of nodes)",
                         metavar="DELTA")
+    # initialization
+    parser.add_argument("--z-init", default="random", type=str, metavar="TYPE_STR",
+                        help="initialization of clustering variable qZ, can be [`random`, `uniform`, `kmeans`], "
+                             "default to `random`")
+
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()

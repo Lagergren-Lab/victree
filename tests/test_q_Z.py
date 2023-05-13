@@ -40,7 +40,7 @@ class qZTestCase(unittest.TestCase):
         q_pi.concentration_param[1:] = 10
         config_1 = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M)
         q_Z_1 = qZ(config_1)
-        q_Z_1.initialize(method='uniform')
+        q_Z_1.initialize(z_init='uniform')
         config_2 = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M)
         q_Z_2 = qZ(config_2)
         q_Z_2.initialize()
@@ -100,13 +100,13 @@ class qZTestCase(unittest.TestCase):
         sim_joint_q = utils_testing.generate_test_dataset_fixed_tree()
         obs = sim_joint_q.obs
 
-        qz = qZ(sim_joint_q.config).initialize(method='uniform')
+        qz = qZ(sim_joint_q.config).initialize(z_init='uniform')
         unif_elbo = qz.compute_elbo(sim_joint_q.pi)
 
-        qz.initialize(method='random')
+        qz.initialize(z_init='random')
         rand_elbo = qz.compute_elbo(sim_joint_q.pi)
 
-        qz.initialize(method='kmeans', obs=obs)
+        qz.initialize(z_init='kmeans', obs=obs)
         kmeans_elbo = qz.compute_elbo(sim_joint_q.pi)
 
         print(unif_elbo)

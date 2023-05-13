@@ -40,7 +40,7 @@ class qPiTestCase(unittest.TestCase):
         q_pi_2 = qPi(config)
 
         q_z_1 = qZ(config)  # uniform
-        q_z_1.initialize(method='uniform')
+        q_z_1.initialize(z_init='uniform')
         q_z_probs_2 = torch.rand((N, K))
         q_z_probs_2 = q_z_probs_2 / torch.sum(q_z_probs_2, dim=-1).unsqueeze(-1)
         q_z_2 = qZ(config)

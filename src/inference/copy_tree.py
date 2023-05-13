@@ -53,11 +53,15 @@ class CopyTree:
         assert 'elbo' in self.q.params_history
         return len(self.q.params_history['elbo'])
 
-    def run(self, n_iter = -1):
+    def run(self, args=None, n_iter=-1):
 
         # TODO: clean if-case and use just config param
         if n_iter == -1:
             n_iter = self.config.n_run_iter
+        z_init = "random"
+        if args is not None:
+            z_init = args.z_init
+
         if self.config.diagnostics:
             checkpoint_path = os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5")
             # check if checkpoint already exists, then print warning
@@ -77,7 +81,7 @@ class CopyTree:
             # run inference on separate initialization of copytree and select the best one
             # TODO: add initialization parameters
             # self.sieve(ktop=3)
-            self.halve_sieve()
+            self.halve_sieve(z_init=z_init, obs=self.obs)
             logging.info(f"ELBO after sieving: {self.compute_elbo():.2f}")
 
         else:

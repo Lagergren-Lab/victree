@@ -217,7 +217,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
         q = VarDistFixedTree(config, qc, qz, qeps, qpsi, qpi, tree, x)
         q.initialize()
-        q.z.initialize(method='kmeans', obs=x)
+        q.z.initialize(z_init='kmeans', obs=x)
 
         print(f"-------------- qZ after init -------------------")
         model_variational_comparisons.compare_qZ_and_true_Z(z, q.z)

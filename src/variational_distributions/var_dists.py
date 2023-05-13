@@ -623,17 +623,17 @@ class qZ(VariationalDistribution):
             logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._pi[...] = pi
 
-    def initialize(self, method: str = 'random', **kwargs):
-        if method == 'random':
+    def initialize(self, z_init: str = 'random', **kwargs):
+        if z_init == 'random':
             self._random_init()
-        elif method == 'uniform':
+        elif z_init == 'uniform':
             self._uniform_init()
-        elif method == 'fixed':
+        elif z_init == 'fixed':
             self._init_with_values(**kwargs)
-        elif method == 'kmeans':
+        elif z_init == 'kmeans':
             self._kmeans_init(**kwargs)
         else:
-            raise ValueError(f'method `{method}` for qZ initialization is not implemented')
+            raise ValueError(f'method `{z_init}` for qZ initialization is not implemented')
         return super().initialize(**kwargs)
 
     def _random_init(self):
@@ -650,6 +650,7 @@ class qZ(VariationalDistribution):
     def _kmeans_init(self, obs, **kwargs):
         # TODO: find a soft k-means version
         # https://github.com/omadson/fuzzy-c-means
+        logging.debug("Running k-means for z init")
         eps = 1e-4
         N = self.config.n_cells
         M = self.config.chain_length
@@ -658,7 +659,7 @@ class qZ(VariationalDistribution):
         sd_obs = obs.std(dim=0, keepdim=True)
         # standardize to keep pattern
         scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
-        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0, n_init='auto').fit(scaled_obs.T)
         m_labels = kmeans.labels_
         self.kmeans_labels[...] = torch.tensor(m_labels).long()
         self.pi[...] = torch.nn.functional.one_hot(self.kmeans_labels, num_classes=self.config.n_nodes)
@@ -1283,7 +1284,7 @@ class qEpsilonMulti(VariationalDistribution):
     def _non_mutation_init(self):
         self._set_equal_params(1., 10.)
 
-    def _random_init(self, gamma_shape=2., gamma_rate=2.):
+    def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
         for e in self.alpha_dict.keys():
             a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
             self.alpha_dict[e] = a

@@ -47,15 +47,14 @@ def run(args):
     joint_q = VarTreeJointDist(config, obs, qmt=qmt, qeps=qeps, qpi=qpi)
     logging.info('initializing distributions..')
     joint_q.initialize()
-    joint_q.z.initialize(method='random')
-    # joint_q.z.initialize(method='kmeans', obs=obs)
+    joint_q.z.initialize(z_init=args.z_init, obs=obs)
     joint_q.mt.initialize(method='data', obs=obs)
     joint_q.eps.initialize(method='uniform')
 
     copy_tree = CopyTree(config, joint_q, obs)
 
     logging.info('start inference')
-    copy_tree.run()
+    copy_tree.run(args)
 
     write_output_h5(copy_tree, os.path.join(args.out_dir, "out_" + str(copy_tree) + ".h5"))
 

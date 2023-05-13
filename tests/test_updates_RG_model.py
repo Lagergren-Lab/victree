@@ -149,7 +149,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         fix_qpi = joint_q.pi
 
         qz = qZ(cfg)
-        qz.initialize(method='random')
+        qz.initialize(z_init='random')
 
         for i in range(3):
             qz.update(fix_qmt, fix_qc, fix_qpi, obs)
@@ -273,7 +273,7 @@ class updatesRGModelTestCase(unittest.TestCase):
 
         qz = qZ(cfg)
         qc = qC(cfg)
-        qz.initialize(method='random')
+        qz.initialize(z_init='random')
         qc.initialize()
 
         n_iter = 10
@@ -394,7 +394,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         almost_true_z_init = joint_q.z.exp_assignment() + .2
         almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
         qmt.initialize()
-        qz.initialize(method='fixed', pi_init=joint_q.z.exp_assignment() + .2)
+        qz.initialize(z_init='fixed', pi_init=joint_q.z.exp_assignment() + .2)
         # qz.initialize(method='kmeans', obs=obs)
         qc.initialize()
 
@@ -472,7 +472,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         # initialize main dists
         # qz = qZ(cfg).initialize(method='kmeans', obs=obs)
         # skewed towards true cluster, but not exact
-        qz = qZ(cfg).initialize(method='fixed',
+        qz = qZ(cfg).initialize(z_init='fixed',
                                 pi_init=torch.nn.functional.one_hot(true_z).float().clamp(.2 / (cfg.n_nodes - 1), .8))
         # qc = qC(cfg).initialize(method='bw-cluster', obs=obs, clusters=qz.kmeans_labels)
         qc = qC(cfg).initialize()
