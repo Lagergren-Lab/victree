@@ -786,9 +786,21 @@ class qT(VariationalDistribution):
     def trees_sample_weights(self) -> np.ndarray:
         return self.log_w_t.exp().data.cpu().numpy()
 
-    def initialize(self, **kwargs):
-        # rooted graph with random weights in (0, 1) - log transformed
-        self.init_fc_graph()
+    def _init_from_matrix(self, matrix, **kwargs):
+        for e in self._weighted_graph.edges:
+            self._weighted_graph.edges[e]['weight'] = torch.tensor(matrix[e])
+        # run sampling to store first sampled tree list and weights
+        self.get_trees_sample()
+
+    def initialize(self, method='random', **kwargs):
+        if method == 'random':
+            # rooted graph with random weights in (0, 1) - log transformed
+            self.init_fc_graph()
+        elif method == 'matrix':
+            self._init_from_matrix(**kwargs)
+        else:
+            raise ValueError(f'method `{method}` for qT initialization is not implemented')
+
         return super().initialize(**kwargs)
 
     def neg_cross_entropy(self):
@@ -1016,14 +1028,18 @@ of the variational distribution over the topology.
 
         return os.linesep.join(summary)
 
-    def get_pmf_estimate(self, normalized: bool = False) -> dict:
+    def get_pmf_estimate(self, normalized: bool = False, n: int = 0) -> dict:
         """
         Returns
         -------
         dict with values (newick_tree: sum of importance_weights)
         """
         qdist = {}
-        for t, log_w in zip(self.nx_trees_sample, self.log_w_t):
+        trees, log_w_t = self.nx_trees_sample, self.log_w_t
+        if n > 0:
+            trees, log_w_t_list = self.get_trees_sample(sample_size=n, log_scale=True)
+            log_w_t = torch.tensor(log_w_t_list)
+        for t, log_w in zip(trees, log_w_t):
             # build a pmf from the sample by summing up the importance weights
             w = log_w.exp()
             newick = tree_utils.tree_to_newick(t)

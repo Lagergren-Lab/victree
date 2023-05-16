@@ -172,8 +172,8 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 w_Tw = torch.tensor([log_W[u, v] for (u, v) in t_w.edges()]).sum()
                 w_To = torch.tensor([log_W[u, v] for (u, v) in t_wo.edges()]).sum()
                 theta = torch.exp(w_Tw - torch.logaddexp(w_Tw, w_To))
-                theta2 = torch.exp(t_w.size(weight='weight') -
-                                  torch.logaddexp(t_w.size(weight='weight'), t_wo.size(weight='weight')))
+                # theta2 = torch.exp(t_w.size(weight='weight') -
+                #                   torch.logaddexp(t_w.size(weight='weight'), t_wo.size(weight='weight')))
 
             if torch.rand(1) < theta:
                 s.add_edge(u, v, weight=graph.edges[u, v]['weight'])

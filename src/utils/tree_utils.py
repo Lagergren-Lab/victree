@@ -106,13 +106,13 @@ def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
     return "(" + ','.join(subgs) + ")" + str(root)
 
 
-def top_k_trees_from_sample(t_list, w_list, k, by_weight=True, nx_graph=False):
+def top_k_trees_from_sample(t_list, w_list, k: int = 0, by_weight=True, nx_graph=False):
     """
     Parameters
     ----------
     t_list list of sampled trees
     w_list sampled trees weights
-    k number of unique top trees in output
+    k number of unique top trees in output, if 0, return all unique trees
     by_weight bool, if true sorts by decreasing sum of weights.
         if false, sorts by decreasing number of trees (cardinality)
     nx_graph bool, if true nx.DiGraph object is returned, if false newick str is returned
@@ -143,7 +143,10 @@ def top_k_trees_from_sample(t_list, w_list, k, by_weight=True, nx_graph=False):
                 # different sets of edges
                 assert nx.difference(unique_trees[alt_t]['nx-tree'], t).size() > 0
 
-    sorted_trees: [(str, float)]
+    if k == 0:
+        k = len(unique_trees)
+
+    sorted_trees: [(str | nx.DiGraph, float)]
     sorted_trees = [(t_dat['nx-tree'] if nx_graph else t_str,
                      t_dat['weight'] if by_weight else t_dat['count'])
                     for t_str, t_dat in sorted(unique_trees.items(), key=lambda x: x[1]['weight'], reverse=True)]
@@ -241,3 +244,5 @@ def unique_trees_and_multiplicity(prufer_list: list[list[int]]):
 
 def to_undirected(T_list: list[nx.DiGraph]):
     return [nx.to_undirected(T) for T in T_list]
+
+

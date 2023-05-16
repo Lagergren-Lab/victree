@@ -1,3 +1,5 @@
+import itertools
+
 from scipy.stats import dirichlet, multinomial, gamma, poisson
 import numpy as np
 import math
@@ -53,4 +55,31 @@ def add_noise(j):
     if j == 0:
         j = 0.001
     return j
+
+
+def best_mapping(gt_z, vi_z):
+    """
+    Returns best permutation to go from gt_lab -> vi_lab
+    Use it to change ground truth labels
+    Parameters
+    ----------
+    gt_z (N,)
+    vi_z (N, K)
+    """
+    K = vi_z.shape[1]
+    assert np.unique(gt_z).size == K
+    perms = [list((0,) + p) for p in itertools.permutations(range(1, K))]
+    if len(perms) > 10e7:
+        print(f"warn: num of permutations is {len(perms)}")
+    # get one-hot ground truth z
+    one_hot_gt = np.eye(K)[gt_z]
+    scores = []
+    for p in perms:
+        score = np.sum(vi_z * one_hot_gt[:, p])
+        scores.append(score)
+
+    best_perm_idx = np.argmax(scores)
+    return perms[best_perm_idx]
+
+
 

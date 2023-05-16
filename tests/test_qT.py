@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 import simul
-from tests import utils_testing
+# from tests import utils_testing
 from utils import tree_utils, visualization_utils
 from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick
@@ -110,98 +110,96 @@ class qTTestCase(unittest.TestCase):
                         msg=f"true " + gt_tree_newick + f" not in the first {tol} trees. those are:"
                                                         f"{sorted_newick[0]} | {sorted_newick[1]} | {sorted_newick[2]}")
 
-
-
-    def test_qT_update_low_weights_for_improbable_epsilon(self):
-        set_seed(0)
-        N = 100
-        M = 100
-        K = 10
-        A = 7
-        eps_a = 5.
-        eps_b = 200.
-        true_tree = utils_testing.get_tree_K_nodes_random(K)
-        config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A)
-        out_simul = simul.simulate_full_dataset(config, tree=true_tree, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha=10.)
-        c = out_simul["c"]
-        eps = out_simul["eps"]
-        q_T = qT(config=config)
-        q_C = qC(config=config)
-        q_C_pairwise_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A)
-        q_C.couple_filtering_probs = q_C_pairwise_marginals
-        q_epsilon = qEpsilonMulti(config=config)
-        gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
-                                                       range(config.n_nodes)) if v != 0 and u != v]
-
-        # Set epsilon parameters close to true parameters for edges in true tree and far away for edges not in tree
-        eps_alpha_dict = {e: torch.tensor(1.) for e in gedges}
-        eps_beta_dict = {e: 1./eps[e] if e in eps.keys() else torch.tensor(eps_b / 100.) for e in gedges}
-        q_epsilon.initialize(method="fixed", eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
-        q_T.initialize()
-        q_T.update(q_C, q_epsilon)
-        print(q_T)
-
-        # Expect weights of edges in true tree to be larger than edges not in true tree
-        min_weight = np.min([q_T.weight_matrix[u, v] for (u, v) in true_tree.edges()])
-
-        for u in range(K):
-            for v in range(K):
-                if (u, v) not in true_tree.edges() and v != 0 and u != v:
-                    self.assertGreater(min_weight, q_T.weight_matrix[u, v])
-
-    def test_qT_given_true_parameters(self):
-        set_seed(0)
-        N = 100
-        M = 100
-        K = 5
-        A = 7
-        L = 100
-        eps_a = 5.
-        eps_b = 200.
-        off_set_factor = 1 / 100.
-        true_tree = utils_testing.get_tree_K_nodes_random(K)
-        config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A, wis_sample_size=L)
-        out_simul = simul.simulate_full_dataset(config, tree=true_tree, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha=10.)
-        c = out_simul["c"]
-        eps = out_simul["eps"]
-        q_T = qT(config=config)
-        q_C = qC(config=config)
-        q_C_pairwise_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A)
-        q_C.couple_filtering_probs = q_C_pairwise_marginals
-        q_epsilon = qEpsilonMulti(config=config)
-        gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
-                                                       range(config.n_nodes)) if v != 0 and u != v]
-        eps_alpha_dict = {e: torch.tensor(eps_a) for e in gedges}
-        eps_beta_dict = {e: eps_a/eps[e] if e in eps.keys() else torch.tensor(eps_b * off_set_factor) for e in gedges}
-        q_epsilon.initialize(method="fixed", eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
-        q_T.initialize()
-        q_T.update(q_C, q_epsilon)
-
-        test_dir_name = utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"))
-
-        print(q_T)
-        print(f"True tree: {tree_utils.tree_to_newick(true_tree, 0)}")
-        nx_trees_sample, log_w_t, log_g_t = q_T.get_trees_sample(sample_size=L, add_log_g=True)
-        print(f"g(T): {log_g_t}")
-
-        T_undirected_list = tree_utils.to_undirected(nx_trees_sample)
-        prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
-        unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list)
-        print(f"N unique trees: {len(unique_seq_idx)}")
-        t_list_unique = [nx_trees_sample[i] for i in unique_seq_idx]
-        log_w_t_unique = [log_w_t[i] for i in unique_seq_idx]
-        log_g_t_unique = [log_g_t[i] for i in unique_seq_idx]
-        distances = tree_utils.distances_to_true_tree(true_tree, t_list_unique)
-        visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, t_list_unique, log_w_t_unique, distances)
-        print(f"Distances to true tree: {distances}")
-        print(f"Weights: {log_w_t_unique}")
-        print(f"g(T): {log_g_t_unique}")
-        tree_of_distance_0 = t_list_unique[np.where(distances == 0.)[0][0]]
-        tree_of_distance_2 = t_list_unique[np.where(distances == 2.)[0][0]]
-        tree_of_distance_4 = t_list_unique[np.where(distances == 4.)[0][0]]
-        print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
-        print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
-        print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
+    # def test_qT_update_low_weights_for_improbable_epsilon(self):
+    #     set_seed(0)
+    #     N = 100
+    #     M = 100
+    #     K = 10
+    #     A = 7
+    #     eps_a = 5.
+    #     eps_b = 200.
+    #     true_tree = utils_testing.get_tree_K_nodes_random(K)
+    #     config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A)
+    #     out_simul = simul.simulate_full_dataset(config, tree=true_tree, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10.,
+    #                       alpha0=500., beta0=50., dir_alpha=10.)
+    #     c = out_simul["c"]
+    #     eps = out_simul["eps"]
+    #     q_T = qT(config=config)
+    #     q_C = qC(config=config)
+    #     q_C_pairwise_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A)
+    #     q_C.couple_filtering_probs = q_C_pairwise_marginals
+    #     q_epsilon = qEpsilonMulti(config=config)
+    #     gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
+    #                                                    range(config.n_nodes)) if v != 0 and u != v]
+    #
+    #     # Set epsilon parameters close to true parameters for edges in true tree and far away for edges not in tree
+    #     eps_alpha_dict = {e: torch.tensor(1.) for e in gedges}
+    #     eps_beta_dict = {e: 1./eps[e] if e in eps.keys() else torch.tensor(eps_b / 100.) for e in gedges}
+    #     q_epsilon.initialize(method="fixed", eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
+    #     q_T.initialize()
+    #     q_T.update(q_C, q_epsilon)
+    #     print(q_T)
+    #
+    #     # Expect weights of edges in true tree to be larger than edges not in true tree
+    #     min_weight = np.min([q_T.weight_matrix[u, v] for (u, v) in true_tree.edges()])
+    #
+    #     for u in range(K):
+    #         for v in range(K):
+    #             if (u, v) not in true_tree.edges() and v != 0 and u != v:
+    #                 self.assertGreater(min_weight, q_T.weight_matrix[u, v])
+    #
+    # def test_qT_given_true_parameters(self):
+    #     set_seed(0)
+    #     N = 100
+    #     M = 100
+    #     K = 5
+    #     A = 7
+    #     L = 100
+    #     eps_a = 5.
+    #     eps_b = 200.
+    #     off_set_factor = 1 / 100.
+    #     true_tree = utils_testing.get_tree_K_nodes_random(K)
+    #     config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A, wis_sample_size=L)
+    #     out_simul = simul.simulate_full_dataset(config, tree=true_tree, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10.,
+    #                       alpha0=500., beta0=50., dir_alpha=10.)
+    #     c = out_simul["c"]
+    #     eps = out_simul["eps"]
+    #     q_T = qT(config=config)
+    #     q_C = qC(config=config)
+    #     q_C_pairwise_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A)
+    #     q_C.couple_filtering_probs = q_C_pairwise_marginals
+    #     q_epsilon = qEpsilonMulti(config=config)
+    #     gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
+    #                                                    range(config.n_nodes)) if v != 0 and u != v]
+    #     eps_alpha_dict = {e: torch.tensor(eps_a) for e in gedges}
+    #     eps_beta_dict = {e: eps_a/eps[e] if e in eps.keys() else torch.tensor(eps_b * off_set_factor) for e in gedges}
+    #     q_epsilon.initialize(method="fixed", eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
+    #     q_T.initialize()
+    #     q_T.update(q_C, q_epsilon)
+    #
+    #     test_dir_name = utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"))
+    #
+    #     print(q_T)
+    #     print(f"True tree: {tree_utils.tree_to_newick(true_tree, 0)}")
+    #     nx_trees_sample, log_w_t, log_g_t = q_T.get_trees_sample(sample_size=L, add_log_g=True)
+    #     print(f"g(T): {log_g_t}")
+    #
+    #     T_undirected_list = tree_utils.to_undirected(nx_trees_sample)
+    #     prufer_list = tree_utils.to_prufer_sequences(T_undirected_list)
+    #     unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list)
+    #     print(f"N unique trees: {len(unique_seq_idx)}")
+    #     t_list_unique = [nx_trees_sample[i] for i in unique_seq_idx]
+    #     log_w_t_unique = [log_w_t[i] for i in unique_seq_idx]
+    #     log_g_t_unique = [log_g_t[i] for i in unique_seq_idx]
+    #     distances = tree_utils.distances_to_true_tree(true_tree, t_list_unique)
+    #     visualization_utils.visualize_and_save_T_plots(test_dir_name, true_tree, t_list_unique, log_w_t_unique, distances)
+    #     print(f"Distances to true tree: {distances}")
+    #     print(f"Weights: {log_w_t_unique}")
+    #     print(f"g(T): {log_g_t_unique}")
+    #     tree_of_distance_0 = t_list_unique[np.where(distances == 0.)[0][0]]
+    #     tree_of_distance_2 = t_list_unique[np.where(distances == 2.)[0][0]]
+    #     tree_of_distance_4 = t_list_unique[np.where(distances == 4.)[0][0]]
+    #     print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
+    #     print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
+    #     print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
 

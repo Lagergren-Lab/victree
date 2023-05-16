@@ -120,3 +120,50 @@ def read_X_counts_from_h5(file_path):
 def read_hmmcopy_state_from_h5(file_path):
     f = h5py.File(file_path, 'r')
     return f['layers']['state']
+
+
+def read_checkpoint(file_path):
+    h5 = load_h5_anndata(file_path)
+    data = {
+        'elbo': h5['VarTreeJointDist']['elbo'][()],
+        'copy': h5['qC']['single_filtering_probs'][()],
+        'eps_alpha': h5['qEpsilonMulti']['alpha'][()],
+        'eps_beta': h5['qEpsilonMulti']['beta'][()],
+        'mt_nu': h5['qMuTau']['nu'][()],
+        'mt_lmbda': h5['qMuTau']['lmbda'][()],
+        'mt_alpha': h5['qMuTau']['alpha'][()],
+        'mt_beta': h5['qMuTau']['beta'][()],
+        'pi_cf': h5['qPi']['concentration_param'][()],
+        't_sample_nwk': h5['qT']['trees_sample_newick'][()],
+        't_sample_w': h5['qT']['trees_sample_weights'][()],
+        't_mat': h5['qT']['weight_matrix'][()],
+        'z_pi': h5['qZ']['pi'][()]
+    }
+    return data
+
+
+def read_last_it_from_checkpoint(file_path):
+    data = read_checkpoint(file_path)
+    for k in data:
+        data[k] = data[k][-1, ...]
+    return data
+
+
+def read_simul(file_path):
+    h5 = load_h5_anndata(file_path)
+    data = {
+        'obs': h5['layers']['copy'][()],
+        'copy': h5['gt']['copy'][()],
+        'eps': h5['gt']['eps'][()],
+        'z': h5['gt']['cell_assignment'][()],
+        'mu': h5['gt']['mu'][()],
+        'tau': h5['gt']['tau'][()],
+        'pi': h5['gt']['pi'][()],
+    }
+    return data
+
+
+def read_vi_gt(checkpoint_file, simul_file):
+    vi = read_last_it_from_checkpoint(checkpoint_file)
+    gt = read_simul(simul_file)
+    return vi, gt

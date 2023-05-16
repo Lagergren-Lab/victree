@@ -1,6 +1,7 @@
 """
 Experiments with Directed Slantis
 """
+import networkx as nx
 import pandas as pd
 import time
 
@@ -8,7 +9,8 @@ import torch
 
 import simul
 from utils.config import Config, set_seed
-from utils.tree_utils import tree_to_newick
+from utils.evaluation import best_mapping
+from utils.tree_utils import tree_to_newick, top_k_trees_from_sample
 from variational_distributions.var_dists import qT
 
 
@@ -104,6 +106,78 @@ Output is pandas dataframe or csv file with header: n_nodes, sample_size, kl, ti
         print(f"file saved to " + to_file)
         out_df.to_csv(to_file)
     return out_df
+
+
+def sample_from_matrix(weight_mat, n) -> ([nx.DiGraph], [float]):
+    """
+    Sorted list of trees with related importance normalized weight
+    Parameters
+    ----------
+    weight_mat adjacency matrix
+    n sample size
+    Returns
+    -------
+    distribution over trees
+    """
+    assert weight_mat.shape[0] == weight_mat.shape[1]
+    k = weight_mat.shape[0]
+    # create qT object and initialize it with the graph
+    qt = qT(Config(n_nodes=k, wis_sample_size=n)).initialize(method='matrix', matrix=weight_mat)
+    # build connected graph from matrix
+    # graph = nx.from_numpy_array(weight_mat, create_using=nx.DiGraph)
+    # qt._weighted_graph = graph
+    ts, ws = qt.get_trees_sample()
+
+    sorted_trees = top_k_trees_from_sample(ts, ws, nx_graph=True)
+    # normalize weights
+    acc = sum(w for _, w in sorted_trees)
+    trees = []
+    probs = []
+    for i in range(len(sorted_trees)):
+        trees.append(sorted_trees[i][0])
+        probs.append(sorted_trees[i][1] / acc)
+
+    return trees, probs
+
+
+def tree_percentile(tree_dist, tree):
+    """
+    Returns the top percentile to which the tree belongs wrt to the distribution
+    Parameters
+    """
+    # TODO: implement
+    perc = .5
+    return perc
+
+
+def trees_percentiles_from_experiment(vi_data, gt_data, n_sample=500):
+    # get the best mapping
+    mapp = best_mapping(gt_data['z'], vi_data['z_pi'])
+    K = len(mapp)
+    # get gt_tree
+    mapped_eps = gt_data['eps'][:, mapp]
+    mapped_eps = mapped_eps[mapp, :]
+    gt_tree = nx.from_numpy_array(mapped_eps, create_using=nx.DiGraph)
+    # inplace relabel
+    # map the gt_tree
+    # nx.relabel_nodes(gt_tree, {g: mapp[g] for g in range(K)}, copy=False)
+    gt_newick = tree_to_newick(gt_tree)
+
+    # vi_trees
+    vi_trees, vi_probs = sample_from_matrix(vi_data['t_mat'], n=200)
+    # print(vi_trees)
+
+    pos = 0
+    cumul_prob = 0
+    for vtree, prob in zip(vi_trees, vi_probs):
+        vtree_newick = tree_to_newick(vtree)
+        # is_iso = nx.is_isomorphic(vtree, gt_tree, node_match=lambda n1, n2: n1 == n2, edge_match=lambda e1, e2: e1 == e2)
+        if vtree_newick == gt_newick:
+            break
+        cumul_prob += prob
+        pos += 1
+
+    return cumul_prob, pos, len(vi_trees)
 
 
 if __name__ == '__main__':
