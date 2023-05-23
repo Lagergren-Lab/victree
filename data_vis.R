@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-source("./diagnostics_lib.r")
+source("./diagnostics_lib.R")
 
 map_cells_to_clones <- function(cell_reads, cell_assignment) {
   cell_reads_mapped <- cell_reads %>%

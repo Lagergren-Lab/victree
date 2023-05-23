@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-source("./diagnostics_lib.r")
+source("./diagnostics_lib.R")
 # arguments parsing
 parser <- ArgumentParser(description = "draw diagnostics plots to pdf")
 parser$add_argument("diag_dir", nargs=1, type = "character", help="checkpoint h5 file")

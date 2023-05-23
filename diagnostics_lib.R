@@ -74,10 +74,8 @@ read_h5_gt <- function(h5_file_path) {
   # select the ground truth group of simulated data
   dataset_names<- h5ls(gt_group, recursive = FALSE)$name
   
-  # Initialize an empty list
   h5_list <- vector("list", length(dataset_names))
   
-  # Iterate through group names
   for (i in seq_along(dataset_names)) {
     dataset_name <- dataset_names[[i]]
     
