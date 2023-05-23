@@ -659,7 +659,7 @@ class qZ(VariationalDistribution):
         sd_obs = obs.std(dim=0, keepdim=True)
         # standardize to keep pattern
         scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
-        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0, n_init='auto').fit(scaled_obs.T)
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
         m_labels = kmeans.labels_
         self.kmeans_labels[...] = torch.tensor(m_labels).long()
         self.pi[...] = torch.nn.functional.one_hot(self.kmeans_labels, num_classes=self.config.n_nodes)
