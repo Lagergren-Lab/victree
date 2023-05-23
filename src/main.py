@@ -84,13 +84,13 @@ if __name__ == '__main__':
     )
     # parser.add_argument("-c", "--config-file", dest='config_file', type=argparse.FileType(mode='r'))
     parser.add_argument("-i", "--input", dest="file_path",
-                        type=validate_path, default='./datasets/n5_c300_l1k.h5',
+                        type=validate_path, default='./datasets/simul_k5a7n300m1000e1-50d10mt1-10-500-50.h5',
                         help="input data file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
                         help="output dir", metavar="DIR", default="./output")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
     parser.add_argument("-s", "--seed", default=42, type=int, help="RNG seed")
-    parser.add_argument("-n", "--n-iter", default=10, type=int, help="VI iterations")
+    parser.add_argument("-n", "--n-iter", default=20, type=int, help="VI iterations")
     parser.add_argument("-a", "--diagnostics", action="store_true", help="store data of var dists during optimization")
     parser.add_argument("-K", "--n-nodes", default=5, type=int, help="number of nodes/clones")
     parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
