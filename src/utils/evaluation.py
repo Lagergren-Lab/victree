@@ -57,7 +57,7 @@ def add_noise(j):
     return j
 
 
-def best_mapping(gt_z, vi_z):
+def best_mapping(gt_z, vi_z, with_score=False):
     """
     Returns best permutation to go from gt_lab -> vi_lab
     Use it to change ground truth labels
@@ -79,7 +79,10 @@ def best_mapping(gt_z, vi_z):
         scores.append(score)
 
     best_perm_idx = np.argmax(scores)
-    return perms[best_perm_idx]
+    if with_score:
+        return perms[best_perm_idx], scores[best_perm_idx]
+    else:
+        return perms[best_perm_idx]
 
 
 
