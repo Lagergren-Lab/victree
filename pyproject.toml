@@ -1,0 +1,12 @@
+# [project]
+# see https://peps.python.org/pep-0621/
+
+[tool.poetry]
+# see https://python-poetry.org/docs/pyproject/
+name = "CoPyTree"
+version = "0.1"
+description = "VI method for copy-number aware tumor phylogenetics clonal tree reconstruction"
+authors = ["Harald Melin <haraldme@kth.se>", "Vittorio Zampinetti <vz@kth.se>"]
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"

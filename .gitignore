@@ -1,0 +1,14 @@
+# Pycharm stuff
+
+.idea/*
+**/__pycache__/*
+*.log
+.DS_Store
+# notes
+notes.md
+/img/
+# output dirs
+*_out
+/tests/test_output/
+/output/
+requirements.txt
