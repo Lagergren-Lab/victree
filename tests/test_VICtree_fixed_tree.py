@@ -1,4 +1,5 @@
 import logging
+import os.path
 import random
 import unittest
 
@@ -15,7 +16,7 @@ from inference.copy_tree import CopyTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
-from utils import visualization_utils
+from utils import visualization_utils, data_handling
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
@@ -66,7 +67,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         # FIXME: use q.params_history for each distribution of interest
-        diagnostics_dict = q.diagnostics_dict
+        diagnostics_dict = q.params_history
         visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
                                                     cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
                                                                        n_cells - 1],
@@ -114,13 +115,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(n_iter=50)
 
         # Assert
-        diagnostics_dict = q.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=list(tree.edges),
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
@@ -134,7 +128,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 200
         n_copy_states = 7
         dir_alpha0 = 2.
-        nu_0 = torch.tensor(10.)
+        nu_0 = torch.tensor(1.)
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
@@ -145,25 +139,23 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
         print(f"C node 1 site 2: {C[1, 2]}")
+
+        out_dir = "./test_output/" + self._testMethodName
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
         config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.1,
-                        diagnostics=True)
+                        diagnostics=False, out_dir=out_dir)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize()
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(n_iter=100)
+        copy_tree.run(n_iter=300)
         print(q.c)
 
         # Assert
-        diagnostics_dict = q.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=[(0, 1)],
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
@@ -202,13 +194,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(n_iter=50)
 
         # Assert
-        diagnostics_dict = q.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, 10, 20, 30, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0, 2, 3, 4],
-                                                    edges_to_vis_idxs=tree.edges,
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
@@ -273,13 +258,6 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(n_iter=50)
 
         # Assert
-        diagnostics_dict = q.diagnostics_dict
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, 10, 20, 30, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0, 2, 3, 4],
-                                                    edges_to_vis_idxs=tree.edges,
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,

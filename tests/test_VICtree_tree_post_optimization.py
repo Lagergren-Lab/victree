@@ -107,12 +107,13 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         Assert - in case of root + two edges, all sampled trees should be equal to true tree.
         """
         T_list, w_T_list, log_g_t = qt.get_trees_sample(sample_size=20, add_log_g=True)
-        T_unique, indexes, multiplicity = tree_utils.get_unique_trees_and_multiplicity(T_list)
-        print(f"Unique trees: {[tree_utils.tree_to_newick(T, 0) for T in T_unique]}")
+        T_unique, indexes, multiplicity = tree_utils.unique_trees_and_multiplicity(T_list)
+        print(f"Unique trees: {[tree_utils.tree_to_newick(T_list[i], 0) for i in indexes]}")
         print(f"Multiplicity: {multiplicity}")
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
+                                                          q_eps=copy_tree.q.eps)
 
     def test_large_tree(self):
         torch.manual_seed(0)
