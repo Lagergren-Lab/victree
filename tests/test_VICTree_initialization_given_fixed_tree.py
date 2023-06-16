@@ -112,7 +112,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
 
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         q_C = copy_tree.q.c.single_filtering_probs
         q_z_pi = copy_tree.q.z.pi
@@ -174,7 +174,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
 
             copy_tree = CopyTree(config, q, y)
 
-            copy_tree.run(50)
+            copy_tree.run(n_iter=50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
@@ -230,7 +230,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
 
             copy_tree = CopyTree(config, q, y)
 
-            copy_tree.run(50)
+            copy_tree.run(n_iter=50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
@@ -283,7 +283,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
-            copy_tree.run(50)
+            copy_tree.run(n_iter=50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,

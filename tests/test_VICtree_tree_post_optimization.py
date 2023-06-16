@@ -63,7 +63,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(5)
+        copy_tree.run(n_iter=5)
 
         """
         Assert - in case of root + one edge, all sampled trees should be equal to true tree.
@@ -101,7 +101,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(100)
+        copy_tree.run(n_iter=100)
 
         """
         Assert - in case of root + two edges, all sampled trees should be equal to true tree.
@@ -146,7 +146,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(100)
+        copy_tree.run(n_iter=100)
 
         """
         Assert - in case of root + K edges.
@@ -205,7 +205,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         """
         Assert - in case of root + K edges.
@@ -267,7 +267,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-        copy_tree.run(20)
+        copy_tree.run(n_iter=20)
 
         """
         Assert - in case of root + K edges.

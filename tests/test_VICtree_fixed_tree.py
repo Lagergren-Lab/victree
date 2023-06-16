@@ -62,7 +62,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(80)
+        copy_tree.run(n_iter=80)
 
         # Assert
         # FIXME: use q.params_history for each distribution of interest
@@ -111,7 +111,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                           beta=torch.ones(n_cells) * 10)
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         # Assert
         diagnostics_dict = q.diagnostics_dict
@@ -133,7 +133,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        dir_alpha0 = torch.ones(K) * 2.
+        dir_alpha0 = 2.
         nu_0 = torch.tensor(10.)
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
@@ -153,7 +153,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         copy_tree = CopyTree(config, q, y)
 
-        copy_tree.run(100)
+        copy_tree.run(n_iter=100)
         print(q.c)
 
         # Assert
@@ -199,7 +199,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         # Assert
         diagnostics_dict = q.diagnostics_dict
@@ -270,7 +270,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         print(f'q(mu, tau) param init offset: {off_set_mutau * 100}%')
 
         # Act
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         # Assert
         diagnostics_dict = q.diagnostics_dict
@@ -332,7 +332,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
-            copy_tree.run(50)
+            copy_tree.run(n_iter=50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
@@ -384,7 +384,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             c_perturbed = c_one_hot + off_set_c
             copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
 
-            copy_tree.run(50)
+            copy_tree.run(n_iter=50)
 
             torch.set_printoptions(precision=2)
             model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
