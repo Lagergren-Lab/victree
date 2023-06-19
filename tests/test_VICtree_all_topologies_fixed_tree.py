@@ -67,7 +67,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             copy_tree = CopyTree(config, q, y)
 
             # Act
-            copy_tree.run(10)
+            copy_tree.run(n_iter=10)
             elbos[i] = copy_tree.elbo
 
         # TODO: Plot elbos vs distance from true tree
