@@ -109,11 +109,14 @@ def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt:
     print(f"------- Compare particular cells {cells_idx} -----------")
     torch.set_printoptions(precision=2)
     q_exp_tau = q_mt.exp_tau()
+    K, M = true_C.shape
+    m_1 = int(M/2)
+    m_2 = int(M/2) + 10
     for cell in cells_idx:
         true_clone_idx = true_Z[cell]
         q_clone_idx = q_z.pi[cell].argmax()
-        q_C_max = q_c.single_filtering_probs[q_clone_idx].argmax(-1)[0:10]
-        print(f"Cell {cell}: true mu {true_mu[cell]} tau {true_tau[cell]} C {true_C[true_clone_idx, 0:10]} (clone {true_clone_idx})")
+        q_C_max = q_c.single_filtering_probs[q_clone_idx].argmax(-1)[m_1:m_2]
+        print(f"Cell {cell}: true mu {true_mu[cell]} tau {true_tau[cell]} C {true_C[true_clone_idx, m_1:m_2]} (clone {true_clone_idx})")
         print(f"Cell {cell}: q(mu) {q_mt.nu[cell]} q(tau) {q_exp_tau[cell]} q(C) {q_C_max} (clone {q_clone_idx})")
 
 
