@@ -227,11 +227,14 @@ def unique_trees(prufer_list: list[list[int]]):
     return unique_seq, unique_seq_idx
 
 
-def unique_trees_and_multiplicity(prufer_list: list[list[int]]):
+def unique_trees_and_multiplicity(T_list_or_prufer_seq_list):
+    if type(T_list_or_prufer_seq_list[0]) == nx.DiGraph:
+        undir_trees = to_undirected(T_list_or_prufer_seq_list)
+        prufer_seq_list = to_prufer_sequences(undir_trees)
     unique_seq = []
     unique_seq_idx = []
     multiplicity = []
-    for (i, seq) in enumerate(prufer_list):
+    for (i, seq) in enumerate(prufer_seq_list):
         if seq in unique_seq:
             idx = unique_seq.index(seq)
             multiplicity[idx] += 1

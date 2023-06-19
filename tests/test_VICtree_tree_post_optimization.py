@@ -63,7 +63,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(5)
+        copy_tree.run(n_iter=5)
 
         """
         Assert - in case of root + one edge, all sampled trees should be equal to true tree.
@@ -101,18 +101,19 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(100)
+        copy_tree.run(n_iter=100)
 
         """
         Assert - in case of root + two edges, all sampled trees should be equal to true tree.
         """
         T_list, w_T_list, log_g_t = qt.get_trees_sample(sample_size=20, add_log_g=True)
-        T_unique, indexes, multiplicity = tree_utils.get_unique_trees_and_multiplicity(T_list)
-        print(f"Unique trees: {[tree_utils.tree_to_newick(T, 0) for T in T_unique]}")
+        T_unique, indexes, multiplicity = tree_utils.unique_trees_and_multiplicity(T_list)
+        print(f"Unique trees: {[tree_utils.tree_to_newick(T_list[i], 0) for i in indexes]}")
         print(f"Multiplicity: {multiplicity}")
         model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
+                                                          q_eps=copy_tree.q.eps)
 
     def test_large_tree(self):
         torch.manual_seed(0)
@@ -146,7 +147,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(100)
+        copy_tree.run(n_iter=100)
 
         """
         Assert - in case of root + K edges.
@@ -205,7 +206,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, y)
 
         # Act
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         """
         Assert - in case of root + K edges.
@@ -267,7 +268,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
 
-        copy_tree.run(20)
+        copy_tree.run(n_iter=20)
 
         """
         Assert - in case of root + K edges.

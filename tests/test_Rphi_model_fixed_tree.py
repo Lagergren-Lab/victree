@@ -72,7 +72,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, x)
 
         # Act
-        copy_tree.run(80)
+        copy_tree.run(n_iter=80)
 
         # Assert
         torch.set_printoptions(precision=2)
@@ -125,7 +125,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         copy_tree = CopyTree(config, q, x)
 
         # Act
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         # Assert
         torch.set_printoptions(precision=2)
@@ -172,7 +172,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         copy_tree = CopyTree(config, q, x)
 
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         # Assert
         torch.set_printoptions(precision=2)
@@ -225,7 +225,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
 
         copy_tree = CopyTree(config, q, x)
 
-        copy_tree.run(50)
+        copy_tree.run(n_iter=50)
 
         # Assert
         torch.set_printoptions(precision=2)
