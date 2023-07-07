@@ -2,10 +2,7 @@
 
 """
 Data simulation script.
-Uses Pyro-PPL for modelling the data only with data generation purposes.
 """
-# FIXME: data simulation is not working, need to fix pair_cpd table,
-#   maybe C_dict needs to store plain python variables and not pyro variables
 
 import argparse
 import logging
@@ -200,6 +197,7 @@ def simulate_gc_site_corrections(M):
 
 def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, emission_model="poisson", eps_a=5., eps_b=50., eps_0=1.,
                                      alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1.):
+    # FIXME: documentation
     """
     Generate full simulated dataset.
     Args:
@@ -212,7 +210,6 @@ def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, emission_model="pois
 
     Returns:
         dictionary with keys: ['obs', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
-
     """
     # generate random tree
     tree = nx.random_tree(K, create_using=nx.DiGraph) if tree is None else tree
