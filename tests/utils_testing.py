@@ -257,6 +257,14 @@ def create_test_output_catalog(config=None, test_specific_string=None, base_dir=
         print("Dir already exists. Overwriting contents.")
     return path
 
+def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
+    path = base_dir + "/" + experiment_path
+    try:
+        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        print("Dir already exists. Risk of overwriting contents.")
+    return path
+
 
 def get_two_sliced_marginals_from_one_slice_marginals(marginals, A):
     K, M = marginals.shape
