@@ -1,3 +1,7 @@
+"""
+File with classes of all joint variational distributions.
+"""
+
 from abc import abstractmethod
 from typing import Union, List
 
@@ -16,6 +20,13 @@ from variational_distributions.variational_distribution import VariationalDistri
 
 class JointDist(VariationalDistribution):
     def __init__(self, config: Config, fixed: bool = False):
+        """
+        Abstract class for collection of distributions which together give the joint.
+        Parameters
+        ----------
+        config: Config, configuration object
+        fixed: bool, True if parameters are fixed to true values and updates should not be performed
+        """
         super().__init__(config, fixed)
         self._elbo: float = -infty
 
@@ -53,6 +64,9 @@ class JointDist(VariationalDistribution):
 class VarTreeJointDist(JointDist):
     def __init__(self, config: Config, obs: torch.Tensor,
                  qc=None, qz=None, qt=None, qeps=None, qmt=None, qpi=None):
+        """
+        Variational tree joint distribution class.
+        """
         super().__init__(config)
         self.c: qC = qC(config) if qc is None else qc
         self.z: qZ = qZ(config) if qz is None else qz
@@ -64,11 +78,18 @@ class VarTreeJointDist(JointDist):
         self.obs = obs
 
     def get_units(self) -> List[VariationalDistribution]:
+        """
+        Returns
+        -------
+        List of all variational distribution units.
+        """
         # TODO: if needed, specify an ordering
         return [self.t, self.c, self.eps, self.pi, self.z, self.mt]
 
     def update(self):
-        # T, C, eps, z, mt, pi
+        """
+        Joint distribution update: update every variational unit in a predefined order.
+        """
         self.t.update(self.c, self.eps)
         trees, weights = self.t.get_trees_sample()
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
@@ -79,9 +100,13 @@ class VarTreeJointDist(JointDist):
 
         super().update()
 
-    def update_shuffle(self):
-        # T, C, eps, z, mt, pi
-        n_updates = 5
+    def update_shuffle(self, n_updates: int = 5):
+        """
+        Joint distribution update: n_updates distributions in random order
+        Parameters
+        -------
+        n_updates: int, number of random updates
+        """
         self.t.update(self.c, self.eps)
         rnd_order = torch.randperm(n_updates)
         trees, weights = self.t.get_trees_sample()
@@ -104,6 +129,18 @@ class VarTreeJointDist(JointDist):
         return super().initialize(**kwargs)
 
     def compute_elbo(self, t_list: list | None = None, w_list: list | None = None) -> float:
+        """
+        Compute ELBO as sum of all distributions partial ELBOs. Trees sample can be provided as input (for
+        larger samples) or created inside the function with pre-defined sample size.
+        Parameters
+        ----------
+        t_list: list, trees in the provided sample
+        w_list: list, weights of the trees in the sample
+
+        Returns
+        -------
+        elbo, float
+        """
         if t_list is None and w_list is None:
             t_list, w_list = self.t.get_trees_sample()
 
@@ -117,6 +154,9 @@ class VarTreeJointDist(JointDist):
         return elbo_tensor.item()
 
     def elbo_observations(self):
+        """
+        Computes the partial ELBO for the observations. See formula in Supplementary Material.
+        """
         E_log_tau = self.mt.exp_log_tau()
         E_tau = self.mt.exp_tau()
         E_mu_tau = self.mt.exp_mu_tau()
@@ -153,6 +193,12 @@ class VarTreeJointDist(JointDist):
 class FixedTreeJointDist(JointDist):
     def __init__(self, config: Config,
                  qc, qz, qeps, qpsi, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
+        """
+        Fixed tree joint distribution. The topology is fixed in advance and passed as an input (T).
+        Parameters
+        -------
+        T: networkx.DiGraph, tree topology
+        """
         super().__init__(config)
         self.c: qC = qc
         self.z: qZ = qz
@@ -165,7 +211,9 @@ class FixedTreeJointDist(JointDist):
         self.w_T = [1.0]
 
     def update(self):
-        # T, C, eps, z, mt, pi
+        """
+        Joint distribution update: update every variational unit in a predefined order.
+        """
         self.mt.update(self.c, self.z, self.obs)
         self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
         self.eps.update([self.T], self.w_T, self.c)
@@ -178,9 +226,13 @@ class FixedTreeJointDist(JointDist):
         # TODO: if needed, specify an ordering
         return [self.c, self.eps, self.pi, self.z, self.mt]
 
-    def update_shuffle(self):
-        # T, C, eps, z, mt, pi
-        n_updates = 5
+    def update_shuffle(self, n_updates: int = 5):
+        """
+        Joint distribution update: n_updates distributions in random order
+        Parameters
+        -------
+        n_updates: int, number of random updates
+        """
         rnd_order = torch.randperm(n_updates)
         for i in range(n_updates):
             if rnd_order[i] == 0:
@@ -210,6 +262,9 @@ class FixedTreeJointDist(JointDist):
         return elbo_tensor.item()
 
     def elbo_observations(self):
+        """
+        Computes the partial ELBO for the observations. See formula in Supplementary Material.
+        """
         qC = self.c.single_filtering_probs
         qZ = self.z.pi
         A = self.config.n_states
@@ -232,7 +287,9 @@ class FixedTreeJointDist(JointDist):
             E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
             elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
                 torch.tensor(2 * torch.pi)))
+
         elif isinstance(self.mt, qPhi):
+            # Poisson observational model
             x = self.obs
             R = self.mt.R
             gc = self.mt.gc

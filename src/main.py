@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 """
-Main CopyTree inference script.
-
-Read input data (real/synthetic) and run VI inference algorithm.
-Outputs K MAP trees, with cell assignments and copy number profiles for each clone.
+Program Main
+- read and parse input arguments
+- setup logger
+- run algorithm
 """
 import argparse
 import logging

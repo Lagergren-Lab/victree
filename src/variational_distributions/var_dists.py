@@ -1,9 +1,11 @@
+"""
+Variational distribution classes with several initialization methods, update formulas and partial ELBO computation.
+"""
 import copy
 import logging
 import os
 
 import hmmlearn.hmm
-import pandas as pd
 import torch
 import torch.nn.functional as torch_functional
 import networkx as nx
@@ -20,17 +22,26 @@ from utils import math_utils
 from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalizing_zipping_constant
 
 import utils.tree_utils as tree_utils
-from sampling.slantis_arborescence import sample_arborescence, sample_arborescence_from_weighted_graph
+from sampling.slantis_arborescence import sample_arborescence_from_weighted_graph
 from utils.config import Config
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.variational_distribution import VariationalDistribution
 
 
-# copy numbers
+# ---
+# Copy numbers
+# ---
 class qC(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
-
+        """
+        Variational distribution for copy number profiles, i.e. Markov chains for each cluster of cells.
+        Parameters
+        ----------
+        config: Config, configuration object
+        true_params: dict, contains "c" key which is a torch.Tensor of shape (n_nodes, chain_length) with
+            copy number integer values
+        """
         super().__init__(config, fixed=true_params is not None)
 
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
