@@ -301,3 +301,107 @@ class FixedTreeJointDist(JointDist):
                 elbo = torch.einsum("vmj, nv, jvnm ->", qC, qZ, log_p)
 
         return elbo
+
+
+class QuadrupletJointDist(JointDist):
+    def __init__(self, config: Config,
+                 qc, qz, qeps, qpsi, T: nx.DiGraph, obs: torch.Tensor, R=None):
+        """
+        Fixed tree joint distribution. The topology is fixed in advance and passed as an input (T).
+        Parameters
+        -------
+        T: networkx.DiGraph, tree topology
+        """
+        super().__init__(config)
+        self.c: qC = qc
+        self.z: qZ = qz
+        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
+        self.mt: qPsi = qpsi
+        self.obs = obs
+        self.R = R
+        self.T = T
+        self.w_T = [1.0]
+
+    def update(self):
+        """
+        Joint distribution update: update every variational unit in a predefined order.
+        """
+        self.mt.update(self.c, self.z, self.obs)
+        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
+        self.eps.update([self.T], self.w_T, self.c)
+
+        super().update()
+
+    def get_units(self) -> list:
+        # TODO: if needed, specify an ordering
+        return [self.c, self.eps, self.pi, self.z, self.mt]
+
+    def update_shuffle(self, n_updates: int = 3):
+        """
+        Joint distribution update: n_updates distributions in random order
+        Parameters
+        -------
+        n_updates: int, number of random updates
+        """
+        rnd_order = torch.randperm(n_updates)
+        for i in range(n_updates):
+            if rnd_order[i] == 0:
+                self.mt.update(self.c, self.z, self.obs)
+            elif rnd_order[i] == 1:
+                self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
+            elif rnd_order[i] == 2:
+                self.eps.update([self.T], self.w_T, self.c)
+
+        return super().update()
+
+    def initialize(self, **kwargs):
+        return super().initialize(**kwargs)
+
+    def compute_elbo(self) -> float:
+        q_C_elbo = self.c.compute_elbo([self.T], self.w_T, self.eps)
+        q_MuTau_elbo = self.mt.compute_elbo()
+        q_eps_elbo = self.eps.compute_elbo([self.T], self.w_T)
+        elbo_obs = self.elbo_observations()
+        elbo_tensor = elbo_obs + q_C_elbo + q_MuTau_elbo + q_eps_elbo
+        return elbo_tensor.item()
+
+    def elbo_observations(self):
+        """
+        Computes the partial ELBO for the observations. See formula in Supplementary Material.
+        """
+        qC = self.c.single_filtering_probs
+        qZ = self.z.pi
+        A = self.config.n_states
+        c = torch.arange(0, A, dtype=torch.float)
+
+        if isinstance(self.mt, qMuTau):
+            E_log_tau = self.mt.exp_log_tau()
+            E_tau = self.mt.exp_tau()
+            E_mu_tau = self.mt.exp_mu_tau()
+            E_mu2_tau = self.mt.exp_mu2_tau()
+
+            y = self.obs
+            c2 = c ** 2
+            M, N = y.shape
+            E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
+                "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+            E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+                self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
+            E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
+            E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
+            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
+                torch.tensor(2 * torch.pi)))
+
+        elif isinstance(self.mt, qPhi):
+            # Poisson observational model
+            x = self.obs
+            R = self.mt.R
+            gc = self.mt.gc
+            phi = self.mt.phi
+            if self.mt.emission_model.lower() == "poisson":
+                lmbda = torch.einsum("nm, m, n, v, j -> jvnm", x, gc, R, 1./phi, c) + 0.00001
+                log_x_factorial = math_utils.log_factorial(x)
+                log_p = -log_x_factorial.expand(lmbda.shape) + torch.log(lmbda) + x.expand(lmbda.shape) - lmbda
+                elbo = torch.einsum("vmj, nv, jvnm ->", qC, qZ, log_p)
+
+        return elbo

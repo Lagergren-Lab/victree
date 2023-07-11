@@ -143,6 +143,26 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
     return y, C, z, pi, mu, tau, eps, eps0
 
 
+def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
+    output_sim = simul.simulate_quadruplet_data(M, A, tree, eps_a, eps_b, eps_0)
+    y = output_sim['obs']
+    c = output_sim['c']
+    mu = output_sim['mu']
+    tau = output_sim['tau']
+    eps = output_sim['eps']
+    eps0 = output_sim['eps0']
+
+    return y, c, mu, tau, eps, eps0
+
+
+def get_quadtruplet_tree() -> nx.DiGraph:
+    quad_topology = nx.DiGraph()
+    quad_topology.add_edge(0, 1)
+    quad_topology.add_edge(1, 2)
+    quad_topology.add_edge(1, 3)
+    return quad_topology
+
+
 def generate_test_dataset_fixed_tree() -> FixedTreeJointDist:
     # obs with 15 cells, 5 each to different clone
     # in order, clone 0, 1, 2
