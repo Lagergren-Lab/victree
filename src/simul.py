@@ -109,6 +109,22 @@ Generate full simulated dataset.
     return out_simul
 
 
+def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
+    eps, c = simulate_copy_tree_data(4, M, A, tree, eps_a, eps_b, eps_0)
+    z = [2, 3]
+    mu = torch.tensor([1., 1.])
+    tau = torch.tensor([10., 10.])
+    y = simulate_observations_Normal(2, M, c, z, mu, tau)
+    out_simul = {'obs': y,
+                 'c': c,
+                 'mu': mu,
+                 'tau': tau,
+                 'eps': eps,
+                 'eps0': eps_0,
+                 }
+    return out_simul
+
+
 def simulate_copy_tree_data(K, M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
     eps = {}
     logging.debug(f'Copy Tree data simulation - eps_a: {eps_a}, eps_b: {eps_b}, eps_0:{eps_0} ')
@@ -164,6 +180,17 @@ def simulate_observations_LogNormal(N, M, c, z, R, gc, tau):
         x[n] = x_n_dist.sample()
 
     return x, phi
+
+
+def simulate_observations_Normal(N, M, c, z, mu, tau):
+    y = torch.zeros((M, N))
+    for n in range(N):
+        k = z[n]
+        mu_n = c[k] * mu[n]
+        y_n_dist = dist.Normal(mu_n, 1. / np.sqrt(tau[n]))
+        y[:, n] = y_n_dist.sample()
+
+    return y
 
 
 def simulate_observations_Poisson(N, M, c, z, R, gc):
@@ -231,7 +258,6 @@ def simulate_data_total_GC_urn_model(tree, N, M, K, A, R_0, emission_model="pois
     elif emission_model.lower() == "poisson":
         psi = None
         x, phi = simulate_observations_Poisson(N, M, c, z, R, gc)
-
 
     out_simul = {
         'x': x,
@@ -410,7 +436,8 @@ if __name__ == '__main__':
     cli.add_argument('-e', '--eps-params',
                      type=float,
                      nargs=2,
-                     default=[1., 50.], metavar=("ALPHA", "BETA"), help="alpha and beta parameters for Beta distribution")
+                     default=[1., 50.], metavar=("ALPHA", "BETA"),
+                     help="alpha and beta parameters for Beta distribution")
     cli.add_argument("--mutau-params", default=[1., 10., 500., 50.], nargs=4, type=float,
                      help="prior on mu-tau (Normal-Gamma dist)",
                      metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
@@ -444,7 +471,7 @@ if __name__ == '__main__':
     filename = f'simul_' \
                f'k{args.n_nodes}a{args.n_states}n{args.n_cells}m{args.chain_length}' \
                f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \
-               f'd{conc_fact_str}'\
+               f'd{conc_fact_str}' \
                f'mt{"-".join(map(str, map(int, args.mutau_params)))}'
     write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')
