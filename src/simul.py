@@ -109,11 +109,11 @@ Generate full simulated dataset.
     return out_simul
 
 
-def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
+def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0, mu_v, mu_w, tau_v, tau_w):
     eps, c = simulate_copy_tree_data(4, M, A, tree, eps_a, eps_b, eps_0)
     z = [2, 3]
-    mu = torch.tensor([1., 1.])
-    tau = torch.tensor([10., 10.])
+    mu = torch.tensor([mu_v, mu_w])
+    tau = torch.tensor([tau_v, tau_w])
     y = simulate_observations_Normal(2, M, c, z, mu, tau)
     out_simul = {'obs': y,
                  'c': c,

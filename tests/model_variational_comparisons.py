@@ -106,6 +106,21 @@ def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
         return largest_error_cells_idx
 
 
+def compare_quadruplet_mu_and_tau(true_mu_v, true_mu_w, true_tau_v, true_tau_w, q_mt):
+    abs_dist_mu_v = torch.abs(true_mu_v - q_mt.nu[0])
+    print(f"Absolute distance mu_v: {abs_dist_mu_v}")
+
+    abs_dist_mu_w = torch.abs(true_mu_w - q_mt.nu[1])
+    print(f"Absolute distance mu_w: {abs_dist_mu_w}")
+
+    abs_dist_tau_v = torch.abs(true_tau_v - q_mt.exp_tau()[0])
+    print(f"Absolute distance tau_v: {abs_dist_tau_v}")
+
+    abs_dist_tau_w = torch.abs(true_tau_w - q_mt.exp_tau()[1])
+    print(f"Absolute distance tau_w: {abs_dist_tau_w}")
+    return abs_dist_mu_v, abs_dist_mu_w, abs_dist_tau_v, abs_dist_tau_w
+
+
 def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt: qMuTau, q_c: qC, q_z: qZ):
     print(f"------- Compare particular cells {cells_idx} -----------")
     torch.set_printoptions(precision=2)

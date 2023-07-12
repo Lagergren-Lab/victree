@@ -143,8 +143,8 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
     return y, C, z, pi, mu, tau, eps, eps0
 
 
-def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
-    output_sim = simul.simulate_quadruplet_data(M, A, tree, eps_a, eps_b, eps_0)
+def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0, mu_v, mu_w, tau_v, tau_w):
+    output_sim = simul.simulate_quadruplet_data(M, A, tree, eps_a, eps_b, eps_0, mu_v, mu_w, tau_v, tau_w)
     y = output_sim['obs']
     c = output_sim['c']
     mu = output_sim['mu']
