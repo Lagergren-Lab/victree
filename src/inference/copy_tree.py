@@ -131,7 +131,7 @@ class CopyTree:
             pbar.set_postfix({'elbo': self.elbo})
 
             # early-stopping
-            if abs((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
+            if ((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     logging.debug(f"run converged after {it}/{n_iter} iterations")
