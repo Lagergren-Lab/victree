@@ -24,7 +24,6 @@ args <- parser$parse_args()
 
 diag_list <- read_h5_checkpoint(args$diag_dir)
 # diag_list <- read_diagnostics(diag_dir)
-obs <- read_h5_obs(args$gt_dir) 
 
 remap_clones <- FALSE
 gt_list <- NULL
@@ -40,6 +39,9 @@ if (!is.null(args$gt_dir) && file.exists(args$gt_dir)) {
       warning(paste("Clones cannot be remapped: ground truth number of clones differ",
               "from inferred ones (", gtK, "!=", diagK, ")"))
   }
+  # read obs
+  obs <- read_h5_obs(args$gt_dir) 
+
 }
 
 pdf_dir <- dirname(args$diag_dir)
@@ -88,7 +90,8 @@ print("copy number plot")
 plot_copy(diag_list, gt_list, remap_clones = remap_clones)
 
 # print("observation plot")
-# plot_cn_obs(diag_list, obs, gt_list, remap_clones = T)
+if (!is.null(args$gt_dir) && file.exists(args$gt_dir))
+plot_cn_obs(diag_list, obs, gt_list, remap_clones = T)
 
 # eps
 print("eps plot")
