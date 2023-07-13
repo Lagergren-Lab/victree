@@ -10,6 +10,7 @@ import argparse
 import logging
 import math
 import os
+import sys
 import time
 
 from inference.run import run
@@ -23,6 +24,7 @@ def main(args):
         run(args)
     except Exception as e:
         logging.exception("main fail traceback")
+    # TODO: save time in output
     tot_time = time.time() - start
     logging.info(f"main is over. Total exec time: {tot_time // 60}m {math.ceil(tot_time % 60)}s")
 
@@ -30,14 +32,14 @@ def main(args):
 def set_logger(debug: bool, out_dir: str):
     level = logging.DEBUG if debug else logging.INFO
     f_handler = logging.FileHandler(os.path.join(out_dir, "out.log"))
-    # c_handler = logging.StreamHandler(sys.stdout)
+    c_handler = logging.StreamHandler(sys.stdout)
 
     f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
-    # c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
     logger = logging.root
     logger.setLevel(level)
     logger.addHandler(f_handler)
-    # logger.addHandler(c_handler)
+    logger.addHandler(c_handler)
 
 
 def validate_path(f):
