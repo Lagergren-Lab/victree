@@ -6,7 +6,7 @@ import torch
 
 import simul
 import tests.utils_testing
-from inference.copy_tree import CopyTree
+from inference.victree import VICTree
 from variational_distributions.joint_dists import QuadrupletJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
@@ -52,7 +52,7 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         qc.initialize()
         qeps.initialize()
         qmt.initialize(loc=1., precision_factor=1., shape=100., rate=10.)
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
 
         copy_tree.run(n_iter=230)
         copy_tree.step()

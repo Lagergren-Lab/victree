@@ -14,7 +14,7 @@ from sklearn.metrics import adjusted_rand_score
 import simul
 import tests.utils_testing
 import utils.config
-from inference.copy_tree import CopyTree
+from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
@@ -46,7 +46,7 @@ class VICtreeFixedTreeExperiment():
         seeds = list(range(0, 5))
 
         N = 500
-        M = 500
+        M = 3000
         A = 7
         dir_alpha0 = 10.
         nu_0 = torch.tensor(1.)
@@ -57,7 +57,7 @@ class VICtreeFixedTreeExperiment():
         for K in K_list:
             tree = tests.utils_testing.get_tree_K_nodes_random(K)
 
-            a0 = torch.tensor(10.0)
+            a0 = torch.tensor(5.0)
             b0 = torch.tensor(200.0)
             y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M, A, tree,
                                                                             nu_0=nu_0,
@@ -75,7 +75,7 @@ class VICtreeFixedTreeExperiment():
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
                 q.initialize()
-                copy_tree = CopyTree(config, q, y)
+                copy_tree = VICTree(config, q, y)
 
                 copy_tree.run(n_iter=500)
 
@@ -144,7 +144,7 @@ class VICtreeFixedTreeExperiment():
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
                 q.initialize()
-                copy_tree = CopyTree(config, q, y)
+                copy_tree = VICTree(config, q, y)
 
                 copy_tree.run(n_iter=500)
 
