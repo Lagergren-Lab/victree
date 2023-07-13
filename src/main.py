@@ -12,8 +12,6 @@ import math
 import os
 import time
 
-import yaml
-
 from inference.run import run
 from utils.config import set_seed
 
@@ -69,9 +67,9 @@ def validate_args(args):
 
 def parse_args(parser):
     args = parser.parse_args()
-    if args.config_file:
-        data = yaml.load(args.config_file)
-        delattr(args, 'config_file')
+    # if args.config_file:
+    #     data = yaml.load(args.config_file)
+    #     delattr(args, 'config_file')
     # TODO: continue implementation for yaml config with cli args
     #   check this: https://codereview.stackexchange.com/questions/79008/parse-a-config-file-and-add-to-command-line-arguments-using-argparse-in-python
     return args
