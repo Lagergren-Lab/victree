@@ -606,6 +606,125 @@ class qC(VariationalDistribution):
        # TODO: continue
 
 
+class qCMultiChrom(VariationalDistribution):
+
+    def __init__(self, config: Config, true_params=None):
+        """
+        Variational distribution for copy number profiles, i.e. Markov chains for each cluster of cells.
+        Parameters
+        ----------
+        config: Config, configuration object
+        true_params: dict, contains "c" key which is a torch.Tensor of shape (n_nodes, chain_length) with
+            copy number integer values
+        """
+        super().__init__(config, fixed=true_params is not None)
+
+        self.qC_list: List[qC] = []
+        self.n_chr = config.n_chromosomes
+        self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
+        self.M_cr = []
+        for i in range(self.n_chr):
+            M_chr_i = self.chr_start_points[i+1] - self.chr_start_points[i]
+            config_i = copy.deepcopy(self.config)
+            config_i.chain_length = M_chr_i
+            self.qC_list.append(qC(config_i, true_params=true_params))
+
+        self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
+        self._couple_filtering_probs = torch.empty(
+            (config.n_nodes, config.chain_length - 1, config.n_states, config.n_states))
+
+        # eta1 = log(pi) - log initial states probs
+        self._eta1: torch.Tensor = torch.empty((config.n_nodes, config.n_states))
+        # eta2 = log(phi) - log transition probs
+        self._eta2: torch.Tensor = torch.empty_like(self._couple_filtering_probs)
+
+        # validate true params
+        if true_params is not None:
+            assert "c" in true_params
+        self.true_params = true_params
+
+        # define dist param names
+        self.params_history["single_filtering_probs"] = []
+        # # not needed at the moment
+        # self.params_history["couple_filtering_probs"] = []
+
+    def update(self, obs: torch.Tensor,
+               q_eps: Union['qEpsilon', 'qEpsilonMulti'],
+               q_z: 'qZ',
+               q_psi: 'qPsi',
+               trees,
+               tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        for i, qc in enumerate(self.qC_list):
+            chr_i_start = self.chr_start_points[i]
+            chr_i_end = self.chr_start_points[i+1]
+            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
+
+    def compute_filtering_probs(self):
+        for i, qc in enumerate(self.qC_list):
+            qc.compute_filtering_probs()
+
+    @property
+    def single_filtering_probs(self):
+        for i, qc in enumerate(self.qC_list):
+            qc._single_filtering_probs
+        return self._single_filtering_probs
+
+    @single_filtering_probs.setter
+    def single_filtering_probs(self, sfp):
+        if self.fixed:
+            logging.warning('Trying to re-set qc attribute when it should be fixed')
+        self._single_filtering_probs[...] = sfp
+
+    @property
+    def couple_filtering_probs(self):
+        if self.fixed:
+            small_eps = 1e-5
+            cn_profile = self.true_params["c"]
+            # map node specific copy number profile to pair marginal probabilities
+            # almost all prob mass is given to the true copy number combinations
+            true_cfp = torch.zeros_like(self._couple_filtering_probs)
+            for u in range(self.config.n_nodes):
+                true_cfp[u, torch.arange(self.config.chain_length - 1),
+                cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
+            # add epsilon and normalize
+            self._couple_filtering_probs[...] = true_cfp.clamp(min=small_eps)
+            self._couple_filtering_probs /= self._couple_filtering_probs.sum(dim=(2, 3), keepdim=True)
+            if self.config.debug:
+                assert torch.allclose(self._couple_filtering_probs.sum(dim=(2, 3)),
+                                      torch.ones((self.config.n_nodes, self.config.chain_length - 1)))
+
+        return self._couple_filtering_probs
+
+    @couple_filtering_probs.setter
+    def couple_filtering_probs(self, cfp):
+        if self.fixed:
+            logging.warning('Trying to re-set qc attribute when it should be fixed')
+
+        self._couple_filtering_probs[...] = cfp
+
+    def initialize(self, method='random', **kwargs):
+        for qc in self.qC_list:
+            if method == 'baum-welch':
+                qc._baum_welch_init(**kwargs)
+            elif method == 'bw-cluster':
+                qc._init_bw_cluster_data(**kwargs)
+            elif method == 'random':
+                qc._random_init()
+            elif method == 'uniform':
+                qc._uniform_init()
+            else:
+                raise ValueError(f'method `{method}` for qC initialization is not implemented')
+
+        return super().initialize(**kwargs)
+
+    def compute_elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
+        elbo = 0
+        for qc in self.qC_list:
+            elbo += qc.compute_elbo(T_list, w_T_list, q_eps)
+        return elbo
+
+
 # cell assignments
 class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):

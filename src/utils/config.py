@@ -63,6 +63,13 @@ class Config:
     def chain_length(self):
         return self._chain_length
 
+    @chain_length.setter
+    def chain_length(self, chain_length):
+        """
+        Setter used in qCMultiChrom
+        """
+        self._chain_length = chain_length
+
     @property
     def n_chromosomes(self):
         return self._n_chromosomes

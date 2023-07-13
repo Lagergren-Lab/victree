@@ -14,17 +14,11 @@ class MultiChromosomeGenerativeModel():
     def __init__(self, config: Config):
         self.config = config
         N, M, K, A = (config.n_cells, config.chain_length, config.n_nodes, config.n_states)
-        self.chromes_idx = config.chromosome_indexes
+        self.chr_start_points = [0] + config.chromosome_indexes + [M]
         self.n_chromes = config.n_chromosomes
         self.copy_number_evolution_models = []   # one model per chromosome
         for i in range(self.n_chromes):
-            if i == self.n_chromes-1:
-                M_chr_i = M - self.chromes_idx[i-1]
-            elif i == 0:
-                M_chr_i = self.chromes_idx[i]
-            else:
-                M_chr_i = self.chromes_idx[i] - self.chromes_idx[i-1]
-
+            M_chr_i = self.chr_start_points[i+1] - self.chr_start_points[i]
             self.copy_number_evolution_models.append(CopyTreeModel(M_chr_i, K, A))  # p(C | T, eps)
 
         self.cell_to_clone_assignment_model = CellToCloneModel(N, K)  # p(Z, pi)

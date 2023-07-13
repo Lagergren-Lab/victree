@@ -14,7 +14,7 @@ from utils import math_utils
 from utils.config import Config
 from utils.tree_utils import tree_to_newick
 from variational_distributions.observational_variational_distribution import qPsi
-from variational_distributions.var_dists import qC, qZ, qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qPhi
+from variational_distributions.var_dists import qC, qZ, qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qPhi, qCMultiChrom
 from variational_distributions.variational_distribution import VariationalDistribution
 
 
@@ -329,7 +329,7 @@ class FixedTreeJointDist(JointDist):
         T: networkx.DiGraph, tree topology
         """
         super().__init__(config)
-        self.c: qC = qc
+        self.c: Union[qC, qCMultiChrom] = qc
         self.z: qZ = qz
         self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
         self.mt: qPsi = qpsi
