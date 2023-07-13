@@ -70,9 +70,10 @@ def write_output_h5(out_copytree, out_path):
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
 
     # store trees in a separate group
+    qt_pmf = out_copytree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
     trees_grp = out_grp.create_group('trees')
-    newick_ds = trees_grp.create_dataset('newick', data=out_copytree.q.t.trees_sample_newick)
-    tree_weight_ds = trees_grp.create_dataset('weight', data=out_copytree.q.t.trees_sample_weights)
+    newick_ds = trees_grp.create_dataset('newick', data=np.array(list(qt_pmf.keys()), dtype='S'))
+    tree_weight_ds = trees_grp.create_dataset('weight', data=np.array(list(qt_pmf.values())))
 
     f.close()
     logging.debug(f"results saved: {out_path}")
