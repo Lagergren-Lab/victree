@@ -46,7 +46,7 @@ class VICtreeFixedTreeExperiment():
         seeds = list(range(0, 5))
 
         N = 500
-        M = 500
+        M = 3000
         A = 7
         dir_alpha0 = 10.
         nu_0 = torch.tensor(1.)
@@ -57,7 +57,7 @@ class VICtreeFixedTreeExperiment():
         for K in K_list:
             tree = tests.utils_testing.get_tree_K_nodes_random(K)
 
-            a0 = torch.tensor(10.0)
+            a0 = torch.tensor(5.0)
             b0 = torch.tensor(200.0)
             y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M, A, tree,
                                                                             nu_0=nu_0,

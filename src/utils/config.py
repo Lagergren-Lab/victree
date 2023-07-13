@@ -11,6 +11,7 @@ class Config:
                  eps0: float = 1e-2,
                  n_cells: int = 20,
                  chain_length: int = 200,
+                 n_chromosomes: int = 1,
                  wis_sample_size: int = 5,
                  elbo_rtol: float = 5e-5,  # TODO: check if this is too low
                  max_close_runs: int = 5,
@@ -30,6 +31,7 @@ class Config:
         self._eps0 = eps0
         self._n_cells = n_cells
         self._chain_length = chain_length
+        self._n_chromosomes = n_chromosomes
         self._wis_sample_size = wis_sample_size  # L in qT sampling
         self._elbo_rtol = elbo_rtol
         self._max_close_runs = max_close_runs
@@ -58,6 +60,10 @@ class Config:
     @property
     def chain_length(self):
         return self._chain_length
+
+    @property
+    def n_chromosomes(self):
+        return self._n_chromosomes
 
     @property
     def wis_sample_size(self):
@@ -101,6 +107,7 @@ class Config:
             f"M={self.chain_length}," + \
             f"L={self.wis_sample_size}," + \
             f"cn_states={self.n_states}," + \
+            f"n_chromosomes={self.n_chromosomes}," + \
             f"step_size={self.step_size}," + \
             f"sieving_size={self.sieving_size}"
 
@@ -114,6 +121,7 @@ class Config:
             'eps0': self.eps0,
             'n_cells': self.n_cells,
             'chain_length': self.chain_length,
+            'n_chromosomes': self.n_chromosomes,
             'wis_sample_size': self.wis_sample_size,
             'elbo_rtol': self.elbo_rtol,
             'max_close_runs': self.max_close_runs,
