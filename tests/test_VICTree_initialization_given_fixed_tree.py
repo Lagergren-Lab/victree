@@ -9,7 +9,7 @@ from pyro import poutine
 
 import simul
 import tests.utils_testing
-from inference.copy_tree import CopyTree
+from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
 from tests.utils_testing import simul_data_pyro_full_model
@@ -110,7 +110,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
         #clusters = torch.argmax(q.z.pi, dim=1)
         #q.c.initialize('bw-cluster', obs=y, clusters=clusters)
 
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
 
         copy_tree.run(n_iter=50)
 
@@ -172,7 +172,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             q.eps.initialize(method='non_mutation')
             q.z.pi = f.one_hot(z.long(), num_classes=K).float()
 
-            copy_tree = CopyTree(config, q, y)
+            copy_tree = VICTree(config, q, y)
 
             copy_tree.run(n_iter=50)
 
@@ -228,7 +228,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             #clusters = torch.argmax(q.z.pi, dim=1)
             #q.c.initialize('bw-cluster', obs=y, clusters=clusters)
 
-            copy_tree = CopyTree(config, q, y)
+            copy_tree = VICTree(config, q, y)
 
             copy_tree.run(n_iter=50)
 
@@ -271,7 +271,7 @@ class VICTreeInitializationGivenFixedTreeTestCase(unittest.TestCase):
             q.initialize(eps_alpha=10., eps_beta=40.,
                          loc=mu, precision_factor=.1, shape=5, rate=5)
 
-            copy_tree = CopyTree(config, q, y)
+            copy_tree = VICTree(config, q, y)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
             off_set_z = 0.2

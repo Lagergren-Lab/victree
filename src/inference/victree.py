@@ -15,7 +15,7 @@ from utils.data_handling import write_checkpoint_h5
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 
 
-class CopyTree:
+class VICTree:
 
     def __init__(self, config: Config,
                  q: Union[VarTreeJointDist, FixedTreeJointDist],

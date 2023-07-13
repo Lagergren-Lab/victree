@@ -235,6 +235,9 @@ def unique_trees_and_multiplicity(T_list_or_prufer_seq_list):
     if type(T_list_or_prufer_seq_list[0]) == nx.DiGraph:
         undir_trees = to_undirected(T_list_or_prufer_seq_list)
         prufer_seq_list = to_prufer_sequences(undir_trees)
+    else:
+        prufer_seq_list = T_list_or_prufer_seq_list
+
     unique_seq = []
     unique_seq_idx = []
     multiplicity = []

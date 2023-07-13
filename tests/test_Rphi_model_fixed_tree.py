@@ -11,7 +11,7 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 import utils.config
-from inference.copy_tree import CopyTree
+from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
@@ -69,7 +69,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qtau = qTauUrn(config, R, gc)
         q = FixedTreeJointDist(config, qc, qz, qeps, qtau, qpi, tree, x)
         q.initialize()
-        copy_tree = CopyTree(config, q, x)
+        copy_tree = VICTree(config, q, x)
 
         # Act
         copy_tree.run(n_iter=80)
@@ -122,7 +122,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
         q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
         q.initialize()
-        copy_tree = CopyTree(config, q, x)
+        copy_tree = VICTree(config, q, x)
 
         # Act
         copy_tree.run(n_iter=50)
@@ -170,7 +170,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
         q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
         q.initialize()
-        copy_tree = CopyTree(config, q, x)
+        copy_tree = VICTree(config, q, x)
 
         copy_tree.run(n_iter=50)
 
@@ -223,7 +223,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         model_variational_comparisons.compare_qZ_and_true_Z(z, q.z)
         print(f"-------------- init complete -------------------")
 
-        copy_tree = CopyTree(config, q, x)
+        copy_tree = VICTree(config, q, x)
 
         copy_tree.run(n_iter=50)
 
