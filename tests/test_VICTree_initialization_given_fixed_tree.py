@@ -9,7 +9,7 @@ from pyro import poutine
 
 import simul
 import tests.utils_testing
-from inference.copy_tree import VICTree
+from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
 from tests.utils_testing import simul_data_pyro_full_model

@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np
 
-from inference.copy_tree import VICTree
+from inference.victree import VICTree
 from utils.tree_utils import newick_from_eps_arr
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config

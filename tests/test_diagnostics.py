@@ -4,7 +4,7 @@ import unittest
 import h5py
 import numpy as np
 
-from inference.copy_tree import VICTree
+from inference.victree import VICTree
 from utils.data_handling import write_checkpoint_h5
 from variational_distributions.joint_dists import VarTreeJointDist
 from simul import generate_dataset_var_tree

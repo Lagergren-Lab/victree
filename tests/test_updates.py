@@ -512,14 +512,14 @@ class updatesTestCase(unittest.TestCase):
 
         # update and check copy numbers
         print(f"[init] elbo: {joint_q.compute_elbo(*joint_q.t.get_trees_sample(sample_size=10))}")
-        utils.visualization_utils.visualize_copy_number_profiles(true_cn_profile)
+        #utils.visualization_utils.visualize_copy_number_profiles(true_cn_profile)
         print(f"true z: {true_z}")
         print(f"[init] var z: {qz.exp_assignment()}")
         for i in range(30):
             joint_q.update()
             if i % 5 == 0:
-                utils.visualization_utils.visualize_copy_number_profiles(
-                    torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
+                #utils.visualization_utils.visualize_copy_number_profiles(
+                #    torch.argmax(joint_q.c.single_filtering_probs, dim=-1))
                 print(f"[{i}] var z: {qz.exp_assignment()}")
 
                 trees, weights = joint_q.t.get_trees_sample(sample_size=10)

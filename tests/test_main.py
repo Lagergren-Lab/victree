@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 
 import simul
-from inference.copy_tree import VICTree
+from inference.victree import VICTree
 from variational_distributions.joint_dists import VarTreeJointDist
 from utils.config import set_seed, Config
 
