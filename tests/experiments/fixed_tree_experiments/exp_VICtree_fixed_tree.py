@@ -14,7 +14,7 @@ from sklearn.metrics import adjusted_rand_score
 import simul
 import tests.utils_testing
 import utils.config
-from inference.copy_tree import CopyTree
+from inference.copy_tree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
@@ -75,7 +75,7 @@ class VICtreeFixedTreeExperiment():
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
                 q.initialize()
-                copy_tree = CopyTree(config, q, y)
+                copy_tree = VICTree(config, q, y)
 
                 copy_tree.run(n_iter=500)
 
@@ -144,7 +144,7 @@ class VICtreeFixedTreeExperiment():
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
                 q.initialize()
-                copy_tree = CopyTree(config, q, y)
+                copy_tree = VICTree(config, q, y)
 
                 copy_tree.run(n_iter=500)
 

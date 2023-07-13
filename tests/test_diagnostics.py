@@ -4,7 +4,7 @@ import unittest
 import h5py
 import numpy as np
 
-from inference.copy_tree import CopyTree
+from inference.copy_tree import VICTree
 from utils.data_handling import write_checkpoint_h5
 from variational_distributions.joint_dists import VarTreeJointDist
 from simul import generate_dataset_var_tree
@@ -27,7 +27,7 @@ class InitTestCase(unittest.TestCase):
             simul_joint = generate_dataset_var_tree(config)
             joint_q = VarTreeJointDist(config, simul_joint.obs).initialize()
             tot_num_iter = config.n_sieving_iter + n_iter + 1
-            copytree = CopyTree(config, joint_q, joint_q.obs)
+            copytree = VICTree(config, joint_q, joint_q.obs)
             copytree.halve_sieve()
             # assert that in any case, the diagnostics value in the last n_iter slots are all zero
             # and in the previous slots there's at least one value != 0
@@ -41,7 +41,7 @@ class InitTestCase(unittest.TestCase):
                         sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True)
         simul_joint = generate_dataset_var_tree(config)
         joint_q = VarTreeJointDist(config, simul_joint.obs).initialize()
-        copytree = CopyTree(config, joint_q, joint_q.obs)
+        copytree = VICTree(config, joint_q, joint_q.obs)
         copytree.run(n_iter)
 
         for q in copytree.q.get_units() + [copytree.q]:

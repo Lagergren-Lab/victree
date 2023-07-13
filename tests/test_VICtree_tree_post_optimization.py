@@ -12,7 +12,7 @@ from pyro import poutine
 import simul
 import tests.utils_testing
 import utils.config
-from inference.copy_tree import CopyTree
+from inference.copy_tree import VICTree
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils, tree_utils
@@ -60,7 +60,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
 
         # Act
         copy_tree.run(n_iter=5)
@@ -98,7 +98,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
 
         # Act
         copy_tree.run(n_iter=100)
@@ -144,7 +144,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
 
         # Act
         copy_tree.run(n_iter=100)
@@ -203,7 +203,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
 
         # Act
         copy_tree.run(n_iter=50)
@@ -263,7 +263,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
 
-        copy_tree = CopyTree(config, q, y)
+        copy_tree = VICTree(config, q, y)
         copy_tree.q.pi.concentration_param = torch.tensor(dir_alpha0)
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()

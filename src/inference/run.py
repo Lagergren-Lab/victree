@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np
 
-from inference.copy_tree import CopyTree
+from inference.copy_tree import VICTree
 from utils.tree_utils import newick_from_eps_arr
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config
@@ -70,7 +70,7 @@ def run(args):
     # ---
     # Create copytree object and run inference
     # ---
-    copy_tree = CopyTree(config, joint_q, obs)
+    copy_tree = VICTree(config, joint_q, obs)
 
     logging.info('start inference')
     copy_tree.run(args)
