@@ -12,6 +12,7 @@ class Config:
                  n_cells: int = 20,
                  chain_length: int = 200,
                  n_chromosomes: int = 1,
+                 chromosome_indexes=[],
                  wis_sample_size: int = 5,
                  elbo_rtol: float = 5e-5,  # TODO: check if this is too low
                  max_close_runs: int = 5,
@@ -32,6 +33,7 @@ class Config:
         self._n_cells = n_cells
         self._chain_length = chain_length
         self._n_chromosomes = n_chromosomes
+        self._chromosome_indexes = chromosome_indexes
         self._wis_sample_size = wis_sample_size  # L in qT sampling
         self._elbo_rtol = elbo_rtol
         self._max_close_runs = max_close_runs
@@ -64,6 +66,10 @@ class Config:
     @property
     def n_chromosomes(self):
         return self._n_chromosomes
+
+    @property
+    def chromosome_indexes(self):
+        return self._chromosome_indexes
 
     @property
     def wis_sample_size(self):
