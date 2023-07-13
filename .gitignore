@@ -10,5 +10,5 @@ notes.md
 # output dirs
 *_out
 /tests/test_output/
-/output/
+/src/output/
 requirements.txt
