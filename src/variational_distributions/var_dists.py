@@ -631,7 +631,7 @@ class qCMultiChrom(VariationalDistribution):
 
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
         self._couple_filtering_probs = torch.empty(
-            (config.n_nodes, config.chain_length - 1, config.n_states, config.n_states))
+            (config.n_nodes, config.chain_length - self.n_chr, config.n_states, config.n_states))
 
         # eta1 = log(pi) - log initial states probs
         self._eta1: torch.Tensor = torch.empty((config.n_nodes, config.n_states))
@@ -660,14 +660,24 @@ class qCMultiChrom(VariationalDistribution):
             chr_i_end = self.chr_start_points[i+1]
             qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
 
+        self.compute_filtering_probs()
+
     def compute_filtering_probs(self):
         for i, qc in enumerate(self.qC_list):
-            qc.compute_filtering_probs()
+            single_i, couple_i = qc.compute_filtering_probs()
+            m_start = self.chr_start_points[i]
+            m_end = self.chr_start_points[i+1]
+            self._single_filtering_probs[:, m_start:m_end, :] = single_i
+            self._couple_filtering_probs[:, m_start-i:m_end-i-1, :, :] = couple_i
 
     @property
     def single_filtering_probs(self):
-        for i, qc in enumerate(self.qC_list):
-            qc._single_filtering_probs
+        if self.fixed:
+            small_eps = 1e-5
+            cn_profile = self.true_params["c"]
+            true_sfp = torch_functional.one_hot(cn_profile,
+                                                num_classes=self.config.n_states).float().clamp(min=small_eps)
+            self._single_filtering_probs[...] = true_sfp
         return self._single_filtering_probs
 
     @single_filtering_probs.setter
@@ -715,6 +725,7 @@ class qCMultiChrom(VariationalDistribution):
                 qc._uniform_init()
             else:
                 raise ValueError(f'method `{method}` for qC initialization is not implemented')
+            self.compute_filtering_probs()
 
         return super().initialize(**kwargs)
 
@@ -1774,8 +1785,7 @@ Initialize the mu and tau params given observations
         return self.neg_cross_entropy_old() + self.entropy_old()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
-        N = self.config.n_cells
-        M = self.config.chain_length
+        M, N = obs.shape
         K = self.config.n_nodes
         A = self.config.n_states
         out_shape = (N, M, K, A)
