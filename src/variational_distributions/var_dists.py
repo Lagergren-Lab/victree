@@ -1664,6 +1664,7 @@ Initialize the mu and tau params given observations
         K = self.config.n_nodes
         A = self.config.n_states
         out_shape = (N, M, K, A)
+        out_arr = torch.empty(out_shape)
         # obs is (m x n)
         if self.fixed:
             mu = self.true_params["mu"]
@@ -1675,17 +1676,18 @@ Initialize the mu and tau params given observations
                                 torch.arange(self.config.n_states))
             true_dist = torch.distributions.Normal(loc=means,
                                                    scale=torch.ones(means.shape) / torch.sqrt(tau)[:, None])
-            out_arr = torch.permute(true_dist.log_prob(obs[..., None]), (1, 0, 2))
-            # FIXME: out_arr in fixed (aka ground truth) distribution does not match the out shape of the function
+            log_p_obs = true_dist.log_prob(obs[..., None])
+            log_p_obs = log_p_obs[..., None].expand(M, N, A, K)
+            out_arr[...] = torch.einsum('mniv->nmvi', log_p_obs)
         else:
             E_log_tau = self.exp_log_tau()
             E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
             E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
             E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:,
                         None, :]
-            out_arr = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
-            out_arr = out_arr.expand(K, A, M, N)
-            out_arr = torch.einsum('vimn->nmvi', out_arr)
+            log_p_obs = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
+            log_p_obs = log_p_obs.expand(K, A, M, N)
+            out_arr[...] = torch.einsum('vimn->nmvi', log_p_obs)
 
         assert out_arr.shape == out_shape
         return out_arr
