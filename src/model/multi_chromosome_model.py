@@ -1,5 +1,11 @@
 import networkx as nx
+import torch
 
+from model.cell_to_clone_model import CellToCloneModel
+from model.copy_tree_model import CopyTreeModel
+from model.edge_independent_comutation_rate_model import EdgeIndependentComutationProbModel
+from model.observational_models.cell_specific_baseline_gc_normal_observational_model import \
+    CellSpecificBaselineGCNormalObsModel
 from utils.config import Config
 
 
@@ -7,16 +13,41 @@ class MultiChromosomeGenerativeModel():
 
     def __init__(self, config: Config):
         self.config = config
-        self.HMM = CopyTree()
-        self.MHMM = CellSpecificBaselineGCNormalObsModel()
-        self.co_mutation_model = EpsilonModel()
-        self.tree_topology_model = UniformTreeModel()
+        N, M, K, A = (config.n_cells, config.chain_length, config.n_nodes, config.n_states)
+        self.chr_start_points = [0] + config.chromosome_indexes + [M]
+        self.n_chromes = config.n_chromosomes
+        self.copy_number_evolution_models = []   # one model per chromosome
+        for i in range(self.n_chromes):
+            M_chr_i = self.chr_start_points[i+1] - self.chr_start_points[i]
+            self.copy_number_evolution_models.append(CopyTreeModel(M_chr_i, K, A))  # p(C | T, eps)
 
-    def simulate_data(self, T: nx.DiGraph):
+        self.cell_to_clone_assignment_model = CellToCloneModel(N, K)  # p(Z, pi)
+        self.emission_model = CellSpecificBaselineGCNormalObsModel(N, M)  # p(Y, Psi | Z, C)
+        self.co_mutation_model = EdgeIndependentComutationProbModel(K)  # p(eps | T)
+
+    def simulate_data(self, T: nx.DiGraph, a0, b0, eps0_a, eps0_b, delta, nu0, lambda0, alpha0, beta0):
         # simulate chromosome copy numbers independently
-        eps0, eps = self.co_mutation_model.simulate_data()
+        eps, eps0 = self.co_mutation_model.simulate_data(T, a0, b0, eps0_a, eps0_b)
+        c_all = []
         for chrome_idx in range(self.config.n_chromosomes):
-            c = self.HMM.simulate_data(T, eps0, eps)
+            c_temp = self.copy_number_evolution_models[chrome_idx].simulate_data(T, eps0, eps)
+            c_all.append(c_temp)
+
+        c = torch.cat(c_all, dim=1)
+
+        z, pi = self.cell_to_clone_assignment_model.simulate_data(delta)
+        y, mu, tau = self.emission_model.simulate_data(c, z, nu0, lambda0, alpha0, beta0)
+        out_simul = {
+            'obs': y,
+            'c': c,
+            'z': z,
+            'pi': pi,
+            'mu': mu,
+            'tau': tau,
+            'eps': eps,
+            'eps0': eps0,
+        }
+        return out_simul
 
 
 
