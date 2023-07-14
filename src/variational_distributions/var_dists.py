@@ -1162,6 +1162,7 @@ of the variational distribution over the topology.
             summary.append(f"-adj matrix\t{nx.to_numpy_array(self._weighted_graph)}")
             summary.append(f"-sampled trees:")
             qdist = self.get_pmf_estimate()
+            # TODO: sort in get_pmf_estimate
             display_num = min(10, len(qdist.keys()))
             for t_nwk in sorted(qdist, key=qdist.get, reverse=True)[:display_num]:
                 summary.append(f"\t\t{t_nwk} | {qdist[t_nwk]:.4f}")
@@ -1169,7 +1170,7 @@ of the variational distribution over the topology.
 
         return os.linesep.join(summary)
 
-    def get_pmf_estimate(self, normalized: bool = False, n: int = 0) -> dict:
+    def get_pmf_estimate(self, normalized: bool = False, n: int = 0, desc_sorted: bool = False) -> dict:
         """
         Returns
         -------
@@ -1192,6 +1193,9 @@ of the variational distribution over the topology.
             norm_const = sum(qdist.values())
             for t in qdist.keys():
                 qdist[t] /= norm_const
+
+        if desc_sorted:
+            qdist = dict(sorted(qdist.items(), key=lambda it: it[1], reverse=True))
 
         return qdist
 

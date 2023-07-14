@@ -3,8 +3,10 @@ import numpy as np
 import torch
 from typing import List, Tuple
 
-from Espalier import MAF
-from pylabeledrf.computeLRF import *
+from dendropy import Tree
+from dendropy.calculate.treecompare import symmetric_difference
+# from Espalier import MAF
+# from pylabeledrf.computeLRF import *
 from networkx import is_arborescence
 
 
@@ -153,32 +155,34 @@ def top_k_trees_from_sample(t_list, w_list, k: int = 0, by_weight=True, nx_graph
     return sorted_trees[:k]
 
 
-def networkx_tree_to_dendropy(T: nx.DiGraph, root) -> dendropy.Tree:
-    return dendropy.Tree.get(data=tree_to_newick(T, root) + ";", schema="newick")
+def networkx_tree_to_dendropy(T: nx.DiGraph, root) -> Tree:
+    return Tree.get(data=tree_to_newick(T, root) + ";", schema="newick")
 
 
 def calculate_SPR_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
     raise NotImplementedError("SPR distance not well defined for labeled trees.")
     T_1 = networkx_tree_to_dendropy(T_1, 0)
     T_2 = networkx_tree_to_dendropy(T_2, 0)
-    return MAF.get_spr_dist(T_1, T_2)
+    spr_dist = None
+    # spr_dist = MAF.get_spr_dist(T_1, T_2)
+    return spr_dist
 
 
 def calculate_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
     raise NotImplementedError("RF distance not well defined for labeled trees (only leaf labeled trees).")
     T_1 = networkx_tree_to_dendropy(T_1, 0)
     T_2 = networkx_tree_to_dendropy(T_2, 0)
-    return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
+    return symmetric_difference(T_1, T_2)
 
 
 def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph):
     "Package from: https://github.com/DessimozLab/pylabeledrf"
     T_1 = networkx_tree_to_dendropy(T_1, 0)
-    t1 = parseEnsemblLabels(T_1)
+    # t1 = parseEnsemblLabels(T_1)
     T_2 = networkx_tree_to_dendropy(T_2, 0)
-    t2 = parseEnsemblLabels(T_2)
-    computeLRF(t1, t2)
-    return dendropy.calculate.treecompare.symmetric_difference(T_1, T_2)
+    # t2 = parseEnsemblLabels(T_2)
+    # computeLRF(t1, t2)
+    return symmetric_difference(T_1, T_2)
 
 
 def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0), labeled_distance=True):

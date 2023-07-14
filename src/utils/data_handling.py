@@ -58,16 +58,22 @@ def write_output_h5(out_copytree, out_path):
     k = graph_adj_matrix.shape[0]
     alpha_tensor = edge_dict_to_matrix(out_copytree.q.eps.alpha_dict, k)
     beta_tensor = edge_dict_to_matrix(out_copytree.q.eps.beta_dict, k)
+    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda,
+                          out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
 
+
+    copy_number = out_grp.create_dataset('copy_number', data=out_copytree.q.c.single_filtering_probs)
     graph_weights = out_grp.create_dataset('graph', data=graph_adj_matrix)
     cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi)
     eps_alpha = out_grp.create_dataset('eps_alpha', data=alpha_tensor)
     eps_beta = out_grp.create_dataset('eps_beta', data=beta_tensor)
-
-    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda,
-                          out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
-
     mt = out_grp.create_dataset('mu_tau', data=mt_agg)
+
+    # store trees in a separate group
+    qt_pmf = out_copytree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
+    trees_grp = out_grp.create_group('trees')
+    newick_ds = trees_grp.create_dataset('newick', data=np.array(list(qt_pmf.keys()), dtype='S'))
+    tree_weight_ds = trees_grp.create_dataset('weight', data=np.array(list(qt_pmf.values())))
 
     f.close()
     logging.debug(f"results saved: {out_path}")
