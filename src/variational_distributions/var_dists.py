@@ -579,6 +579,40 @@ class qC(VariationalDistribution):
 
         return q_C_pairs
 
+    def get_viterbi(self) -> torch.Tensor:
+        """
+        Computes the Viterbi path of each node's non-homogeneous Markov chain.
+        Follows the pseudo-code in
+        https://en.wikipedia.org/wiki/Viterbi_algorithm
+        but emissions are encoded in the transitions probabilities.
+
+        Returns tensor of shape (n_nodes, chain_length) dtype=long
+        """
+
+        M = self.config.chain_length
+
+        init_probs_qu = torch.exp(self.eta1 - torch.logsumexp(self.eta1, dim=1, keepdim=True))
+        transition_probs = torch.exp(self.eta2 -
+                                     torch.logsumexp(self.eta2, dim=3, keepdim=True))
+        t1 = torch.empty((self.config.n_nodes, self.config.n_states, M))
+        t2 = torch.empty((self.config.n_nodes, self.config.n_states, M))
+        # init first site
+        t1[:, :, 0] = init_probs_qu
+        t2[:, :, 0] = 0.
+        # forward
+        for m in range(1, M):
+            t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m-1, None] * transition_probs[:, m-1, ...], dim=1)
+
+        # init backtrack
+        zm = torch.empty((self.config.n_nodes, M), dtype=torch.long)
+        zm[:, M - 1] = t1[:, :, M - 1].max(dim=1)[1]
+        # backward
+        for m in reversed(range(1, M)):
+            nodes_range = torch.arange(self.config.n_nodes)
+            zm[:, m - 1] = t2[nodes_range, zm[nodes_range, m], m]
+
+        return zm
+
     def __str__(self):
         torch.set_printoptions(precision=3)
         # summary for qc

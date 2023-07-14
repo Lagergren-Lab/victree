@@ -30,7 +30,6 @@ class updatesTestCase(unittest.TestCase):
             mm: int. multiplier for longer chain. set it to no more than 10
         Returns:
         """
-        # obs with 15 cells, 5 each to different clone
         # in order, clone 0, 1, 2
         cells_per_clone = 10
         chain_length = mm * 10  # total chain length shouldn't be more than 100, ow eps too small
@@ -147,15 +146,20 @@ class updatesTestCase(unittest.TestCase):
         wis_weights = [1 / cfg.wis_sample_size] * cfg.wis_sample_size
 
         qc = qC(cfg)
-        qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
+        # qc.initialize(method='bw-cluster', obs=obs, clusters=fix_qz.true_params['z'])
+        qc.initialize(method='random')
 
         for i in range(50):
             qc.update(obs, fix_qeps, fix_qz, fix_qmt, trees=trees, tree_weights=wis_weights)
 
         # compare estimated single filtering probs against true copy number profile
-        print(joint_q.c)
         print(qc)
-        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
+        # print(joint_q.c)
+        # print(qc.get_viterbi())
+        self.assertTrue(torch.all(joint_q.c.true_params['c'] == qc.get_viterbi()), "true c does not match viterbi path")
+
+        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)),
+                        "true c does not match argmax path")
 
         self.assertTrue(torch.all(qc.couple_filtering_probs[0, :, 2, 2] > qc.couple_filtering_probs[0, :, 2, 0]))
         self.assertEqual(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, :].max())
