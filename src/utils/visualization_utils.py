@@ -6,10 +6,8 @@ import argparse
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
-from matplotlib.backends.backend_pdf import PdfFile, PdfPages
+from matplotlib.backends.backend_pdf import PdfPages
 import torch
-import tkinter
 
 
 def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None,
