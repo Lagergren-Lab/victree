@@ -62,7 +62,7 @@ class VICTree:
         assert 'elbo' in self.q.params_history
         return len(self.q.params_history['elbo'])
 
-    def run(self, args=None, n_iter=-1):
+    def run(self, n_iter=-1, args=None):
         """
         Set-up diagnostics, run sieving and perform VI steps, checking elbo for early-stopping.
         Parameters

@@ -17,6 +17,7 @@ from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMul
 from tests.utils_testing import simul_data_pyro_full_model
 
 
+# FIXME: observations wrong shape
 class updatesRGModelTestCase(unittest.TestCase):
 
     def setUp(self) -> None:

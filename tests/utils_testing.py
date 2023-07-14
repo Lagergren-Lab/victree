@@ -8,7 +8,6 @@ import networkx as nx
 import numpy as np
 import torch
 import torch.nn.functional as f
-from pyro import poutine
 
 import simul
 from variational_distributions.joint_dists import FixedTreeJointDist
@@ -103,6 +102,7 @@ def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.D
                                b0=torch.tensor(20.0),
                                dir_alpha0=torch.tensor(1.0)
                                ):
+    # FIXME: change to simul.simulate_full_dataset
     model_tree_markov_full = simul.model_tree_markov_full
     unconditioned_model = poutine.uncondition(model_tree_markov_full)
     C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,

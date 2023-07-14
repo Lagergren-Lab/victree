@@ -73,7 +73,7 @@ def run(args):
     copy_tree = VICTree(config, joint_q, obs)
 
     logging.info('start inference')
-    copy_tree.run(args)
+    copy_tree.run(args=args)
 
     # ---
     # Save output to H5

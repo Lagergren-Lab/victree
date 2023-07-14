@@ -140,6 +140,8 @@ class slantisArborescenceTestCase(unittest.TestCase):
 
         edmonds_arb_with_included = maximum_spanning_arborescence(graph, preserve_attrs=True)
         # print(tree_to_newick(edmonds_arb_with_included))
+        # FIXME: something wrong with slantis arborescenc
+        # TODO: rename to laris
         self.assertTrue((0, 1) in edmonds_arb_with_included.edges)
 
     def test_large_tree_sampling(self):

@@ -70,6 +70,7 @@ class qmtTestCase(unittest.TestCase):
         exp_log_emission = self.qmt.exp_log_emission(obs)
         self.assertEqual(exp_log_emission.shape, (self.config.n_cells,
                                                   self.config.chain_length,
+                                                  self.config.n_nodes,
                                                   self.config.n_states))
 
     def test_log_emissions(self):

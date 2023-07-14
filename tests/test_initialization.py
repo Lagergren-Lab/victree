@@ -53,6 +53,8 @@ class InitTestCase(unittest.TestCase):
     def test_true_params_init(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, debug=True)
         joint_q = generate_dataset_var_tree(config)
+        # FIXME: computation of elbo in the "fixed" distr setting might be wrong, hence lower elbo
+        #   or in general, could disrupt end result
         true_elbo = joint_q.mt.compute_elbo()
         print(joint_q.mt)
         print(true_elbo)
@@ -67,7 +69,7 @@ class InitTestCase(unittest.TestCase):
         print(data_init_elbo)
 
         self.assertTrue(true_elbo > data_init_elbo > fix_init_elbo, msg="elbo of true distribution should be maximum"
-                                                                        "and fixed init lowest elbo")
+                                                                        " and fixed init lowest elbo")
 
 
 if __name__ == '__main__':

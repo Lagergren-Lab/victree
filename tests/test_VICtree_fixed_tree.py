@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 import torch.nn.functional as f
-from pyro import poutine
+import numpy as np
 
 import simul
 import tests.utils_testing
@@ -40,7 +40,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        dir_alpha = torch.tensor([1., 3.])
+        dir_alpha = [1., 3.]
         nu_0 = torch.tensor(10.)
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
@@ -86,7 +86,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        dir_alpha = torch.tensor([1., 3., 3.])
+        dir_alpha = [1., 3., 3.]
         nu_0 = torch.tensor(10.)
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
@@ -178,7 +178,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
         b0 = torch.tensor(200.0)
-        dir_alpha0 = torch.ones(K) * 2.
+        dir_alpha0 = list(np.ones(K) * 2.)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
@@ -218,7 +218,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
         b0 = torch.tensor(200.0)
-        dir_alpha0 = torch.ones(K) * 2.
+        dir_alpha0 = list(np.ones(K) * 2.)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
@@ -287,6 +287,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             print(f"---------- Experiment number {i} - seed {i} -----------")
             n_sites = n_sites_list[i]
             data = torch.ones((n_sites, n_cells))
+            # FIXME: use simulate_full_dataset
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
                                                                    mu_0=torch.tensor(mu_0_list[i]),
                                                                    lambda_0=torch.tensor(1.),
@@ -339,6 +340,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             print(f"---------- Experiment number {i} - seed {i} -----------")
             n_sites = n_sites_list[i]
             data = torch.ones((n_sites, n_cells))
+            # FIXME: sim
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
                                                                    mu_0=torch.tensor(mu_0_list[i]),
                                                                    lambda_0=torch.tensor(1.),

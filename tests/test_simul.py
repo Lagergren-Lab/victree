@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import torch
 import torch.nn.functional as f
-from pyro import poutine
 
 import simul
 import tests.utils_testing

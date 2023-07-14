@@ -8,7 +8,6 @@ import networkx as nx
 import numpy as np
 import torch
 import torch.nn.functional as f
-from pyro import poutine
 from sklearn.metrics import adjusted_rand_score
 
 import simul

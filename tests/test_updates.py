@@ -247,6 +247,7 @@ class updatesTestCase(unittest.TestCase):
 
         # print(f'after {n_iter} iter - exp pi: {qpi.exp_log_pi().exp()}')
         # print(f'true exp pi: {joint_q.pi.exp_log_pi().exp()}')
+        # FIXME: pi not estimated correctly?
         self.assertTrue(torch.allclose(qpi.exp_log_pi().exp(),
                                        joint_q.pi.exp_log_pi().exp(), rtol=1e-2))
 

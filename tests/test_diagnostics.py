@@ -38,14 +38,15 @@ class InitTestCase(unittest.TestCase):
         n_iter = 3
         n_sieving_iter = 3
         config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=5,
-                        sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True)
+                        sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True, out_dir=self.output_dir)
         simul_joint = generate_dataset_var_tree(config)
         joint_q = VarTreeJointDist(config, simul_joint.obs).initialize()
         copytree = VICTree(config, joint_q, joint_q.obs)
-        copytree.run(n_iter)
+        copytree.run(n_iter=n_iter)
 
         for q in copytree.q.get_units() + [copytree.q]:
             for k in q.params_history.keys():
+                # FIXME: check n iters
                 self.assertEqual(len(q.params_history[k]), n_sieving_iter + n_iter + 1, msg=f"key issue: '{k}'")
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")

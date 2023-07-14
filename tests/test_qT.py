@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 import simul
-# from tests import utils_testing
+from tests import utils_testing
 from utils import tree_utils, visualization_utils
 from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick

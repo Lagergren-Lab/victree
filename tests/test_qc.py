@@ -78,6 +78,7 @@ class qCTestCase(unittest.TestCase):
         qc_2.compute_filtering_probs()
         entropy_deterministic = qc_2.marginal_entropy()
         print(f"Deterministic: {entropy_deterministic}")
+        # FIXME: entropy deterministic gives nan
         self.assertGreater(entropy_rand, entropy_deterministic)
 
     def test_entropy_lower_for_random_transitions_than_uniform_transitions(self):
@@ -96,10 +97,10 @@ class qCTestCase(unittest.TestCase):
         config_1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         qc_1 = qC(config_1)
         qc_1.initialize()
-        q_eps = qEpsilonMulti(config_1)
+        q_eps = qEpsilonMulti(config_1).initialize()
         cross_entropy_rand = qc_1.neg_cross_entropy_arc(q_eps, 0, 1)
         print(f"Random: {cross_entropy_rand}")
-        qc_2 = qC(config_1)
+        qc_2 = qC(config_1).initialize()
         for k in range(K):
             for m in range(M - 1):
                 qc_2.eta1 = torch.log(torch.zeros(K, A))
