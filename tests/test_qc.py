@@ -70,15 +70,14 @@ class qCTestCase(unittest.TestCase):
         print(f"Random: {entropy_rand}")
         qc_2 = qC(config_1)
         for k in range(K):
-            qc_2.eta1 = torch.log(torch.zeros(K, A))
+            qc_2.eta1 = torch.log(torch.zeros(K, A) + 0.001)
             qc_2.eta1[2] = 0.
             for m in range(M-1):
-                qc_2.eta2[k, m] = torch.log(torch.diag(torch.ones(A, )))
+                qc_2.eta2[k, m] = torch.log(torch.diag(torch.ones(A, )) + 0.001)
 
         qc_2.compute_filtering_probs()
         entropy_deterministic = qc_2.marginal_entropy()
         print(f"Deterministic: {entropy_deterministic}")
-        # FIXME: entropy deterministic gives nan
         self.assertGreater(entropy_rand, entropy_deterministic)
 
     def test_entropy_lower_for_random_transitions_than_uniform_transitions(self):
@@ -103,10 +102,10 @@ class qCTestCase(unittest.TestCase):
         qc_2 = qC(config_1).initialize()
         for k in range(K):
             for m in range(M - 1):
-                qc_2.eta1 = torch.log(torch.zeros(K, A))
+                qc_2.eta1 = torch.log(torch.zeros(K, A) + 0.001)
                 qc_2.eta1[2] = 0.
                 for m in range(M - 1):
-                    qc_2.eta2[k, m] = torch.log(torch.diag(torch.ones(A, )))
+                    qc_2.eta2[k, m] = torch.log(torch.diag(torch.ones(A, )) + 0.001)
 
         qc_2.compute_filtering_probs()
         cross_entropy_deterministic = qc_2.neg_cross_entropy_arc(q_eps, 0, 1)
@@ -152,3 +151,6 @@ class qCTestCase(unittest.TestCase):
         print(f"True: {C_K1[0:5]}")
         print(f"q(C) after baum-welch init: {qc_1.single_filtering_probs[0, 0:5]}")
 
+    def test_qc_smoothing(self):
+        config = Config(n_cells=10, chain_length=5, n_nodes=3, n_states=7)
+        qc1 = qC(config)
