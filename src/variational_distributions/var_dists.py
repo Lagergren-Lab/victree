@@ -1557,7 +1557,7 @@ class qEpsilonMulti(VariationalDistribution):
             else:
                 return heps0_arr
 
-    def exp_log_zipping(self, e: Tuple[int, int]):
+    def exp_log_zipping(self, e: Tuple[int, int]) -> torch.Tensor:
         """Expected log-zipping function
 
         Parameters
