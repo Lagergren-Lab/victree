@@ -67,8 +67,8 @@ class VICTree:
         Set-up diagnostics, run sieving and perform VI steps, checking elbo for early-stopping.
         Parameters
         ----------
-        args: dict, parsed execution arguments
         n_iter: int, number of iterations (after sieving iterations, if any)
+        args: dict, parsed execution arguments
         """
 
         # TODO: clean if-case and use just config param
