@@ -23,7 +23,9 @@ class Config:
                  debug=False,
                  diagnostics=False,
                  out_dir="./output",
-                 n_run_iter: int = 10) -> None:
+                 n_run_iter: int = 10,
+                 qc_smoothing=False) -> None:
+        self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics
         self.step_size = step_size
         self.annealing = annealing

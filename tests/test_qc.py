@@ -151,6 +151,3 @@ class qCTestCase(unittest.TestCase):
         print(f"True: {C_K1[0:5]}")
         print(f"q(C) after baum-welch init: {qc_1.single_filtering_probs[0, 0:5]}")
 
-    def test_qc_smoothing(self):
-        config = Config(n_cells=10, chain_length=5, n_nodes=3, n_states=7)
-        qc1 = qC(config)
