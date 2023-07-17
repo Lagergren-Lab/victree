@@ -245,11 +245,27 @@ class updatesTestCase(unittest.TestCase):
         for i in range(n_iter):
             qpi.update(fix_qz)
 
-        # print(f'after {n_iter} iter - exp pi: {qpi.exp_log_pi().exp()}')
-        # print(f'true exp pi: {joint_q.pi.exp_log_pi().exp()}')
-        # FIXME: pi not estimated correctly?
-        self.assertTrue(torch.allclose(qpi.exp_log_pi().exp(),
-                                       joint_q.pi.exp_log_pi().exp(), rtol=1e-2))
+        self.assertTrue(torch.allclose(qpi.exp_pi(),
+                                       joint_q.pi.true_params['pi']))
+
+    def test_unbalanced_qpi(self):
+        config = Config(n_nodes=5, n_cells=300,
+                        debug=True)
+        joint_q = generate_dataset_var_tree(config, dir_alpha=[1., 3., 10., 2., 5.])
+        fix_qz = joint_q.z
+
+        qpi = qPi(config, delta_prior=1).initialize('random')
+
+        n_iter = 10
+        for i in range(n_iter):
+            qpi.update(fix_qz)
+        # compare with the actual ratio of cell assigned to clones in the true z
+        target_pi = torch.bincount(joint_q.z.true_params['z']) / config.n_cells
+        vi_pi = qpi.exp_pi()
+
+        self.assertTrue(torch.allclose(vi_pi,
+                                       target_pi, rtol=0.1))
+
 
     def test_update_large_qt(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=.3,

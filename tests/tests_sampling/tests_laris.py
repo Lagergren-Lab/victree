@@ -14,15 +14,15 @@ import unittest
 from networkx import maximum_spanning_arborescence
 from networkx.algorithms.tree import Edmonds
 
-from sampling import slantis_arborescence
-from sampling.slantis_arborescence import create_fully_connected_graph, new_graph_with_arc, \
+from sampling import laris
+from sampling.laris import new_graph_force_arc, \
     sample_arborescence_from_weighted_graph
 from utils import tree_utils, config
 from utils.config import set_seed
 from utils.tree_utils import tree_to_newick
 
 
-class slantisArborescenceTestCase(unittest.TestCase):
+class LArISTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         # create output dir (for graph and logfile)
@@ -31,17 +31,17 @@ class slantisArborescenceTestCase(unittest.TestCase):
             os.mkdir(self.output_dir)
 
         # setup logger
-        self.logger = logging.getLogger("slantis_test_log")
+        self.logger = logging.getLogger("laris_test_log")
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self.logger.level = logging.DEBUG
-        self.fh = logging.FileHandler(path.join(self.output_dir, "slantis_test.log"))
+        self.fh = logging.FileHandler(path.join(self.output_dir, "laris_test.log"))
         self.fh.setFormatter(formatter)
         self.logger.addHandler(self.fh)
         set_seed(42)
 
         return super().setUp()
 
-    def test_slantis_random_weight_matrix(self):
+    def test_laris_random_weight_matrix(self):
         config.set_seed(0)
         n_nodes = 5
         W = torch.rand(n_nodes, n_nodes)
@@ -60,7 +60,7 @@ class slantisArborescenceTestCase(unittest.TestCase):
         log_T_list = []
         L = 1000
         for l in range(L):
-            T, log_T = slantis_arborescence.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
+            T, log_T = laris.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
             T_list.append(T)
             log_T_list.append(log_T)
 
@@ -69,7 +69,7 @@ class slantisArborescenceTestCase(unittest.TestCase):
         print(f"Frequency edges: {edges_freq} \n W: {W}")
         print(f"Diff: {torch.abs(edges_freq - W)}")
 
-    def test_slantis_random_weight_matrix_K8(self):
+    def test_laris_random_weight_matrix_K8(self):
         config.set_seed(0)
         n_nodes = 8
         W = torch.rand(n_nodes, n_nodes)
@@ -88,7 +88,7 @@ class slantisArborescenceTestCase(unittest.TestCase):
         log_T_list = []
         L = 200
         for l in range(L):
-            T, log_T = slantis_arborescence.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
+            T, log_T = laris.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
             T_list.append(T)
             log_T_list.append(log_T)
 
@@ -136,18 +136,16 @@ class slantisArborescenceTestCase(unittest.TestCase):
         # print(tree_to_newick(edmonds_arb))
         self.assertFalse((0, 1) in edmonds_arb.edges)
 
-        new_graph_with_arc(0, 1, graph)
+        new_graph = new_graph_force_arc(0, 1, graph)
 
-        edmonds_arb_with_included = maximum_spanning_arborescence(graph, preserve_attrs=True)
+        edmonds_arb_with_included = maximum_spanning_arborescence(new_graph, preserve_attrs=True)
         # print(tree_to_newick(edmonds_arb_with_included))
-        # FIXME: something wrong with slantis arborescenc
-        # TODO: rename to laris
         self.assertTrue((0, 1) in edmonds_arb_with_included.edges)
 
     def test_large_tree_sampling(self):
         n_nodes = 8
         graph = nx.DiGraph(directed=True)
-        weighted_edges = [(u, v, ((u * v) % 5) + 1 / 10)
+        weighted_edges = [(u, v, torch.tensor(((u * v) % 5) + 1 / 10))
                           for u, v in itertools.product(range(n_nodes), range(n_nodes)) if v != 0 and u != v]
         graph.add_weighted_edges_from(weighted_edges)
         l = 500
@@ -159,12 +157,12 @@ class slantisArborescenceTestCase(unittest.TestCase):
 
     def test_tree_sampling(self):
         graph = nx.DiGraph(directed=True)
-        weighted_edges = [
+        weighted_edges = [(u, v, torch.tensor(w)) for u, v, w in [
             (0, 1, .1), (0, 2, .1), (0, 3, .3),
             (1, 2, .1), (1, 3, .1),
             (2, 1, .1), (2, 3, .1),
             (3, 2, .7), (3, 1, .8)
-        ]
+        ]]
         graph.add_weighted_edges_from(weighted_edges)
 
         l = 1000

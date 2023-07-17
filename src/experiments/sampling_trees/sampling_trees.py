@@ -1,5 +1,5 @@
 """
-Experiments with Directed Slantis
+Experiments with LArIS
 """
 import networkx as nx
 import pandas as pd
@@ -55,7 +55,7 @@ def create_qt(config: Config, uniform: bool = True, n_iter: int = 10, verbose: b
     return qt
 
 
-def dslantis_efficiency_experiment(nodes=None,
+def laris_efficiency_experiment(nodes=None,
                                    sample_sizes: list | None = None, uniform_qt: bool = True,
                                    to_file: str = '', verbose: bool = False) -> pd.DataFrame:
     """
@@ -80,7 +80,7 @@ Output is pandas dataframe or csv file with header: n_nodes, sample_size, kl, ti
                 print(f"running n_nodes={n_nodes}, ss={ss}")
 
             start = time.time()
-            dsl_trees, dsl_lw = qt.get_trees_sample(alg='dslantis', sample_size=ss, log_scale=True, torch_tensor=True)
+            dsl_trees, dsl_lw = qt.get_trees_sample(alg='laris', sample_size=ss, log_scale=True, torch_tensor=True)
             ttime = time.time() - start
             # save samples with unique values into dict
             dsl_dict = {}
@@ -182,6 +182,6 @@ def trees_percentiles_from_experiment(vi_data, gt_data, n_sample=500):
 
 if __name__ == '__main__':
     set_seed(42)
-    # out_df = dslantis_efficiency_experiment(to_file='./sampling_trees_defaults.csv', verbose=True)
-    out_df = dslantis_efficiency_experiment(uniform_qt=False, to_file='./sampling_trees_updated_qt.csv')
+    # out_df = laris_efficiency_experiment(to_file='./sampling_trees_defaults.csv', verbose=True)
+    out_df = laris_efficiency_experiment(uniform_qt=False, to_file='./sampling_trees_updated_qt.csv')
     print(out_df.head())

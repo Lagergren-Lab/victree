@@ -22,7 +22,7 @@ from utils import math_utils
 from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalizing_zipping_constant
 
 import utils.tree_utils as tree_utils
-from sampling.slantis_arborescence import sample_arborescence_from_weighted_graph
+from sampling.laris import sample_arborescence_from_weighted_graph
 from utils.config import Config
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.variational_distribution import VariationalDistribution
@@ -1084,13 +1084,13 @@ other elbos such as qC.
         # run sampling to store first sampled tree list and weights
         self.get_trees_sample()
 
-    def get_trees_sample(self, alg: str = 'dslantis', sample_size: int = None,
+    def get_trees_sample(self, alg: str = 'laris', sample_size: int = None,
                          torch_tensor: bool = False, log_scale: bool = False,
                          add_log_g = False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
-            alg: string, chosen in ['random' | 'dslantis']
+            alg: string, chosen in ['random' | 'laris']
             sample_size: number of trees to be sampled. If None, sample_size is taken from the configuration
                 object
         Returns:
@@ -1122,7 +1122,7 @@ Sample trees from q(T) with importance sampling.
             for t in trees:
                 nx.set_edge_attributes(t, np.random.rand(len(t.edges)), 'weight')
 
-        elif alg == "dslantis":
+        elif alg == "laris":
             for i in range(l):
                 t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph)
                 trees.append(t)
