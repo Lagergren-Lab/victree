@@ -116,7 +116,7 @@ class VICTree:
         pbar = tqdm(range(1, n_iter + 1))
         for it in pbar:
             # KEY inference algorithm iteration step
-            self.step()
+            self.step(it)
 
             # update all the other meta-parameters
             if self.config.annealing != 1.0:
@@ -293,11 +293,11 @@ class VICTree:
             self.elbo = self.q.compute_elbo()
         return self.elbo
 
-    def step(self):
+    def step(self, it):
         """
         Wrapper function for variational updates. Handles checkpoint saving.
         """
-        self.q.update()
+        self.q.update(it)
         self.it_counter += 1
         # print info about dist every 10 it
         if self.it_counter % 10 == 0:

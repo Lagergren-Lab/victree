@@ -372,9 +372,7 @@ class qC(VariationalDistribution):
 
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
-        # smooth etas
-        if self.config.qc_smoothing:
-            self.smooth_etas()
+
         self.compute_filtering_probs()
         # logging.debug("- copy number updated")
         super().update()
