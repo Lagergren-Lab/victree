@@ -367,13 +367,12 @@ def write_sample_dataset_h5(dest_path):
     f.close()
 
 
-def generate_dataset_var_tree(config: Config) -> VarTreeJointDist:
-    nu_prior = 1.
-    lambda_prior = 100.
-    alpha_prior = 500.
-    beta_prior = 50.
+def generate_dataset_var_tree(config: Config,
+                              nu_prior=1., lambda_prior=100.,
+                              alpha_prior=500., beta_prior=50.,
+                              dir_alpha=1.) -> VarTreeJointDist:
     simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
-                                       alpha0=alpha_prior, beta0=beta_prior)
+                                       alpha0=alpha_prior, beta0=beta_prior, dir_alpha=dir_alpha)
 
     fix_qc = qC(config, true_params={
         "c": simul_data['c']

@@ -41,17 +41,19 @@ class InitTestCase(unittest.TestCase):
                         sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True, out_dir=self.output_dir)
         simul_joint = generate_dataset_var_tree(config)
         joint_q = VarTreeJointDist(config, simul_joint.obs).initialize()
-        copytree = VICTree(config, joint_q, joint_q.obs)
-        copytree.run(n_iter=n_iter)
+        victree = VICTree(config, joint_q, joint_q.obs)
+        victree.halve_sieve()
+        for i in range(n_iter):
+            victree.step()
 
-        for q in copytree.q.get_units() + [copytree.q]:
+        for q in victree.q.get_units() + [victree.q]:
             for k in q.params_history.keys():
                 # FIXME: check n iters
                 self.assertEqual(len(q.params_history[k]), n_sieving_iter + n_iter + 1, msg=f"key issue: '{k}'")
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
-        write_checkpoint_h5(copytree, path=os.path.join(self.output_dir, "checkpoint_" + str(copytree) + ".h5"))
+        write_checkpoint_h5(victree, path=os.path.join(self.output_dir, "checkpoint_" + str(victree) + ".h5"))
 
     def test_append_checkpoint(self):
 

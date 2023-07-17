@@ -7,6 +7,7 @@ import torch
 from utils import eps_utils
 from model.tree_hmm import CopyNumberTreeHMM
 
+
 class zippingTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.A = 7
@@ -43,18 +44,3 @@ class zippingTestCase(unittest.TestCase):
     def test_normalization(self):
         h_eps = eps_utils.h_eps(self.A, eps=.1)
         self.assertTrue(torch.allclose(h_eps.sum(dim=0), torch.ones((self.A, ) * 3)))
-
-    ## NOTE: this tests old code, not relevant
-    # def test_simul_eps(self):
-    #     n_states = 5
-    #     cntreehmm = CopyNumberTreeHMM(n_copy_states=n_states,
-    #                                   eps=torch.tensor(1e-2),
-    #                                   delta=torch.tensor(1e-10))
-    #
-    #     self.assertTrue(torch.allclose(cntreehmm.cpd_pair_table.sum(dim=0),
-    #                                    torch.ones(n_states)))
-    #
-    #     cpd_table_sum = cntreehmm.cpd_table.sum(dim=0)
-    #     print(torch.argwhere(cpd_table_sum < 1.))
-    #     self.assertTrue(torch.allclose(cpd_table_sum,
-    #                                    torch.ones_like(cpd_table_sum)))

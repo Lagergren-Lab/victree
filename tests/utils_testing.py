@@ -118,13 +118,13 @@ def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.D
 
 
 def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                                  nu_0=torch.tensor(1.),
-                                  lambda_0=torch.tensor(1.),
-                                  alpha0=torch.tensor(1.),
-                                  beta0=torch.tensor(1.),
-                                  a0=torch.tensor(1.0),
-                                  b0=torch.tensor(20.0),
-                                  dir_alpha0=torch.tensor(1.0),
+                                  nu_0=1.,
+                                  lambda_0=1.,
+                                  alpha0=1.,
+                                  beta0=1.,
+                                  a0=1.0,
+                                  b0=20.0,
+                                  dir_alpha0=1.0,
                                   simulate_raw_reads=False,
                                   ):
     n_nodes = len(tree.nodes)
