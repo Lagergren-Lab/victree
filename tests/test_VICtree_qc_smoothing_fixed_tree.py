@@ -21,15 +21,15 @@ from utils.config import Config, set_seed
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
-class VICtreeFixedTreeTestCase(unittest.TestCase):
+class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
-        qeps = qEpsilonMulti(config)
+        qeps = qEpsilonMulti(config)#), alpha_prior=1., beta_prior=10.)
         qz = qZ(config)
         qpi = qPi(config)
-        qmt = qMuTau(config)
+        qmt = qMuTau(config)#, nu_prior=1.0, lambda_prior=10., alpha_prior=50., beta_prior=5.)
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_three_node_tree(self):
@@ -89,7 +89,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                           q_eps=copy_tree2.q.eps)
 
     def test_large_tree(self):
-        set_seed(0)
+        set_seed(2)
         K = 7
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_nodes = len(tree.nodes)
@@ -101,12 +101,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         lambda_0 = torch.tensor(10.)
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
-        a0 = torch.tensor(5.0)
+        a0 = torch.tensor(10.0)
         b0 = torch.tensor(250.0)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
+        set_seed(0)
         print(f"Epsilon: {eps}")
         print(f"pi: {pi}")
         print(f"mu: [{mu.min()}, {mu.max()}]")
@@ -130,8 +131,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree = VICTree(config, q, y)
         copy_tree2 = VICTree(config2, q2, y)
 
-        copy_tree.run(n_iter=100)
-        copy_tree2.run(n_iter=100)
+        copy_tree.run(n_iter=200)
+        copy_tree2.run(n_iter=200)
 
         # Assert
         torch.set_printoptions(precision=2)
