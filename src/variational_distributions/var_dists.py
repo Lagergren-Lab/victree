@@ -535,50 +535,6 @@ class qC(VariationalDistribution):
 
         return self.single_filtering_probs, self.couple_filtering_probs
 
-    # obsolete
-    def compute_fb_filtering_probs(self):
-        # with forward-backward
-        # TODO: remove
-        self.single_filtering_probs = self._get_all_marginals()
-        self.couple_filtering_probs = self._get_all_two_sliced_marginals()
-
-    def _get_two_slice_marginals(self, u):
-        return tree_utils.two_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
-
-    def _get_marginals(self, u):
-        return tree_utils.one_slice_marginals_markov_chain(self.eta1[u], self.eta2[u])
-
-    def _get_all_marginals(self):
-        q_C = torch.zeros(self.single_filtering_probs.shape)
-        for u in range(self.config.n_nodes):
-            init_eta = self.eta1[u, :]
-            init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
-            log_transition_probs = torch.exp(self.eta2[u])
-            transition_probs = torch.exp(log_transition_probs -
-                                         torch.logsumexp(log_transition_probs, dim=2, keepdim=True))
-            if self.config.debug:
-                assert torch.isclose(init_probs_qu.sum(), torch.tensor(1.0))
-                M, A, A = transition_probs.shape
-                for m in range(M):
-                    tot_trans_prob = torch.sum(transition_probs[m], dim=1)
-                    assert torch.allclose(tot_trans_prob, torch.ones(A))
-
-            q_C[u, :, :] = tree_utils.one_slice_marginals_markov_chain(init_probs_qu, transition_probs)
-
-        return q_C
-
-    def _get_all_two_sliced_marginals(self):
-        q_C_pairs = torch.zeros(self.couple_filtering_probs.shape)
-        for u in range(self.config.n_nodes):
-            init_eta = self.eta1[u, :]
-            init_probs_qu = torch.exp(init_eta - torch.logsumexp(init_eta, dim=0))
-            log_transition_probs = self.eta2[u]
-            transition_probs = torch.exp(log_transition_probs -
-                                         torch.logsumexp(log_transition_probs, dim=2, keepdim=True))
-            q_C_pairs[u, :, :, :] = tree_utils.two_slice_marginals_markov_chain(init_probs_qu, transition_probs)
-
-        return q_C_pairs
-
     def get_viterbi(self) -> torch.Tensor:
         """
         Computes the Viterbi path of each node's non-homogeneous Markov chain.
@@ -769,6 +725,8 @@ class qCMultiChrom(VariationalDistribution):
         for qc in self.qC_list:
             elbo += qc.compute_elbo(T_list, w_T_list, q_eps)
         return elbo
+
+    # TODO: implement __str__
 
 
 # cell assignments

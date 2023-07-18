@@ -4,7 +4,6 @@ from typing import List, Tuple, Union
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import torch
 import h5py
 import networkx as nx
@@ -17,6 +16,16 @@ from utils.tree_utils import newick_from_eps_arr
 class DataHandler:
 
     def __init__(self, file_path: str):
+        """
+        Reads the file in the specified path and allows for multiple data formats.
+        The supported formats are:
+            - AnnData files, with bins metadata in adata.var.chr (real data)
+            - AnnData-like H5 files which only contain /layers/copy matrix (mainly for simulated data)
+            - txt file with tabular reads
+        Parameters
+        ----------
+        file_path: str, absolute path of the file
+        """
         self._read_multiple_sources(file_path)
 
     def _read_multiple_sources(self, file_path: str):
@@ -98,6 +107,7 @@ def _remove_nans(ann_dataset: anndata.AnnData) -> anndata.AnnData:
 
 
 def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]:
+    # FIXME: obsolete function, remove or adapt to new inputs
     with open(file_path, 'r') as f:
         cell_names = f.readline().strip().split(" ")
         gene_ids = []
