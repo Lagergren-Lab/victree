@@ -644,10 +644,10 @@ class qCMultiChrom(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
         """
-        Variational distribution for copy number profiles, i.e. Markov chains for each cluster of cells.
+        Wrapper class for multiple Markov chains, each one for each chromosome.
         Parameters
         ----------
-        config: Config, configuration object
+        config: Config, configuration object with chromosome_indices attr properly set
         true_params: dict, contains "c" key which is a torch.Tensor of shape (n_nodes, chain_length) with
             copy number integer values
         """
@@ -675,6 +675,7 @@ class qCMultiChrom(VariationalDistribution):
         # validate true params
         if true_params is not None:
             assert "c" in true_params
+            raise NotImplementedError("qCMultiChrom has not been tested for fixed distr, might not work as expected")
         self.true_params = true_params
 
         # define dist param names
