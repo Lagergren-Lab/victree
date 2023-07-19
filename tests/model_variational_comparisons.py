@@ -135,6 +135,7 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
     :param q_mt:
     :return:
     """
+    print(f"-------------- Likelihood comparison -------------")
     qC_marginals = q_c.single_filtering_probs
     K, M, A = qC_marginals.shape
     N = true_mu.shape
@@ -158,25 +159,34 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
     print(f"tot log_L_var_model: {log_L_var_model.sum():,}")
 
 
-def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti):
+def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti, perm=None):
     q_means = q_epsilon.mean()
     q_variance = q_epsilon.var()
     print(f"-------------- qEpsilonMulti evaluations ---------")
     for key in true_epsilon.keys():
-        print(f"Diff true epsilon E_q[epsilon] for edge {key}: {torch.abs(true_epsilon[key] - q_means[key])}")
-        print(f"Var_q[epsilon] for edge {key} {q_variance[key]}")
+        key_perm = key if perm is None else (perm[key[0]], perm[key[1]])
+        print(f"- E_q[epsilon] for edge {key}: {q_means[key_perm]} vs true epsilon: {true_epsilon[key]}")
+        print(f"Var_q[epsilon] for edge {key} {q_variance[key_perm]}")
+
+
+def compare_qPi_and_true_pi(true_pi, qpi, perm):
+    print(f"-------------- qEpsilonMulti evaluations ---------")
+    print(f"True concentration params: {true_pi}")
+    print(f"q(pi) concentration params: {[qpi.concentration_param[perm[i]]  for i in range(qpi.concentration_param)]}")
 
 
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
                         q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None):
     torch.set_printoptions(precision=2)
     ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z)
+    compare_qPi_and_true_pi(true_pi, qpi, perm)
     compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
     cell_idxs = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
     compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
     if q_eps is not None:
-        compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps)
+        compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps, perm)
     compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, perm)
+    print("---- Fixed tree comparisons END ------- \n")
 
 
 def compare_phi_and_true_phi(phi, q_psi, perm):

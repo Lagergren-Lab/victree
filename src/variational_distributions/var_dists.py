@@ -89,7 +89,7 @@ class qC(VariationalDistribution):
             true_cfp = torch.zeros_like(self._couple_filtering_probs)
             for u in range(self.config.n_nodes):
                 true_cfp[u, torch.arange(self.config.chain_length - 1),
-                cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
+                         cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
             # add epsilon and normalize
             self._couple_filtering_probs[...] = true_cfp.clamp(min=small_eps)
             self._couple_filtering_probs /= self._couple_filtering_probs.sum(dim=(2, 3), keepdim=True)
@@ -369,8 +369,10 @@ class qC(VariationalDistribution):
         # need normalization
         new_eta1_norm = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
         new_eta2_norm = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
+
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
+
         self.compute_filtering_probs()
         # logging.debug("- copy number updated")
         super().update()
@@ -557,7 +559,7 @@ class qC(VariationalDistribution):
         t2[:, :, 0] = 0.
         # forward
         for m in range(1, M):
-            t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m-1, None] * transition_probs[:, m-1, ...], dim=1)
+            t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m - 1, None] * transition_probs[:, m - 1, ...], dim=1)
 
         # init backtrack
         zm = torch.empty((self.config.n_nodes, M), dtype=torch.long)
@@ -593,8 +595,24 @@ class qC(VariationalDistribution):
 
     def get_checkpoint(self):
         return {"eta1": self.eta1, "eta2": self.eta2}
-       # TODO: continue
+    # TODO: continue
 
+    def smooth_etas(self):
+        lag = 2
+        for k in range(self.config.n_nodes):
+            for m in range(2, self.config.chain_length - 3):
+                current_state = self.eta2[k, m, :, :].argmax(dim=-1)
+                prev_state = self.eta2[k, m-1, :, :].argmax(dim=-1)
+                next_state = self.eta2[k, m+1, :, :].argmax(dim=-1)
+                if (prev_state != current_state).any() and \
+                        (self.eta2[k, m-2, :, :].argmax(dim=-1) == prev_state).any() and \
+                        (current_state != next_state).any() and \
+                        (self.eta2[k, m+2, :, :].argmax(dim=-1) == next_state).any():  # lag 2 outlier
+                    
+                    if torch.abs(current_state - prev_state).sum() < torch.abs(current_state - next_state).sum():
+                        self.eta2[k, m, :, :] = self.eta2[k, m-1, :, :]
+                    else:
+                        self.eta2[k, m, :, :] = self.eta2[k, m+1, :, :]
 
 class qCMultiChrom(VariationalDistribution):
 
@@ -614,7 +632,7 @@ class qCMultiChrom(VariationalDistribution):
         self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
         self.M_cr = []
         for i in range(self.n_chr):
-            M_chr_i = self.chr_start_points[i+1] - self.chr_start_points[i]
+            M_chr_i = self.chr_start_points[i + 1] - self.chr_start_points[i]
             config_i = copy.deepcopy(self.config)
             config_i.chain_length = M_chr_i
             self.qC_list.append(qC(config_i, true_params=true_params))
@@ -648,7 +666,7 @@ class qCMultiChrom(VariationalDistribution):
 
         for i, qc in enumerate(self.qC_list):
             chr_i_start = self.chr_start_points[i]
-            chr_i_end = self.chr_start_points[i+1]
+            chr_i_end = self.chr_start_points[i + 1]
             qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
 
         self.compute_filtering_probs()
@@ -657,9 +675,9 @@ class qCMultiChrom(VariationalDistribution):
         for i, qc in enumerate(self.qC_list):
             single_i, couple_i = qc.compute_filtering_probs()
             m_start = self.chr_start_points[i]
-            m_end = self.chr_start_points[i+1]
+            m_end = self.chr_start_points[i + 1]
             self._single_filtering_probs[:, m_start:m_end, :] = single_i
-            self._couple_filtering_probs[:, m_start-i:m_end-i-1, :, :] = couple_i
+            self._couple_filtering_probs[:, m_start - i:m_end - i - 1, :, :] = couple_i
 
     @property
     def single_filtering_probs(self):
@@ -687,7 +705,7 @@ class qCMultiChrom(VariationalDistribution):
             true_cfp = torch.zeros_like(self._couple_filtering_probs)
             for u in range(self.config.n_nodes):
                 true_cfp[u, torch.arange(self.config.chain_length - 1),
-                cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
+                         cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
             # add epsilon and normalize
             self._couple_filtering_probs[...] = true_cfp.clamp(min=small_eps)
             self._couple_filtering_probs /= self._couple_filtering_probs.sum(dim=(2, 3), keepdim=True)
@@ -827,7 +845,7 @@ class qZ(VariationalDistribution):
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
         T = self.config.annealing
-        gamma = gamma * 1/T
+        gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
         new_pi = self.update_params(pi)
         # logging.debug("- z updated")
@@ -888,8 +906,8 @@ class qT(VariationalDistribution):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
-        self.log_g_t = torch.empty((config.wis_sample_size, ))
-        self.log_w_t = torch.zeros((config.wis_sample_size, ))
+        self.log_g_t = torch.empty((config.wis_sample_size,))
+        self.log_w_t = torch.zeros((config.wis_sample_size,))
         self.nx_trees_sample = []
         self._weighted_graph = nx.DiGraph()
         self._weighted_graph.add_edges_from([(u, v)
@@ -1045,7 +1063,7 @@ other elbos such as qC.
 
     def get_trees_sample(self, alg: str = 'laris', sample_size: int = None,
                          torch_tensor: bool = False, log_scale: bool = False,
-                         add_log_g = False) -> (list, list | torch.Tensor):
+                         add_log_g=False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -1551,7 +1569,8 @@ class qEpsilonMulti(VariationalDistribution):
 
     def var(self) -> dict:
         var_dict = {e: self.alpha_dict[e] * self.beta_dict[e] / ((self.alpha_dict[e] + self.beta_dict[e]) ** 2 *
-                                                                 (self.alpha_dict[e] + self.beta_dict[e] + 1)) for e in self.alpha_dict.keys()}
+                                                                 (self.alpha_dict[e] + self.beta_dict[e] + 1)) for e in
+                    self.alpha_dict.keys()}
         return var_dict
 
     def __str__(self):
@@ -2327,7 +2346,7 @@ class qPhi(qPsi):
         self.params_history["R"] = []
 
     def initialize(self, **kwargs):
-        self.phi = torch.ones(self.config.n_nodes,) * 2. * self.config.chain_length
+        self.phi = torch.ones(self.config.n_nodes, ) * 2. * self.config.chain_length
 
     def update(self, qc: qC, qz: qZ, obs):
         c_marginals = qc.single_filtering_probs
