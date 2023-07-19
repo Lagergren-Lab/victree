@@ -334,7 +334,7 @@ class qC(VariationalDistribution):
                q_z: 'qZ',
                q_psi: 'qPsi',
                trees,
-               tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
+               tree_weights):
         """
         log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
         + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
@@ -557,7 +557,7 @@ class qC(VariationalDistribution):
         t2[:, :, 0] = 0.
         # forward
         for m in range(1, M):
-            t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m-1, None] * transition_probs[:, m-1, ...], dim=1)
+            t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m - 1, None] * transition_probs[:, m - 1, ...], dim=1)
 
         # init backtrack
         zm = torch.empty((self.config.n_nodes, M), dtype=torch.long)
@@ -570,30 +570,12 @@ class qC(VariationalDistribution):
         return zm
 
     def __str__(self):
-        torch.set_printoptions(precision=3)
         # summary for qc
-        summary = ["[qC summary]"]
-        if self.fixed:
-            summary[0] += " - True Dist"
-            k = max(30, self.config.chain_length)  # first k sites
-            summary.append(f"-cn profile\n{self.true_params['c'][:, :k]}")
-        else:
-            max_entropy = torch.special.entr(torch.ones(self.config.n_states) / self.config.n_states).sum()
-            # print first k cells assignments and their uncertainties - entropy normalized by max value
-            summary.append(f"-cn profile")
-            k = min(10, self.config.n_nodes)  # first k clones
-            m = min(30, self.config.chain_length)  # first m sites
-            for c in range(k):
-                cn_prof = self.single_filtering_probs[c, :m, :].argmax(dim=1)
-                summary.append(f"\t{c}:\t{cn_prof}")
-                uncertainty = torch.special.entr(self.single_filtering_probs[c, :m, :]).sum(dim=1) / max_entropy
-                summary.append(f"\t\t{uncertainty}")
-
-        return os.linesep.join(summary)
+        return qc_summary_str(self, "[qC summary]")
 
     def get_checkpoint(self):
         return {"eta1": self.eta1, "eta2": self.eta2}
-       # TODO: continue
+    # TODO: continue
 
 
 class qCMultiChrom(VariationalDistribution):
@@ -607,118 +589,60 @@ class qCMultiChrom(VariationalDistribution):
         true_params: dict, contains "c" key which is a torch.Tensor of shape (n_nodes, chain_length) with
             copy number integer values
         """
-        super().__init__(config, fixed=true_params is not None)
-
         self.qC_list: List[qC] = []
         self.n_chr = config.n_chromosomes
-        self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
-        self.M_cr = []
+
+        # chromosome change boundaries in terms of bin indices
+        # e.g. [0, 4, 9, 11] -> obs.shape = (11, n_cells), n_chr = 3
+        #   chromosome sequences: [----] [-----] [--]
+        self.chr_idx_boundaries = [0] + config.chromosome_indexes + [config.chain_length]
         for i in range(self.n_chr):
-            M_chr_i = self.chr_start_points[i+1] - self.chr_start_points[i]
-            config_i = copy.deepcopy(self.config)
+            M_chr_i = self.chr_idx_boundaries[i + 1] - self.chr_idx_boundaries[i]
+            config_i = copy.deepcopy(config)
             config_i.chain_length = M_chr_i
-            self.qC_list.append(qC(config_i, true_params=true_params))
 
-        self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
-        self._couple_filtering_probs = torch.empty(
-            (config.n_nodes, config.chain_length - self.n_chr, config.n_states, config.n_states))
+            if true_params is None:
+                true_c_i = None
+            else:
+                assert 'c' in true_params
+                true_c_i = true_params['c'][:, self.chr_idx_boundaries[i]:self.chr_idx_boundaries[i + 1]]
+            self.qC_list.append(qC(config_i, true_c_i))
 
-        # eta1 = log(pi) - log initial states probs
-        self._eta1: torch.Tensor = torch.empty((config.n_nodes, config.n_states))
-        # eta2 = log(phi) - log transition probs
-        self._eta2: torch.Tensor = torch.empty_like(self._couple_filtering_probs)
-
-        # validate true params
-        if true_params is not None:
-            assert "c" in true_params
-            raise NotImplementedError("qCMultiChrom has not been tested for fixed distr, might not work as expected")
-        self.true_params = true_params
-
-        # define dist param names
-        self.params_history["single_filtering_probs"] = []
-        # # not needed at the moment
-        # self.params_history["couple_filtering_probs"] = []
+        super().__init__(config, fixed=true_params is not None)
 
     def update(self, obs: torch.Tensor,
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                q_z: 'qZ',
                q_psi: 'qPsi',
                trees,
-               tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
+               tree_weights):
 
         for i, qc in enumerate(self.qC_list):
-            chr_i_start = self.chr_start_points[i]
-            chr_i_end = self.chr_start_points[i+1]
+            chr_i_start = self.chr_idx_boundaries[i]
+            chr_i_end = self.chr_idx_boundaries[i + 1]
             qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
 
         self.compute_filtering_probs()
 
     def compute_filtering_probs(self):
         for i, qc in enumerate(self.qC_list):
-            single_i, couple_i = qc.compute_filtering_probs()
-            m_start = self.chr_start_points[i]
-            m_end = self.chr_start_points[i+1]
-            self._single_filtering_probs[:, m_start:m_end, :] = single_i
-            self._couple_filtering_probs[:, m_start-i:m_end-i-1, :, :] = couple_i
+            qc.compute_filtering_probs()
+
+    @property
+    def true_params(self):
+        return {'c': torch.cat([qc.true_params['c'] for qc in self.qC_list], dim=1)}
 
     @property
     def single_filtering_probs(self):
-        if self.fixed:
-            small_eps = 1e-5
-            cn_profile = self.true_params["c"]
-            true_sfp = torch_functional.one_hot(cn_profile,
-                                                num_classes=self.config.n_states).float().clamp(min=small_eps)
-            self._single_filtering_probs[...] = true_sfp
-        return self._single_filtering_probs
-
-    @single_filtering_probs.setter
-    def single_filtering_probs(self, sfp):
-        if self.fixed:
-            logging.warning('Trying to re-set qc attribute when it should be fixed')
-        self._single_filtering_probs[...] = sfp
-
-    @property
-    def couple_filtering_probs(self):
-        if self.fixed:
-            small_eps = 1e-5
-            cn_profile = self.true_params["c"]
-            # map node specific copy number profile to pair marginal probabilities
-            # almost all prob mass is given to the true copy number combinations
-            true_cfp = torch.zeros_like(self._couple_filtering_probs)
-            for u in range(self.config.n_nodes):
-                true_cfp[u, torch.arange(self.config.chain_length - 1),
-                cn_profile[u, :-1], cn_profile[u, 1:]] = 1.
-            # add epsilon and normalize
-            self._couple_filtering_probs[...] = true_cfp.clamp(min=small_eps)
-            self._couple_filtering_probs /= self._couple_filtering_probs.sum(dim=(2, 3), keepdim=True)
-            if self.config.debug:
-                assert torch.allclose(self._couple_filtering_probs.sum(dim=(2, 3)),
-                                      torch.ones((self.config.n_nodes, self.config.chain_length - 1)))
-
-        return self._couple_filtering_probs
-
-    @couple_filtering_probs.setter
-    def couple_filtering_probs(self, cfp):
-        if self.fixed:
-            logging.warning('Trying to re-set qc attribute when it should be fixed')
-
-        self._couple_filtering_probs[...] = cfp
+        return torch.cat([qc.single_filtering_probs for qc in self.qC_list], dim=1)
 
     def initialize(self, method='random', **kwargs):
+        if method not in {'random', 'uniform'}:
+            raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
         for qc in self.qC_list:
-            if method == 'baum-welch':
-                qc._baum_welch_init(**kwargs)
-            elif method == 'bw-cluster':
-                qc._init_bw_cluster_data(**kwargs)
-            elif method == 'random':
-                qc._random_init()
-            elif method == 'uniform':
-                qc._uniform_init()
-            else:
-                raise ValueError(f'method `{method}` for qC initialization is not implemented')
-            self.compute_filtering_probs()
+            qc.initialize(method)
 
-        return super().initialize(**kwargs)
+        return self
 
     def compute_elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         elbo = 0
@@ -726,7 +650,26 @@ class qCMultiChrom(VariationalDistribution):
             elbo += qc.compute_elbo(T_list, w_T_list, q_eps)
         return elbo
 
-    # TODO: implement __str__
+    def get_viterbi(self):
+        return torch.cat([qc.get_viterbi() for qc in self.qC_list], dim=1)
+
+    @property
+    def params_history(self):
+        multiqc_hist = [torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+                        for i in range(len(self.qC_list[0].params_history['single_filtering_probs']))]
+        for i, qc in self.qC_list:
+            for j, h in enumerate(qc.params_history['single_filtering_probs']):
+                multiqc_hist[j][:, self.chr_idx_boundaries[i]:self.chr_idx_boundaries[i + 1], :] = h
+
+        return {'single_filtering_probs': multiqc_hist}
+
+    @params_history.setter
+    def params_history(self, ph):
+        pass
+
+    def __str__(self):
+        # summary for multi chromosome qc
+        return qc_summary_str(self, "[qCMultiChrom summary]")
 
 
 # cell assignments
@@ -827,7 +770,7 @@ class qZ(VariationalDistribution):
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
         T = self.config.annealing
-        gamma = gamma * 1/T
+        gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
         new_pi = self.update_params(pi)
         # logging.debug("- z updated")
@@ -888,8 +831,8 @@ class qT(VariationalDistribution):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
-        self.log_g_t = torch.empty((config.wis_sample_size, ))
-        self.log_w_t = torch.zeros((config.wis_sample_size, ))
+        self.log_g_t = torch.empty((config.wis_sample_size,))
+        self.log_w_t = torch.zeros((config.wis_sample_size,))
         self.nx_trees_sample = []
         self._weighted_graph = nx.DiGraph()
         self._weighted_graph.add_edges_from([(u, v)
@@ -986,12 +929,18 @@ other elbos such as qC.
             self._weighted_graph.edges[u, v]['weight'] = stepped_weights[i]
         return self._weighted_graph.edges.data('weight')
 
-    def update_graph_weights(self, qc: qC, qeps: Union['qEpsilon', 'qEpsilonMulti']):
+    def update_graph_weights(self, qc: qC | qCMultiChrom, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
         new_log_weights = {}
         for u, v in all_edges:
-            new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
-                                                 qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
+            if isinstance(qc, qC):
+                new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
+                                                     qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
+            else:
+                new_log_weights[u, v] = 0.
+                for q_chr in qc.qC_list:
+                    new_log_weights[u, v] += torch.einsum('mij,mkl,jilk->', q_chr.couple_filtering_probs[u],
+                                                          q_chr.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
         # chain length determines how large log-weights are
         # while they should be length invariant
         # FIXME: avoid this hack
@@ -1045,7 +994,7 @@ other elbos such as qC.
 
     def get_trees_sample(self, alg: str = 'laris', sample_size: int = None,
                          torch_tensor: bool = False, log_scale: bool = False,
-                         add_log_g = False) -> (list, list | torch.Tensor):
+                         add_log_g=False) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -1152,7 +1101,7 @@ of the variational distribution over the topology.
             summary[0] += " - True Dist"
             summary.append("-tree\t" + tree_utils.tree_to_newick(self.true_params['tree']))
         else:
-            summary.append(f"-adj matrix\t{nx.to_numpy_array(self._weighted_graph)}")
+            summary.append(f"-adj matrix\n\t{nx.to_numpy_array(self._weighted_graph)}")
             summary.append(f"-sampled trees:")
             qdist = self.get_pmf_estimate()
             # TODO: sort in get_pmf_estimate
@@ -1368,9 +1317,9 @@ class qEpsilonMulti(VariationalDistribution):
         self.update_CAVI(tree_list, tree_weights, qc)
         super().update()
 
-    def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
-        cfp = qc.couple_filtering_probs
-        K, M, A, A = cfp.shape
+    def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC | qCMultiChrom):
+        sfp = qc.single_filtering_probs
+        K, M, A = sfp.shape
         new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha_dict.keys()}
         new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta_dict.keys()}
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
@@ -1387,14 +1336,29 @@ class qEpsilonMulti(VariationalDistribution):
         exp_cuv_b = {}
         comut_mask = get_zipping_mask(A)
         for u, v in unique_edges:
-            exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
-                                           cfp[u],
-                                           cfp[v],
-                                           (~comut_mask).float())
-            exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
-                                           cfp[u],
-                                           cfp[v],
-                                           comut_mask.float())
+            if isinstance(qc, qC):
+                cfp = qc.couple_filtering_probs
+                exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
+                                               cfp[u],
+                                               cfp[v],
+                                               (~comut_mask).float())
+                exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
+                                               cfp[u],
+                                               cfp[v],
+                                               comut_mask.float())
+            else:
+                exp_cuv_a[u, v] = 0.
+                exp_cuv_b[u, v] = 0.
+                for q_chr in qc.qC_list:
+                    cfp_chr = q_chr.couple_filtering_probs
+                    exp_cuv_a[u, v] += torch.einsum('mij, mkl, lkji -> ',
+                                                   cfp_chr[u],
+                                                   cfp_chr[v],
+                                                   (~comut_mask).float())
+                    exp_cuv_b[u, v] += torch.einsum('mij, mkl, lkji -> ',
+                                                   cfp_chr[u],
+                                                   cfp_chr[v],
+                                                   comut_mask.float())
 
         for k, t in enumerate(tree_list):
             for e in t.edges:
@@ -1551,7 +1515,8 @@ class qEpsilonMulti(VariationalDistribution):
 
     def var(self) -> dict:
         var_dict = {e: self.alpha_dict[e] * self.beta_dict[e] / ((self.alpha_dict[e] + self.beta_dict[e]) ** 2 *
-                                                                 (self.alpha_dict[e] + self.beta_dict[e] + 1)) for e in self.alpha_dict.keys()}
+                                                                 (self.alpha_dict[e] + self.beta_dict[e] + 1)) for e in
+                    self.alpha_dict.keys()}
         return var_dict
 
     def __str__(self):
@@ -2327,7 +2292,7 @@ class qPhi(qPsi):
         self.params_history["R"] = []
 
     def initialize(self, **kwargs):
-        self.phi = torch.ones(self.config.n_nodes,) * 2. * self.config.chain_length
+        self.phi = torch.ones(self.config.n_nodes, ) * 2. * self.config.chain_length
 
     def update(self, qc: qC, qz: qZ, obs):
         c_marginals = qc.single_filtering_probs
@@ -2478,14 +2443,36 @@ class qPi(VariationalDistribution):
         return cross_entropy + entropy
 
     def __str__(self):
-        torch.set_printoptions(precision=3)
+        np.set_printoptions(precision=3, suppress=True)
         summary = ["[qPi summary]"]
         if self.fixed:
             summary[0] += " - True Dist"
-            summary.append(f"-pi\t{self.true_params['pi']}")
+            summary.append(f"-pi\t{self.true_params['pi'].numpy()}")
         else:
-            summary.append(f"-delta\t{self.concentration_param}\n"
-                           f"\t\t(prior: {self.concentration_param_prior})")
-            summary.append(f"-E[pi]\t{self.exp_pi()}")
+            summary.append(f"-delta\t{self.concentration_param.numpy()}\n"
+                           f"\t\t(prior: {self.concentration_param_prior.numpy()})")
+            summary.append(f"-E[pi]\t{self.exp_pi().numpy()}")
 
         return os.linesep.join(summary)
+
+
+def qc_summary_str(self: qC | qCMultiChrom, prefix: str = ''):
+    np.set_printoptions(precision=3, suppress=True)
+    summary = [prefix]
+    if self.fixed:
+        summary[0] += " - True Dist"
+        m = max(30, self.config.chain_length)  # first k sites
+        summary.append(f"-cn profile\n{self.true_params['c'][:, :m].numpy()}")
+    else:
+        max_entropy = torch.special.entr(torch.ones(self.config.n_states) / self.config.n_states).sum()
+        # print first k cells assignments and their uncertainties - entropy normalized by max value
+        summary.append(f"-cn profile")
+        k = min(10, self.config.n_nodes)  # first k clones
+        m = min(30, self.config.chain_length)  # first m sites
+        for c in range(k):
+            cn_prof = self.single_filtering_probs[c, :m, :].argmax(dim=1)
+            summary.append(f"\t{c}:\t{cn_prof.numpy()}")
+            uncertainty = torch.special.entr(self.single_filtering_probs[c, :m, :]).sum(dim=1) / max_entropy
+            summary.append(f"\t\t{uncertainty.numpy()}")
+
+    return os.linesep.join(summary)

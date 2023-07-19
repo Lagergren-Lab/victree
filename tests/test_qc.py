@@ -145,7 +145,7 @@ class qCTestCase(unittest.TestCase):
         qmt = qMuTau(config_1)
         qmt.initialize(loc=mu_0, precision_factor=tau_0, shape=1., rate=1.)
 
-        qc_1._baum_welch_init(obs=obs, qmt=qmt)
+        qc_1.initialize(method='baum-welch', obs=obs, qmt=qmt)
         q_eps = qEpsilonMulti(config_1)
 #        cross_entropy_BW = qc_1.cross_entropy_arc(q_eps, 0, 1)
 #        print(f"CE baum-welch init: {cross_entropy_BW}")
