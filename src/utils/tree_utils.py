@@ -35,56 +35,6 @@ def newick_from_eps_arr(eps_arr: np.ndarray):
         t.add_edge(u, v)
     return tree_to_newick(t)
 
-def forward_messages_markov_chain(initial_probs: torch.Tensor, transition_probabilities: torch.Tensor):
-    chain_length = transition_probabilities.shape[0] + 1
-    n_states = initial_probs.shape[0]
-    alpha = torch.zeros((chain_length, n_states))  # Forward recursion variable
-    alpha[0] = initial_probs
-
-    for n in range(1, chain_length):
-        alpha[n] = torch.einsum("ij, i -> j", transition_probabilities[n - 1], alpha[n - 1])
-    return alpha
-
-
-def backward_messages_markov_chain(transition_probabilities: torch.Tensor):
-    # alpha_m = sum_{n-1}
-    M, n_states, _ = transition_probabilities.shape
-    beta = torch.zeros((M, n_states))  # Forward recursion variable
-
-    # backward
-    beta[M - 1] = 1.
-    for rm in range(1, M):
-        beta[M - rm - 1] = torch.einsum("j, ij -> i", beta[M - rm], transition_probabilities[M - rm - 1])
-    return beta
-
-
-def two_slice_marginals_markov_chain_given_alpha_beta(alpha: torch.Tensor, transition_probabilities: torch.Tensor,
-                                                      beta: torch.Tensor) -> torch.Tensor:
-    M, n_states = alpha.shape
-    two_slice_marginals_tensor = torch.zeros(transition_probabilities.shape)
-    for m in range(M - 1):
-        unnormalized_two_slice_marginals = torch.einsum("i, ij, j -> ij", alpha[m], transition_probabilities[m],
-                                                        beta[m])
-        two_slice_marginals_tensor[m] = unnormalized_two_slice_marginals / torch.sum(unnormalized_two_slice_marginals)
-    return two_slice_marginals_tensor
-
-
-def two_slice_marginals_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor):
-    """
-    :param N: Chain length
-    :param initial_state: markov model initial state probability tensor                 - (M x 1)
-    :param transition_probabilities: markov model probability tensor                    - (N x M x M)
-    :return: pairwise probability tensor [p(X_1, X_2), p(X_2, X_3) ... p(X_{N-1}, X_N)]    - (N-1 x M)
-    """
-    alpha = forward_messages_markov_chain(initial_state, transition_probabilities)
-    beta = backward_messages_markov_chain(transition_probabilities)
-
-    return two_slice_marginals_markov_chain_given_alpha_beta(alpha, transition_probabilities, beta)
-
-
-def one_slice_marginals_markov_chain(initial_state: torch.Tensor, transition_probabilities: torch.Tensor):
-    return forward_messages_markov_chain(initial_state, transition_probabilities)
-
 
 def tree_to_newick(g: nx.DiGraph, root=None, weight=None):
     # make sure the graph is a tree

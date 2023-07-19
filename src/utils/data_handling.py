@@ -1,5 +1,5 @@
 import logging
-import os.path
+import os
 from typing import List, Tuple, Union
 from pathlib import Path
 
@@ -7,9 +7,107 @@ import numpy as np
 import torch
 import h5py
 import networkx as nx
+import anndata
+from anndata._io.utils import AnnDataReadError
+
+from utils.tree_utils import newick_from_eps_arr
+
+
+class DataHandler:
+
+    def __init__(self, file_path: str):
+        """
+        Reads the file in the specified path and allows for multiple data formats.
+        The supported formats are:
+            - AnnData files, with bins metadata in adata.var.chr (real data)
+            - AnnData-like H5 files which only contain /layers/copy matrix (mainly for simulated data)
+            - txt file with tabular reads
+        Parameters
+        ----------
+        file_path: str, absolute path of the file
+        """
+        self._read_multiple_sources(file_path)
+
+    def _read_multiple_sources(self, file_path: str):
+        self.norm_reads = None
+        self.chr_pd = None
+        self.start = None
+        self.end = None
+
+        fname, fext = os.path.splitext(file_path)
+        if fext == '.txt':
+            # handle both simple tables in text files
+            cell_names, gene_ids, obs = read_sc_data(file_path)
+            obs = obs.float()
+        elif fext in {'.h5', '.h5ad'}:
+            try:
+                # actual AnnData format
+                logging.debug("reading anndata file")
+                ann_dataset = anndata.read_h5ad(file_path)
+                ann_dataset = _remove_nans(ann_dataset)
+                ann_dataset = _sort_anndata(ann_dataset)
+                obs = torch.tensor(ann_dataset.layers['copy'].T, dtype=torch.float)
+
+                # pandas categorical for chromosomes
+                self.chr_pd = ann_dataset.var.chr
+                self.start = ann_dataset.var.start
+                self.end = ann_dataset.var.end
+
+            except AnnDataReadError as ae:
+                logging.debug("anndata read failed. reading pseudo-anndata h5 file")
+                # and binary H5 files in pseudo-anndata format
+                full_data = load_h5_pseudoanndata(file_path)
+                if 'gt' in full_data.keys():
+                    # H5 file can contain ground truth for post-analysis (e.g. synthetic ds)
+                    logging.debug(f"gt tree: {newick_from_eps_arr(full_data['gt']['eps'][...])}")
+
+                obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
+        else:
+            raise FileNotFoundError(f"file extension not recognized: {fext}")
+
+        self.norm_reads = obs
+        self.n_bins, self.n_cells = obs.shape
+
+    def _clean_dataset(self):
+        if torch.any(torch.isnan(self.norm_reads)):
+            # TODO: temporary solution for nans in data. 1D interpolation should work better
+            obs = torch.nan_to_num(self.norm_reads, nan=2.0)
+
+    def get_chr_idx(self):
+        indexes = []
+        if self.chr_pd is None:
+            logging.warning("Getting indices for data with no chromosome specs."
+                            " Execution will proceed on one single chain")
+        else:
+            # TODO: improve
+            # get indices over the obs matrix when chromosome changes
+            curr_chr = self.chr_pd[0]
+            for i, c in enumerate(self.chr_pd):
+                if c != curr_chr:
+                    indexes.append(i)
+                    curr_chr = c
+
+        return indexes
+
+
+def _sort_anndata(ann_dataset):
+    if not ann_dataset.var.chr.cat.ordered:
+        ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
+        ann_dataset.var.chr = ann_dataset.var.chr.cat.reorder_categories(ord_chr, ordered=True)
+    return ann_dataset[:, ann_dataset.var.sort_values(['chr', 'start']).index]
+
+
+def _remove_nans(ann_dataset: anndata.AnnData) -> anndata.AnnData:
+    """
+    Remove bins corresponding to NaNs in the 'copy' layer
+    """
+    # TODO: implement different NaN strategies
+    ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)]
+    return ann_dataset
 
 
 def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]:
+    # FIXME: obsolete function, remove or adapt to new inputs
     with open(file_path, 'r') as f:
         cell_names = f.readline().strip().split(" ")
         gene_ids = []
@@ -114,7 +212,7 @@ def write_checkpoint_h5(copytree, path=None):
         logging.debug("checkpoint saved!")
 
 
-def load_h5_anndata(file_path):
+def load_h5_pseudoanndata(file_path):
     return h5py.File(file_path, 'r')
 
 
@@ -129,7 +227,7 @@ def read_hmmcopy_state_from_h5(file_path):
 
 
 def read_checkpoint(file_path):
-    h5 = load_h5_anndata(file_path)
+    h5 = load_h5_pseudoanndata(file_path)
     data = {
         'elbo': h5['VarTreeJointDist']['elbo'][()],
         'copy': h5['qC']['single_filtering_probs'][()],
@@ -156,7 +254,7 @@ def read_last_it_from_checkpoint(file_path):
 
 
 def read_simul(file_path):
-    h5 = load_h5_anndata(file_path)
+    h5 = load_h5_pseudoanndata(file_path)
     data = {
         'obs': h5['layers']['copy'][()],
         'copy': h5['gt']['copy'][()],

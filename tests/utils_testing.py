@@ -76,23 +76,6 @@ def get_root_q_C(M, A):
     return q_C_init, q_C_transitions
 
 
-def get_two_simple_trees_with_random_qCs(M, A, N) -> Tuple[List[nx.DiGraph], torch.Tensor]:
-    T_1 = get_tree_three_nodes_balanced()
-    T_2 = get_tree_three_nodes_chain()
-    T_list = [T_1, T_2]
-    q_C_0_init, q_C_0_transitions = get_root_q_C(M, A)
-    q_C_0_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_0_init, q_C_0_transitions)
-    q_C_1_init, q_C_1_transitions = get_random_q_C(M, A)
-    q_C_1_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_1_init, q_C_1_transitions)
-    q_C_2_init, q_C_2_transitions = get_random_q_C(M, A)
-    q_C_2_pairwise_marginals = tree_utils.two_slice_marginals_markov_chain(q_C_2_init, q_C_2_transitions)
-    q_C_pairwise_marginals = torch.zeros(N, M - 1, A, A)
-    q_C_pairwise_marginals[0] = q_C_0_pairwise_marginals
-    q_C_pairwise_marginals[1] = q_C_1_pairwise_marginals
-    q_C_pairwise_marginals[2] = q_C_2_pairwise_marginals
-    return T_list, q_C_pairwise_marginals
-
-
 def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                                mu_0=torch.tensor(1.),
                                lambda_0=torch.tensor(1.),

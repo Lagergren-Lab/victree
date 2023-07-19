@@ -8,8 +8,8 @@ from inference.victree import VICTree
 from utils.tree_utils import newick_from_eps_arr
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config
-from utils.data_handling import read_sc_data, load_h5_anndata, write_output_h5, write_checkpoint_h5
-from variational_distributions.var_dists import qMuTau, qEpsilonMulti, qPi
+from utils.data_handling import read_sc_data, load_h5_pseudoanndata, write_output_h5, write_checkpoint_h5, DataHandler
+from variational_distributions.var_dists import qMuTau, qEpsilonMulti, qPi, qCMultiChrom
 
 
 def run(args):
@@ -20,25 +20,10 @@ def run(args):
     # ---
     # Import data
     # ---
-    fname, fext = os.path.splitext(args.file_path)
-    if fext == '.txt':
-        # handle both simple tables in text files
-        cell_names, gene_ids, obs = read_sc_data(args.file_path)
-        obs = obs.float()
-    elif fext == '.h5':
-        # and binary H5 files in anndata format
-        full_data = load_h5_anndata(args.file_path)
-        if 'gt' in full_data.keys():
-            # H5 file can contain ground truth for post-analysis (e.g. synthetic ds)
-            logging.debug(f"gt tree: {newick_from_eps_arr(full_data['gt']['eps'][...])}")
+    data_handler = DataHandler(args.file_path)
+    obs = data_handler.norm_reads
 
-        obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
-        if torch.any(torch.isnan(obs)):
-            # TODO: temporary solution for nans in data. 1D interpolation should work better
-            obs = torch.nan_to_num(obs, nan=2.0)
-    else:
-        raise FileNotFoundError(f"file extension not recognized: {fext}")
-
+    # obs n_bins x n_cells matrix
     n_bins, n_cells = obs.shape
     logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
@@ -48,7 +33,7 @@ def run(args):
     config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=n_cells, chain_length=n_bins,
                     wis_sample_size=args.tree_sample_size, sieving_size=args.sieving[0], n_sieving_iter=args.sieving[1],
                     step_size=args.step_size, debug=args.debug, diagnostics=args.diagnostics, out_dir=args.out_dir,
-                    n_run_iter=args.n_iter, elbo_rtol=args.r_tol)
+                    n_run_iter=args.n_iter, elbo_rtol=args.r_tol, chromosome_indexes=data_handler.get_chr_idx())
     logging.debug(str(config))
 
     # ---
@@ -59,7 +44,11 @@ def run(args):
     qeps = qEpsilonMulti(config, alpha_prior=args.prior_eps[0], beta_prior=args.prior_eps[1])
     qpi = qPi(config, delta_prior=args.prior_pi)
 
-    joint_q = VarTreeJointDist(config, obs, qmt=qmt, qeps=qeps, qpi=qpi)
+    # if more chromosomes are provided, split into multiple qC sequences
+    qc = None
+    if config.chromosome_indexes:
+        qc = qCMultiChrom(config)
+    joint_q = VarTreeJointDist(config, obs, qc=qc, qmt=qmt, qeps=qeps, qpi=qpi)
 
     logging.info('initializing distributions..')
     joint_q.initialize()
