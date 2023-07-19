@@ -169,10 +169,17 @@ def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti, pe
         print(f"Var_q[epsilon] for edge {key} {q_variance[key_perm]}")
 
 
+def compare_qPi_and_true_pi(true_pi, qpi, perm):
+    print(f"-------------- qEpsilonMulti evaluations ---------")
+    print(f"True concentration params: {true_pi}")
+    print(f"q(pi) concentration params: {[qpi.concentration_param[perm[i]]  for i in range(qpi.concentration_param)]}")
+
+
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
                         q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None):
     torch.set_printoptions(precision=2)
     ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z)
+    compare_qPi_and_true_pi(true_pi, qpi, perm)
     compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
     cell_idxs = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
     compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
