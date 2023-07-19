@@ -26,7 +26,7 @@ class qEpsilonTestCase(unittest.TestCase):
 
         config = Config(n_nodes=N, n_states=A, chain_length=M)
 
-        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
+        T_list, q_C_pairwise_marginals = utils_testing.get_random_q_C(M, A)
         w_T = torch.tensor([0.3, 0.7])
 
         qc = qC(config)
@@ -56,12 +56,14 @@ class qEpsilonTestCase(unittest.TestCase):
     def test_q_epsilon_ELBO_larger_for_no_mutation(self):
         # Arange
         K = 2
-        M = 2
+        M = 10
         A = 5
 
         config = Config(n_nodes=K, n_states=A, chain_length=M)
-        q_eps1 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
-        q_eps2 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
+        q_eps1 = qEpsilonMulti(config, alpha_prior=1., beta_prior=100.)
+        q_eps2 = qEpsilonMulti(config, alpha_prior=1., beta_prior=100.)
+        q_eps1.initialize("non_mutation")
+        q_eps2.initialize("non_mutation")
         T = nx.DiGraph()
         T.add_edge(0, 1)
         w_T = [1.]
@@ -73,10 +75,12 @@ class qEpsilonTestCase(unittest.TestCase):
         q_C2.couple_filtering_probs[1] = torch.rand((A, A))
 
         # Act
-        self.assertTrue(q_eps1.compute_elbo([T], w_T) == q_eps2.compute_elbo([T], w_T))
+        q1_partial_elbo = q_eps1.compute_elbo([T], w_T)
+        q2_partial_elbo = q_eps2.compute_elbo([T], w_T)
+        self.assertEqual(q1_partial_elbo, q2_partial_elbo)
 
         q_eps1.update([T], w_T, q_C1)
-        q_eps1.update([T], w_T, q_C2)
+        q_eps2.update([T], w_T, q_C2)
         elbo_1 = q_eps1.compute_elbo([T], w_T)
         elbo_2 = q_eps2.compute_elbo([T], w_T)
 
