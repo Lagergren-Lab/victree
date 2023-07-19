@@ -19,7 +19,8 @@ from utils.evaluation import pm_uni
 from sklearn.cluster import KMeans
 
 from utils import math_utils
-from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalizing_zipping_constant
+from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalizing_zipping_constant, \
+    get_zipping_mask_old
 
 import utils.tree_utils as tree_utils
 from sampling.laris import sample_arborescence_from_weighted_graph
@@ -1266,11 +1267,11 @@ class qEpsilon(VariationalDistribution):
 
         E_CuCv_a = torch.zeros((N, N))
         E_CuCv_b = torch.zeros((N, N))
-        comut_mask = get_zipping_mask(A)
+        comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(A)
         for uv in unique_edges:
             u, v = uv
             E_CuCv_a[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
-                                          (~comut_mask).float())
+                                          (no_comut_mask).float())
             E_CuCv_b[u, v] = torch.einsum('mij, mkl, lkji -> ', q_C_pairwise_marginals[u], q_C_pairwise_marginals[v],
                                           comut_mask.float())
 
@@ -1303,15 +1304,15 @@ class qEpsilon(VariationalDistribution):
         if self._exp_log_zipping is None:
             self._exp_log_zipping = torch.empty_like((self.config.n_states,) * 4)
             # bool tensor with True on [j', j, i', i] where j'-j = i'-i (comutation)
-            comut_mask = get_zipping_mask(self.config.n_states)
+            comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(self.config.n_states)
 
             # exp( E_CuCv[ log( 1 - eps) ] )
             # switching to exponential leads to easier normalization step
             # (same as the one in `h_eps()`)
             exp_E_log_1meps = comut_mask * torch.exp(torch.digamma(self.beta) -
                                                      torch.digamma(self.alpha + self.beta))
-            exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(~comut_mask, dim=0)
-            self._exp_log_zipping[...] = exp_E_log_eps * (~comut_mask) + exp_E_log_1meps
+            exp_E_log_eps = (1. - exp_E_log_1meps.sum(dim=0)) / torch.sum(no_comut_mask, dim=0)
+            self._exp_log_zipping[...] = exp_E_log_eps * (no_comut_mask) + exp_E_log_1meps
             if self.config.debug:
                 assert torch.allclose(torch.sum(self._exp_log_zipping, dim=0), torch.ones_like(self._exp_log_zipping))
             self._exp_log_zipping[...] = self._exp_log_zipping.log()
@@ -1335,7 +1336,12 @@ class qEpsilonMulti(VariationalDistribution):
                                                            range(config.n_nodes)) if v != 0 and u != v]
         self._alpha_dict = {e: torch.empty(1) for e in gedges}
         self._beta_dict = {e: torch.empty(1) for e in gedges}
-        self._gedges = gedges
+
+        co_mut_mask, no_co_mut_mask, abs_state_mask = self.create_masks(config.n_states)
+        self.co_mut_mask = co_mut_mask
+        self.no_co_mut_mask = no_co_mut_mask
+        self.abs_state_mask = abs_state_mask
+
         if true_params is not None:
             assert "eps" in true_params
         self.true_params = true_params
@@ -1360,10 +1366,6 @@ class qEpsilonMulti(VariationalDistribution):
     def beta_dict(self, b: dict):
         for e, w in b.items():
             self._beta_dict[e] = w
-
-    @property
-    def gedges(self):
-        return self._gedges
 
     @property
     def alpha(self):
@@ -1407,12 +1409,14 @@ class qEpsilonMulti(VariationalDistribution):
         exp_cuv_a = {}
         # E_T[ sum_m sum_{A} Cu Cv ]
         exp_cuv_b = {}
-        comut_mask = get_zipping_mask(A)
+        comut_mask = self.co_mut_mask  #get_zipping_mask(A)
+        no_comut_mask = self.no_co_mut_mask  #get_zipping_mask(A)
+        abs_state_mask = self.abs_state_mask  #get_zipping_mask(A)
         for u, v in unique_edges:
             exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
                                            cfp[u],
                                            cfp[v],
-                                           (~comut_mask).float())
+                                           (no_comut_mask).float())
             exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
                                            cfp[u],
                                            cfp[v],
@@ -1467,15 +1471,18 @@ class qEpsilonMulti(VariationalDistribution):
             self.beta_dict[e] = b
 
     def create_masks(self, A):
-        co_mut_mask = torch.zeros((A, A, A, A))
-        anti_sym_mask = torch.zeros((A, A, A, A))
+        co_mut_mask = torch.zeros((A, A, A, A), dtype=torch.long)
+        anti_sym_mask = torch.zeros((A, A, A, A), dtype=torch.long)
+        absorbing_state_mask = torch.zeros((A, A, A, A), dtype=torch.long)
         # TODO: Find effecient way of indexing i-j = k-l
-        for i, j, k, l in itertools.combinations_with_replacement(range(A), 4):
-            if i - j == k - l:
-                co_mut_mask[i, j, k, l] = 1
+        for jj, j, ii, i in itertools.product(range(A), range(A), range(A), range(A)):
+            if (ii == 0 and jj != 0) or (i == 0 and j != 0):
+                absorbing_state_mask[jj, j, ii, i] = 1
+            elif abs(jj - j) == abs(ii - i):
+                co_mut_mask[jj, j, ii, i] = 1
             else:
-                anti_sym_mask[i, j, k, l] = 1
-        return co_mut_mask, anti_sym_mask
+                anti_sym_mask[jj, j, ii, i] = 1
+        return co_mut_mask, anti_sym_mask, absorbing_state_mask
 
     def neg_cross_entropy(self, T_eval, w_T_eval):
         a = self.alpha_dict
@@ -1567,7 +1574,37 @@ class qEpsilonMulti(VariationalDistribution):
             except KeyError as ke:
                 out_arr[...] = torch.log(h_eps(self.config.n_states, .8))  # distant clones if arc doesn't exist
         else:
-            comut_mask = get_zipping_mask(self.config.n_states)
+            comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(self.config.n_states)
+            A = normalizing_zipping_constant(self.config.n_states)
+            digamma_a = torch.digamma(self.alpha_dict[u, v])
+            digamma_b = torch.digamma(self.beta_dict[u, v])
+            digamma_ab = torch.digamma(self.alpha_dict[u, v] + self.beta_dict[u, v])
+            out_arr[...] = digamma_a - digamma_ab - A.log()
+            out_arr[comut_mask] = digamma_b - digamma_ab
+            out_arr[abs_state_mask] = -1000.
+        return out_arr
+
+    def exp_log_zipping_old(self, e: Tuple[int, int]) -> torch.Tensor:
+        """Expected log-zipping function
+
+        Parameters
+        ----------
+        e : Tuple[int, int]
+            edge associated to the distance epsilon
+        output : indexing [j', j, i', i]
+        """
+        u, v = e
+        out_arr = torch.empty((self.config.n_states,) * 4)
+        if self.fixed:
+            # return the zipping function with true value of eps
+            # which is the mean of the fixed distribution
+            true_eps = self.true_params["eps"]
+            try:
+                out_arr[...] = torch.log(h_eps(self.config.n_states, true_eps[u, v]))
+            except KeyError as ke:
+                out_arr[...] = torch.log(h_eps(self.config.n_states, .8))  # distant clones if arc doesn't exist
+        else:
+            comut_mask = get_zipping_mask_old(self.config.n_states)
             A = normalizing_zipping_constant(self.config.n_states)
             digamma_a = torch.digamma(self.alpha_dict[u, v])
             digamma_b = torch.digamma(self.beta_dict[u, v])
@@ -1575,6 +1612,7 @@ class qEpsilonMulti(VariationalDistribution):
             out_arr[...] = digamma_a - digamma_ab - A.log()
             out_arr[comut_mask] = digamma_b - digamma_ab
         return out_arr
+
 
     def mean(self) -> dict:
         mean_dict = {e: self.alpha_dict[e] / (self.alpha_dict[e] + self.beta_dict[e]) for e in self.alpha_dict.keys()}

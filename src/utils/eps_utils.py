@@ -40,11 +40,39 @@ def get_zipping_mask(n_states) -> torch.Tensor:
     true where the indices satisfy the condition.
     Idx order is `mask[j', j, i', i]`
     """
+    A = n_states
+    co_mut_mask = torch.zeros((A, A, A, A), dtype=torch.bool)
+    anti_sym_mask = torch.zeros((A, A, A, A), dtype=torch.bool)
+    absorbing_state_mask = torch.zeros((A, A, A, A), dtype=torch.bool)
+    # TODO: Find effecient way of indexing i-j = k-l
+    for jj, j, ii, i in itertools.product(range(A), range(A), range(A), range(A)):
+        if (ii == 0 and jj != 0) or (i == 0 and j != 0):
+            absorbing_state_mask[jj, j, ii, i] = 1
+        elif abs(jj - j) == abs(ii - i):
+            co_mut_mask[jj, j, ii, i] = 1
+        else:
+            anti_sym_mask[jj, j, ii, i] = 1
+    return co_mut_mask, anti_sym_mask, absorbing_state_mask
+
+def get_zipping_mask_old(n_states) -> torch.Tensor:
+    """Build a mask on the i - i' == j - j' condition
+
+    Parameters
+    ----------
+    n_states :
+        Number of total copy number states (cn = 0, 1, ..., n_states - 1)
+    Returns
+    -------
+    Torch boolean tensor of shape (n_states, n_states, n_states, n_states),
+    true where the indices satisfy the condition.
+    Idx order is `mask[j', j, i', i]`
+    """
     ind_arr = np.indices((n_states, n_states))
-    # i - j 
+    # i - j
     imj = ind_arr[0] - ind_arr[1]
     # i - j == k - l
     mask = imj == imj[:, :, np.newaxis, np.newaxis]
+
     return torch.tensor(mask)
 
 
@@ -78,14 +106,13 @@ Indexing order: [j', j, i', i]. Invariant: sum(dim=0) = 1.
     Returns:
         tensor of shape (A x A x A x A) with A = n_states
     """
-    # TODO: add zero-absorption P(Cu>0 | Cp=0) = 0
-    mask_arr = get_zipping_mask(n_states=n_states)
+    comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(n_states=n_states)
     # put 1-eps where j'-j = i'-i
-    a = mask_arr * (1 - eps)
+    a = comut_mask * (1 - eps)
     # put either 1 or 1-eps in j'-j != i'-i  and divide by the cases
-    b = (1 - torch.sum(a, dim=0)) / torch.sum(~mask_arr, dim=0)
+    b = (1 - torch.sum(a, dim=0)) / torch.sum(no_comut_mask, dim=0)
     # combine the two arrays
-    out_arr = b * (~mask_arr) + a
+    out_arr = b * (no_comut_mask) + a
     return out_arr
 
 
@@ -108,8 +135,8 @@ Simple zipping function tensor. P(Cv_1=j| Cu_1=i) = h0(j|i)
 def normalizing_zipping_constant(n_states: int) -> torch.Tensor:
     # out shape (n_states, n_states, n_states, n_states)
     out_tensor = torch.empty((n_states, ) * 4)
-    mask = get_zipping_mask(n_states)
-    out_tensor[...] = torch.sum(~mask, dim=0, keepdim=True)
+    comut_mask, no_comut_mask, abs_mask = get_zipping_mask(n_states)
+    out_tensor[...] = torch.sum(no_comut_mask, dim=0, keepdim=True)
     return out_tensor
 
 

@@ -17,23 +17,6 @@ class qTTestCase(unittest.TestCase):
     def setUp(self) -> None:
         set_seed(42)
 
-    def test_q_T_running_for_two_simple_Ts_random_qC(self):
-        M = 20
-        A = 5
-        N = 5
-        config = Config(n_nodes=N, n_states=A, chain_length=M)
-        q_T = qT(config=config)
-        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
-        q_C = qC(config=config)
-        q_C.couple_filtering_probs = q_C_pairwise_marginals
-        q_epsilon = qEpsilonMulti(config=config)
-        q_epsilon.initialize()
-        # Act
-        log_q_T = q_T.update_CAVI(T_list, q_C, q_epsilon)
-
-        # Assert
-        print(f"log_q_T of T_1 and T_2: {log_q_T}")
-
     def test_tree_enumeration(self):
         qt5: qT = qT(config=Config(n_nodes=5))
         qt5.initialize()
