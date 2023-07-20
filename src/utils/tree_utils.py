@@ -206,3 +206,29 @@ def to_undirected(T_list: list[nx.DiGraph]):
     return [nx.to_undirected(T) for T in T_list]
 
 
+def get_two_step_connections(T: nx.DiGraph, u):
+    two_step_neighbours = set()
+    for v in nx.neighbors(T, u):
+        two_step_neighbours.update(set(nx.neighbors(T, v)))
+
+    return list(two_step_neighbours)
+
+
+def get_all_two_step_connections(T: nx.DiGraph):
+    node_two_step_neighbours_dict = {}
+    for u in T.nodes:
+        u_two_order_neighbours = get_two_step_connections(T, u)
+        node_two_step_neighbours_dict[u] = u_two_order_neighbours
+
+    return node_two_step_neighbours_dict
+
+
+def remap_edge_labels(T_list, perm):
+    K = len(perm)
+    perm_dict = {i: perm[i] for i in range(K)}
+    T_list_remapped = []
+    for T in T_list:
+        T_remapped = nx.relabel_nodes(T, perm_dict, copy=True)
+        T_list_remapped.append(T_remapped)
+
+    return T_list_remapped
