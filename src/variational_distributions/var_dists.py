@@ -636,6 +636,10 @@ class qCMultiChrom(VariationalDistribution):
     def single_filtering_probs(self):
         return torch.cat([qc.single_filtering_probs for qc in self.qC_list], dim=1)
 
+    @property
+    def couple_filtering_probs(self):
+        return torch.cat([qc.couple_filtering_probs for qc in self.qC_list], dim=1)
+
     def initialize(self, method='random', **kwargs):
         if method not in {'random', 'uniform'}:
             raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
@@ -933,14 +937,8 @@ other elbos such as qC.
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
         new_log_weights = {}
         for u, v in all_edges:
-            if isinstance(qc, qC):
-                new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
-                                                     qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-            else:
-                new_log_weights[u, v] = 0.
-                for q_chr in qc.qC_list:
-                    new_log_weights[u, v] += torch.einsum('mij,mkl,jilk->', q_chr.couple_filtering_probs[u],
-                                                          q_chr.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
+            new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
+                                                 qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
         # chain length determines how large log-weights are
         # while they should be length invariant
         # FIXME: avoid this hack
@@ -1313,7 +1311,7 @@ class qEpsilonMulti(VariationalDistribution):
             self._beta_dict[e] = (1 - rho) * self.beta_dict[e] + rho * beta[e]
         return self.alpha_dict, self.beta_dict
 
-    def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC):
+    def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC | qCMultiChrom):
         self.update_CAVI(tree_list, tree_weights, qc)
         super().update()
 
@@ -1336,30 +1334,15 @@ class qEpsilonMulti(VariationalDistribution):
         exp_cuv_b = {}
         comut_mask = get_zipping_mask(A)
         for u, v in unique_edges:
-            if isinstance(qc, qC):
-                cfp = qc.couple_filtering_probs
-                exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
-                                               cfp[u],
-                                               cfp[v],
-                                               (~comut_mask).float())
-                exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
-                                               cfp[u],
-                                               cfp[v],
-                                               comut_mask.float())
-            else:
-                exp_cuv_a[u, v] = 0.
-                exp_cuv_b[u, v] = 0.
-                for q_chr in qc.qC_list:
-                    cfp_chr = q_chr.couple_filtering_probs
-                    exp_cuv_a[u, v] += torch.einsum('mij, mkl, lkji -> ',
-                                                   cfp_chr[u],
-                                                   cfp_chr[v],
-                                                   (~comut_mask).float())
-                    exp_cuv_b[u, v] += torch.einsum('mij, mkl, lkji -> ',
-                                                   cfp_chr[u],
-                                                   cfp_chr[v],
-                                                   comut_mask.float())
-
+            cfp = qc.couple_filtering_probs
+            exp_cuv_a[u, v] = torch.einsum('mij, mkl, lkji -> ',
+                                           cfp[u],
+                                           cfp[v],
+                                           (~comut_mask).float())
+            exp_cuv_b[u, v] = torch.einsum('mij, mkl, lkji -> ',
+                                           cfp[u],
+                                           cfp[v],
+                                           comut_mask.float())
         for k, t in enumerate(tree_list):
             for e in t.edges:
                 ww = tree_weights[k]
