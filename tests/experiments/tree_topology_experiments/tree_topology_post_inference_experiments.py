@@ -3,6 +3,7 @@ import os
 import random
 import sys
 
+import matplotlib
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -40,7 +41,7 @@ class TreeTopologyPostInferenceExperiment():
     def edge_probability_experiment(self, save_plot=False):
         utils.config.set_seed(0)
 
-        K_list = list(range(5, 7))
+        K_list = list(range(5, 10))
         ari_list = []
         seeds = list(range(0, 2))
 
@@ -67,6 +68,7 @@ class TreeTopologyPostInferenceExperiment():
             print(f"C: {C}")
             print(f"pi: {pi}")
             print(f"eps: {eps}")
+            print(f"tree edges: {tree.edges}")
             ari = []
             for seed in seeds:
                 utils.config.set_seed(seed)
@@ -76,20 +78,33 @@ class TreeTopologyPostInferenceExperiment():
                 q.initialize()
                 victree = VICTree(config, q, y)
 
-                victree.run(n_iter=500)
+                victree.run(n_iter=100)
 
-                ari_seed = adjusted_rand_score(z, victree.q.z.pi.argmax(dim=-1))
+                ari_seed, best_perm, accuracy_best = model_variational_comparisons.compare_qZ_and_true_Z(true_Z=z, q_z=victree.q.z)
                 ari.append(ari_seed)
                 print(f"ARI for K {K} and seed {seed}: {ari_seed}")
+                print(f"Best accuracy for K {K} and seed {seed}: {accuracy_best}")
                 T_list_seed, w_T_list_seed = victree.q.t.get_trees_sample(sample_size=100)
                 unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(T_list_seed)
                 print(f"N uniques trees sampled: {len(unique_seq)}")
-                unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list_seed)
+                T_list_seed_remapped = tree_utils.remap_edge_labels(T_list_seed, best_perm)
+                unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list_seed_remapped)
                 x_axis = list(range(0, len(unique_edges_list)))
                 y_axis = [unique_edges_count[e].item() for e in unique_edges_list]
-                labels = [str(e) for e in unique_edges_list]
-                plt.plot(x_axis, y_axis)
-                plt.xticks(ticks=x_axis, labels=labels)
+                labels = [str(e) if e not in tree.edges else f'[{e[0]}, {e[1]}]' for e in unique_edges_list]
+                plt.plot(x_axis, y_axis, 'o')
+                plt.xticks(ticks=x_axis, labels=labels, rotation=45)
+                plt.ylabel('Edges count')
+                plt.xlabel('Unique edges in sampled trees')
+                plt.title(f'Sampled edges experiment seed {seed} - L: {100} K:{K} N: {N} - M: {M} - A: {A}')
+                if save_plot:
+                    dirs = os.getcwd().split('/')
+                    dir_top_idx = dirs.index('experiments')
+                    dir_path = dirs[dir_top_idx:]
+                    path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
+                    base_dir = '../../test_output'
+                    test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
+                    plt.savefig(test_dir_name + f"/T_edge_plot_seed{seed}_K{K}_N{N}_M{M}_A{A}.png")
 
             ari_list.append(ari)
             print(f"mean ARI for K {K}: {np.array(ari).mean()} ({np.array(ari).std()})")
@@ -103,7 +118,7 @@ class TreeTopologyPostInferenceExperiment():
         plt.xlabel('K - number of clones')
         plt.ylabel('ARI score')
         plt.title(f'Fixed tree clustering performance - N: {N} - M: {M} - A: {A}')
-        if save_plot and False:
+        if save_plot:
             dirs = os.getcwd().split('/')
             dir_top_idx = dirs.index('experiments')
             dir_path = dirs[dir_top_idx:]
@@ -111,6 +126,7 @@ class TreeTopologyPostInferenceExperiment():
             base_dir = '../../test_output'
             test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
             plt.savefig(test_dir_name + f"/ari_plot_N{N}_M{M}_A{A}.png")
+            plt.close()
 
 
 if __name__ == '__main__':

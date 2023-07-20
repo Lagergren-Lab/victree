@@ -98,3 +98,25 @@ class treeUtilTestCase(unittest.TestCase):
         self.assertEqual(len(unique_Ts), 2)
         self.assertEqual(unique_Ts_idx, [0, 2])
         self.assertEqual(multiplicity, [3, 1])
+
+    def test_tree_remap(self):
+        T = nx.DiGraph()
+        T.add_edge(0, 1)
+        T.add_edge(0, 2)
+        T.add_edge(2, 3)
+        T.add_edge(3, 4)
+
+        perm = [0, 1, 2, 3]
+
+        # Test identity mapping
+        T_map = tree_utils.remap_edge_labels([T], perm)[0]
+        self.assertEqual(T.edges, T_map.edges, msg='Identity mapping failed.')
+
+        perm1 = [0, 2, 3, 1]
+        T_map = tree_utils.remap_edge_labels([T], perm1)[0]
+        self.assertNotEqual(T.edges, T_map.edges, msg='Mapped tree still equal to original after mapping.')
+
+        perm1_inv = [0, 3, 1, 2]
+        T_map_inv = tree_utils.remap_edge_labels([T_map], perm1_inv)[0]
+        self.assertEqual(T.edges, T_map_inv.edges)
+

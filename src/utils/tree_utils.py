@@ -221,3 +221,14 @@ def get_all_two_step_connections(T: nx.DiGraph):
         node_two_step_neighbours_dict[u] = u_two_order_neighbours
 
     return node_two_step_neighbours_dict
+
+
+def remap_edge_labels(T_list, perm):
+    K = len(perm)
+    perm_dict = {i: perm[i] for i in range(K)}
+    T_list_remapped = []
+    for T in T_list:
+        T_remapped = nx.relabel_nodes(T, perm_dict, copy=True)
+        T_list_remapped.append(T_remapped)
+
+    return T_list_remapped
