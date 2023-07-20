@@ -38,7 +38,6 @@ class SimulTestCase(unittest.TestCase):
         max_eps_arc = max(eps, key=eps.get)
         self.assertTrue(torch.argmax(variances) == max_eps_arc[1])
 
-
     def test_one_edge_tree(self):
         torch.manual_seed(0)
         logging.getLogger().setLevel("INFO")
@@ -47,7 +46,7 @@ class SimulTestCase(unittest.TestCase):
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        dir_delta = torch.tensor([1., 3.])
+        dir_delta = [1., 3.]
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
@@ -70,3 +69,27 @@ class SimulTestCase(unittest.TestCase):
         torch.allclose(torch.mean(R.float()), torch.tensor(R_0))
         # think of interesting cases here
 
+    def test_no_transitions_from_absorbing_state(self):
+        utils.config.set_seed(0)
+        logging.getLogger().setLevel("INFO")
+        tree = tests.utils_testing.get_tree_three_nodes_chain()
+        K = len(tree.nodes)
+        N = 10
+        M = 200
+        A = 5
+        dir_delta = [1., 3.]
+        alpha0 = torch.tensor(500.)
+        beta0 = torch.tensor(50.)
+        a0 = torch.tensor(100.0)
+        b0 = torch.tensor(200.0)
+        config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A)
+        out = simul.simulate_full_dataset(config=config, eps_a=a0, eps_b=b0)
+        y = out['obs']
+        c = out['c']
+        z = out['z']
+        eps = out['eps']
+        eps_0 = out['eps0']
+
+        c1_0_idx = (torch.where(c[1] == 0)[0]).tolist()
+        c2_0_idx = (torch.where(c[2] == 0)[0]).tolist()
+        self.assertTrue(c1_0_idx in c2_0_idx)

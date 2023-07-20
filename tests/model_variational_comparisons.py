@@ -172,7 +172,7 @@ def compare_qEpsilon_and_true_epsilon(true_epsilon, q_epsilon: qEpsilonMulti, pe
 def compare_qPi_and_true_pi(true_pi, qpi, perm):
     print(f"-------------- qEpsilonMulti evaluations ---------")
     print(f"True concentration params: {true_pi}")
-    print(f"q(pi) concentration params: {[qpi.concentration_param[perm[i]]  for i in range(qpi.concentration_param)]}")
+    print(f"q(pi) concentration params: {[qpi.exp_pi()[perm[i]]  for i in range(qpi.concentration_param.shape[0])]}")
 
 
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,

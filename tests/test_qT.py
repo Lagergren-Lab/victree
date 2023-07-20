@@ -93,6 +93,31 @@ class qTTestCase(unittest.TestCase):
                         msg=f"true " + gt_tree_newick + f" not in the first {tol} trees. those are:"
                                                         f"{sorted_newick[0]} | {sorted_newick[1]} | {sorted_newick[2]}")
 
+    def test_qT_weights_of_edges_with_absorbing_state_transitions_small(self):
+        K = 3
+        M = 10
+        A = 5
+        config = Config(n_nodes=K, chain_length=M, n_states=A)
+        qt = qT(config)
+        qt.initialize()
+        qc = qC(config)
+        qc.couple_filtering_probs[0] = torch.rand((M-1, A, A))
+        qc.couple_filtering_probs[0] = qc.couple_filtering_probs[0] / qc.couple_filtering_probs[0].sum(dim=-1, keepdims=True)
+        qc.couple_filtering_probs[1] = torch.rand((M-1, A, A))
+        qc.couple_filtering_probs[1] = qc.couple_filtering_probs[1] / qc.couple_filtering_probs[1].sum(dim=-1, keepdims=True)
+
+        for m in range(M-1):
+            qc.couple_filtering_probs[2, m] = torch.ones((A, A)) / 100.
+            qc.couple_filtering_probs[2, m, 0, :] = 10.
+            qc.couple_filtering_probs[2, m, :, :] = qc.couple_filtering_probs[2, m, :, :] / qc.couple_filtering_probs[2, m, :, :].sum(dim=-1, keepdims=True)
+        qeps = qEpsilonMulti(config)
+        qeps.initialize()
+        qt.update(qc, qeps)
+        print(qt.weight_matrix)
+        self.assertGreater(qt.weight_matrix[1, 2], qt.weight_matrix[2, 1], msg="Probability of transitioning from- higher than to absorbing state.")
+
+
+
     # def test_qT_update_low_weights_for_improbable_epsilon(self):
     #     set_seed(0)
     #     N = 100

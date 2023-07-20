@@ -1478,7 +1478,7 @@ class qEpsilonMulti(VariationalDistribution):
         for jj, j, ii, i in itertools.product(range(A), range(A), range(A), range(A)):
             if (ii == 0 and jj != 0) or (i == 0 and j != 0):
                 absorbing_state_mask[jj, j, ii, i] = 1
-            elif abs(jj - j) == abs(ii - i):
+            elif (jj - j) == (ii - i):
                 co_mut_mask[jj, j, ii, i] = 1
             else:
                 anti_sym_mask[jj, j, ii, i] = 1

@@ -56,11 +56,12 @@ class zippingTestCase(unittest.TestCase):
         self.assertTrue(comut[2, 1, 3, 2] == 1)
         self.assertTrue(comut[1, 2, 2, 3] == 1)
         self.assertFalse(comut[1, 1, 1, 2] == 1)
+        self.assertTrue(no_comut[1, 1, 1, 2] == 1)
         self.assertTrue(abs_state[1, 1, 0, 2] == 1, msg="Transitioning from absorbing state should be True in absorbing state mask.")
-        self.assertFalse(abs_state[0, 2, 1, 1] == 1, msg="Transitioning to absorbing state should be False in absorbing state mask.")
-        self.assertFalse(abs_state[0, 1, 0, 1] == 1)
+        self.assertEqual(abs_state[0, 2, 1, 1], 0, msg="Transitioning to absorbing state should be False in absorbing state mask.")
+        self.assertEqual(abs_state[0, 1, 0, 1], 0)
 
-    def test_masks_different(self):
+    def test_masks_mutually_exclusive(self):
         A = 4
         config = Config()
         qeps = qEpsilonMulti(config)

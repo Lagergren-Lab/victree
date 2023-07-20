@@ -48,7 +48,7 @@ def get_zipping_mask(n_states) -> torch.Tensor:
     for jj, j, ii, i in itertools.product(range(A), range(A), range(A), range(A)):
         if (ii == 0 and jj != 0) or (i == 0 and j != 0):
             absorbing_state_mask[jj, j, ii, i] = 1
-        elif abs(jj - j) == abs(ii - i):
+        elif jj - j == ii - i:
             co_mut_mask[jj, j, ii, i] = 1
         else:
             anti_sym_mask[jj, j, ii, i] = 1
@@ -109,10 +109,18 @@ Indexing order: [j', j, i', i]. Invariant: sum(dim=0) = 1.
     comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(n_states=n_states)
     # put 1-eps where j'-j = i'-i
     a = comut_mask * (1 - eps)
-    # put either 1 or 1-eps in j'-j != i'-i  and divide by the cases
+    # put either 0 or 1-eps in j'-j != i'-i  and divide by the cases
     b = (1 - torch.sum(a, dim=0)) / torch.sum(no_comut_mask, dim=0)
     # combine the two arrays
-    out_arr = b * (no_comut_mask) + a
+    c = abs_state_mask * 0.001  # TODO: make zero transition probability configurable
+    b[torch.isinf(b)] = 0.001
+    out_arr = b + a
+
+    if ii == 0:
+        out_arr[0, ...] = 1.
+        out_arr[1:, ...] = 0
+    elif i == 0 and j != 0:
+        out_arr[:, j, ii, i] = 0.
     return out_arr
 
 
