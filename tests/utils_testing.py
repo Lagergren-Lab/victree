@@ -36,7 +36,7 @@ def get_tree_three_nodes_chain():
     return T_2
 
 
-def get_tree_K_nodes_random(K):
+def get_tree_K_nodes_random(K) -> nx.DiGraph:
     T = nx.DiGraph()
     T.add_edge(0, 1)
     nodes_in_T = [0, 1]
@@ -269,7 +269,7 @@ def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
     return path
 
 
-def get_two_sliced_marginals_from_one_slice_marginals(marginals, A):
+def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None):
     K, M = marginals.shape
     two_sliced_marginals = torch.zeros((K, M-1, A, A))
     marginals_one_hot = torch.nn.functional.one_hot(marginals, A)
@@ -279,5 +279,9 @@ def get_two_sliced_marginals_from_one_slice_marginals(marginals, A):
             a_1 = marginals[u, m]
             a_2 = marginals[u, m+1]
             two_sliced_marginals[u, m, a_1, a_2] = 1.
+
+    if offset is not None:
+        two_sliced_marginals += offset
+        two_sliced_marginals = two_sliced_marginals / two_sliced_marginals.sum(dim=(2, 3), keepdims=True)
 
     return two_sliced_marginals

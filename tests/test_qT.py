@@ -110,6 +110,39 @@ class qTTestCase(unittest.TestCase):
                         msg=f"true " + gt_tree_newick + f" not in the first {tol} trees. those are:"
                                                         f"{sorted_newick[0]} | {sorted_newick[1]} | {sorted_newick[2]}")
 
+    def test_qT_simulated_data(self):
+        N = 10
+        M = 200
+        K = 10
+        A = 7
+        T = utils_testing.get_tree_K_nodes_random(K)
+
+        a0 = 5.
+        b0 = 100.
+        alpha0 = 5000.
+        beta0 = 100.
+        y, c, z, pi, mu, tau, eps, eps0 = utils_testing.simulate_full_dataset_no_pyro(N, M, A, T, a0=a0, b0=b0, alpha0=alpha0, beta0=beta0)
+
+        config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A)
+
+        qc = qC(config=config)
+        qc.initialize()
+        two_slice_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A, offset=.3)
+        qc.couple_filtering_probs = two_slice_marginals
+        qeps = qEpsilonMulti(config=config)
+        qeps.initialize('non_mutation')  # eps_alpha_dict=eps*10., eps_beta_dict=eps/10.)
+
+        qt = qT(config=config)
+        qt.initialize()
+        qt.update(qc, qeps)
+        W = qt.weight_matrix
+        two_step_connections = tree_utils.get_all_two_step_connections(T)
+        for (u, v) in T.edges:
+            for w in two_step_connections[u]:
+                self.assertGreater(W[u, v], W[u, w], msg='One step connection weaker than two step connection (based on true tree)')
+
+
+
     # def test_qT_update_low_weights_for_improbable_epsilon(self):
     #     set_seed(0)
     #     N = 100
