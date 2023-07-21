@@ -669,15 +669,10 @@ class qCMultiChrom(VariationalDistribution):
             chr_i_end = self.chr_start_points[i + 1]
             qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
 
-        self.compute_filtering_probs()
 
     def compute_filtering_probs(self):
         for i, qc in enumerate(self.qC_list):
-            single_i, couple_i = qc.compute_filtering_probs()
-            m_start = self.chr_start_points[i]
-            m_end = self.chr_start_points[i + 1]
-            self._single_filtering_probs[:, m_start:m_end, :] = single_i
-            self._couple_filtering_probs[:, m_start - i:m_end - i - 1, :, :] = couple_i
+            qc.compute_filtering_probs()
 
     @property
     def single_filtering_probs(self):
@@ -734,7 +729,6 @@ class qCMultiChrom(VariationalDistribution):
                 qc._uniform_init()
             else:
                 raise ValueError(f'method `{method}` for qC initialization is not implemented')
-            self.compute_filtering_probs()
 
         return super().initialize(**kwargs)
 
