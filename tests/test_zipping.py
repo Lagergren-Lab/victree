@@ -7,6 +7,7 @@ import torch
 from utils import eps_utils
 from model.tree_hmm import CopyNumberTreeHMM
 from utils.config import Config
+from utils.eps_utils import h_eps
 from variational_distributions.var_dists import qEpsilonMulti
 
 
@@ -79,3 +80,14 @@ class zippingTestCase(unittest.TestCase):
         comut, no_comut, abs_state = qeps.create_masks(A)
         exp_log_zip = qeps.exp_log_zipping((0, 1))
         print(exp_log_zip)
+
+    def test_h_eps_absorption(self):
+        n_states = 6
+        h_eps_test = h_eps(n_states, .01)
+        self.assertFalse(torch.isnan(h_eps_test).any())
+        # exclude non-feasible states, all rest should sum up to 1.
+        unfeas_configs = torch.zeros((n_states, ) * 3, dtype=torch.bool)
+        unfeas_configs[1:, :, 0] = True
+        sum_h_eps = h_eps_test.sum(dim=0)[~unfeas_configs]
+        self.assertTrue(torch.allclose(sum_h_eps, torch.ones_like(sum_h_eps)))
+

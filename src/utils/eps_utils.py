@@ -106,22 +106,35 @@ Indexing order: [j', j, i', i]. Invariant: sum(dim=0) = 1.
     Returns:
         tensor of shape (A x A x A x A) with A = n_states
     """
-    comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(n_states=n_states)
-    # put 1-eps where j'-j = i'-i
-    a = comut_mask * (1 - eps)
-    # put either 0 or 1-eps in j'-j != i'-i  and divide by the cases
-    b = (1 - torch.sum(a, dim=0)) / torch.sum(no_comut_mask, dim=0)
-    # combine the two arrays
-    c = abs_state_mask * 0.001  # TODO: make zero transition probability configurable
-    b[torch.isinf(b)] = 0.001
-    out_arr = b + a
+    stable_zero = 1e-8
+    # init with nans so to make sure every case is covered
+    out_arr = torch.full((n_states, ) * 4, torch.nan)
+    for i, ii, j in itertools.product(range(n_states), repeat=3):
+        # all cases given i, ii, j
+        # CASE 0: parent cn is 0 at site m-1 and evolves to some cn > 0 (not-feasible)
+        if i == 0 and j != 0:
+            out_arr[:, j, ii, i] = stable_zero
+        # CASE 1: parent cn is 0 at site m, it can only stay 0 at site m (forced transition)
+        elif ii == 0:
+            out_arr[0, j, ii, i] = 1.
+            out_arr[1:, j, ii, i] = stable_zero
+        # CASE 2: feasible co-mutation i.e. there exists jj s.t. ii - i == jj - j
+        elif 0 <= ii - i + j < n_states:
+            out_arr[:, j, ii, i] = eps / (n_states - 1)
+            out_arr[ii - i + j, j, ii, i] = 1 - eps
+        # CASE 3: unfeasible co-mutation i.e. child cn should evolve to state out of 0, ... ,  n_states-1
+        elif ii - i + j >= n_states or ii - i + j < 0:
+            out_arr[:, j, ii, i] = 1. / n_states
 
-    if ii == 0:
-        out_arr[0, ...] = 1.
-        out_arr[1:, ...] = 0
-    elif i == 0 and j != 0:
-        out_arr[:, j, ii, i] = 0.
     return out_arr
+
+
+def feasible_state_mask(n_states: int):
+    # returns the triplets j, ii, i for which a jj exists
+    # used in einsum operations together with h_eps
+    mask = torch.ones((n_states, ) * 3, dtype=torch.bool)
+    mask[1:, :, 0] = False
+    return mask
 
 
 def h_eps0(n_states: int, eps0: float) -> torch.Tensor:
@@ -134,6 +147,7 @@ Simple zipping function tensor. P(Cv_1=j| Cu_1=i) = h0(j|i)
     Returns:
         tensor of shape (A x A) with A = n_states
     """
+    # FIXME: change to zero absorption
     heps0_arr = eps0 / (n_states - 1) * torch.ones((n_states, n_states))
     diag_mask = get_zipping_mask0(n_states)
     heps0_arr[diag_mask] = 1 - eps0
