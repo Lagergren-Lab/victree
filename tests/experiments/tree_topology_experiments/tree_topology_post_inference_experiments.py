@@ -41,7 +41,7 @@ class TreeTopologyPostInferenceExperiment():
     def edge_probability_experiment(self, save_plot=False):
         utils.config.set_seed(0)
 
-        K_list = list(range(5, 10))
+        K_list = list(range(8, 10))
         ari_list = []
         seeds = list(range(0, 2))
 
@@ -91,9 +91,13 @@ class TreeTopologyPostInferenceExperiment():
                 unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list_seed_remapped)
                 x_axis = list(range(0, len(unique_edges_list)))
                 y_axis = [unique_edges_count[e].item() for e in unique_edges_list]
+                true_tree_edges = [unique_edges_count[e].item() for e in tree.edges]
                 labels = [str(e) if e not in tree.edges else f'[{e[0]}, {e[1]}]' for e in unique_edges_list]
-                plt.plot(x_axis, y_axis, 'o')
-                plt.xticks(ticks=x_axis, labels=labels, rotation=45)
+                colors = ['blue' if e not in tree.edges else 'orange' for e in unique_edges_list]
+                for i in x_axis:
+                    plt.scatter(x_axis[i], y_axis[i], s=30, c=colors[i])
+                #plt.plot(x_axis, true_tree_edges, 'x')
+                plt.xticks(ticks=x_axis, labels=labels, rotation=60)
                 plt.ylabel('Edges count')
                 plt.xlabel('Unique edges in sampled trees')
                 plt.title(f'Sampled edges experiment seed {seed} - L: {100} K:{K} N: {N} - M: {M} - A: {A}')
@@ -105,6 +109,7 @@ class TreeTopologyPostInferenceExperiment():
                     base_dir = '../../test_output'
                     test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
                     plt.savefig(test_dir_name + f"/T_edge_plot_seed{seed}_K{K}_N{N}_M{M}_A{A}.png")
+                    plt.close()
 
             ari_list.append(ari)
             print(f"mean ARI for K {K}: {np.array(ari).mean()} ({np.array(ari).std()})")
