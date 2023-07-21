@@ -27,7 +27,6 @@ class treeUtilTestCase(unittest.TestCase):
         self.assertEqual(edges_count[0, 2], 1)
         self.assertEqual(edges_count[1, 2], 1)
 
-
     def test_tree_metrics(self):
         K = 5
         T_1 = tree_utils.generate_fixed_tree(K, seed=0)
@@ -120,3 +119,35 @@ class treeUtilTestCase(unittest.TestCase):
         T_map_inv = tree_utils.remap_edge_labels([T_map], perm1_inv)[0]
         self.assertEqual(T.edges, T_map_inv.edges)
 
+    def test_generate_all_directed_unlabeled_tree_topologies(self):
+        # Example usage:
+        n = 3
+        all_directed_trees = tree_utils.generate_all_directed_unlabeled_tree_topologies(n)
+        print(all_directed_trees)
+
+    def test_generate_directed_tree_from_pruefer(self):
+        # Example usage:
+        pruefer_sequence = [2, 2, 5, 5]
+        directed_tree = tree_utils.generate_directed_tree_from_pruefer(pruefer_sequence)
+        print(directed_tree)
+
+    def test_generate_all_directed_trees(self):
+        # Example usage:
+        n = 3
+        all_directed_trees = tree_utils.generate_all_directed_trees(n)
+        print(all_directed_trees)
+
+    def test_generate_similar_trees(self):
+        # Example usage:
+        base_tree = nx.balanced_tree(2, 3)  # Create a balanced tree with 2 children per node, depth 3
+        similar_tree = tree_utils.generate_similar_tree(base_tree)
+
+        # Print the adjacency list representation of the similar tree
+        print(similar_tree.adj)
+
+    def test_SPR_move(self):
+        K = 6
+        tree = tree_utils.generate_fixed_tree(K)
+        print("Original Tree:", tree)
+        new_tree = tree_utils.perform_SPR_move(tree)
+        print("Tree after SPR move:", new_tree)
