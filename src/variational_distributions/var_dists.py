@@ -369,8 +369,10 @@ class qC(VariationalDistribution):
         # need normalization
         new_eta1_norm = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
         new_eta2_norm = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
+
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
+
         self.compute_filtering_probs()
         # logging.debug("- copy number updated")
         super().update()
