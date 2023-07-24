@@ -6,13 +6,17 @@ Data simulation script.
 
 import argparse
 import logging
+import math
 import os.path
 
 import h5py
 import networkx as nx
 import numpy as np
+import pandas as pd
 import torch
 import torch.distributions as dist
+
+from scgenome.tl import create_bins
 
 from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils

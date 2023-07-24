@@ -136,7 +136,7 @@ class qmtTestCase(unittest.TestCase):
         beta_init = 1
         qmt.initialize(loc=mu_init, precision_factor=prec_factor_init,
                        shape=alpha_init, rate=beta_init)
-        #qmt.update(qc, qz, obs)
+        qmt.update(qc, qz, obs)
         exp_log_emission = qmt.exp_log_emission(obs)
 
         for n in range(N):
@@ -155,6 +155,6 @@ class qmtTestCase(unittest.TestCase):
             elbo_qmt = qmt.compute_elbo()
             print(f"[{i}] old ELBO(mu, tau): {elbo_qmt:.2f}")
             print(f"[{i}]" + str(qmt))
-            qmt.update(joint_q.c, joint_q.z, joint_q.obs)
+            qmt.update(joint_q.c)
 
 

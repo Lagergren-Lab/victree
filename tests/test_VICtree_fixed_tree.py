@@ -21,6 +21,7 @@ from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
+@unittest.skip("uses old code: change simul data pyro to newer simulate_full_dataset")
 class VICtreeFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -41,12 +42,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 200
         n_copy_states = 7
         dir_alpha = [1., 3.]
-        nu_0 = torch.tensor(10.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(200.0)
+        nu_0 = 10.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 200.0
 
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
@@ -87,12 +88,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 200
         n_copy_states = 7
         dir_alpha = [1., 3., 3.]
-        nu_0 = torch.tensor(10.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(800.0)
+        nu_0 = 10.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 800.0
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
@@ -128,12 +129,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 500
         n_copy_states = 5
         dir_alpha0 = 10.
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(200.0)
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 200.0
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
@@ -172,12 +173,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        nu_0 = torch.tensor(10.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(200.0)
+        nu_0 = 10.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 200.0
         dir_alpha0 = list(np.ones(K) * 2.)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
@@ -212,12 +213,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_cells = 1000
         n_sites = 200
         n_copy_states = 7
-        nu_0 = torch.tensor(10.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(200.0)
+        nu_0 = 10.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 200.0
         dir_alpha0 = list(np.ones(K) * 2.)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
@@ -290,12 +291,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             # FIXME: use simulate_full_dataset
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
                                                                    mu_0=torch.tensor(mu_0_list[i]),
-                                                                   lambda_0=torch.tensor(1.),
-                                                                   alpha0=torch.tensor(10.),
-                                                                   beta0=torch.tensor(40.),
-                                                                   a0=torch.tensor(1.0),
-                                                                   b0=torch.tensor(10.0),
-                                                                   dir_alpha0=torch.tensor(1.0))
+                                                                   lambda_0=1.,
+                                                                   alpha0=10.,
+                                                                   beta0=40.,
+                                                                   a0=1.0,
+                                                                   b0=10.0,
+                                                                   dir_alpha0=1.0)
 
             visualization_utils.visualize_copy_number_profiles(C)
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3)
@@ -342,13 +343,13 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             data = torch.ones((n_sites, n_cells))
             # FIXME: sim
             C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                   mu_0=torch.tensor(mu_0_list[i]),
-                                                                   lambda_0=torch.tensor(1.),
-                                                                   alpha0=torch.tensor(10.),
-                                                                   beta0=torch.tensor(40.),
-                                                                   a0=torch.tensor(1.0),
-                                                                   b0=torch.tensor(20.0),
-                                                                   dir_alpha0=torch.tensor(1.0))
+                                                                   mu_0=mu_0_list[i],
+                                                                   lambda_0=1.,
+                                                                   alpha0=10.,
+                                                                   beta0=40.,
+                                                                   a0=1.0,
+                                                                   b0=20.0,
+                                                                   dir_alpha0=1.0)
 
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, sieving_size=10,
                             n_sieving_iter=40, step_size=0.3)

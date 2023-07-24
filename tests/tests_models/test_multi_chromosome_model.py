@@ -15,9 +15,8 @@ class MultiChromosomeModelTestCase(unittest.TestCase):
     def test_generate_data(self):
         N, M, K, A = (10, 20, 2, 5)
         chromosome_indexes = [int(M/10), int(M/10*5), int(M/10*8)]
-        n_chromosomes = len(chromosome_indexes) + 1
         config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A,
-                        chromosome_indexes=chromosome_indexes, n_chromosomes=n_chromosomes)
+                        chromosome_indexes=chromosome_indexes)
         model = MultiChromosomeGenerativeModel(config)
         T = utils_testing.get_two_node_tree()
         a0 = 10.

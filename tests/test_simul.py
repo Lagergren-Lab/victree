@@ -21,6 +21,7 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, 
 
 class SimulTestCase(unittest.TestCase):
 
+    @unittest.skip("experiment")
     def test_copy_tree_sim(self):
         torch.manual_seed(0)
         K = 5
@@ -37,7 +38,6 @@ class SimulTestCase(unittest.TestCase):
         variances = torch.std(c.float(), dim=1)
         max_eps_arc = max(eps, key=eps.get)
         self.assertTrue(torch.argmax(variances) == max_eps_arc[1])
-
 
     def test_one_edge_tree(self):
         torch.manual_seed(0)

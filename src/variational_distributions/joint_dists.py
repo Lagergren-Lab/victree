@@ -86,7 +86,7 @@ class VarTreeJointDist(JointDist):
         # TODO: if needed, specify an ordering
         return [self.t, self.c, self.eps, self.pi, self.z, self.mt]
 
-    def update(self, it):
+    def update(self, it=0):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
@@ -212,7 +212,7 @@ class FixedTreeJointDist(JointDist):
         self.T = T
         self.w_T = [1.0]
 
-    def update(self, it):
+    def update(self, it=0):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
@@ -327,7 +327,7 @@ class QuadrupletJointDist(JointDist):
         self.T = T
         self.w_T = [1.0]
 
-    def update(self, it):
+    def update(self, it=0):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """

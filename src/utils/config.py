@@ -33,7 +33,7 @@ class Config:
         self._eps0 = eps0
         self._n_cells = n_cells
         self._chain_length = chain_length
-        self._n_chromosomes = len(chromosome_indexes) + 1 if chromosome_indexes is None else 1
+        self._n_chromosomes = len(chromosome_indexes) + 1 if chromosome_indexes is not None else 1
         self._chromosome_indexes = chromosome_indexes
         self._wis_sample_size = wis_sample_size  # L in qT sampling
         self._elbo_rtol = elbo_rtol
@@ -78,6 +78,11 @@ class Config:
     @property
     def chromosome_indexes(self):
         return self._chromosome_indexes
+
+    @chromosome_indexes.setter
+    def chromosome_indexes(self, chr_idx: list):
+        self._chromosome_indexes = chr_idx
+        self._n_chromosomes = len(chr_idx) + 1
 
     @property
     def wis_sample_size(self):

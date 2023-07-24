@@ -12,7 +12,7 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qC, qEpsilon
 class TreeMetricsTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        pass
+        self.qt5 = qT(config=Config(n_nodes=5))
 
     def test_q_T_running_for_two_simple_Ts_random_qC(self):
         K = 5
