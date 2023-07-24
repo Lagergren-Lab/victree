@@ -38,8 +38,35 @@ def sample_raw_counts_from_corrected_data(obs):
     return raw_counts
 
 
+def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None = None) -> pd.DataFrame:
+    splits_df = pd.DataFrame()
+    if method == 'real':
+        # https://www.ncbi.nlm.nih.gov/grc/human/data
+        hg19_total_length = 3099734149
+        binsize = math.ceil(hg19_total_length / n)
+        splits_df = create_bins(binsize)
+
+    elif method == 'uniform':
+        binsize = 1000
+        if n_chr is None:
+            raise ValueError("Must provide number of chromosomes for `uniform` chromosome splits")
+        chr_width = n // n_chr
+        chr = pd.Series([str(c) for c in range(n_chr)], dtype="category", name='chr')
+        pos = pd.DataFrame({
+            'start': [s * binsize + 1 for s in range(chr_width)],
+            'end': [(s + 1) * binsize for s in range(chr_width)]
+        })
+        splits_df = pos.merge(chr, how='cross')
+    else:
+        raise NotImplementedError(f"Method {method} for chromosome splits creation is not available.")
+
+    return splits_df
+
+
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True):
+                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True,
+                          chr_df: pd.DataFrame | None = None):
+    # FIXME: allow for variation in chain length when real chromosomes are passed
     """
 Generate full simulated dataset.
     Args:
@@ -50,10 +77,24 @@ Generate full simulated dataset.
         lambda0: float, param for NormalGamma distribution over mu/tau
         alpha0: float, param for NormalGamma distribution over mu/tau
         beta0: float, param for NormalGamma distribution over mu/tau
+        chr_idx: list, chromosome breaks, needs to be sorted and each val < chain_length.
+            If None, a real-data like 24 chr binning of the genome is used
 
     Returns:
-        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree']
+        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx']
     """
+    # set chr_idx
+    if chr_df is None:
+        chr_idx = []
+    else:
+        # get idx where chr changes and remove the leading 0
+        sorted_df = chr_df.sort_values(['chr', 'start']).reset_index()
+        chr_idx = sorted_df.index[sorted_df['chr'].ne(sorted_df['chr'].shift())].to_list()[1:]
+        config.chain_length = chr_df.shape[0]
+    config.chromosome_indexes = chr_idx
+    n_chromosomes = config.n_chromosomes
+    ext_chr_idx = [0] + chr_idx + [config.chain_length]
+
     # generate random tree
     tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph) if tree is None else tree
     logging.debug(f'sampled tree: {tree_utils.tree_to_newick(tree)}')
@@ -69,12 +110,15 @@ Generate full simulated dataset.
     h_eps0_cached = h_eps0(config.n_states, eps0)
     for u, v in nx.bfs_edges(tree, source=0):
         t0 = h_eps0_cached[c[u, 0], :]
-        c[v, 0] = torch.distributions.Categorical(probs=t0).sample()
-        h_eps_uv = h_eps(config.n_states, eps[u, v])
-        for m in range(1, config.chain_length):
-            # j', j, i', i
-            transition = h_eps_uv[:, c[v, m - 1], c[u, m], c[u, m - 1]]
-            c[v, m] = torch.distributions.Categorical(probs=transition).sample()
+        h_eps_uv = h_eps(config.n_states, eps[u, v].item())
+
+        for ci in range(n_chromosomes):
+            lb, ub = ext_chr_idx[ci], ext_chr_idx[ci + 1]
+            c[v, lb] = torch.distributions.Categorical(probs=t0).sample()
+            for m in range(lb + 1, ub):
+                # j', j, i', i
+                transition = h_eps_uv[:, c[v, m - 1], c[u, m], c[u, m - 1]]
+                c[v, m] = torch.distributions.Categorical(probs=transition).sample()
 
     # sample mu_n, tau_n
     tau = torch.distributions.Gamma(alpha0, beta0).sample((config.n_cells,))
@@ -108,7 +152,8 @@ Generate full simulated dataset.
         'tau': tau,
         'eps': eps,
         'eps0': eps0,
-        'tree': tree
+        'tree': tree,
+        'chr_idx': chr_idx
     }
     return out_simul
 

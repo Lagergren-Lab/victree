@@ -70,3 +70,26 @@ class SimulTestCase(unittest.TestCase):
         torch.allclose(torch.mean(R.float()), torch.tensor(R_0))
         # think of interesting cases here
 
+    def test_real_full_dataset(self):
+        full_length = 200
+
+        # default = real 24 chr
+        config = Config(chain_length=full_length)
+        chr_df = simul.generate_chromosome_binning(config.chain_length)
+        dat = simul.simulate_full_dataset(config, chr_df=chr_df)
+        self.assertEqual(len(dat['chr_idx']), 23)
+        self.assertTrue(all(dat['chr_idx'][i] <= dat['chr_idx'][i+1] for i in range(len(dat['chr_idx']) - 1)))
+        self.assertGreaterEqual(dat['obs'].shape[0], full_length)
+
+        # total synthetic
+        n_chr = 10
+
+        config = Config(chain_length=full_length)
+        chr_df = simul.generate_chromosome_binning(config.chain_length, method='uniform', n_chr=n_chr)
+        dat = simul.simulate_full_dataset(config, chr_df=chr_df)
+        self.assertEqual(len(dat['chr_idx']), n_chr - 1)
+        self.assertTrue(all(dat['chr_idx'][i] <= dat['chr_idx'][i+1] for i in range(len(dat['chr_idx']) - 1)))
+        self.assertEqual(dat['obs'].shape[0], full_length)
+
+
+

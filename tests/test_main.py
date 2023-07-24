@@ -1,11 +1,13 @@
 import unittest
 
 import numpy as np
+import copy
 
 import simul
 from inference.victree import VICTree
 from variational_distributions.joint_dists import VarTreeJointDist
 from utils.config import set_seed, Config
+from variational_distributions.var_dists import qCMultiChrom
 
 
 class MyTestCase(unittest.TestCase):
@@ -25,7 +27,21 @@ class MyTestCase(unittest.TestCase):
 
         self.assertGreater(self.copytree.elbo, mid_elbo)
 
+    def test_multichr_main(self):
+        cfg = copy.deepcopy(self.config)
+        # with hg19 referenced chr bins
+        chr_df = simul.generate_chromosome_binning(cfg.chain_length)
+        multi_dat = simul.simulate_full_dataset(cfg, chr_df=chr_df)
 
+        obs = multi_dat['obs']
+
+        q = VarTreeJointDist(cfg, obs, qc=qCMultiChrom(config=cfg)).initialize()
+        victree = VICTree(cfg, q, obs)
+        self.assertEqual(victree.elbo, - np.infty)
+        victree.run(5)
+        mid_elbo = victree.elbo
+        victree.run(5)
+        self.assertGreater(victree.elbo, mid_elbo)
 
 
 if __name__ == '__main__':
