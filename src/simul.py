@@ -8,7 +8,9 @@ import argparse
 import logging
 import math
 import os.path
+from pathlib import Path
 
+import anndata
 import h5py
 import networkx as nx
 import numpy as np
@@ -22,7 +24,6 @@ from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils
 from utils.config import Config, set_seed
 from utils.eps_utils import h_eps, h_eps0
-from utils.tree_utils import generate_fixed_tree
 from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT
 
 
@@ -66,7 +67,6 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None):
-    # FIXME: allow for variation in chain length when real chromosomes are passed
     """
 Generate full simulated dataset.
     Args:
@@ -90,7 +90,10 @@ Generate full simulated dataset.
         # get idx where chr changes and remove the leading 0
         sorted_df = chr_df.sort_values(['chr', 'start']).reset_index()
         chr_idx = sorted_df.index[sorted_df['chr'].ne(sorted_df['chr'].shift())].to_list()[1:]
-        config.chain_length = chr_df.shape[0]
+        if chr_df.shape[0] != config.chain_length:
+            logging.debug(f"due to chromosome splitting, the total number of sites changed:"
+                          f" {config.chain_length} -> {chr_df.shape[0]}")
+            config.chain_length = chr_df.shape[0]
     config.chromosome_indexes = chr_idx
     n_chromosomes = config.n_chromosomes
     ext_chr_idx = [0] + chr_idx + [config.chain_length]
@@ -389,33 +392,6 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
     f.close()
 
 
-def write_sample_dataset_h5(dest_path):
-    n_cells = 300
-    n_sites = 100
-    n_copy_states = 5
-    n_nodes = 4
-    tree = generate_fixed_tree(n_nodes)
-    mu_0 = 100.0
-    nu_0 = 0.1
-    alpha0 = 10.
-    beta0 = 40.
-    a0 = .5
-    b0 = .5
-    dir_alpha0 = 1.
-    data = torch.ones((n_sites, n_cells))
-    unconditioned_model = poutine.uncondition(model_tree_markov_full)
-    C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree, mu_0, nu_0, alpha0,
-                                                    beta0, a0, b0, dir_alpha0)
-    # write cn for each cell separately
-    f = h5py.File(dest_path, 'w')
-    x_ds = f.create_dataset('X', data=y.int().clamp(min=0))
-    layers_grp = f.create_group('layers')
-    cn_state = C[z, :].T
-    assert cn_state.shape == x_ds.shape
-    layers_grp.create_dataset('state', data=cn_state)
-    f.close()
-
-
 def generate_dataset_var_tree(config: Config,
                               nu_prior=1., lambda_prior=100.,
                               alpha_prior=500., beta_prior=50.,
@@ -453,6 +429,24 @@ def generate_dataset_var_tree(config: Config,
 
 
 # script for simulating data
+def write_simulated_dataset_h5ad(data, chr_df, out_path, filename):
+
+    x_ds = data['raw'].T.numpy()
+    anndat = anndata.AnnData(X=x_ds)
+    z = data['z']
+    cn_state = data['c'][z, :].numpy()
+    assert cn_state.shape == anndat.shape
+    anndat.layers['state'] = cn_state
+    anndat.layers['copy'] = data['obs'].T.numpy()
+
+    # FIXME: set chr so that var/chr/codes is correctly assigned (rn is -1 everywhere)
+    anndat.var['chr'] = chr_df['chr']
+    anndat.var['start'] = chr_df['start']
+    anndat.var['end'] = chr_df['end']
+
+    anndat.write_h5ad(Path(out_path, filename + '.h5ad'))
+
+
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(
         description="Data simulation script. Output format is compatible with VIC-Tree interface."
@@ -486,12 +480,15 @@ if __name__ == '__main__':
                      nargs=2,
                      default=[1., 50.], metavar=("ALPHA", "BETA"),
                      help="alpha and beta parameters for Beta distribution")
-    cli.add_argument("--mutau-params", default=[1., 10., 500., 50.], nargs=4, type=float,
+    cli.add_argument('--mutau-params', default=[1., 10., 500., 50.], nargs=4, type=float,
                      help="prior on mu-tau (Normal-Gamma dist)",
                      metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
-    cli.add_argument("-d", "--debug",
+    cli.add_argument('-d', '--debug',
                      action="store_true",
                      help="additional inspection for debugging purposes")
+    cli.add_argument('--n-chromosomes',
+                     type=str,
+                     default='1', help="number of chromosomes i.e. separate copy number chains")
     args = cli.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
@@ -510,16 +507,24 @@ if __name__ == '__main__':
     else:
         assert len(args.concentration_factor) == args.n_nodes
 
-    data = simulate_full_dataset(
-        Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length),
-        dir_alpha=args.concentration_factor,
-        mu0=args.mutau_params[0], lambda0=args.mutau_params[1], alpha0=args.mutau_params[2], beta0=args.mutau_params[3],
-        eps_a=args.eps_params[0], eps_b=args.eps_params[1])
+    if args.n_chromosomes == 'real':
+        chr_df = generate_chromosome_binning(args.chain_length, method='real')
+    else:
+        try:
+            n_chr = int(args.n_chromosomes)
+            chr_df = generate_chromosome_binning(args.chain_length, method='uniform', n_chr=n_chr)
+        except ValueError as v:
+            raise argparse.ArgumentTypeError(f"wrong number of chromosomes param: {args.n_chromosomes}")
 
+    config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length)
+    data = simulate_full_dataset(config, dir_alpha=args.concentration_factor, mu0=args.mutau_params[0],
+                                 lambda0=args.mutau_params[1], alpha0=args.mutau_params[2], beta0=args.mutau_params[3],
+                                 eps_a=args.eps_params[0], eps_b=args.eps_params[1], chr_df=chr_df)
     filename = f'simul_' \
-               f'k{args.n_nodes}a{args.n_states}n{args.n_cells}m{args.chain_length}' \
+               f'k{config.n_nodes}a{config.n_states}n{config.n_cells}m{config.chain_length}' \
                f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \
                f'd{conc_fact_str}' \
                f'mt{"-".join(map(str, map(int, args.mutau_params)))}'
-    write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
+    write_simulated_dataset_h5ad(data, chr_df, args.out_path, filename)
+    # write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')
