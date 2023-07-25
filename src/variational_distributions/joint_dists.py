@@ -167,7 +167,7 @@ class VarTreeJointDist(JointDist):
 
         qC = self.c.single_filtering_probs
         qZ = self.z.pi
-        y = self.obs
+        y = self.obs.detach().clone()
         nan_mask = torch.any(torch.isnan(y), dim=1)
         y[nan_mask, :] = 0.
         A = self.config.n_states

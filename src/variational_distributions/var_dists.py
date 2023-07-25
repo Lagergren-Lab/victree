@@ -34,7 +34,7 @@ from variational_distributions.variational_distribution import VariationalDistri
 # ---
 class qC(VariationalDistribution):
 
-    def __init__(self, config: Config, true_params=None):
+    def __init__(self, config: Config, true_params=None, chr_name: str = "unknown"):
         """
         Variational distribution for copy number profiles, i.e. Markov chains for each cluster of cells.
         Parameters
@@ -44,6 +44,8 @@ class qC(VariationalDistribution):
             copy number integer values
         """
         super().__init__(config, fixed=true_params is not None)
+
+        self._chr_name: str = chr_name
 
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
         self._couple_filtering_probs = torch.empty(
@@ -130,6 +132,10 @@ class qC(VariationalDistribution):
         if self.fixed:
             logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._eta2[...] = e2
+
+    @property
+    def chromosome_name(self):
+        return self._chr_name
 
     def initialize(self, method='random', **kwargs):
         if method == 'baum-welch':
@@ -618,7 +624,8 @@ class qCMultiChrom(VariationalDistribution):
             M_chr_i = self.chr_start_points[i + 1] - self.chr_start_points[i]
             config_i = copy.deepcopy(self.config)
             config_i.chain_length = M_chr_i
-            self.qC_list.append(qC(config_i, true_params=true_params))
+            # TODO: add better name for chromosomes (using actual names)
+            self.qC_list.append(qC(config_i, true_params=true_params, chr_name=str(i)))
 
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
         self._couple_filtering_probs = torch.empty(
