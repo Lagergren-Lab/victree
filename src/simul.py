@@ -67,7 +67,7 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True,
-                          chr_df: pd.DataFrame | None = None):
+                          chr_df: pd.DataFrame | None = None, nans: bool = False):
     """
 Generate full simulated dataset.
     Args:
@@ -143,9 +143,14 @@ Generate full simulated dataset.
     # (chain_length x n_cells)
     obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
     obs = obs.T
-    assert obs.shape == (config.chain_length, config.n_cells)
 
     raw_counts = sample_raw_counts_from_corrected_data(obs) if raw_reads is True else None
+
+    if nans:
+        # 1% of sites is nan
+        obs[torch.rand(config.chain_length) < .01, :] = torch.nan
+    assert obs.shape == (config.chain_length, config.n_cells)
+
     out_simul = {
         'obs': obs,
         'raw': raw_counts,
@@ -488,6 +493,9 @@ if __name__ == '__main__':
     cli.add_argument('--n-chromosomes',
                      type=str,
                      default='1', help="number of chromosomes i.e. separate copy number chains")
+    cli.add_argument('--nans',
+                     action="store_true",
+                     help="set 1% of the total sites to nan")
     args = cli.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
@@ -518,7 +526,7 @@ if __name__ == '__main__':
     config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length)
     data = simulate_full_dataset(config, dir_alpha=args.concentration_factor, mu0=args.mutau_params[0],
                                  lambda0=args.mutau_params[1], alpha0=args.mutau_params[2], beta0=args.mutau_params[3],
-                                 eps_a=args.eps_params[0], eps_b=args.eps_params[1], chr_df=chr_df)
+                                 eps_a=args.eps_params[0], eps_b=args.eps_params[1], chr_df=chr_df, nans=args.nans)
     filename = f'simul_' \
                f'k{config.n_nodes}a{config.n_states}n{config.n_cells}m{config.chain_length}' \
                f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \
