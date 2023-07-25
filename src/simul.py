@@ -40,24 +40,25 @@ def sample_raw_counts_from_corrected_data(obs):
 
 
 def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None = None) -> pd.DataFrame:
-    splits_df = pd.DataFrame()
     if method == 'real':
+        ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
         # https://www.ncbi.nlm.nih.gov/grc/human/data
         hg19_total_length = 3099734149
         binsize = math.ceil(hg19_total_length / n)
         splits_df = create_bins(binsize)
+        splits_df.chr = pd.Categorical(splits_df.chr, categories=ord_chr, ordered=True)
 
     elif method == 'uniform':
         binsize = 1000
         if n_chr is None:
             raise ValueError("Must provide number of chromosomes for `uniform` chromosome splits")
         chr_width = n // n_chr
-        chr = pd.Series([str(c) for c in range(n_chr)], dtype="category", name='chr')
+        chr = pd.Categorical([str(c) for c in range(1, n_chr + 1)], ordered=True)
         pos = pd.DataFrame({
             'start': [s * binsize + 1 for s in range(chr_width)],
             'end': [(s + 1) * binsize for s in range(chr_width)]
         })
-        splits_df = pos.merge(chr, how='cross')
+        splits_df = pos.merge(pd.DataFrame({'chr': chr}), how='cross')
     else:
         raise NotImplementedError(f"Method {method} for chromosome splits creation is not available.")
 
@@ -440,9 +441,7 @@ def write_simulated_dataset_h5ad(data, chr_df, out_path, filename):
     anndat.layers['copy'] = data['obs'].T.numpy()
 
     # FIXME: set chr so that var/chr/codes is correctly assigned (rn is -1 everywhere)
-    anndat.var['chr'] = chr_df['chr']
-    anndat.var['start'] = chr_df['start']
-    anndat.var['end'] = chr_df['end']
+    anndat.var = chr_df
 
     anndat.write_h5ad(Path(out_path, filename + '.h5ad'))
 

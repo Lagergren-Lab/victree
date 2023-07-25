@@ -30,7 +30,7 @@ class DataHandler:
 
     def _read_multiple_sources(self, file_path: str):
         self.norm_reads = None
-        self.chr_pd = None
+        self.chr_df = None
         self.start = None
         self.end = None
 
@@ -44,14 +44,13 @@ class DataHandler:
                 # actual AnnData format
                 logging.debug("reading anndata file")
                 ann_dataset = anndata.read_h5ad(file_path)
-                ann_dataset = _remove_nans(ann_dataset)
+
+                ann_dataset = _impute_nans(ann_dataset, method='ignore')
                 ann_dataset = _sort_anndata(ann_dataset)
                 obs = torch.tensor(ann_dataset.layers['copy'].T, dtype=torch.float)
 
                 # pandas categorical for chromosomes
-                self.chr_pd = ann_dataset.var.chr
-                self.start = ann_dataset.var.start
-                self.end = ann_dataset.var.end
+                self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
 
             except AnnDataReadError as ae:
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")
@@ -74,20 +73,14 @@ class DataHandler:
             obs = torch.nan_to_num(self.norm_reads, nan=2.0)
 
     def get_chr_idx(self):
-        indexes = []
-        if self.chr_pd is None:
+        indices = []
+        if self.chr_df is None:
             logging.warning("Getting indices for data with no chromosome specs."
                             " Execution will proceed on one single chain")
         else:
-            # TODO: improve
-            # get indices over the obs matrix when chromosome changes
-            curr_chr = self.chr_pd[0]
-            for i, c in enumerate(self.chr_pd):
-                if c != curr_chr:
-                    indexes.append(i)
-                    curr_chr = c
+            indices = self.chr_df.index[self.chr_df['chr'].ne(self.chr_df['chr'].shift())].to_list()[1:]
 
-        return indexes
+        return indices
 
 
 def _sort_anndata(ann_dataset):
@@ -97,12 +90,22 @@ def _sort_anndata(ann_dataset):
     return ann_dataset[:, ann_dataset.var.sort_values(['chr', 'start']).index].copy()
 
 
-def _remove_nans(ann_dataset: anndata.AnnData) -> anndata.AnnData:
+def _impute_nans(ann_dataset: anndata.AnnData, method: str = 'fill') -> anndata.AnnData:
     """
     Remove bins corresponding to NaNs in the 'copy' layer
     """
-    # TODO: implement different NaN strategies
-    ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)].copy()
+    nan_sites_count = np.isnan(ann_dataset.layers['copy']).any(axis=0).sum()
+    if nan_sites_count > 0:
+        logging.debug(f"found {nan_sites_count} sites with nan values. proceding with method `{method}`")
+    if method == 'remove':
+        # FIXME: remove chromosomes that have < 2 sites
+        ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)].copy()
+    elif method == 'fill':
+        ann_dataset.layers['copy'][:, np.isnan(ann_dataset.layers['copy']).any(axis=0)] = 2.0
+    elif method == 'ignore':
+        pass
+    else:
+        raise NotImplementedError(f"method {method} for imputing nans is not available")
     return ann_dataset
 
 

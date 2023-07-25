@@ -3,6 +3,7 @@ Variational distribution classes with several initialization methods, update for
 """
 import copy
 import logging
+import math
 import os
 
 import hmmlearn.hmm
@@ -649,7 +650,6 @@ class qCMultiChrom(VariationalDistribution):
             chr_i_start = self.chr_start_points[i]
             chr_i_end = self.chr_start_points[i + 1]
             qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
-
 
     def compute_filtering_probs(self):
         for i, qc in enumerate(self.qC_list):
@@ -1704,9 +1704,10 @@ Initialize the mu and tau params given observations
             obs: data, tensor (chain_length, n_cells)
         """
         # FIXME: test does not work
-        self.nu = torch.mean(obs, dim=0)
+        clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
+        self.nu = torch.mean(clean_obs, dim=0)
         self.alpha = torch.ones((self.config.n_cells,))  # init alpha to small value (1)
-        var = torch.var(obs, dim=0).clamp(min=.01)  # avoid 0 variance
+        var = torch.var(clean_obs, dim=0).clamp(min=.01)  # avoid 0 variance
         self.beta = var * self.alpha
         # set lambda to 1. (arbitrarily)
         self.lmbda = torch.tensor(1.) * torch.ones((self.config.n_cells,))
@@ -1787,6 +1788,8 @@ Initialize the mu and tau params given observations
             out_arr[...] = torch.einsum('vimn->nmvi', log_p_obs)
 
         assert out_arr.shape == out_shape
+        out_arr[self.get_nan_mask(obs)] = - math.log(self.config.n_states)
+        assert not torch.isnan(out_arr).any()
         return out_arr
 
     def exp_tau(self):
