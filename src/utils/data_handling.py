@@ -96,7 +96,7 @@ def _impute_nans(ann_dataset: anndata.AnnData, method: str = 'fill') -> anndata.
     """
     nan_sites_count = np.isnan(ann_dataset.layers['copy']).any(axis=0).sum()
     if nan_sites_count > 0:
-        logging.debug(f"found {nan_sites_count} sites with nan values. proceding with method `{method}`")
+        logging.debug(f"found {nan_sites_count} sites with nan values. proceeding with method `{method}`")
     if method == 'remove':
         # FIXME: remove chromosomes that have < 2 sites
         ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)].copy()

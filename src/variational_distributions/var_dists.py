@@ -1636,13 +1636,19 @@ class qMuTau(qPsi):
         A = self.config.n_states
         c_tensor = torch.arange(A, dtype=torch.float)
         q_Z = qz.exp_assignment()
+
+        y = obs.detach().clone()
+        nan_mask = torch.any(torch.isnan(y), dim=1)
+        y[nan_mask, :] = 0.
+
         sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2)
-        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, obs)
-        sum_M_y2 = torch.pow(obs, 2).sum(dim=0)  # sum over M
+        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, y)
+        sum_M_y2 = torch.pow(y, 2).sum(dim=0)  # sum over M
         M = self.config.chain_length
         alpha = self.alpha_0 + M * .5  # Never updated
         lmbda = self.lmbda_0 + sum_MCZ_c2
         mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
+        # FIXME: check if y being 0 is ok
         beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
         new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
 
