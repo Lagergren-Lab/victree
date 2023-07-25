@@ -86,7 +86,7 @@ class VarTreeJointDist(JointDist):
         # TODO: if needed, specify an ordering
         return [self.t, self.c, self.eps, self.pi, self.z, self.mt]
 
-    def update(self, it):
+    def update(self, it=0):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
@@ -167,7 +167,9 @@ class VarTreeJointDist(JointDist):
 
         qC = self.c.single_filtering_probs
         qZ = self.z.pi
-        y = self.obs
+        y = self.obs.detach().clone()
+        nan_mask = torch.any(torch.isnan(y), dim=1)
+        y[nan_mask, :] = 0.
         A = self.config.n_states
         c = torch.arange(0, A, dtype=torch.float)
         c2 = c ** 2
@@ -212,7 +214,7 @@ class FixedTreeJointDist(JointDist):
         self.T = T
         self.w_T = [1.0]
 
-    def update(self, it):
+    def update(self, it=0):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
@@ -327,7 +329,7 @@ class QuadrupletJointDist(JointDist):
         self.T = T
         self.w_T = [1.0]
 
-    def update(self, it):
+    def update(self, it=0):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """

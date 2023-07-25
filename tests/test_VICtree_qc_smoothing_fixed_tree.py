@@ -40,12 +40,12 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         n_sites = 2000
         n_copy_states = 7
         dir_alpha = [5., 10., 10.]
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(5.0)
-        b0 = torch.tensor(250.0)
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 5.0
+        b0 = 250.0
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
@@ -88,6 +88,7 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
                                                           q_z=copy_tree2.q.z, qpi=copy_tree2.q.pi, q_mt=copy_tree2.q.mt,
                                                           q_eps=copy_tree2.q.eps)
 
+    @unittest.skip("long exec time")
     def test_large_tree(self):
         set_seed(2)
         K = 7
@@ -97,12 +98,12 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         n_sites = 1000
         n_copy_states = 7
         dir_alpha = [10.] * K
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(250.0)
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 250.0
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,

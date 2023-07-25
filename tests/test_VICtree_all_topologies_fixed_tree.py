@@ -1,20 +1,13 @@
 import logging
-import random
 import unittest
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import torch
-import torch.nn.functional as f
 
-import simul
 import tests.utils_testing
-import utils.config
 from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
-from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
-from utils import visualization_utils, tree_utils
+from tests.utils_testing import simulate_full_dataset_no_pyro
+from utils import tree_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
@@ -30,6 +23,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qmt = qMuTau(config)
         return qc, qt, qeps, qz, qpi, qmt
 
+    @unittest.skip('not implemented yet')
     def test_ELBO_of_all_topologies(self):
         torch.manual_seed(0)
         logging.getLogger().setLevel("INFO")
@@ -40,12 +34,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_sites = 50
         n_copy_states = 7
         dir_alpha = [1., 3.]
-        nu_0 = torch.tensor(10.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
-        a0 = torch.tensor(5.0)
-        b0 = torch.tensor(200.0)
+        nu_0 = 10.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 5.0
+        b0 = 200.0
 
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,

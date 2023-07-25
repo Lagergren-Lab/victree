@@ -95,9 +95,9 @@ class qTTestCase(unittest.TestCase):
         qc = qC(config, true_params={'c': c})
 
         for i in range(10):
-            qt.update(qc, qeps)
+            qt.update(qc)
             t, w = qt.get_trees_sample()
-            qeps.update(t, w, qc)
+            qeps.update(t)
 
         # print(qc)
         # print(qt)

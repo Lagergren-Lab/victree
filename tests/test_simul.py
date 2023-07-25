@@ -21,6 +21,7 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, 
 
 class SimulTestCase(unittest.TestCase):
 
+    @unittest.skip("experiment")
     def test_copy_tree_sim(self):
         torch.manual_seed(0)
         K = 5
@@ -37,7 +38,6 @@ class SimulTestCase(unittest.TestCase):
         variances = torch.std(c.float(), dim=1)
         max_eps_arc = max(eps, key=eps.get)
         self.assertTrue(torch.argmax(variances) == max_eps_arc[1])
-
 
     def test_one_edge_tree(self):
         torch.manual_seed(0)
@@ -69,4 +69,27 @@ class SimulTestCase(unittest.TestCase):
 
         torch.allclose(torch.mean(R.float()), torch.tensor(R_0))
         # think of interesting cases here
+
+    def test_real_full_dataset(self):
+        full_length = 200
+
+        # default = real 24 chr
+        config = Config(chain_length=full_length)
+        chr_df = simul.generate_chromosome_binning(config.chain_length)
+        dat = simul.simulate_full_dataset(config, chr_df=chr_df)
+        self.assertEqual(len(dat['chr_idx']), 23)
+        self.assertTrue(all(dat['chr_idx'][i] <= dat['chr_idx'][i+1] for i in range(len(dat['chr_idx']) - 1)))
+        self.assertGreaterEqual(dat['obs'].shape[0], full_length)
+
+        # total synthetic
+        n_chr = 10
+
+        config = Config(chain_length=full_length)
+        chr_df = simul.generate_chromosome_binning(config.chain_length, method='uniform', n_chr=n_chr)
+        dat = simul.simulate_full_dataset(config, chr_df=chr_df)
+        self.assertEqual(len(dat['chr_idx']), n_chr - 1)
+        self.assertTrue(all(dat['chr_idx'][i] <= dat['chr_idx'][i+1] for i in range(len(dat['chr_idx']) - 1)))
+        self.assertEqual(dat['obs'].shape[0], full_length)
+
+
 

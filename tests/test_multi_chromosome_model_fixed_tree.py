@@ -44,16 +44,16 @@ class MultiChromosomeTestCase(unittest.TestCase):
         n_chromosomes = len(chromosome_indexes) + 1
         A = 7
         dir_alpha = torch.tensor([1., 3., 3.])
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(5.)
-        alpha0 = torch.tensor(50.)
-        beta0 = torch.tensor(5.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(800.0)
-        eps0_a = torch.tensor(10.0)
-        eps0_b = torch.tensor(800.0)
+        nu_0 = 1.
+        lambda_0 = 5.
+        alpha0 = 50.
+        beta0 = 5.
+        a0 = 10.0
+        b0 = 800.0
+        eps0_a = 10.0
+        eps0_b = 800.0
         config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M,
-                        chromosome_indexes=chromosome_indexes, n_chromosomes=n_chromosomes,
+                        chromosome_indexes=chromosome_indexes,
                         step_size=0.3,
                         debug=False, diagnostics=False)
         model = MultiChromosomeGenerativeModel(config)
@@ -96,17 +96,17 @@ class MultiChromosomeTestCase(unittest.TestCase):
         chromosome_indexes = [int(M / 10), int(M / 10 * 5), int(M / 10 * 8)]
         n_chromosomes = len(chromosome_indexes) + 1
         A = 7
-        dir_alpha = torch.tensor([1., 3., 3.])
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(5.)
-        alpha0 = torch.tensor(50.)
-        beta0 = torch.tensor(5.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(800.0)
-        eps0_a = torch.tensor(10.0)
-        eps0_b = torch.tensor(800.0)
+        dir_alpha = [1., 3., 3.]
+        nu_0 = 1.
+        lambda_0 = 5.
+        alpha0 = 50.
+        beta0 = 5.
+        a0 = 10.0
+        b0 = 800.0
+        eps0_a = 10.0
+        eps0_b = 800.0
         config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M,
-                        chromosome_indexes=chromosome_indexes, n_chromosomes=n_chromosomes,
+                        chromosome_indexes=chromosome_indexes,
                         step_size=0.3,
                         debug=False, diagnostics=False)
         model = MultiChromosomeGenerativeModel(config)
@@ -164,15 +164,15 @@ class MultiChromosomeTestCase(unittest.TestCase):
         chromosome_indexes = [int(M / 10), int(M / 10 * 5), int(M / 10 * 8)]
         n_chromosomes = len(chromosome_indexes) + 1
         A = 7
-        dir_alpha = torch.tensor([1., 3., 3.])
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(5.)
-        alpha0 = torch.tensor(50.)
-        beta0 = torch.tensor(5.)
-        a0 = torch.tensor(10.0)
-        b0 = torch.tensor(800.0)
-        eps0_a = torch.tensor(10.0)
-        eps0_b = torch.tensor(800.0)
+        dir_alpha = [1., 3., 3.]
+        nu_0 = 1.
+        lambda_0 = 5.
+        alpha0 = 50.
+        beta0 = 5.
+        a0 = 10.0
+        b0 = 800.0
+        eps0_a = 10.0
+        eps0_b = 800.0
         config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M,
                         chromosome_indexes=chromosome_indexes, n_chromosomes=n_chromosomes,
                         step_size=0.3,

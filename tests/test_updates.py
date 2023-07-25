@@ -366,7 +366,7 @@ class updatesTestCase(unittest.TestCase):
         joint_q = VarTreeJointDist(config, obs=true_joint_q.obs)
         joint_q.initialize()
         for i in range(50):
-            joint_q.update()
+            joint_q.update(i)
 
         print(f'true c at node 1: {true_joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
         print(f'var c at node 1: {joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
@@ -423,7 +423,7 @@ class updatesTestCase(unittest.TestCase):
                 print(f"- qmt dist: {torch.pow(qmt.nu - joint_q.mt.true_params['mu'], 2).sum():.2f}")
 
             qmt.update(fix_qc, qz, obs)
-            qz.update(qmt, fix_qc, fix_qpi, obs)
+            qz.update(qmt)
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
         print(f"- var mu: {qmt.nu}")
@@ -537,7 +537,7 @@ class updatesTestCase(unittest.TestCase):
         print(f"true z: {true_z}")
         print(f"[init] var z: {qz.exp_assignment()}")
         for i in range(30):
-            joint_q.update()
+            joint_q.update(i)
             if i % 5 == 0:
                 #utils.visualization_utils.visualize_copy_number_profiles(
                 #    torch.argmax(joint_q.c.single_filtering_probs, dim=-1))

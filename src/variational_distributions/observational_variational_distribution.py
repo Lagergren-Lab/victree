@@ -16,3 +16,8 @@ class qPsi(VariationalDistribution):
     def exp_log_emission(self, obs: torch.Tensor):
         raise NotImplementedError
 
+    def get_nan_mask(self, obs):
+        _nan_mask = torch.zeros((obs.shape[1], obs.shape[0], self.config.n_nodes, self.config.n_states),
+                                dtype=torch.bool)
+        _nan_mask[torch.isnan(obs.T), ...] = True
+        return _nan_mask
