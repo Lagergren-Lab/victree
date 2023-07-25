@@ -32,7 +32,7 @@ class TreeTopologyPostInferenceExperiment():
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
-        qeps = qEpsilonMulti(config)
+        qeps = qEpsilonMulti(config, alpha_prior=1., beta_prior=40.)
         qz = qZ(config)
         qpi = qPi(config)
         qmt = qMuTau(config)
@@ -41,24 +41,24 @@ class TreeTopologyPostInferenceExperiment():
     def edge_probability_experiment(self, save_plot=False):
         utils.config.set_seed(0)
 
-        K_list = list(range(8, 10))
+        K_list = list(range(4, 10))
         ari_list = []
         seeds = list(range(0, 2))
 
         N = 500
-        M = 500
+        M = 2000
         A = 7
         dir_alpha0 = 10.
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
 
         for K in K_list:
             tree = tests.utils_testing.get_tree_K_nodes_random(K)
 
-            a0 = torch.tensor(5.0)
-            b0 = torch.tensor(200.0)
+            a0 = 5.
+            b0 = 200.
             y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M, A, tree,
                                                                             nu_0=nu_0,
                                                                             lambda_0=lambda_0, alpha0=alpha0,
@@ -72,18 +72,23 @@ class TreeTopologyPostInferenceExperiment():
             ari = []
             for seed in seeds:
                 utils.config.set_seed(seed)
-                config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3)
+                config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.05)
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = VarTreeJointDist(config, obs=y, qc=qc, qz=qz, qt=qt, qeps=qeps, qmt=qmt, qpi=qpi)
                 q.initialize()
                 victree = VICTree(config, q, y)
 
-                victree.run(n_iter=100)
+                victree.run(n_iter=200)
 
                 ari_seed, best_perm, accuracy_best = model_variational_comparisons.compare_qZ_and_true_Z(true_Z=z, q_z=victree.q.z)
                 ari.append(ari_seed)
                 print(f"ARI for K {K} and seed {seed}: {ari_seed}")
                 print(f"Best accuracy for K {K} and seed {seed}: {accuracy_best}")
+
+                # Epsilon check
+                model_variational_comparisons.compare_qEpsilon_and_true_epsilon(true_epsilon=eps, q_epsilon=victree.q.eps)
+
+                # T comparisons
                 T_list_seed, w_T_list_seed = victree.q.t.get_trees_sample(sample_size=100)
                 unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(T_list_seed)
                 print(f"N uniques trees sampled: {len(unique_seq)}")

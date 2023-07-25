@@ -11,4 +11,6 @@ notes.md
 *_out
 /tests/test_output/
 /output/
+/src/output/
+/data/
 requirements.txt

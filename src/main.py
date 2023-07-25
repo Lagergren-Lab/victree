@@ -84,7 +84,7 @@ if __name__ == '__main__':
     )
     # parser.add_argument("-c", "--config-file", dest='config_file', type=argparse.FileType(mode='r'))
     parser.add_argument("-i", "--input", dest="file_path",
-                        type=validate_path, default='./datasets/simul_k5a7n300m1000e1-50d10mt1-10-500-50.h5',
+                        type=validate_path, default='../datasets/simul_k5a7n300m1000e1-50d10mt1-10-500-50.h5',
                         help="input data file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
                         help="output dir", metavar="DIR", default="./output")
