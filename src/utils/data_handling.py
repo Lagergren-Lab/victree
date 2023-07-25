@@ -10,6 +10,7 @@ import networkx as nx
 import anndata
 from anndata._io.utils import AnnDataReadError
 
+#from inference.victree import VICTree
 from utils.tree_utils import newick_from_eps_arr
 
 
@@ -271,3 +272,8 @@ def read_vi_gt(checkpoint_file, simul_file):
     vi = read_last_it_from_checkpoint(checkpoint_file)
     gt = read_simul(simul_file)
     return vi, gt
+
+
+def load_victree_model():
+    victree = VICTree()
+    return victree
