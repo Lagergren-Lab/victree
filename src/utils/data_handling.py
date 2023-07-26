@@ -232,21 +232,31 @@ def read_hmmcopy_state_from_h5(file_path):
 
 def read_checkpoint(file_path):
     h5 = load_h5_pseudoanndata(file_path)
-    data = {
-        'elbo': h5['VarTreeJointDist']['elbo'][()],
-        'copy': h5['qC']['single_filtering_probs'][()],
-        'eps_alpha': h5['qEpsilonMulti']['alpha'][()],
-        'eps_beta': h5['qEpsilonMulti']['beta'][()],
-        'mt_nu': h5['qMuTau']['nu'][()],
-        'mt_lmbda': h5['qMuTau']['lmbda'][()],
-        'mt_alpha': h5['qMuTau']['alpha'][()],
-        'mt_beta': h5['qMuTau']['beta'][()],
-        'pi_cf': h5['qPi']['concentration_param'][()],
-        't_sample_nwk': h5['qT']['trees_sample_newick'][()],
-        't_sample_w': h5['qT']['trees_sample_weights'][()],
-        't_mat': h5['qT']['weight_matrix'][()],
-        'z_pi': h5['qZ']['pi'][()]
+    h5_results = h5["result"]
+    params_histories = {
+        'C': h5_results['copy_number'],
+        'Z': h5_results['cell_assignment'],
+        'eps_a': h5_results['eps_alpha'],
+        'eps_b': h5_results['eps_beta'],
+        'G': h5_results['graph'],
+        'mu_tau': h5_results['mu_tau'],
+        'T': h5_results['trees']
     }
+    # data = {
+    #     'elbo': h5["result"]['VarTreeJointDist']['elbo'][()],
+    #     'copy': h5["result"]['qC']['single_filtering_probs'][()],
+    #     'eps_alpha': h5["result"]['qEpsilonMulti']['alpha'][()],
+    #     'eps_beta': h5["result"]['qEpsilonMulti']['beta'][()],
+    #     'mt_nu': h5["result"]['qMuTau']['nu'][()],
+    #     'mt_lmbda': h5["result"]['qMuTau']['lmbda'][()],
+    #     'mt_alpha': h5["result"]['qMuTau']['alpha'][()],
+    #     'mt_beta': h5["result"]['qMuTau']['beta'][()],
+    #     'pi_cf': h5["result"]['qPi']['concentration_param'][()],
+    #     't_sample_nwk': h5["result"]['qT']['trees_sample_newick'][()],
+    #     't_sample_w': h5["result"]['qT']['trees_sample_weights'][()],
+    #     't_mat': h5["result"]['qT']['weight_matrix'][()],
+    #     'z_pi': h5["result"]['qZ']['pi'][()]
+    # }
     return data
 
 
@@ -275,8 +285,3 @@ def read_vi_gt(checkpoint_file, simul_file):
     vi = read_last_it_from_checkpoint(checkpoint_file)
     gt = read_simul(simul_file)
     return vi, gt
-
-
-def load_victree_model():
-    victree = VICTree()
-    return victree

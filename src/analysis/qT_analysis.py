@@ -2,6 +2,8 @@ from matplotlib import pyplot as plt
 
 from inference.victree import VICTree
 from utils import tree_utils, data_handling
+from utils.config import Config
+from variational_distributions.var_dists import qT
 
 
 def edge_probability_analysis(victree: VICTree, true_tree=None, best_perm=None):
@@ -39,5 +41,7 @@ def edge_probability_analysis(victree: VICTree, true_tree=None, best_perm=None):
 
 
 if __name__ == '__main__':
-
-    victree = data_handling.load_victree_model()
+    path = '../../output/checkpoint_k6a7n1105m6206.h5'
+    params_history = data_handling.read_last_it_from_checkpoint(file_path=path)
+    config = Config()
+    qt = qT(config)
