@@ -167,21 +167,28 @@ class VarTreeJointDist(JointDist):
 
         qC = self.c.single_filtering_probs
         qZ = self.z.pi
+
         y = self.obs.detach().clone()
         nan_mask = torch.any(torch.isnan(y), dim=1)
         y[nan_mask, :] = 0.
+        M_notnan = torch.sum(~nan_mask)
+        M = self.config.chain_length
         A = self.config.n_states
+        N = self.config.n_cells
         c = torch.arange(0, A, dtype=torch.float)
         c2 = c ** 2
-        M, N = y.shape
-        E_CZ_log_tau = torch.einsum("umi, nu, n ->", qC, qZ, E_log_tau) if type(self.mt) is qMuTau else torch.einsum(
-            "umi, nu, ->", qC, qZ, E_log_tau)  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
+
+        E_CZ_log_tau = torch.einsum("umi, nu, n, m ->", qC, qZ, E_log_tau, (~nan_mask).float()) if type(self.mt) is qMuTau\
+            else torch.einsum(
+            "umi, nu, m ->", qC, qZ, E_log_tau, (~nan_mask).float())  # TODO: possible to replace einsum with M * torch.sum(E_log_tau)?
         E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
             self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
         E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
-        E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i ->", qC, qZ, E_mu2_tau, c2)
-        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M * torch.log(
+        E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i, m ->", qC, qZ, E_mu2_tau, c2, (~nan_mask).float())
+        elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M_notnan * torch.log(
             torch.tensor(2 * torch.pi)))
+        if self.config.debug:
+            assert not torch.isnan(elbo).any()
         return elbo
 
     def __str__(self):

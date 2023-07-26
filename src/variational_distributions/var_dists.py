@@ -1639,17 +1639,21 @@ class qMuTau(qPsi):
 
         y = obs.detach().clone()
         nan_mask = torch.any(torch.isnan(y), dim=1)
+        # when nan in obs, the number of observations for mu-tau decreases
+        M_notnan = torch.sum(~nan_mask)
         y[nan_mask, :] = 0.
 
-        sum_MCZ_c2 = torch.einsum("kma, nk, a -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2)
+        # copy numbers where observations are not present should not be included in the sum
+        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2, (~nan_mask).float())
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, y)
         sum_M_y2 = torch.pow(y, 2).sum(dim=0)  # sum over M
-        M = self.config.chain_length
-        alpha = self.alpha_0 + M * .5  # Never updated
+        alpha = self.alpha_0 + M_notnan * .5  # Never updated
         lmbda = self.lmbda_0 + sum_MCZ_c2
         mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
-        # FIXME: check if y being 0 is ok
         beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
+        if self.config.debug:
+            assert not torch.isnan(beta).any()
+
         new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
 
         super().update()
@@ -1718,6 +1722,7 @@ Initialize the mu and tau params given observations
         """
         # FIXME: test does not work
         clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
+
         self.nu = torch.mean(clean_obs, dim=0)
         self.alpha = torch.ones((self.config.n_cells,))  # init alpha to small value (1)
         var = torch.var(clean_obs, dim=0).clamp(min=.01)  # avoid 0 variance
@@ -1801,8 +1806,12 @@ Initialize the mu and tau params given observations
             out_arr[...] = torch.einsum('vimn->nmvi', log_p_obs)
 
         assert out_arr.shape == out_shape
-        out_arr[self.get_nan_mask(obs)] = - math.log(self.config.n_states)
-        assert not torch.isnan(out_arr).any()
+        # not necessarily correct
+        # an accepted way to deal with missing y is to set p(y | C) = 1
+        # see Speekenbrink, 2021
+        out_arr[self.get_nan_mask(obs)] = 0.
+        if self.config.debug:
+            assert not torch.isnan(out_arr).any()
         return out_arr
 
     def exp_tau(self):
