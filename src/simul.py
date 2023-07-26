@@ -147,8 +147,11 @@ Generate full simulated dataset.
     raw_counts = sample_raw_counts_from_corrected_data(obs) if raw_reads is True else None
 
     if nans:
-        # 1% of sites is nan
-        obs[torch.rand(config.chain_length) < .01, :] = torch.nan
+        # 8% of sites is nan
+        nan_idx = torch.rand(config.chain_length) < .08
+        # make sure each chr starts with a non-missing datum
+        nan_idx[[0] + chr_idx] = False
+        obs[nan_idx, :] = torch.nan
     assert obs.shape == (config.chain_length, config.n_cells)
 
     out_simul = {

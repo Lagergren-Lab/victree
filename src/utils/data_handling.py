@@ -46,8 +46,8 @@ class DataHandler:
                 logging.debug("reading anndata file")
                 ann_dataset = anndata.read_h5ad(file_path)
 
-                ann_dataset = _impute_nans(ann_dataset, method='ignore')
                 ann_dataset = _sort_anndata(ann_dataset)
+                ann_dataset = _impute_nans(ann_dataset, method='ignore')
                 obs = torch.tensor(ann_dataset.layers['copy'].T, dtype=torch.float)
 
                 # pandas categorical for chromosomes
@@ -91,16 +91,21 @@ def _sort_anndata(ann_dataset):
     return ann_dataset[:, ann_dataset.var.sort_values(['chr', 'start']).index].copy()
 
 
-def _impute_nans(ann_dataset: anndata.AnnData, method: str = 'fill') -> anndata.AnnData:
+def _impute_nans(ann_dataset: anndata.AnnData, method: str = 'ignore') -> anndata.AnnData:
     """
     Remove bins corresponding to NaNs in the 'copy' layer
     """
     nan_sites_count = np.isnan(ann_dataset.layers['copy']).any(axis=0).sum()
     if nan_sites_count > 0:
         logging.debug(f"found {nan_sites_count} sites with nan values. proceeding with method `{method}`")
+
     if method == 'remove':
-        # FIXME: remove chromosomes that have < 2 sites
-        ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)].copy()
+        ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)]
+        # drop chromosomes with just one site
+        filter_df = ann_dataset.var['chr'].value_counts() < 2
+        unit_chr_list = filter_df[filter_df].index.to_list()
+        ann_dataset = ann_dataset[:, ann_dataset.var['chr'].isin(unit_chr_list)].copy()
+        logging.debug(f"removed chromosome(s): {unit_chr_list}")
     elif method == 'fill':
         ann_dataset.layers['copy'][:, np.isnan(ann_dataset.layers['copy']).any(axis=0)] = 2.0
     elif method == 'ignore':
