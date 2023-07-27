@@ -693,11 +693,11 @@ class qCMultiChrom(VariationalDistribution):
 
     @property
     def params_history(self):
-        multiqc_hist = [torch.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
+        multiqc_hist = [np.empty((self.config.n_nodes, self.config.chain_length, self.config.n_states))
                         for i in range(len(self.qC_list[0].params_history['single_filtering_probs']))]
         for i, qc in enumerate(self.qC_list):
             for j, h in enumerate(qc.params_history['single_filtering_probs']):
-                multiqc_hist[j][:, self.chr_idx_boundaries[i]:self.chr_idx_boundaries[i + 1], :] = h
+                multiqc_hist[j][:, self.chr_start_points[i]:self.chr_start_points[i + 1], :] = h
 
         return {'single_filtering_probs': multiqc_hist}
 
