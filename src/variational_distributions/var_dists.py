@@ -1575,6 +1575,7 @@ class qEpsilonMulti(VariationalDistribution):
                 out_arr[...] = torch.log(h_eps(self.config.n_states, .8))  # distant clones if arc doesn't exist
         else:
             comut_mask, no_comut_mask, abs_state_mask = get_zipping_mask(self.config.n_states)
+            # FIXME: if heps and heps0 are already normalized..?
             A = normalizing_zipping_constant(self.config.n_states)
             digamma_a = torch.digamma(self.alpha_dict[u, v])
             digamma_b = torch.digamma(self.beta_dict[u, v])

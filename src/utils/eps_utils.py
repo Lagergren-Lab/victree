@@ -116,7 +116,7 @@ Indexing order: [j', j, i', i]. Invariant: sum(dim=0) = 1.
             out_arr[:, j, ii, i] = stable_zero
         # CASE 1: parent cn is 0 at site m, it can only stay 0 at site m (forced transition)
         elif ii == 0:
-            out_arr[0, j, ii, i] = 1.
+            out_arr[0, j, ii, i] = 1. - stable_zero
             out_arr[1:, j, ii, i] = stable_zero
         # CASE 2: feasible co-mutation i.e. there exists jj s.t. ii - i == jj - j
         elif 0 <= ii - i + j < n_states:
@@ -145,12 +145,16 @@ Simple zipping function tensor. P(Cv_1=j| Cu_1=i) = h0(j|i)
         eps: arc distance parameter
 
     Returns:
-        tensor of shape (A x A) with A = n_states
+        tensor of shape (A x A) with A = n_states, indexing [j, i]
     """
-    # FIXME: change to zero absorption
-    heps0_arr = eps0 / (n_states - 1) * torch.ones((n_states, n_states))
+    stable_zero = 1e-8
+    heps0_arr = torch.full((n_states, ) * 2, torch.nan)
     diag_mask = get_zipping_mask0(n_states)
     heps0_arr[diag_mask] = 1 - eps0
+    heps0_arr[~diag_mask] = eps0 / (n_states - 1)
+    # zero absorption
+    heps0_arr[0, 0] = 1. - stable_zero
+    heps0_arr[1:, 0] = stable_zero
     return heps0_arr
 
 

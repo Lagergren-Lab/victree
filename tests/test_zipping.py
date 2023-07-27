@@ -7,7 +7,7 @@ import torch
 from utils import eps_utils
 from model.tree_hmm import CopyNumberTreeHMM
 from utils.config import Config
-from utils.eps_utils import h_eps
+from utils.eps_utils import h_eps, h_eps0
 from variational_distributions.var_dists import qEpsilonMulti
 
 
@@ -90,4 +90,12 @@ class zippingTestCase(unittest.TestCase):
         unfeas_configs[1:, :, 0] = True
         sum_h_eps = h_eps_test.sum(dim=0)[~unfeas_configs]
         self.assertTrue(torch.allclose(sum_h_eps, torch.ones_like(sum_h_eps)))
+
+    def test_h_eps0_absorption(self):
+        n_states = 6
+        h_eps0_test = h_eps0(n_states, .01)
+        self.assertFalse(torch.isnan(h_eps0_test).any())
+        sum_h_eps0 = h_eps0_test.sum(dim=0)
+        self.assertTrue(torch.allclose(sum_h_eps0, torch.ones_like(sum_h_eps0)))
+
 
