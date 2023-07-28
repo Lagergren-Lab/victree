@@ -28,7 +28,7 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_quadtruplet_tree()
         n_cells = 2
-        n_sites = 2000
+        n_sites = 1000
         n_copy_states = 7
         nu_0 = torch.tensor(1.)
         lambda_0 = torch.tensor(10.)
@@ -43,7 +43,7 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        config = Config(n_nodes=4, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.1,
+        config = Config(n_nodes=4, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         diagnostics=False, out_dir=out_dir, annealing=1., qc_smoothing=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qeps, qz, qmt = self.set_up_q(config)
@@ -54,14 +54,15 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         qmt.initialize(loc=1., precision_factor=1., shape=100., rate=10.)
         copy_tree = VICTree(config, q, y)
 
-        copy_tree.run(n_iter=230)
+        copy_tree.run(n_iter=40)
 
         # Assert
         print(f"q(C): {q.c.single_filtering_probs.argmax(dim=-1)}")
         print(f"true c: {c}")
         model_variational_comparisons.compare_qC_and_true_C(true_C=c, q_c=copy_tree.q.c)
-        model_variational_comparisons.compare_qMuTau_with_true_mu_and_tau(true_mu=mu, true_tau=tau, q_mt=copy_tree.q.mt)
+        cell_idx, mu_avg_err = model_variational_comparisons.compare_qMuTau_with_true_mu_and_tau(true_mu=mu, true_tau=tau, q_mt=copy_tree.q.mt)
         model_variational_comparisons.compare_qEpsilon_and_true_epsilon(true_epsilon=eps, q_epsilon=copy_tree.q.eps)
+        self.assertLess(mu_avg_err, 0.01, msg='Poor mu inference for easy scenario.')
         #model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi, true_mu=mu,
         #                                                  true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
         #                                                  q_z=copy_tree.q.z, qpi=copy_tree.q.z, q_mt=copy_tree.q.mt)

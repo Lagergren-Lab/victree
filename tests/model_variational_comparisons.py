@@ -104,7 +104,9 @@ def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     print(f"MAX square dist tau: {square_dist_tau.max()}")
     if N > 5:
         largest_error_cells_idx = torch.topk(square_dist_mu.flatten(), 5).indices
-        return largest_error_cells_idx
+        return largest_error_cells_idx, square_dist_mu.mean()
+    else:
+        return [], square_dist_mu.mean()
 
 
 def compare_particular_cells(cells_idx, true_mu, true_tau, true_C, true_Z, q_mt: qMuTau, q_c: qC, q_z: qZ):
@@ -185,13 +187,14 @@ def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_ep
     if qpi is not None:
         compare_qPi_and_true_pi(true_pi, qpi, perm)
     qC_n_diff = compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
-    cell_idxs = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
+    cell_idxs, mu_avg_dist = compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt)
     compare_particular_cells(cell_idxs, true_mu, true_tau, true_C, true_Z, q_mt, q_c, q_z)
     if q_eps is not None:
         compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps, perm)
     log_L_true_model, log_L_var_model = compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, perm)
     print("---- Fixed tree comparisons END ------- \n")
-    out = {'ari': ari, 'perm': perm, 'acc': acc, 'qC_n_diff': qC_n_diff, 'll_true':log_L_true_model, 'll_var': log_L_var_model }
+    out = {'ari': ari, 'perm': perm, 'acc': acc, 'qC_n_diff': qC_n_diff,
+           'll_true': log_L_true_model, 'll_var': log_L_var_model, 'mu_avg_dist': mu_avg_dist}
     return out
 
 
