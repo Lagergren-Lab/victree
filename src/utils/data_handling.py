@@ -236,32 +236,6 @@ def read_hmmcopy_state_from_h5(file_path):
 
 def read_checkpoint(file_path):
     return load_h5_pseudoanndata(file_path)
-    h5_results = h5["result"]
-    params_histories = {
-        'C': h5_results['copy_number'],
-        'Z': h5_results['cell_assignment'],
-        'eps_a': h5_results['eps_alpha'],
-        'eps_b': h5_results['eps_beta'],
-        'G': h5_results['graph'],
-        'mu_tau': h5_results['mu_tau'],
-        'T': h5_results['trees']
-    }
-    # data = {
-    #     'elbo': h5["result"]['VarTreeJointDist']['elbo'][()],
-    #     'copy': h5["result"]['qC']['single_filtering_probs'][()],
-    #     'eps_alpha': h5["result"]['qEpsilonMulti']['alpha'][()],
-    #     'eps_beta': h5["result"]['qEpsilonMulti']['beta'][()],
-    #     'mt_nu': h5["result"]['qMuTau']['nu'][()],
-    #     'mt_lmbda': h5["result"]['qMuTau']['lmbda'][()],
-    #     'mt_alpha': h5["result"]['qMuTau']['alpha'][()],
-    #     'mt_beta': h5["result"]['qMuTau']['beta'][()],
-    #     'pi_cf': h5["result"]['qPi']['concentration_param'][()],
-    #     't_sample_nwk': h5["result"]['qT']['trees_sample_newick'][()],
-    #     't_sample_w': h5["result"]['qT']['trees_sample_weights'][()],
-    #     't_mat': h5["result"]['qT']['weight_matrix'][()],
-    #     'z_pi': h5["result"]['qZ']['pi'][()]
-    # }
-    return params_histories
 
 
 def read_last_it_from_checkpoint(file_path):
