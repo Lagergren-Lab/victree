@@ -229,7 +229,8 @@ def get_all_two_step_connections(T: nx.DiGraph):
 
 
 def remap_edge_labels(T_list, perm):
-    K = len(perm)
+    K = len(T_list[0].nodes)
+    perm = list(range(K)) if perm is None else perm
     perm_dict = {i: perm[i] for i in range(K)}
     T_list_remapped = []
     for T in T_list:

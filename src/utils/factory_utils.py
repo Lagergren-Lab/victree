@@ -5,7 +5,7 @@ import torch
 from inference.victree import VICTree
 from utils.config import Config
 from variational_distributions import var_dists
-import data_handling
+#import data_handling
 from variational_distributions.joint_dists import VarTreeJointDist
 
 
@@ -40,10 +40,10 @@ def construct_q_from_checkpoint_data(checkpoint_data, obs, config=None):
 def construct_qT_from_checkpoint_data(checkpoint_data, config=None):
     config = construct_config_from_checkpoint_data(checkpoint_data) if config is None else config
     qT_params = checkpoint_data['qT']
-    qT_weight_matrix = torch.tensor(qT_params['weight_matrix'])
+    qT_weight_matrix = torch.tensor(qT_params['weight_matrix'][-1])
     qT = var_dists.qT(config)
     qT.initialize()
-    qT._weight_matrix = qT_weight_matrix[-1, :, :]
+    qT._weight_matrix = qT_weight_matrix
     return qT
 
 

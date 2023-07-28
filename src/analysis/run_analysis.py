@@ -1,6 +1,8 @@
 import argparse
 import os
 
+from analysis import qT_analysis
+from utils import factory_utils, data_handling
 from utils.config import set_seed
 from utils.data_handling import DataHandler
 
@@ -11,7 +13,6 @@ def validate_path(f):
         raise argparse.ArgumentTypeError("{0} does not exist".format(f))
     return f
 
-
 def run_analysis(args):
     """
     Instantiate configuration object, variational distributions
@@ -20,32 +21,53 @@ def run_analysis(args):
     # ---
     # Import data
     # ---
-    if args.import_data:
-        data_handler = DataHandler(args.file_path)
+    if args.data_path is not None:
+        data_handler = DataHandler(args.data_path)
         obs = data_handler.norm_reads
 
     # ---
-    # Create configuration object
+    # Create configuration object and load checkpoint
     # ---
+    checkpoint_data = data_handling.read_checkpoint(args.checkpoint_path)
+    config = factory_utils.construct_config_from_checkpoint_data(checkpoint_data)
+
+
+    # ---
+    # Run analysis
+    # ---
+    if args.victree:
+        raise NotImplementedError
+    if args.qT:
+        q_T = factory_utils.construct_qT_from_checkpoint_data(checkpoint_data, config)
+        qT_analysis.edge_probability_analysis(q_T, args.tree_sample_size)
+    if args.qZ:
+        raise NotImplementedError
+    if args.qC:
+        raise NotImplementedError
+
 
 
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
         description="VIC-Tree analysis")
-    parser.add_argument("-i", "--input", dest="file_path",
-                        type=validate_path, default='../output/simul_k5a7n300m1000e1-50d10mt1-10-500-50.h5',
+    parser.add_argument("-i1", "--input_data", dest="data_path",
+                        type=validate_path, default='../../data/x_data/signals_SPECTRUM-OV-014.h5',
+                        help="output model file", metavar="FILE")
+    parser.add_argument("-i2", "--input_checkpoint", dest="checkpoint_path",
+                        type=validate_path, default='../../output/checkpoint_k6a7n1105m6206.h5',
                         help="output model file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
                         help="output dir", metavar="DIR", default="./output")
+    parser.add_argument("--victree", action="store_true", help="Run full victree analysis")
+    parser.add_argument("--qT", action="store_true", help="Run qT analysis")
+    parser.add_argument("--qZ", action="store_true", help="Run qZ analysis")
+    parser.add_argument("--qC", action="store_true", help="Run qC analysis")
     parser.add_argument("-s", "--seed", default=42, type=int, help="RNG seed")
-    parser.add_argument("-n", "--n-iter", default=20, type=int, help="VI iterations")
-    parser.add_argument("-a", "--diagnostics", action="store_true", help="store data of var dists during optimization")
     parser.add_argument("-K", "--n-nodes", default=5, type=int, help="number of nodes/clones")
     parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
     parser.add_argument("-S", "--step-size", default=.1, type=float, help="step-size for partial updates")
     parser.add_argument("-L", "--tree-sample-size", default=10, type=int, help="number of sampled arborescences")
-    parser.add_argument("--r-tol", default=10e-4, type=float, help="relative tolerance for early stopping")
 
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)

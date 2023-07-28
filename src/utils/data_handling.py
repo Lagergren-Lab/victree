@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from typing import List, Tuple, Union
 from pathlib import Path
 
@@ -263,3 +264,12 @@ def read_vi_gt(checkpoint_file, simul_file):
     vi = read_last_it_from_checkpoint(checkpoint_file)
     gt = read_simul(simul_file)
     return vi, gt
+
+
+def create_analysis_output_catalog(analysis_function_path, base_dir):
+    path = base_dir + "/" + analysis_function_path
+    try:
+        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        print("Dir already exists. Risk of overwriting contents.")
+    return path
