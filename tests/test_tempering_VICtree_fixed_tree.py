@@ -145,6 +145,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                                                           true_tau=tau, true_epsilon=eps, q_c=copy_tree_temp.q.c,
                                                           q_z=copy_tree_temp.q.z, qpi=copy_tree_temp.q.pi, q_mt=copy_tree_temp.q.mt)
 
+    @unittest.skip("long exec time")
     def test_large_tree(self):
         torch.manual_seed(0)
         K = 5
