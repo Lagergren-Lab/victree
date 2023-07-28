@@ -18,29 +18,6 @@ class qEpsilonTestCase(unittest.TestCase):
         # self.qeps = qEpsilon(self.config, a, b)
         self.qeps = qEpsilonMulti(self.config, a, b).initialize()
 
-    def test_q_epsilon_running_for_two_simple_Ts_random_qC(self):
-        # Arange
-        M=20
-        A=5
-        N=3
-
-        config = Config(n_nodes=N, n_states=A, chain_length=M)
-
-        T_list, q_C_pairwise_marginals = utils_testing.get_two_simple_trees_with_random_qCs(M, A, N)
-        w_T = torch.tensor([0.3, 0.7])
-
-        qc = qC(config)
-        qc.couple_filtering_probs = q_C_pairwise_marginals
-        # Act
-        a, b = self.qeps.update_CAVI(T_list, w_T, qc)
-
-        # Assert
-        print(f"Beta param a: {a}")
-        print(f"Beta param b: {b}")
-
-        elbo = self.qeps.compute_elbo([T_list[0]], w_T[0])
-        print(f"ELBO: {elbo}")
-
     def test_expectation_size(self):
         for u in range(self.config.n_nodes):
             for v in range(self.config.n_nodes):
@@ -61,7 +38,9 @@ class qEpsilonTestCase(unittest.TestCase):
 
         config = Config(n_nodes=K, n_states=A, chain_length=M)
         q_eps1 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
+        q_eps1.initialize('non_mutation')
         q_eps2 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
+        q_eps2.initialize('non_mutation')
         T = nx.DiGraph()
         T.add_edge(0, 1)
         w_T = [1.]

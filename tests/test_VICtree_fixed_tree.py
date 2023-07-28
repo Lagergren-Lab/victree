@@ -21,7 +21,6 @@ from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
-@unittest.skip("uses old code: change simul data pyro to newer simulate_full_dataset")
 class VICtreeFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -38,11 +37,11 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         logging.getLogger().setLevel("INFO")
         tree = tests.utils_testing.get_two_node_tree()
         n_nodes = len(tree.nodes)
-        n_cells = 1000
-        n_sites = 200
+        n_cells = 500
+        n_sites = 500
         n_copy_states = 7
         dir_alpha = [1., 3.]
-        nu_0 = 10.
+        nu_0 = 1.
         lambda_0 = 10.
         alpha0 = 500.
         beta0 = 50.
@@ -54,7 +53,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
-                        debug=False, diagnostics=True)
+                        debug=False, diagnostics=False)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
@@ -67,40 +66,38 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         copy_tree.run(n_iter=80)
 
         # Assert
-        # FIXME: use q.params_history for each distribution of interest
-        diagnostics_dict = q.params_history
-        visualization_utils.plot_diagnostics_to_pdf(diagnostics_dict,
-                                                    cells_to_vis_idxs=[0, int(n_cells / 2), int(n_cells / 3),
-                                                                       n_cells - 1],
-                                                    clones_to_vis_idxs=[1, 0],
-                                                    edges_to_vis_idxs=[(0, 1)],
-                                                    save_path=test_dir_name + '/diagnostics.pdf')
         torch.set_printoptions(precision=2)
-        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi,
+                                                                true_mu=mu,
+                                                                true_tau=tau, true_epsilon=eps,
+                                                                q_c=copy_tree.q.c,
+                                                                q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                                q_mt=copy_tree.q.mt)
+        ari, perm, acc = (out['ari'], out['perm'], out['acc'])
+
+        self.assertGreater(ari, 0.9, msg='ari less than 0.9 for easy scenario.')
 
     def test_three_node_tree(self):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
-        n_cells = 1000
-        n_sites = 200
+        n_cells = 500
+        n_sites = 500
         n_copy_states = 7
         dir_alpha = [1., 3., 3.]
-        nu_0 = 10.
+        nu_0 = 1.
         lambda_0 = 10.
         alpha0 = 500.
         beta0 = 50.
         a0 = 10.0
-        b0 = 800.0
+        b0 = 200.0
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
         print(f"Epsilon: {eps}")
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
-                        debug=False, diagnostics=True)
+                        debug=False, diagnostics=False)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
@@ -117,17 +114,24 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         torch.set_printoptions(precision=2)
-        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi,
+                                                                true_mu=mu,
+                                                                true_tau=tau, true_epsilon=eps,
+                                                                q_c=copy_tree.q.c,
+                                                                q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                                q_mt=copy_tree.q.mt, q_eps=qeps)
+        ari, perm, acc = (out['ari'], out['perm'], out['acc'])
 
-    def test_large_tree(self):
+        self.assertGreater(ari, 0.9, msg='ari less than 0.9 for easy scenario.')
+
+    def test_five_node_tree(self):
+        # CAN BE IGNORED IF TOO SLOW
         torch.manual_seed(0)
-        K = 9
+        K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         n_cells = 500
         n_sites = 500
-        n_copy_states = 5
+        n_copy_states = 7
         dir_alpha0 = 10.
         nu_0 = 1.
         lambda_0 = 10.
@@ -140,15 +144,12 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha0)
         print(f"C: {C}")
-        #print(f"z: {z}")
-        #print(f"y: {y}")
-        #print(f"mu: {mu}")
 
         out_dir = "./test_output/" + self._testMethodName
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.1,
+        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         diagnostics=False, out_dir=out_dir, annealing=1.)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
@@ -156,54 +157,78 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         copy_tree = VICTree(config, q, y)
 
-        copy_tree.run(n_iter=500)
-        copy_tree.step()
-        print(q.c)
-
-        # Assert
-        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
-
-    def test_large_tree_init_true_params(self):
-        logger = logging.getLogger()
-        logger.level = logging.INFO
-        K = 10
-        tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 1000
-        n_sites = 200
-        n_copy_states = 7
-        nu_0 = 10.
-        lambda_0 = 10.
-        alpha0 = 500.
-        beta0 = 50.
-        a0 = 10.0
-        b0 = 200.0
-        dir_alpha0 = list(np.ones(K) * 2.)
-        y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
-                                                                        nu_0=nu_0,
-                                                                        lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
-                                                                        a0=a0, b0=b0, dir_alpha0=dir_alpha0)
-        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
-                        diagnostics=True)
-        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
-        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
-        q.initialize()
-
-        copy_tree = VICTree(config, q, y)
-        copy_tree.q.pi.concentration_param = dir_alpha0
-        copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
-        copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
-
-        copy_tree.run(n_iter=50)
+        copy_tree.run(n_iter=100)
 
         # Assert
         torch.set_printoptions(precision=2)
-        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt)
+        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi,
+                                                                true_mu=mu,
+                                                                true_tau=tau, true_epsilon=eps,
+                                                                q_c=copy_tree.q.c,
+                                                                q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                                q_mt=copy_tree.q.mt, q_eps=qeps)
+        ari, perm, acc = (out['ari'], out['perm'], out['acc'])
 
+        self.assertGreater(ari, 0.7, msg='ari less than 0.7.')
+
+
+    def test_large_tree_fixed_qMuTau_same_data_different_optimizations(self):
+        logger = logging.getLogger()
+        logger.level = logging.INFO
+        K = 7
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        print(f"Tree edges: {tree.edges}")
+        n_cells = 500
+        n_sites = 500
+        n_copy_states = 7
+        dir_alpha0 = [3.] * 7
+        n_tests = 1
+        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
+                        debug=False)
+        sim_data_seed = 0
+        torch.manual_seed(sim_data_seed)
+        out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=20., mu0=1., lambda0=10., alpha0=50.,
+                                                beta0=10., dir_alpha=dir_alpha0, tree=tree)
+        y = out_simul['obs']
+        C = out_simul['c']
+        z = out_simul['z']
+        pi = out_simul['pi']
+        mu = out_simul['mu']
+        tau = out_simul['tau']
+        eps = out_simul['eps']
+        eps0 = out_simul['eps0']
+        tree = out_simul['tree']
+
+        print(f"Simulated data")
+        vis_clone_idx = z[80]
+        print(f"C: {C[vis_clone_idx, 40]} y: {y[80, 40]} z: {z[80]} \n"
+              f"pi: {pi} mu: {mu[80]} tau: {tau[80]} eps: {eps}")
+
+        for i in range(n_tests):
+            torch.manual_seed(i)
+            config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3)
+            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+            qmt = qMuTau(config, true_params={"mu": mu, "tau": tau})
+            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q.initialize()
+            qmt.initialize(method='fixed', loc=1., precision_factor=10., shape=50., rate=10.)
+            q.eps.initialize(method='non_mutation')
+            q.z.pi = f.one_hot(z.long(), num_classes=K).float()
+
+            victree = VICTree(config, q, y)
+
+            victree.run(n_iter=50)
+
+            torch.set_printoptions(precision=2)
+            out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                                    true_tau=tau, true_epsilon=eps, q_c=victree.q.c,
+                                                                    q_z=victree.q.z, qpi=victree.q.pi,
+                                                                    q_mt=victree.q.mt, q_eps=qeps)
+            self.assertGreater(out['ari'], 0.9, msg='ARI score for qMuTau fixed to true values should be close to 1.')
+            self.assertLess(out['qC_n_diff'], (n_sites * K) / 5,
+                            msg='Number of wrong qC for qMuTau fixed to true values should be less than 20%.')
+
+    @unittest.skip("long exec time")
     def test_large_tree_init_close_to_true_params(self):
         logger = logging.getLogger()
         logger.level = logging.INFO
@@ -269,6 +294,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                           q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
                                                           q_eps=copy_tree.q.eps)
 
+    @unittest.skip("long exec time")
     def test_large_tree_good_init_multiple_runs(self):
         logger = logging.getLogger()
         logger.level = logging.INFO
@@ -324,6 +350,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                               q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                               q_mt=copy_tree.q.mt)
 
+    @unittest.skip("long exec time")
     def test_large_tree_good_init_seiving(self):
         K = 5
         tree = tests.utils_testing.get_tree_K_nodes_random(K)

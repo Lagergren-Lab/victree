@@ -21,19 +21,20 @@ from utils.config import Config, set_seed
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
+@unittest.skip("Manual inspection tests/experiments")
 class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
-        qeps = qEpsilonMulti(config)#), alpha_prior=1., beta_prior=10.)
+        qeps = qEpsilonMulti(config)  # ), alpha_prior=1., beta_prior=10.)
         qz = qZ(config)
         qpi = qPi(config)
-        qmt = qMuTau(config)#, nu_prior=1.0, lambda_prior=10., alpha_prior=50., beta_prior=5.)
+        qmt = qMuTau(config)  # , nu_prior=1.0, lambda_prior=10., alpha_prior=50., beta_prior=5.)
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_three_node_tree(self):
-        set_seed(1)
+        set_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
         n_cells = 500
@@ -78,15 +79,17 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         torch.set_printoptions(precision=2)
-        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                          q_z=copy_tree.q.z, qpi=copy_tree.q.pi, q_mt=copy_tree.q.mt,
-                                                          q_eps=copy_tree.q.eps)
+        out1 = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                                 true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
+                                                                 q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
+                                                                 q_mt=copy_tree.q.mt,
+                                                                 q_eps=copy_tree.q.eps)
 
-        model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                          true_tau=tau, true_epsilon=eps, q_c=copy_tree2.q.c,
-                                                          q_z=copy_tree2.q.z, qpi=copy_tree2.q.pi, q_mt=copy_tree2.q.mt,
-                                                          q_eps=copy_tree2.q.eps)
+        out2 = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
+                                                                 true_tau=tau, true_epsilon=eps, q_c=copy_tree2.q.c,
+                                                                 q_z=copy_tree2.q.z, qpi=copy_tree2.q.pi,
+                                                                 q_mt=copy_tree2.q.mt,
+                                                                 q_eps=copy_tree2.q.eps)
 
     @unittest.skip("long exec time")
     def test_large_tree(self):

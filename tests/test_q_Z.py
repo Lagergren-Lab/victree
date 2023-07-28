@@ -18,6 +18,7 @@ class qZTestCase(unittest.TestCase):
         self.q_Z_test = qZ(self.config)
         self.q_Z_test.initialize()
         self.q_pi_test = qPi(self.config)
+        self.q_pi_test.initialize()
         self.q_mu_tau_test = qMuTau(self.config)
         self.q_mu_tau_test.initialize()
         self.q_C_test = qC(self.config)
@@ -57,8 +58,10 @@ class qZTestCase(unittest.TestCase):
     def test_ELBO_lower_for_uniform_qZ_than_skewed_qZ_when_pi_skewed(self):
         skew_cluster_idx = 2
         pi_1 = qPi(self.config)
+        pi_1.concentration_param = torch.ones(self.config.n_nodes)
         pi_1.concentration_param[skew_cluster_idx] = 100
         pi_2 = qPi(self.config)
+        pi_2.concentration_param = torch.ones(self.config.n_nodes)
         pi_2.concentration_param[skew_cluster_idx] = 100
 
         q_Z_1 = qZ(self.config)
@@ -77,8 +80,10 @@ class qZTestCase(unittest.TestCase):
     def test_ELBO_lower_for_uniform_qZ_than_slightly_skewed_qZ_when_pi_small_skew(self):
         skew_cluster_idx = 2
         pi_1 = qPi(self.config)
+        pi_1.concentration_param = torch.ones(self.config.n_nodes)
         pi_1.concentration_param[skew_cluster_idx] = 1.1
         pi_2 = qPi(self.config)
+        pi_2.concentration_param = torch.ones(self.config.n_nodes)
         pi_2.concentration_param[skew_cluster_idx] = 1.1
 
         q_Z_1 = qZ(self.config)

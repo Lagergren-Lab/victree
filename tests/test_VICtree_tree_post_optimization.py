@@ -75,8 +75,8 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         torch.manual_seed(0)
         tree = tests.utils_testing.get_tree_three_nodes_balanced()
         n_nodes = len(tree.nodes)
-        n_cells = 1000
-        n_sites = 200
+        n_cells = 500
+        n_sites = 500
         n_copy_states = 7
         dir_alpha = [1., 3., 3.]
         nu_0 = torch.tensor(10.)
@@ -84,7 +84,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         alpha0 = torch.tensor(500.)
         beta0 = torch.tensor(50.)
         a0 = torch.tensor(10.0)
-        b0 = torch.tensor(200.0)
+        b0 = torch.tensor(20.0)
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
