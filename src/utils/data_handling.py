@@ -210,12 +210,13 @@ def write_checkpoint_h5(copytree, path=None):
                     for k in q.params_history.keys():
                         stacked_arr = np.stack(q.params_history[k], axis=0)
                         ds = qlay[k]
+                        # FIXME: stacked_arr.shape overflows maxshape by 5 in the last iterations
                         ds.resize(ds.shape[0] + stacked_arr.shape[0], axis=0)
                         ds[-stacked_arr.shape[0]:] = stacked_arr
 
             # wipe cache
             for q in copytree.q.get_units() + [copytree.q]:
-                q.params_history = {k: [] for k in q.params_history.keys()}
+                q.reset_params_history()
 
         logging.debug("checkpoint saved!")
 

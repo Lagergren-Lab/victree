@@ -603,6 +603,7 @@ class qC(VariationalDistribution):
                     else:
                         self.eta2[k, m, :, :] = self.eta2[k, m+1, :, :]
 
+
 class qCMultiChrom(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
@@ -614,9 +615,9 @@ class qCMultiChrom(VariationalDistribution):
         true_params: dict, contains "c" key which is a torch.Tensor of shape (n_nodes, chain_length) with
             copy number integer values
         """
+        self.qC_list: List[qC] = []
         super().__init__(config, fixed=true_params is not None)
 
-        self.qC_list: List[qC] = []
         self.n_chr = config.n_chromosomes
         self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
         self.M_cr = []
@@ -640,11 +641,6 @@ class qCMultiChrom(VariationalDistribution):
         if true_params is not None:
             assert "c" in true_params
             raise NotImplementedError("qCMultiChrom has not been tested for fixed distr, might not work as expected")
-
-        # define dist param names
-        self.params_history["single_filtering_probs"] = []
-        # # not needed at the moment
-        # self.params_history["couple_filtering_probs"] = []
 
     def update(self, obs: torch.Tensor,
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -702,8 +698,18 @@ class qCMultiChrom(VariationalDistribution):
         return {'single_filtering_probs': multiqc_hist}
 
     @params_history.setter
-    def params_history(self, ph):
-        pass
+    def params_history(self, ph_dict):
+        # if dict is empty (init)
+        if not ph_dict:
+            pass
+        else:
+            raise NotImplementedError('qC params history is a proxy for individual qc distr, it shouldn\'t be set')
+
+    def reset_params_history(self):
+        # empty params_history for any single qC dist
+        for qc in self.qC_list:
+            for k in qc.params_history.keys():
+                qc.params_history[k] = []
 
     def __str__(self):
         # summary for multi chromosome qc

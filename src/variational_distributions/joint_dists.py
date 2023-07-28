@@ -68,7 +68,7 @@ class VarTreeJointDist(JointDist):
         Variational tree joint distribution class.
         """
         super().__init__(config)
-        self.c: qC = qC(config) if qc is None else qc
+        self.c: qC | qCMultiChrom = qC(config) if qc is None else qc
         self.z: qZ = qZ(config) if qz is None else qz
         self.t: qT = qT(config) if qt is None else qt
         self.eps: qEpsilon | qEpsilonMulti = \
@@ -200,6 +200,7 @@ class VarTreeJointDist(JointDist):
             tot_str += "\n --- \n"
         tot_str += "+++ end of summary +++"
         return tot_str
+
 
 class FixedTreeJointDist(JointDist):
     def __init__(self, config: Config,

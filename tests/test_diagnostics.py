@@ -37,23 +37,28 @@ class InitTestCase(unittest.TestCase):
     def test_progress_tracking(self):
         n_iter = 3
         n_sieving_iter = 3
-        config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=5,
+        config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=5, n_run_iter=n_iter,
                         sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True, out_dir=self.output_dir)
         simul_joint = generate_dataset_var_tree(config)
-        joint_q = VarTreeJointDist(config, simul_joint.obs).initialize()
+        joint_q = VarTreeJointDist(config, simul_joint.obs, qt=simul_joint.t).initialize()
         victree = VICTree(config, joint_q, joint_q.obs)
+
+        # new checkpoint file
+        checkpoint_path = os.path.join(self.output_dir, "checkpoint_" + str(victree) + ".h5")
+        if os.path.exists(checkpoint_path):
+            os.remove(checkpoint_path)
+
         victree.halve_sieve()
         for i in range(n_iter):
             victree.step()
 
         for q in victree.q.get_units() + [victree.q]:
             for k in q.params_history.keys():
-                # FIXME: check n iters
                 self.assertEqual(len(q.params_history[k]), n_sieving_iter + n_iter + 1, msg=f"key issue: '{k}'")
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
-        write_checkpoint_h5(victree, path=os.path.join(self.output_dir, "checkpoint_" + str(victree) + ".h5"))
+        write_checkpoint_h5(victree, path=checkpoint_path)
 
     def test_append_checkpoint(self):
 
