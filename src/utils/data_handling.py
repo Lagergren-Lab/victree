@@ -8,9 +8,8 @@ import torch
 import h5py
 import networkx as nx
 import anndata
-from anndata._io.utils import AnnDataReadError
+#from anndata._io.utils import AnnDataReadError
 
-#from inference.victree import VICTree
 from utils.tree_utils import newick_from_eps_arr
 
 
@@ -53,7 +52,7 @@ class DataHandler:
                 # pandas categorical for chromosomes
                 self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
 
-            except AnnDataReadError as ae:
+            except Exception as ae:  # Couldn't load module for AnnDataReadError
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")
                 # and binary H5 files in pseudo-anndata format
                 full_data = load_h5_pseudoanndata(file_path)
@@ -236,7 +235,7 @@ def read_hmmcopy_state_from_h5(file_path):
 
 
 def read_checkpoint(file_path):
-    h5 = load_h5_pseudoanndata(file_path)
+    return load_h5_pseudoanndata(file_path)
     h5_results = h5["result"]
     params_histories = {
         'C': h5_results['copy_number'],
@@ -262,7 +261,7 @@ def read_checkpoint(file_path):
     #     't_mat': h5["result"]['qT']['weight_matrix'][()],
     #     'z_pi': h5["result"]['qZ']['pi'][()]
     # }
-    return data
+    return params_histories
 
 
 def read_last_it_from_checkpoint(file_path):
