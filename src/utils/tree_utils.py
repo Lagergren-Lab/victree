@@ -1,3 +1,6 @@
+import itertools
+import random
+
 import networkx as nx
 import numpy as np
 import torch
@@ -8,6 +11,8 @@ from dendropy.calculate.treecompare import symmetric_difference
 # from Espalier import MAF
 # from pylabeledrf.computeLRF import *
 from networkx import is_arborescence
+
+from utils import math_utils
 
 
 def generate_fixed_tree(n_nodes: int, seed=0):
@@ -137,7 +142,7 @@ def calculate_Labeled_Robinson_Foulds_distance(T_1: nx.DiGraph, T_2: nx.DiGraph)
 
 def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0), labeled_distance=True):
     if labeled_distance:
-        #edge_match = lambda (u1,v1), (u2,v2) : u1==u2 and v1
+        # edge_match = lambda (u1,v1), (u2,v2) : u1==u2 and v1
         node_match = lambda u1, u2: u1 == u2
     distance = nx.graph_edit_distance(T_1, T_2, roots=roots, node_match=node_match)
     return distance
@@ -157,7 +162,7 @@ def relabel_trees(T_list: list[nx.DiGraph], labeling):
 
 def distances_to_true_tree(true_tree, trees_to_compare: list[nx.DiGraph], labeling=None):
     L = len(trees_to_compare)
-    distances = np.zeros(L,)
+    distances = np.zeros(L, )
     for l, T in enumerate(trees_to_compare):
         if labeling is not None:
             T = relabel_nodes(T, labeling)
@@ -224,7 +229,8 @@ def get_all_two_step_connections(T: nx.DiGraph):
 
 
 def remap_edge_labels(T_list, perm):
-    K = len(perm)
+    K = len(T_list[0].nodes)
+    perm = list(range(K)) if perm is None else perm
     perm_dict = {i: perm[i] for i in range(K)}
     T_list_remapped = []
     for T in T_list:
@@ -232,3 +238,26 @@ def remap_edge_labels(T_list, perm):
         T_list_remapped.append(T_remapped)
 
     return T_list_remapped
+
+
+def get_all_tree_topologies(K):
+    """
+    Enumerate all labeled trees (rooted in 0) with their probability
+    q(T) associated to the weighted graph which represents the current state
+    of the variational distribution over the topology.
+    Returns
+    -------
+    tuple with list of nx.DiGraph (trees) and tensor with normalized log-probabilities
+    """
+    c = 0
+    tot_trees = math_utils.cayleys_formula(K)
+    trees = []
+    for pruf_seq in itertools.product(range(K), repeat=K - 2):
+        unrooted_tree = nx.from_prufer_sequence(list(pruf_seq))
+        rooted_tree = nx.dfs_tree(unrooted_tree, 0)
+
+        trees.append(rooted_tree)
+        c += 1
+
+    assert tot_trees == c
+    return trees

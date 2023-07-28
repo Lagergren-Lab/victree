@@ -50,7 +50,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
-        T_list = tree_utils.get_all_topologies(K)
+        T_list = tree_utils.generate_all_directed_unlabeled_tree_topologies(K)
         n_top = len(T_list)
         elbos = torch.zeros(n_top,)
         for i, T in enumerate(T_list):

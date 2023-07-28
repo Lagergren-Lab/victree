@@ -121,3 +121,11 @@ class treeUtilTestCase(unittest.TestCase):
         T_map_inv = tree_utils.remap_edge_labels([T_map], perm1_inv)[0]
         self.assertEqual(T.edges, T_map_inv.edges)
 
+    def test_generate_all_directed_unlabeled_tree_topologies(self):
+        # Example usage:
+        K = 3
+        all_directed_trees = tree_utils.get_all_tree_topologies(K)
+        nw_trees = [tree_utils.tree_to_newick(T, 0) for T in all_directed_trees]
+        self.assertTrue('(1,2)0' in nw_trees)
+        self.assertTrue('((2)1)0' in nw_trees)
+        self.assertTrue('((1)2)0' in nw_trees)

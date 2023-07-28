@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 from typing import List, Tuple, Union
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import torch
 import h5py
 import networkx as nx
 import anndata
-from anndata._io.utils import AnnDataReadError
+#from anndata._io.utils import AnnDataReadError
 
 from utils.tree_utils import newick_from_eps_arr
 
@@ -52,7 +53,7 @@ class DataHandler:
                 # pandas categorical for chromosomes
                 self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
 
-            except AnnDataReadError as ae:
+            except Exception as ae:  # Couldn't load module for AnnDataReadError
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")
                 # and binary H5 files in pseudo-anndata format
                 full_data = load_h5_pseudoanndata(file_path)
@@ -235,23 +236,7 @@ def read_hmmcopy_state_from_h5(file_path):
 
 
 def read_checkpoint(file_path):
-    h5 = load_h5_pseudoanndata(file_path)
-    data = {
-        'elbo': h5['VarTreeJointDist']['elbo'][()],
-        'copy': h5['qC']['single_filtering_probs'][()],
-        'eps_alpha': h5['qEpsilonMulti']['alpha'][()],
-        'eps_beta': h5['qEpsilonMulti']['beta'][()],
-        'mt_nu': h5['qMuTau']['nu'][()],
-        'mt_lmbda': h5['qMuTau']['lmbda'][()],
-        'mt_alpha': h5['qMuTau']['alpha'][()],
-        'mt_beta': h5['qMuTau']['beta'][()],
-        'pi_cf': h5['qPi']['concentration_param'][()],
-        't_sample_nwk': h5['qT']['trees_sample_newick'][()],
-        't_sample_w': h5['qT']['trees_sample_weights'][()],
-        't_mat': h5['qT']['weight_matrix'][()],
-        'z_pi': h5['qZ']['pi'][()]
-    }
-    return data
+    return load_h5_pseudoanndata(file_path)
 
 
 def read_last_it_from_checkpoint(file_path):
@@ -279,3 +264,12 @@ def read_vi_gt(checkpoint_file, simul_file):
     vi = read_last_it_from_checkpoint(checkpoint_file)
     gt = read_simul(simul_file)
     return vi, gt
+
+
+def create_analysis_output_catalog(analysis_function_path, base_dir):
+    path = base_dir + "/" + analysis_function_path
+    try:
+        pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        print("Dir already exists. Risk of overwriting contents.")
+    return path
