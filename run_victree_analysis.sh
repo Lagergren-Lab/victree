@@ -41,7 +41,7 @@ parse_yaml_args() {
   echo "${args[@]}"
 }
 
-copytree_dir="/home/x_vitza/coPy-tree"
+copytree_dir="/home/x_vitza/victree"
 
 # validate input
 if [ $# -ne 1 ]; then
