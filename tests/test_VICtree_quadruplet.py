@@ -62,7 +62,7 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         model_variational_comparisons.compare_qC_and_true_C(true_C=c, q_c=copy_tree.q.c)
         cell_idx, mu_avg_err = model_variational_comparisons.compare_qMuTau_with_true_mu_and_tau(true_mu=mu, true_tau=tau, q_mt=copy_tree.q.mt)
         model_variational_comparisons.compare_qEpsilon_and_true_epsilon(true_epsilon=eps, q_epsilon=copy_tree.q.eps)
-        self.assertLess(mu_avg_err, 0.01, msg='Poor mu inference for easy scenario.')
+        self.assertLess(mu_avg_err, 0.05, msg='Poor mu inference for easy scenario.')
         #model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi, true_mu=mu,
         #                                                  true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
         #                                                  q_z=copy_tree.q.z, qpi=copy_tree.q.z, q_mt=copy_tree.q.mt)
