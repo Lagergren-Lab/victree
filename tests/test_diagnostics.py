@@ -135,7 +135,7 @@ class InitTestCase(unittest.TestCase):
 
         loaded_checkpoint = read_last_it_from_checkpoint(test_checkpoint_file_path)
 
-        self.assertTrue(loaded_checkpoint['qT'])
+        self.assertTrue(loaded_checkpoint['qT']['weight_matrix'].shape == (14, 3, 3))
 
 
 
