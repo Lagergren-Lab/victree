@@ -304,7 +304,7 @@ class VICTree:
             logging.debug(f"-------- it: {self.it_counter} --------")
             logging.debug(str(self.q))
         # save checkpoint every 20 iterations
-        if self.config.diagnostics and self.it_counter % 20 == 0:
+        if self.config.diagnostics and self.it_counter % self.config.save_progress_every_niter == 0:
             write_checkpoint_h5(self, path=os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5"))
 
     def set_temperature(self, it, n_iter):

@@ -68,7 +68,7 @@ class VarTreeJointDist(JointDist):
         Variational tree joint distribution class.
         """
         super().__init__(config)
-        self.c: qC = qC(config) if qc is None else qc
+        self.c: qC | qCMultiChrom = qC(config) if qc is None else qc
         self.z: qZ = qZ(config) if qz is None else qz
         self.t: qT = qT(config) if qt is None else qt
         self.eps: qEpsilon | qEpsilonMulti = \
@@ -76,6 +76,14 @@ class VarTreeJointDist(JointDist):
         self.mt: qMuTau = qMuTau(config) if qmt is None else qmt
         self.pi: qPi = qPi(config) if qpi is None else qpi
         self.obs = obs
+
+    @property
+    def fixed(self):
+        return all(q.fixed for q in self.get_units())
+
+    @fixed.setter
+    def fixed(self, f):
+        pass
 
     def get_units(self) -> List[VariationalDistribution]:
         """
@@ -201,6 +209,7 @@ class VarTreeJointDist(JointDist):
         tot_str += "+++ end of summary +++"
         return tot_str
 
+
 class FixedTreeJointDist(JointDist):
     def __init__(self, config: Config,
                  qc, qz, qeps, qpsi, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
@@ -239,6 +248,14 @@ class FixedTreeJointDist(JointDist):
     def get_units(self) -> list:
         # TODO: if needed, specify an ordering
         return [self.c, self.eps, self.pi, self.z, self.mt]
+
+    @property
+    def fixed(self):
+        return all(q.fixed for q in self.get_units())
+
+    @fixed.setter
+    def fixed(self, f):
+        pass
 
     def update_shuffle(self, n_updates: int = 5):
         """
