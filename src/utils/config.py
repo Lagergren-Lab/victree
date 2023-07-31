@@ -23,7 +23,7 @@ class Config:
                  diagnostics=False,
                  out_dir="./output",
                  n_run_iter: int = 10,
-                 save_progress_every_niter: int = 20,
+                 save_progress_every_niter: int = 10,
                  qc_smoothing=False) -> None:
         self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics

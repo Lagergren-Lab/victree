@@ -67,6 +67,6 @@ def run(args):
     # ---
     # Save output to H5
     # ---
-    write_output_h5(copy_tree, os.path.join(args.out_dir, "out_" + str(copy_tree) + ".h5"))
+    write_output_h5(copy_tree, os.path.join(config.out_dir, "out_" + str(copy_tree) + ".h5"))
 
     return copy_tree

@@ -2391,10 +2391,10 @@ class qPhi(qPsi):
 
 class qPi(VariationalDistribution):
 
-    def __init__(self, config: Config, delta_prior: float = 1., true_params: dict | None = None):
+    def __init__(self, config: Config, delta_prior: float | list[float] = 1., true_params: dict | None = None):
         super().__init__(config, fixed=true_params is not None)
 
-        self.concentration_param_prior = torch.ones(config.n_nodes) * delta_prior
+        self.concentration_param_prior = torch.ones(config.n_nodes) * torch.tensor(delta_prior)
         self._concentration_param = torch.empty_like(self.concentration_param_prior)
 
         if true_params is not None:

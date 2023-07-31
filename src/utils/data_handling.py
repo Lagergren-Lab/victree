@@ -9,7 +9,6 @@ import torch
 import h5py
 import networkx as nx
 import anndata
-#from anndata._io.utils import AnnDataReadError
 
 from utils.tree_utils import newick_from_eps_arr
 
@@ -144,7 +143,7 @@ def dict_to_tensor(a: dict):
     return a_tensor
 
 
-def edge_dict_to_matrix(a: dict, k: int):
+def edge_dict_to_matrix(a: dict, k: int) -> np.ndarray:
     """
     zero pads the edges which are not in the dict keys
     k: size of matrix (num_nodes)
@@ -156,6 +155,9 @@ def edge_dict_to_matrix(a: dict, k: int):
 
 
 def write_output_h5(out_copytree, out_path):
+    if os.path.exists(out_path):
+        logging.warning("overwriting existing output...")
+
     f = h5py.File(out_path, 'w')
     x_ds = f.create_dataset('X', data=out_copytree.obs.T)
     out_grp = f.create_group('result')
@@ -168,13 +170,13 @@ def write_output_h5(out_copytree, out_path):
     mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda,
                           out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
 
-
-    copy_number = out_grp.create_dataset('copy_number', data=out_copytree.q.c.single_filtering_probs)
+    copy_number = out_grp.create_dataset('cn_marginal', data=out_copytree.q.c.single_filtering_probs.numpy())
+    cn_viterbi = out_grp.create_dataset('cn_viterbi', data=out_copytree.q.c.get_viterbi().numpy())
     graph_weights = out_grp.create_dataset('graph', data=graph_adj_matrix)
-    cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi)
+    cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi.numpy())
     eps_alpha = out_grp.create_dataset('eps_alpha', data=alpha_tensor)
     eps_beta = out_grp.create_dataset('eps_beta', data=beta_tensor)
-    mt = out_grp.create_dataset('mu_tau', data=mt_agg)
+    mt = out_grp.create_dataset('mu_tau', data=mt_agg.numpy())
 
     # store trees in a separate group
     qt_pmf = out_copytree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
@@ -183,7 +185,7 @@ def write_output_h5(out_copytree, out_path):
     tree_weight_ds = trees_grp.create_dataset('weight', data=np.array(list(qt_pmf.values())))
 
     f.close()
-    logging.debug(f"results saved: {out_path}")
+    logging.debug(f"results successfully saved: {out_path}")
 
 
 def write_checkpoint_h5(copytree, path=None):
@@ -202,8 +204,9 @@ def write_checkpoint_h5(copytree, path=None):
                         stacked_arr = np.stack(q.params_history[k], axis=0)
                         # init dset with unlimited number of iteration and fix other dims
                         ds = qlay.create_dataset(k, data=stacked_arr,
-                                                 maxshape=(copytree.config.n_sieving_iter + copytree.config.n_run_iter + 1,
-                                                           *stacked_arr.shape[1:]), chunks=True)
+                                                 maxshape=(
+                                                 copytree.config.n_sieving_iter + copytree.config.n_run_iter + 1,
+                                                 *stacked_arr.shape[1:]), chunks=True)
             else:
                 # resize and append
                 for q in copytree.q.get_units() + [copytree.q]:

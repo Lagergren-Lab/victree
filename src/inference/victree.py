@@ -11,7 +11,7 @@ import torch.distributions as dist
 from tqdm import tqdm
 
 from utils.config import Config
-from utils.data_handling import write_checkpoint_h5
+from utils.data_handling import write_checkpoint_h5, write_output_h5
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 
 
@@ -141,6 +141,9 @@ class VICTree:
                 logging.warning("Elbo is decreasing")
             else:
                 close_runs = 0
+
+            if it % self.config.save_progress_every_niter == 0:
+                write_output_h5(self, os.path.join(self.config.out_dir, "out_" + str(self) + ".h5"))
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
