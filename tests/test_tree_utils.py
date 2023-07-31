@@ -107,17 +107,17 @@ class treeUtilTestCase(unittest.TestCase):
         T.add_edge(2, 3)
         T.add_edge(3, 4)
 
-        perm = [0, 1, 2, 3]
+        perm = [0, 1, 2, 3, 4]
 
         # Test identity mapping
         T_map = tree_utils.remap_edge_labels([T], perm)[0]
         self.assertEqual(T.edges, T_map.edges, msg='Identity mapping failed.')
 
-        perm1 = [0, 2, 3, 1]
+        perm1 = [0, 2, 3, 1, 4]
         T_map = tree_utils.remap_edge_labels([T], perm1)[0]
         self.assertNotEqual(T.edges, T_map.edges, msg='Mapped tree still equal to original after mapping.')
 
-        perm1_inv = [0, 3, 1, 2]
+        perm1_inv = [0, 3, 1, 2, 4]
         T_map_inv = tree_utils.remap_edge_labels([T_map], perm1_inv)[0]
         self.assertEqual(T.edges, T_map_inv.edges)
 

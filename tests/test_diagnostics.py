@@ -77,15 +77,14 @@ class InitTestCase(unittest.TestCase):
             dset[-new_data_size:] = np.arange(new_data_size * dim2).reshape((new_data_size, -1))
             self.assertEqual(dset.shape, (init_data_size + new_data_size, dim2))
 
-
     def test_load_checkpoint(self):
         test_checkpoint_file_path = os.path.join(self.output_dir, "checkpoint_k3a3n30m5.h5")
         if not os.path.exists(test_checkpoint_file_path):
             raise Exception("Test checkpoint file doesn't exist! Run test 'test_progress_tracking' first.")
 
-        loaded_checkpoint = data_handling.read_last_it_from_checkpoint(test_checkpoint_file_path)
+        loaded_checkpoint = data_handling.load_h5_pseudoanndata(test_checkpoint_file_path)
 
-        self.assertTrue(loaded_checkpoint['qT'])
+        self.assertTrue(loaded_checkpoint['qT']['weight_matrix'].shape == (14, 3, 3))
 
 
 
