@@ -584,6 +584,7 @@ class qC(VariationalDistribution):
 
     def get_checkpoint(self):
         return {"eta1": self.eta1, "eta2": self.eta2}
+
     # TODO: continue
 
     def smooth_etas(self):
@@ -591,17 +592,17 @@ class qC(VariationalDistribution):
         for k in range(self.config.n_nodes):
             for m in range(2, self.config.chain_length - 3):
                 current_state = self.eta2[k, m, :, :].argmax(dim=-1)
-                prev_state = self.eta2[k, m-1, :, :].argmax(dim=-1)
-                next_state = self.eta2[k, m+1, :, :].argmax(dim=-1)
+                prev_state = self.eta2[k, m - 1, :, :].argmax(dim=-1)
+                next_state = self.eta2[k, m + 1, :, :].argmax(dim=-1)
                 if (prev_state != current_state).any() and \
-                        (self.eta2[k, m-2, :, :].argmax(dim=-1) == prev_state).any() and \
+                        (self.eta2[k, m - 2, :, :].argmax(dim=-1) == prev_state).any() and \
                         (current_state != next_state).any() and \
-                        (self.eta2[k, m+2, :, :].argmax(dim=-1) == next_state).any():  # lag 2 outlier
+                        (self.eta2[k, m + 2, :, :].argmax(dim=-1) == next_state).any():  # lag 2 outlier
 
                     if torch.abs(current_state - prev_state).sum() < torch.abs(current_state - next_state).sum():
-                        self.eta2[k, m, :, :] = self.eta2[k, m-1, :, :]
+                        self.eta2[k, m, :, :] = self.eta2[k, m - 1, :, :]
                     else:
-                        self.eta2[k, m, :, :] = self.eta2[k, m+1, :, :]
+                        self.eta2[k, m, :, :] = self.eta2[k, m + 1, :, :]
 
 
 class qCMultiChrom(VariationalDistribution):
@@ -617,16 +618,25 @@ class qCMultiChrom(VariationalDistribution):
         """
         self.qC_list: List[qC] = []
         super().__init__(config, fixed=true_params is not None)
+        self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
+
+        # validate true params
+        multi_true_params = [None] * config.n_chromosomes
+        if true_params is not None:
+            assert "c" in true_params
+            multi_true_params = [
+                {'c': true_params['c']
+                [:, self.chr_start_points[s]:self.chr_start_points[s + 1]]}
+                for s in range(self.config.n_chromosomes)]
 
         self.n_chr = config.n_chromosomes
-        self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
         self.M_cr = []
         for i in range(self.n_chr):
             M_chr_i = self.chr_start_points[i + 1] - self.chr_start_points[i]
             config_i = copy.deepcopy(self.config)
             config_i.chain_length = M_chr_i
             # TODO: add better name for chromosomes (using actual names)
-            self.qC_list.append(qC(config_i, true_params=true_params, chr_name=str(i)))
+            self.qC_list.append(qC(config_i, true_params=multi_true_params[i], chr_name=str(i)))
 
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
         self._couple_filtering_probs = torch.empty(
@@ -636,11 +646,6 @@ class qCMultiChrom(VariationalDistribution):
         self._eta1: torch.Tensor = torch.empty((config.n_nodes, config.n_states))
         # eta2 = log(phi) - log transition probs
         self._eta2: torch.Tensor = torch.empty_like(self._couple_filtering_probs)
-
-        # validate true params
-        if true_params is not None:
-            assert "c" in true_params
-            raise NotImplementedError("qCMultiChrom has not been tested for fixed distr, might not work as expected")
 
     def update(self, obs: torch.Tensor,
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -1650,7 +1655,8 @@ class qMuTau(qPsi):
         y[nan_mask, :] = 0.
 
         # copy numbers where observations are not present should not be included in the sum
-        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2, (~nan_mask).float())
+        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2,
+                                  (~nan_mask).float())
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, y)
         sum_M_y2 = torch.pow(y, 2).sum(dim=0)  # sum over M
         alpha = self.alpha_0 + M_notnan * .5  # Never updated

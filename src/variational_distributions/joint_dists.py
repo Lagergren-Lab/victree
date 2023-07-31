@@ -77,6 +77,14 @@ class VarTreeJointDist(JointDist):
         self.pi: qPi = qPi(config) if qpi is None else qpi
         self.obs = obs
 
+    @property
+    def fixed(self):
+        return all(q.fixed for q in self.get_units())
+
+    @fixed.setter
+    def fixed(self, f):
+        pass
+
     def get_units(self) -> List[VariationalDistribution]:
         """
         Returns
@@ -240,6 +248,14 @@ class FixedTreeJointDist(JointDist):
     def get_units(self) -> list:
         # TODO: if needed, specify an ordering
         return [self.c, self.eps, self.pi, self.z, self.mt]
+
+    @property
+    def fixed(self):
+        return all(q.fixed for q in self.get_units())
+
+    @fixed.setter
+    def fixed(self, f):
+        pass
 
     def update_shuffle(self, n_updates: int = 5):
         """

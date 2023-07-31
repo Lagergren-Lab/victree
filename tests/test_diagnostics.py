@@ -5,10 +5,11 @@ import h5py
 import numpy as np
 
 from inference.victree import VICTree
-from utils.data_handling import write_checkpoint_h5
+from utils.data_handling import write_checkpoint_h5, load_h5_pseudoanndata
 from variational_distributions.joint_dists import VarTreeJointDist
 from simul import generate_dataset_var_tree
 from utils.config import set_seed, Config
+from variational_distributions.var_dists import qCMultiChrom
 
 
 class InitTestCase(unittest.TestCase):
@@ -35,10 +36,14 @@ class InitTestCase(unittest.TestCase):
                              msg=f"Not valid for config: {sieving_size}, {n_sieving_iter}")
 
     def test_progress_tracking(self):
-        n_iter = 3
+        n_iter = 30
         n_sieving_iter = 3
         config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=5, n_run_iter=n_iter,
                         sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True, out_dir=self.output_dir)
+        # if check below does not hold, first checkpoint save would happen at the end of inference
+        # and params_history would not be reset (which is here subject to test)
+        self.assertGreater(config.n_run_iter, config.save_progress_every_niter)
+
         simul_joint = generate_dataset_var_tree(config)
         joint_q = VarTreeJointDist(config, simul_joint.obs, qt=simul_joint.t).initialize()
         victree = VICTree(config, joint_q, joint_q.obs)
@@ -54,7 +59,8 @@ class InitTestCase(unittest.TestCase):
 
         for q in victree.q.get_units() + [victree.q]:
             for k in q.params_history.keys():
-                self.assertEqual(len(q.params_history[k]), n_sieving_iter + n_iter + 1, msg=f"key issue: '{k}'")
+                self.assertEqual(len(q.params_history[k]), config.n_run_iter % config.save_progress_every_niter,
+                                 msg=f"key issue: '{k}'")
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
@@ -80,4 +86,44 @@ class InitTestCase(unittest.TestCase):
             dset.resize(len(dset) + new_data_size, axis=0)
             dset[-new_data_size:] = np.arange(new_data_size * dim2).reshape((new_data_size, -1))
             self.assertEqual(dset.shape, (init_data_size + new_data_size, dim2))
+
+    def test_multichr_history_length(self):
+        n_iter = 30
+        n_sieving_iter = 3
+
+        config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=20, n_run_iter=n_iter,
+                        sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True, out_dir=self.output_dir)
+        # if check below does not hold, first checkpoint save would happen at the end of inference
+        # and params_history would not be reset (which is here subject to test)
+        self.assertGreater(config.n_run_iter, config.save_progress_every_niter)
+
+        simul_joint = generate_dataset_var_tree(config, chrom=3)
+        qc_multi = qCMultiChrom(config)
+        joint_q = VarTreeJointDist(config, simul_joint.obs, qc=qc_multi).initialize()
+        victree = VICTree(config, joint_q, joint_q.obs)
+
+        # new checkpoint file
+        checkpoint_path = os.path.join(self.output_dir, "checkpoint_" + str(victree) + ".h5")
+        if os.path.exists(checkpoint_path):
+            os.remove(checkpoint_path)
+
+        victree.halve_sieve()
+        for i in range(n_iter):
+            victree.step()
+
+        for q in victree.q.get_units() + [victree.q]:
+            for k in q.params_history.keys():
+                self.assertEqual(len(q.params_history[k]), config.n_run_iter % config.save_progress_every_niter,
+                                 msg=f"key issue: '{k}'")
+                self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
+                                msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
+
+        write_checkpoint_h5(victree, path=checkpoint_path)
+
+        # check what is saved in the checkpoint
+        h5_checkpoint = load_h5_pseudoanndata(checkpoint_path)
+        for dist_name in h5_checkpoint.keys():
+            for param_name in h5_checkpoint[dist_name].keys():
+                ds = h5_checkpoint[dist_name][param_name]
+                self.assertEqual(ds.shape[0], config.n_sieving_iter + config.n_run_iter + 1)
 

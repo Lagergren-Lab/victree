@@ -23,6 +23,7 @@ class Config:
                  diagnostics=False,
                  out_dir="./output",
                  n_run_iter: int = 10,
+                 save_progress_every_niter: int = 20,
                  qc_smoothing=False) -> None:
         self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics
@@ -43,6 +44,7 @@ class Config:
         self._n_sieving_iter = n_sieving_iter
         self._debug = debug
         self._out_dir = out_dir
+        self._save_progress_every_niter = save_progress_every_niter
 
     @property
     def n_nodes(self):
@@ -119,6 +121,10 @@ class Config:
     @property
     def out_dir(self):
         return self._out_dir
+
+    @property
+    def save_progress_every_niter(self):
+        return self._save_progress_every_niter
 
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \

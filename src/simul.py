@@ -18,13 +18,13 @@ import pandas as pd
 import torch
 import torch.distributions as dist
 
-from scgenome.tl import create_bins
+from scgenome.tools import create_bins
 
 from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils
 from utils.config import Config, set_seed
 from utils.eps_utils import h_eps, h_eps0
-from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT
+from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT, qCMultiChrom
 
 
 def sample_raw_counts_from_corrected_data(obs):
@@ -40,6 +40,19 @@ def sample_raw_counts_from_corrected_data(obs):
 
 
 def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None = None) -> pd.DataFrame:
+    """
+    Parameters
+    ----------
+    n: int, total number of bins/sites. Note: given the specified number of chromosomes, the number of bins in the
+        dataframe might be slightly larger
+    method: str, whether to use the human genome 19 chromosomes reference or a uniformly distributed set of chromosomes;
+        can be 'real' or 'uniform'
+    n_chr: int, number of chromosomes in the 'uniform' method
+
+    Returns
+    -------
+    dataframe with start, end and chr columns, sorted by chr,start
+    """
     if method == 'real':
         ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
         # https://www.ncbi.nlm.nih.gov/grc/human/data
@@ -404,13 +417,29 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
 def generate_dataset_var_tree(config: Config,
                               nu_prior=1., lambda_prior=100.,
                               alpha_prior=500., beta_prior=50.,
-                              dir_alpha=1.) -> VarTreeJointDist:
-    simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
-                                       alpha0=alpha_prior, beta0=beta_prior, dir_alpha=dir_alpha)
+                              dir_alpha=1., chrom: str | int = 1) -> VarTreeJointDist:
+    # set up default with one chromosome
+    chr_df = None
+    if chrom == 'real':
+        chr_df = generate_chromosome_binning(config.chain_length)
+    elif isinstance(chrom, int):
+        if chrom != 1:
+            chr_df = generate_chromosome_binning(config.chain_length, method='uniform', n_chr=chrom)
+    else:
+        raise ValueError(f"chrom argument `{chrom}` does not match any available option")
 
-    fix_qc = qC(config, true_params={
-        "c": simul_data['c']
-    })
+    simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
+                                       alpha0=alpha_prior, beta0=beta_prior, dir_alpha=dir_alpha, chr_df=chr_df)
+
+    if chrom != 1:
+        fix_qc = qCMultiChrom(config, true_params={
+            "c": simul_data['c']
+        })
+    else:
+        # TODO: remove and leave just qCMultiChrom with one chrom when completely implemented
+        fix_qc = qC(config, true_params={
+            "c": simul_data['c']
+        })
 
     fix_qz = qZ(config, true_params={
         "z": simul_data['z']
