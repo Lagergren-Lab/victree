@@ -11,7 +11,7 @@ import torch.distributions as dist
 from tqdm import tqdm
 
 from utils.config import Config
-from utils.data_handling import write_checkpoint_h5, write_output_h5
+from utils.data_handling import write_checkpoint_h5, write_output, DataHandler
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 
 
@@ -19,7 +19,7 @@ class VICTree:
 
     def __init__(self, config: Config,
                  q: Union[VarTreeJointDist, FixedTreeJointDist],
-                 obs: torch.Tensor):
+                 obs: torch.Tensor, data_handler: DataHandler | None = None):
         """
         Inference class, to set up, run and store results of inference.
         Parameters
@@ -37,6 +37,7 @@ class VICTree:
         self.it_counter = 0
         self._elbo: float = -np.infty
         self.sieve_models: List[Union[VarTreeJointDist, FixedTreeJointDist]] = []
+        self._data_handler: DataHandler = data_handler
 
     def __str__(self):
         return f"k{self.config.n_nodes}"\
@@ -61,6 +62,10 @@ class VICTree:
         # returns the number of iterations that are currently saved in the params_history variables
         assert 'elbo' in self.q.params_history
         return len(self.q.params_history['elbo'])
+
+    @property
+    def data_handler(self):
+        return self._data_handler
 
     def run(self, n_iter=-1, args=None):
         """
@@ -143,7 +148,7 @@ class VICTree:
                 close_runs = 0
 
             if it % self.config.save_progress_every_niter == 0:
-                write_output_h5(self, os.path.join(self.config.out_dir, "out_" + str(self) + ".h5"))
+                write_output(self, os.path.join(self.config.out_dir, "out_" + str(self) + ".h5"))
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics

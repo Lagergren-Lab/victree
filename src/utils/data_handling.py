@@ -27,18 +27,20 @@ class DataHandler:
         file_path: str, absolute path of the file
         """
         self._read_multiple_sources(file_path)
+        self._input_path = file_path
+        self._adata = anndata.AnnData()
 
     def _read_multiple_sources(self, file_path: str):
         self.norm_reads = None
         self.chr_df = None
-        self.start = None
-        self.end = None
 
         fname, fext = os.path.splitext(file_path)
         if fext == '.txt':
             # handle both simple tables in text files
             cell_names, gene_ids, obs = read_sc_data(file_path)
             obs = obs.float()
+            self._adata.X = obs.T.numpy()
+
         elif fext in {'.h5', '.h5ad'}:
             try:
                 # actual AnnData format
@@ -51,6 +53,7 @@ class DataHandler:
 
                 # pandas categorical for chromosomes
                 self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
+                self._adata = ann_dataset
 
             except Exception as ae:  # Couldn't load module for AnnDataReadError
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")
@@ -61,11 +64,19 @@ class DataHandler:
                     logging.debug(f"gt tree: {newick_from_eps_arr(full_data['gt']['eps'][...])}")
 
                 obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
+                self._adata.X = obs.T.numpy()
         else:
             raise FileNotFoundError(f"file extension not recognized: {fext}")
 
         self.norm_reads = obs
         self.n_bins, self.n_cells = obs.shape
+
+    @property
+    def input_path(self):
+        return self._input_path
+
+    def get_anndata(self) -> anndata.AnnData:
+        return self._adata
 
     def _clean_dataset(self):
         if torch.any(torch.isnan(self.norm_reads)):
@@ -154,38 +165,52 @@ def edge_dict_to_matrix(a: dict, k: int) -> np.ndarray:
     return np_mat
 
 
-def write_output_h5(out_copytree, out_path):
+def write_output(victree, out_path, anndata: bool = False):
     if os.path.exists(out_path):
         logging.warning("overwriting existing output...")
 
+    if not anndata:
+        write_output(victree, out_path)
+    else:
+        write_output_anndata(victree, out_path)
+    logging.debug(f"results successfully saved: {out_path}")
+
+
+def write_output_anndata(victree, out_path):
+    adata: anndata.AnnData = victree.data_handler.get_anndata()
+    # TODO: add all obsm, varm, uns, inference output
+    outname, outext = os.path.splitext(out_path)
+    adata.write_h5ad(outname)
+
+
+def write_output_h5(victree, out_path):
     f = h5py.File(out_path, 'w')
-    x_ds = f.create_dataset('X', data=out_copytree.obs.T)
+    x_ds = f.create_dataset('X', data=victree.obs.T)
     out_grp = f.create_group('result')
 
-    graph_data = out_copytree.q.t.weighted_graph.edges.data('weight')
-    graph_adj_matrix = nx.to_numpy_array(out_copytree.q.t.weighted_graph)
+    graph_data = victree.q.t.weighted_graph.edges.data('weight')
+    graph_adj_matrix = nx.to_numpy_array(victree.q.t.weighted_graph)
     k = graph_adj_matrix.shape[0]
-    alpha_tensor = edge_dict_to_matrix(out_copytree.q.eps.alpha_dict, k)
-    beta_tensor = edge_dict_to_matrix(out_copytree.q.eps.beta_dict, k)
-    mt_agg = torch.stack((out_copytree.q.mt.nu, out_copytree.q.mt.lmbda,
-                          out_copytree.q.mt.alpha, out_copytree.q.mt.beta))
+    alpha_tensor = edge_dict_to_matrix(victree.q.eps.alpha_dict, k)
+    beta_tensor = edge_dict_to_matrix(victree.q.eps.beta_dict, k)
+    mt_agg = torch.stack((victree.q.mt.nu, victree.q.mt.lmbda,
+                          victree.q.mt.alpha, victree.q.mt.beta))
 
-    copy_number = out_grp.create_dataset('cn_marginal', data=out_copytree.q.c.single_filtering_probs.numpy())
-    cn_viterbi = out_grp.create_dataset('cn_viterbi', data=out_copytree.q.c.get_viterbi().numpy())
+    copy_number = out_grp.create_dataset('cn_marginal', data=victree.q.c.single_filtering_probs.numpy())
+    cn_viterbi = out_grp.create_dataset('cn_viterbi', data=victree.q.c.get_viterbi().numpy())
     graph_weights = out_grp.create_dataset('graph', data=graph_adj_matrix)
-    cell_assignment = out_grp.create_dataset('cell_assignment', data=out_copytree.q.z.pi.numpy())
+    cell_assignment = out_grp.create_dataset('cell_assignment', data=victree.q.z.pi.numpy())
     eps_alpha = out_grp.create_dataset('eps_alpha', data=alpha_tensor)
     eps_beta = out_grp.create_dataset('eps_beta', data=beta_tensor)
     mt = out_grp.create_dataset('mu_tau', data=mt_agg.numpy())
 
     # store trees in a separate group
-    qt_pmf = out_copytree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
+    qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
     trees_grp = out_grp.create_group('trees')
     newick_ds = trees_grp.create_dataset('newick', data=np.array(list(qt_pmf.keys()), dtype='S'))
     tree_weight_ds = trees_grp.create_dataset('weight', data=np.array(list(qt_pmf.values())))
 
     f.close()
-    logging.debug(f"results successfully saved: {out_path}")
 
 
 def write_checkpoint_h5(copytree, path=None):

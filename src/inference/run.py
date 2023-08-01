@@ -8,7 +8,7 @@ from inference.victree import VICTree
 from utils.tree_utils import newick_from_eps_arr
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from utils.config import Config
-from utils.data_handling import read_sc_data, load_h5_pseudoanndata, write_output_h5, write_checkpoint_h5, DataHandler
+from utils.data_handling import read_sc_data, load_h5_pseudoanndata, write_output, write_checkpoint_h5, DataHandler
 from variational_distributions.var_dists import qMuTau, qEpsilonMulti, qPi, qCMultiChrom
 
 
@@ -20,12 +20,12 @@ def run(args):
     # ---
     # Import data
     # ---
-    data_handler = DataHandler(args.file_path)
+    data_handler = DataHandler(args.input_path)
     obs = data_handler.norm_reads
 
     # obs n_bins x n_cells matrix
     n_bins, n_cells = obs.shape
-    logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
+    logging.debug(f"file {args.input_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
     # ---
     # Create configuration object
@@ -59,7 +59,7 @@ def run(args):
     # ---
     # Create copytree object and run inference
     # ---
-    copy_tree = VICTree(config, joint_q, obs)
+    copy_tree = VICTree(config, joint_q, obs, data_handler=data_handler)
 
     logging.info('start inference')
     copy_tree.run(args=args)
@@ -67,6 +67,6 @@ def run(args):
     # ---
     # Save output to H5
     # ---
-    write_output_h5(copy_tree, os.path.join(config.out_dir, "out_" + str(copy_tree) + ".h5"))
+    write_output(copy_tree, os.path.join(config.out_dir, "out_" + str(copy_tree) + ".h5"))
 
     return copy_tree
