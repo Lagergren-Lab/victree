@@ -137,6 +137,9 @@ class qC(VariationalDistribution):
     def chromosome_name(self):
         return self._chr_name
 
+    def get_padded_cfp(self):
+        return self._couple_filtering_probs
+
     def initialize(self, method='random', **kwargs):
         if method == 'baum-welch':
             self._baum_welch_init(**kwargs)
@@ -674,6 +677,10 @@ class qCMultiChrom(VariationalDistribution):
     @property
     def couple_filtering_probs(self):
         return torch.cat([qc.couple_filtering_probs for qc in self.qC_list], dim=1)
+
+    def get_padded_cfp(self):
+        # FIXME: implement padding for cfp to match n_sites length on dim 1
+        return self.couple_filtering_probs
 
     def initialize(self, method='random', **kwargs):
         if method not in {'random', 'uniform'}:

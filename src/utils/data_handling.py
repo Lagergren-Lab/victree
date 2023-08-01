@@ -178,7 +178,43 @@ def write_output(victree, out_path, anndata: bool = False):
 
 def write_output_anndata(victree, out_path):
     adata: anndata.AnnData = victree.data_handler.get_anndata()
-    # TODO: add all obsm, varm, uns, inference output
+
+    # prepare variables
+    # argmax cell assignment as a n_cell long vector
+    top_z = torch.argmax(victree.q.z.pi, dim=1)
+
+    # layers copy number (n_cells, n_sites)
+    adata.layers['victree-cn-viterbi'] = victree.q.c.get_viterbi()[top_z].numpy()
+    adata.layers['victree-cn-marginal'] = victree.q.c.single_filtering_probs[top_z].numpy()
+
+    # obs - mu/tau dist, estimated clone (n_cells,)
+    adata.obs['victree-mt-nu'] = victree.q.mt.nu.numpy()
+    adata.obs['victree-mt-lambda'] = victree.q.mt.lmbda.numpy()
+    adata.obs['victree-mt-alpha'] = victree.q.mt.alpha.numpy()
+    adata.obs['victree-mt-beta'] = victree.q.mt.beta.numpy()
+    adata.obs['victree-clone'] = top_z
+
+    # obsm - clone probs (n_cells, ...)
+    adata.obsm['victree-clone-probs'] = victree.q.z.pi.numpy()
+
+    # varm - clonal copy number (single and pair) probs (n_sites, ...)
+    adata.varm['victree-cn-sprobs'] = torch.permute(victree.q.c.single_filtering_probs, (1, 0, 2)).numpy()
+    adata.varm['victree-cn-pprobs'] = torch.permute(victree.q.c.get_padded_cfp(), (1, 0, 2, 3)).numpy()
+
+    # unstructured - tree, eps
+    graph_adj_matrix = nx.to_numpy_array(victree.q.t.weighted_graph)
+    k = graph_adj_matrix.shape[0]
+    alpha_tensor = edge_dict_to_matrix(victree.q.eps.alpha_dict, k)
+    beta_tensor = edge_dict_to_matrix(victree.q.eps.beta_dict, k)
+
+    qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
+
+    adata.uns['victree-eps-alpha'] = alpha_tensor
+    adata.uns['victree-eps-beta'] = beta_tensor
+    adata.uns['victree-tree-graph'] = victree.q.t.weighted_graph.edges.data('weight')
+    adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
+    adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
+
     outname, outext = os.path.splitext(out_path)
     adata.write_h5ad(outname)
 
