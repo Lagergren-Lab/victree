@@ -679,8 +679,15 @@ class qCMultiChrom(VariationalDistribution):
         return torch.cat([qc.couple_filtering_probs for qc in self.qC_list], dim=1)
 
     def get_padded_cfp(self):
-        # FIXME: implement padding for cfp to match n_sites length on dim 1
-        return self.couple_filtering_probs
+        padded_cfp = torch.zeros((self.config.n_nodes, self.config.chain_length,
+                                  self.config.n_states, self.config.n_states))
+        idx = 1
+        for qc in self.qC_list:
+            padded_cfp[:, idx:idx + qc.config.chain_length - 1, ...] = qc.couple_filtering_probs
+            idx += qc.config.chain_length
+
+        assert idx == self.config.chain_length + 1
+        return padded_cfp
 
     def initialize(self, method='random', **kwargs):
         if method not in {'random', 'uniform'}:

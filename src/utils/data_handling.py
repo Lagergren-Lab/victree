@@ -15,7 +15,7 @@ from utils.tree_utils import newick_from_eps_arr
 
 class DataHandler:
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str | None = None, adata: anndata.AnnData | None = None):
         """
         Reads the file in the specified path and allows for multiple data formats.
         The supported formats are:
@@ -26,12 +26,17 @@ class DataHandler:
         ----------
         file_path: str, absolute path of the file
         """
-        self._read_multiple_sources(file_path)
-        self._input_path = file_path
-        self._adata = anndata.AnnData()
+        self.chr_df = None
+        if adata is not None:
+            self._adata = adata
+            self._obs = torch.tensor(adata.layers['copy']).T
+        elif file_path is not None:
+            self._adata, self._obs = self._read_multiple_sources(file_path)
+        else:
+            raise ValueError("provide either file path or anndata object")
 
-    def _read_multiple_sources(self, file_path: str):
-        self.norm_reads = None
+    def _read_multiple_sources(self, file_path: str) -> (anndata.AnnData, torch.Tensor):
+        adata = anndata.AnnData()
         self.chr_df = None
 
         fname, fext = os.path.splitext(file_path)
@@ -39,7 +44,7 @@ class DataHandler:
             # handle both simple tables in text files
             cell_names, gene_ids, obs = read_sc_data(file_path)
             obs = obs.float()
-            self._adata.X = obs.T.numpy()
+            adata.X = obs.T.numpy()
 
         elif fext in {'.h5', '.h5ad'}:
             try:
@@ -53,7 +58,7 @@ class DataHandler:
 
                 # pandas categorical for chromosomes
                 self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
-                self._adata = ann_dataset
+                adata = ann_dataset
 
             except Exception as ae:  # Couldn't load module for AnnDataReadError
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")
@@ -64,19 +69,18 @@ class DataHandler:
                     logging.debug(f"gt tree: {newick_from_eps_arr(full_data['gt']['eps'][...])}")
 
                 obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
-                self._adata.X = obs.T.numpy()
+                adata.X = obs.T.numpy()
         else:
             raise FileNotFoundError(f"file extension not recognized: {fext}")
 
-        self.norm_reads = obs
-        self.n_bins, self.n_cells = obs.shape
-
-    @property
-    def input_path(self):
-        return self._input_path
+        return adata, obs
 
     def get_anndata(self) -> anndata.AnnData:
         return self._adata
+
+    @property
+    def norm_reads(self) -> torch.Tensor:
+        return self._obs
 
     def _clean_dataset(self):
         if torch.any(torch.isnan(self.norm_reads)):
@@ -188,10 +192,11 @@ def write_output_anndata(victree, out_path):
     adata.layers['victree-cn-marginal'] = victree.q.c.single_filtering_probs[top_z].numpy()
 
     # obs - mu/tau dist, estimated clone (n_cells,)
-    adata.obs['victree-mt-nu'] = victree.q.mt.nu.numpy()
+    adata.obs['victree-mu'] = victree.q.mt.nu.numpy()
     adata.obs['victree-mt-lambda'] = victree.q.mt.lmbda.numpy()
     adata.obs['victree-mt-alpha'] = victree.q.mt.alpha.numpy()
     adata.obs['victree-mt-beta'] = victree.q.mt.beta.numpy()
+    adata.obs['victree-tau'] = victree.q.mt.exp_tau().numpy()
     adata.obs['victree-clone'] = top_z
 
     # obsm - clone probs (n_cells, ...)
@@ -211,12 +216,12 @@ def write_output_anndata(victree, out_path):
 
     adata.uns['victree-eps-alpha'] = alpha_tensor
     adata.uns['victree-eps-beta'] = beta_tensor
-    adata.uns['victree-tree-graph'] = victree.q.t.weighted_graph.edges.data('weight')
+    adata.uns['victree-tree-graph'] = nx.to_numpy_array(victree.q.t.weighted_graph)
     adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
     adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
 
     outname, outext = os.path.splitext(out_path)
-    adata.write_h5ad(outname)
+    adata.write_h5ad(Path(outname + '.h5ad'))
 
 
 def write_output_h5(victree, out_path):

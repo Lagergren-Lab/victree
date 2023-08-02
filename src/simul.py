@@ -91,11 +91,11 @@ Generate full simulated dataset.
         lambda0: float, param for NormalGamma distribution over mu/tau
         alpha0: float, param for NormalGamma distribution over mu/tau
         beta0: float, param for NormalGamma distribution over mu/tau
-        chr_idx: list, chromosome breaks, needs to be sorted and each val < chain_length.
+        chr_df: pd.DataFrame with cols ['chr', 'start', 'end']
             If None, a real-data like 24 chr binning of the genome is used
 
     Returns:
-        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx']
+        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx', 'adata']
     """
     # set chr_idx
     if chr_df is None:
@@ -167,6 +167,11 @@ Generate full simulated dataset.
         obs[nan_idx, :] = torch.nan
     assert obs.shape == (config.chain_length, config.n_cells)
 
+    # handy anndata object
+    adata = anndata.AnnData(raw_counts.T.numpy())
+    adata.layers['copy'] = obs.T.numpy()
+    adata.var = chr_df
+
     out_simul = {
         'obs': obs,
         'raw': raw_counts,
@@ -178,7 +183,8 @@ Generate full simulated dataset.
         'eps': eps,
         'eps0': eps0,
         'tree': tree,
-        'chr_idx': chr_idx
+        'chr_idx': chr_idx,
+        'adata': adata
     }
     return out_simul
 
@@ -477,7 +483,6 @@ def write_simulated_dataset_h5ad(data, chr_df, out_path, filename):
     anndat.layers['state'] = cn_state
     anndat.layers['copy'] = data['obs'].T.numpy()
 
-    # FIXME: set chr so that var/chr/codes is correctly assigned (rn is -1 everywhere)
     anndat.var = chr_df
 
     anndat.write_h5ad(Path(out_path, filename + '.h5ad'))
