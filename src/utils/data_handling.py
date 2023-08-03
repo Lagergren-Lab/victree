@@ -169,7 +169,7 @@ def edge_dict_to_matrix(a: dict, k: int) -> np.ndarray:
     return np_mat
 
 
-def write_output(victree, out_path, anndata: bool = False):
+def write_output(victree, out_path, anndata: bool = True):
     if os.path.exists(out_path):
         logging.warning("overwriting existing output...")
 
@@ -220,8 +220,7 @@ def write_output_anndata(victree, out_path):
     adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
     adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
 
-    outname, outext = os.path.splitext(out_path)
-    adata.write_h5ad(Path(outname + '.h5ad'))
+    adata.write_h5ad(Path(out_path))
 
 
 def write_output_h5(victree, out_path):

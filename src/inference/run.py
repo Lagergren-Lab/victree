@@ -20,12 +20,12 @@ def run(args):
     # ---
     # Import data
     # ---
-    data_handler = DataHandler(args.input_path)
+    data_handler = DataHandler(args.file_path)
     obs = data_handler.norm_reads
 
     # obs n_bins x n_cells matrix
     n_bins, n_cells = obs.shape
-    logging.debug(f"file {args.input_path} read successfully [{n_bins} bins, {n_cells} cells]")
+    logging.debug(f"file {args.file_path} read successfully [{n_bins} bins, {n_cells} cells]")
 
     # ---
     # Create configuration object

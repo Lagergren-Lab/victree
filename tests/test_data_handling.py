@@ -25,7 +25,7 @@ class dataHandlingTestCase(unittest.TestCase):
         pass
 
     def test_write_output(self):
-        out_file = os.path.join(self.output_dir, 'out_test.h5ad')
+        out_file = os.path.join(self.output_dir, 'out_test.h5')
         # run victree
         config = Config(n_nodes=4, n_cells=20, n_states=4,
                         n_run_iter=3, sieving_size=2, n_sieving_iter=2)
