@@ -92,7 +92,7 @@ class TreeTopologyPostInferenceExperiment():
                 T_list_seed, w_T_list_seed = victree.q.t.get_trees_sample(sample_size=100)
                 unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(T_list_seed)
                 print(f"N uniques trees sampled: {len(unique_seq)}")
-                T_list_seed_remapped = tree_utils.remap_edge_labels(T_list_seed, best_perm)
+                T_list_seed_remapped = tree_utils.remap_node_labels(T_list_seed, best_perm)
                 unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list_seed_remapped)
                 x_axis = list(range(0, len(unique_edges_list)))
                 y_axis = [unique_edges_count[e].item() for e in unique_edges_list]
