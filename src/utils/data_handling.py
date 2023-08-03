@@ -170,11 +170,12 @@ def edge_dict_to_matrix(a: dict, k: int) -> np.ndarray:
 
 
 def write_output(victree, out_path, anndata: bool = True):
+    # TODO: move to victree object method
     if os.path.exists(out_path):
         logging.warning("overwriting existing output...")
 
     if not anndata:
-        write_output(victree, out_path)
+        write_output_h5(victree, out_path)
     else:
         write_output_anndata(victree, out_path)
     logging.debug(f"results successfully saved: {out_path}")
@@ -253,41 +254,40 @@ def write_output_h5(victree, out_path):
     f.close()
 
 
-def write_checkpoint_h5(copytree, path=None):
-    if copytree.cache_size > 0:
+def write_checkpoint_h5(victree, path=None):
+    if victree.cache_size > 0:
         if path is None:
-            path = "./checkpoint_" + str(copytree) + ".h5"
+            path = os.path.join(victree.config.out_dir, "./victree.diagnostics.h5")
 
         # append mode, so that if the file already exist, then the data is appended
         with h5py.File(path, 'a') as f:
             # for each of the individual q dist + the joint dist itself (e.g. to monitor joint_q.elbo)
             if len(f.keys()) == 0:
                 # init h5 file
-                for q in copytree.q.get_units() + [copytree.q]:
+                for q in victree.q.get_units() + [victree.q]:
                     qlay = f.create_group(q.__class__.__name__)
                     for k in q.params_history.keys():
                         stacked_arr = np.stack(q.params_history[k], axis=0)
                         # init dset with unlimited number of iteration and fix other dims
                         ds = qlay.create_dataset(k, data=stacked_arr,
                                                  maxshape=(
-                                                 copytree.config.n_sieving_iter + copytree.config.n_run_iter + 1,
-                                                 *stacked_arr.shape[1:]), chunks=True)
+                                                     victree.config.n_sieving_iter + victree.config.n_run_iter + 1,
+                                                     *stacked_arr.shape[1:]), chunks=True)
             else:
                 # resize and append
-                for q in copytree.q.get_units() + [copytree.q]:
+                for q in victree.q.get_units() + [victree.q]:
                     qlay = f[q.__class__.__name__]
                     for k in q.params_history.keys():
                         stacked_arr = np.stack(q.params_history[k], axis=0)
                         ds = qlay[k]
-                        # FIXME: stacked_arr.shape overflows maxshape by 5 in the last iterations
                         ds.resize(ds.shape[0] + stacked_arr.shape[0], axis=0)
                         ds[-stacked_arr.shape[0]:] = stacked_arr
 
             # wipe cache
-            for q in copytree.q.get_units() + [copytree.q]:
+            for q in victree.q.get_units() + [victree.q]:
                 q.reset_params_history()
 
-        logging.debug("checkpoint saved!")
+        logging.debug(f"diagnostics saved in {path}")
 
 
 def load_h5_pseudoanndata(file_path):

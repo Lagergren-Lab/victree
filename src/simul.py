@@ -170,7 +170,8 @@ Generate full simulated dataset.
     # handy anndata object
     adata = anndata.AnnData(raw_counts.T.numpy())
     adata.layers['copy'] = obs.T.numpy()
-    adata.var = chr_df
+    if chr_df is not None:
+        adata.var = chr_df
 
     out_simul = {
         'obs': obs,

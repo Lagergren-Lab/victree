@@ -24,7 +24,9 @@ class Config:
                  out_dir="./output",
                  n_run_iter: int = 10,
                  save_progress_every_niter: int = 10,
-                 qc_smoothing=False) -> None:
+                 qc_smoothing=False,
+                 curr_it: int = 0) -> None:
+        self.curr_it = 0
         self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics
         self.step_size = step_size
@@ -139,21 +141,7 @@ class Config:
         return s
 
     def to_dict(self):
-        return {
-            'n_nodes': self.n_nodes,
-            'step_size': self.step_size,
-            'n_states': self.n_states,
-            'eps0': self.eps0,
-            'n_cells': self.n_cells,
-            'chain_length': self.chain_length,
-            'n_chromosomes': self.n_chromosomes,
-            'wis_sample_size': self.wis_sample_size,
-            'elbo_rtol': self.elbo_rtol,
-            'max_close_runs': self.max_close_runs,
-            'sieving_size': self.sieving_size,
-            'n_sieving_runs': self.n_sieving_iter,
-            'debug': self.debug
-        }
+        return self.__dict__
 
 
 def set_seed(seed):

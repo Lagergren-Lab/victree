@@ -31,7 +31,7 @@ def main(args):
 
 def set_logger(debug: bool, out_dir: str):
     level = logging.DEBUG if debug else logging.INFO
-    f_handler = logging.FileHandler(os.path.join(out_dir, "out.log"))
+    f_handler = logging.FileHandler(os.path.join(out_dir, "victree.log"))
     c_handler = logging.StreamHandler(sys.stdout)
 
     f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))

@@ -101,9 +101,8 @@ class InitTestCase(unittest.TestCase):
         qc_multi = qCMultiChrom(config)
         joint_q = VarTreeJointDist(config, simul_joint.obs, qc=qc_multi).initialize()
         victree = VICTree(config, joint_q, joint_q.obs)
+        checkpoint_path = os.path.join(self.output_dir, "victree.diagnostics.h5")
 
-        # new checkpoint file
-        checkpoint_path = os.path.join(self.output_dir, "checkpoint_" + str(victree) + ".h5")
         if os.path.exists(checkpoint_path):
             os.remove(checkpoint_path)
 
@@ -118,7 +117,7 @@ class InitTestCase(unittest.TestCase):
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
-        write_checkpoint_h5(victree, path=checkpoint_path)
+        write_checkpoint_h5(victree)
 
         # check what is saved in the checkpoint
         h5_checkpoint = load_h5_pseudoanndata(checkpoint_path)
@@ -126,7 +125,6 @@ class InitTestCase(unittest.TestCase):
             for param_name in h5_checkpoint[dist_name].keys():
                 ds = h5_checkpoint[dist_name][param_name]
                 self.assertEqual(ds.shape[0], config.n_sieving_iter + config.n_run_iter + 1)
-
 
     def test_load_checkpoint(self):
         test_checkpoint_file_path = os.path.join(self.output_dir, "checkpoint_k3a3n30m5.h5")

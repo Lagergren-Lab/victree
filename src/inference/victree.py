@@ -1,10 +1,12 @@
 import copy
+import json
 import logging
 import math
 import os
 import random
 from typing import Union, List
 
+import h5py
 import numpy as np
 import torch
 import torch.distributions as dist
@@ -13,6 +15,7 @@ from tqdm import tqdm
 from utils.config import Config
 from utils.data_handling import write_checkpoint_h5, write_output, DataHandler
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
+from variational_distributions.var_dists import qCMultiChrom
 
 
 class VICTree:
@@ -87,11 +90,10 @@ class VICTree:
         # Diagnostic object setup
         # ---
         if self.config.diagnostics:
-            checkpoint_path = os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5")
+            checkpoint_path = os.path.join(self.config.out_dir, "victree.diagnostics.h5")
             # check if checkpoint already exists, then print warning
-            # TODO: implement checkpoint loading
             if os.path.exists(checkpoint_path):
-                logging.warning("checkpoint already exists, will be overwritten")
+                logging.warning("diagnostic file already exists, will be overwritten")
                 os.remove(checkpoint_path)
 
         # counts the number of converged updates
@@ -148,7 +150,7 @@ class VICTree:
                 close_runs = 0
 
             if it % self.config.save_progress_every_niter == 0:
-                write_output(self, os.path.join(self.config.out_dir, "out_" + str(self) + ".h5"))
+                self.write()
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
@@ -313,9 +315,45 @@ class VICTree:
             logging.debug(str(self.q))
         # save checkpoint every 20 iterations
         if self.config.diagnostics and self.it_counter % self.config.save_progress_every_niter == 0:
-            write_checkpoint_h5(self, path=os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5"))
+            write_checkpoint_h5(self, path=os.path.join(self.config.out_dir, "victree.diagnostics.h5"))
+        self.config.curr_it += 1
 
     def set_temperature(self, it, n_iter):
         # linear scheme: from annealing to 1 with equal steps between iterations
         self.q.z.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
         self.q.mt.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
+
+    def write_model(self, path: str):
+        # save victree distributions parameters
+        with h5py.File(path, 'w') as f:
+            for q in self.q.get_units() + [self.q]:
+                qlay = f.create_group(q.__class__.__name__)
+                params = q.get_params_as_dict()
+                if isinstance(q, qCMultiChrom):
+                    # get params gives dict[str, list[np.ndarray]] for each unit qC
+                    for i, qc in enumerate(q.qC_list):
+                        qclay = qlay.create_group(qc.chromosome_name)
+                        for k in params:
+                            qclay.create_dataset(k, data=params[k][i])
+                # regular distribution
+                else:
+                    for k in params:
+                        qlay.create_dataset(k, data=params[k])
+        logging.debug(f"model saved in {path}")
+
+    def write(self):
+        # write output in anndata
+        out_anndata_path = os.path.join(self.config.out_dir, 'victree.out.h5ad')
+        write_output(self, out_anndata_path, anndata=True)
+
+        # write output model
+        out_model_path = os.path.join(self.config.out_dir, 'victree.model.h5')
+        self.write_model(out_model_path)
+
+        # write configuration to json
+        out_json_path = os.path.join(self.config.out_dir, 'victree.config.json')
+        with open(out_json_path, 'w') as jsonf:
+            json.dump(self.config.to_dict(), jsonf)
+        logging.debug(f"config saved in {out_json_path}")
+
+
