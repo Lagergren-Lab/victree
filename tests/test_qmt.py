@@ -98,7 +98,8 @@ class qmtTestCase(unittest.TestCase):
 
         for n in range(N):
             for m in range(M):
-                self.assertTrue(torch.argmax(exp_log_emission) == 6, msg=f"E_mu_tau[log p(y_{m,n}|C)] {exp_log_emission[n,m,:]}")
+                self.assertEqual(torch.argmax(exp_log_emission).item(), 6,
+                                 msg=f"E_mu_tau[log p(y_{m,n}|C)] {exp_log_emission[n,m,:]}")
 
     def test_entropy(self):
         obs = torch.randint(low=10, high=20, size=(self.config.chain_length, self.config.n_cells), dtype=torch.float)
