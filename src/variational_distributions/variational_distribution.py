@@ -3,6 +3,7 @@ Interface class for Variational distributions
 """
 import copy
 import logging
+from abc import abstractmethod
 
 import numpy as np
 import torch
@@ -62,3 +63,7 @@ class VariationalDistribution:
         # empty params_history for any single qC dist
         for k in self.params_history.keys():
             self.params_history[k] = []
+
+    @abstractmethod
+    def get_params_as_dict(self):
+        pass
