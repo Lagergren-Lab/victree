@@ -1,3 +1,6 @@
+import copy
+import logging
+
 import networkx as nx
 
 from inference.victree import VICTree
@@ -6,18 +9,21 @@ from variational_distributions.joint_dists import FixedTreeJointDist
 
 def selectTrees(qt):
     W = qt.weighted_graph
-    return nx.maximum_spanning_arborescence(W)
+    T = nx.maximum_spanning_arborescence(W)
+    logging.info(f'Selected tree: {T.edges}')
+    return T
 
 
 def train_on_fixed_tree(victree: VICTree, n_iter: int):
-    qmt = victree.q.mt
-    qc = victree.q.c
-    qz = victree.q.z
-    qpi = victree.q.pi
-    qT = victree.q.t
-    qeps = victree.q.eps
-    obs = victree.obs
-    config = victree.config
+    victree_copy = copy.deepcopy(victree)
+    qmt = victree_copy.q.mt
+    qc = victree_copy.q.c
+    qz = victree_copy.q.z
+    qpi = victree_copy.q.pi
+    qT = victree_copy.q.t
+    qeps = victree_copy.q.eps
+    obs = victree_copy.obs
+    config = victree_copy.config
 
     T = selectTrees(qT)
     q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, T, obs)
