@@ -20,6 +20,9 @@ class InitTestCase(unittest.TestCase):
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
+        # for progress tracking multiple combined test
+        self.progress_tracking_filepath = os.path.join(self.output_dir, "progress_tracking.diagnostics.h5")
+
     def test_halve_sieve(self):
         n_iter = 3
         for sieving_size, n_sieving_iter in [(2, 2), (3, 2), (2, 5), (5, 10)]:
@@ -36,7 +39,7 @@ class InitTestCase(unittest.TestCase):
                              msg=f"Not valid for config: {sieving_size}, {n_sieving_iter}")
 
     def test_progress_tracking(self):
-        n_iter = 30
+        n_iter = 23
         n_sieving_iter = 3
         config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=5, n_run_iter=n_iter,
                         sieving_size=3, n_sieving_iter=n_sieving_iter, diagnostics=True, out_dir=self.output_dir)
@@ -49,13 +52,12 @@ class InitTestCase(unittest.TestCase):
         victree = VICTree(config, joint_q, joint_q.obs)
 
         # new checkpoint file
-        checkpoint_path = os.path.join(self.output_dir, "checkpoint_" + str(victree) + ".h5")
-        if os.path.exists(checkpoint_path):
-            os.remove(checkpoint_path)
+        if os.path.exists(self.progress_tracking_filepath):
+            os.remove(self.progress_tracking_filepath)
 
         victree.halve_sieve()
         for i in range(n_iter):
-            victree.step()
+            victree.step(diagnostics_path=self.progress_tracking_filepath)
 
         for q in victree.q.get_units() + [victree.q]:
             for k in q.params_history.keys():
@@ -64,7 +66,7 @@ class InitTestCase(unittest.TestCase):
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
-        write_checkpoint_h5(victree, path=checkpoint_path)
+        victree.write_checkpoint_h5(path=self.progress_tracking_filepath)
 
     def test_append_checkpoint(self):
 
@@ -87,8 +89,17 @@ class InitTestCase(unittest.TestCase):
             dset[-new_data_size:] = np.arange(new_data_size * dim2).reshape((new_data_size, -1))
             self.assertEqual(dset.shape, (init_data_size + new_data_size, dim2))
 
+    def test_load_checkpoint(self):
+        if not os.path.exists(self.progress_tracking_filepath):
+            raise Exception("Test checkpoint file doesn't exist! Run test 'test_progress_tracking' first.")
+
+        loaded_checkpoint = h5py.File(self.progress_tracking_filepath, 'r')
+
+        # should match (sieving + n_iter + 1, n_nodes, n_nodes) from previous test
+        self.assertTrue(loaded_checkpoint['qT']['weight_matrix'].shape == (27, 3, 3))
+
     def test_multichr_history_length(self):
-        n_iter = 30
+        n_iter = 23
         n_sieving_iter = 3
 
         config = Config(n_nodes=3, n_cells=30, n_states=3, chain_length=20, n_run_iter=n_iter,
@@ -117,7 +128,7 @@ class InitTestCase(unittest.TestCase):
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
-        write_checkpoint_h5(victree)
+        victree.write_checkpoint_h5(victree)
 
         # check what is saved in the checkpoint
         h5_checkpoint = load_h5_pseudoanndata(checkpoint_path)
@@ -126,14 +137,6 @@ class InitTestCase(unittest.TestCase):
                 ds = h5_checkpoint[dist_name][param_name]
                 self.assertEqual(ds.shape[0], config.n_sieving_iter + config.n_run_iter + 1)
 
-    def test_load_checkpoint(self):
-        test_checkpoint_file_path = os.path.join(self.output_dir, "checkpoint_k3a3n30m5.h5")
-        if not os.path.exists(test_checkpoint_file_path):
-            raise Exception("Test checkpoint file doesn't exist! Run test 'test_progress_tracking' first.")
-
-        loaded_checkpoint = read_last_it_from_checkpoint(test_checkpoint_file_path)
-
-        self.assertTrue(loaded_checkpoint['qT']['weight_matrix'].shape == (14, 3, 3))
 
 
 

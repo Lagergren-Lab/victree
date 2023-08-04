@@ -89,8 +89,8 @@ class VICTree:
         # ---
         # Diagnostic object setup
         # ---
+        checkpoint_path = os.path.join(self.config.out_dir, "victree.diagnostics.h5")
         if self.config.diagnostics:
-            checkpoint_path = os.path.join(self.config.out_dir, "victree.diagnostics.h5")
             # check if checkpoint already exists, then print warning
             if os.path.exists(checkpoint_path):
                 logging.warning("diagnostic file already exists, will be overwritten")
@@ -155,7 +155,7 @@ class VICTree:
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
-            write_checkpoint_h5(self, path=checkpoint_path)
+            self.write_checkpoint_h5(path=checkpoint_path)
 
     def topk_sieve(self, ktop: int = 1, **kwargs):
         """
@@ -303,7 +303,7 @@ class VICTree:
             self.elbo = self.q.compute_elbo()
         return self.elbo
 
-    def step(self):
+    def step(self, diagnostics_path: str = None):
         """
         Wrapper function for variational updates. Handles checkpoint saving.
         """
@@ -315,7 +315,7 @@ class VICTree:
             logging.debug(str(self.q))
         # save checkpoint every 20 iterations
         if self.config.diagnostics and self.it_counter % self.config.save_progress_every_niter == 0:
-            write_checkpoint_h5(self, path=os.path.join(self.config.out_dir, "victree.diagnostics.h5"))
+            self.write_checkpoint_h5(path=diagnostics_path)
         self.config.curr_it += 1
 
     def set_temperature(self, it, n_iter):
@@ -355,5 +355,40 @@ class VICTree:
         with open(out_json_path, 'w') as jsonf:
             json.dump(self.config.to_dict(), jsonf)
         logging.debug(f"config saved in {out_json_path}")
+
+    def write_checkpoint_h5(self, path=None):
+        if self.cache_size > 0:
+            if path is None:
+                path = os.path.join(self.config.out_dir, "victree.diagnostics.h5")
+
+            # append mode, so that if the file already exist, then the data is appended
+            with h5py.File(path, 'a') as f:
+                # for each of the individual q dist + the joint dist itself (e.g. to monitor joint_q.elbo)
+                if len(f.keys()) == 0:
+                    # init h5 file
+                    for q in self.q.get_units() + [self.q]:
+                        qlay = f.create_group(q.__class__.__name__)
+                        for k in q.params_history.keys():
+                            stacked_arr = np.stack(q.params_history[k], axis=0)
+                            # init dset with unlimited number of iteration and fix other dims
+                            ds = qlay.create_dataset(k, data=stacked_arr,
+                                                     maxshape=(
+                                                         self.config.n_sieving_iter + self.config.n_run_iter + 1,
+                                                         *stacked_arr.shape[1:]), chunks=True)
+                else:
+                    # resize and append
+                    for q in self.q.get_units() + [self.q]:
+                        qlay = f[q.__class__.__name__]
+                        for k in q.params_history.keys():
+                            stacked_arr = np.stack(q.params_history[k], axis=0)
+                            ds = qlay[k]
+                            ds.resize(ds.shape[0] + stacked_arr.shape[0], axis=0)
+                            ds[-stacked_arr.shape[0]:] = stacked_arr
+
+                # wipe cache
+                for q in self.q.get_units() + [self.q]:
+                    q.reset_params_history()
+
+            logging.debug(f"diagnostics saved in {path}")
 
 

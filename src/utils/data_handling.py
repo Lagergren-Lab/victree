@@ -253,42 +253,8 @@ def write_output_h5(victree, out_path):
 
     f.close()
 
-
-def write_checkpoint_h5(victree, path=None):
-    if victree.cache_size > 0:
-        if path is None:
-            path = os.path.join(victree.config.out_dir, "./victree.diagnostics.h5")
-
-        # append mode, so that if the file already exist, then the data is appended
-        with h5py.File(path, 'a') as f:
-            # for each of the individual q dist + the joint dist itself (e.g. to monitor joint_q.elbo)
-            if len(f.keys()) == 0:
-                # init h5 file
-                for q in victree.q.get_units() + [victree.q]:
-                    qlay = f.create_group(q.__class__.__name__)
-                    for k in q.params_history.keys():
-                        stacked_arr = np.stack(q.params_history[k], axis=0)
-                        # init dset with unlimited number of iteration and fix other dims
-                        ds = qlay.create_dataset(k, data=stacked_arr,
-                                                 maxshape=(
-                                                     victree.config.n_sieving_iter + victree.config.n_run_iter + 1,
-                                                     *stacked_arr.shape[1:]), chunks=True)
-            else:
-                # resize and append
-                for q in victree.q.get_units() + [victree.q]:
-                    qlay = f[q.__class__.__name__]
-                    for k in q.params_history.keys():
-                        stacked_arr = np.stack(q.params_history[k], axis=0)
-                        ds = qlay[k]
-                        ds.resize(ds.shape[0] + stacked_arr.shape[0], axis=0)
-                        ds[-stacked_arr.shape[0]:] = stacked_arr
-
-            # wipe cache
-            for q in victree.q.get_units() + [victree.q]:
-                q.reset_params_history()
-
-        logging.debug(f"diagnostics saved in {path}")
-
+def write_checkpoint_h5(self, path=None):
+    pass
 
 def load_h5_pseudoanndata(file_path):
     return h5py.File(file_path, 'r')
@@ -310,9 +276,14 @@ def read_checkpoint(file_path):
 
 def read_last_it_from_checkpoint(file_path):
     data = read_checkpoint(file_path)
-    for k in data:
-        data[k] = data[k][-1, ...]
-    return data
+    last_it_data = {}
+    # get groups
+    for group in data:
+        # datasets
+        last_it_data[group] = {}
+        for ds in data[group]:
+            last_it_data[group][ds] = data[group][ds][-1]
+    return last_it_data
 
 
 def read_simul(file_path):
