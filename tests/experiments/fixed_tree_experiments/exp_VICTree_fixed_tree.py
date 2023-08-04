@@ -22,7 +22,7 @@ from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
 
-class VICtreeFixedTreeExperiment():
+class VICTreeFixedTreeExperiment():
     """
     Test class for running small scale, i.e. runnable on local machine, experiments for fixed trees.
     Not using unittest test framework as it is incompatible with matplotlib GUI-backend.
@@ -176,5 +176,5 @@ class VICtreeFixedTreeExperiment():
 
 
 if __name__ == '__main__':
-    experiment_class = VICtreeFixedTreeExperiment()
+    experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.ari_as_function_of_K_experiment(save_plot=True)
