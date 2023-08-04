@@ -108,7 +108,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
                                   a0=1.0,
                                   b0=20.0,
                                   dir_alpha0=1.0,
-                                  simulate_raw_reads=False,
+                                  simulate_raw_reads=True,
                                   ):
     n_nodes = len(tree.nodes)
     config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
