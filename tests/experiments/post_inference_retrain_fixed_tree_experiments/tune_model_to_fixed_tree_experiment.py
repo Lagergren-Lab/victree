@@ -15,6 +15,7 @@ import tests.utils_testing
 import utils.config
 from analysis import qC_analysis
 from inference.victree import VICTree
+from utils.data_handling import DataHandler
 from variational_distributions.joint_dists import FixedTreeJointDist, VarTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro

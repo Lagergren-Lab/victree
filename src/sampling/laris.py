@@ -55,7 +55,7 @@ def draw_graph(G: nx.DiGraph, to_file=None):
 
 
 def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
-                                   root: int = 0, debug: bool = False):
+                                   root: int = 0, debug: bool = False, order_method='random'):
     # FIXME: something wrong with LArIS
     # TODO: rename to laris
     # start with empty graph (only root)
@@ -68,7 +68,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
     # counts how many times arborescences cannot be found
     miss_counter = 0
     log_g = 0.
-    candidate_arcs = get_ordered_arcs(skimmed_graph.edges)
+    candidate_arcs = get_ordered_arcs(skimmed_graph, method=order_method)
 
     while s.number_of_edges() < graph.number_of_nodes() - 1:
         # new graph with all s arcs
@@ -142,18 +142,19 @@ def _sample_feasible_arc(weighted_arcs):
     return weighted_arcs[c][:2], probs[c]
 
 
-def get_ordered_arcs(edges, method='random'):
-    ordered_edges = []
-    edges_list: list
-    if isinstance(edges, list):
-        edges_list = edges
-    else:  # OutEdgeView
-        edges_list = [(u, v) for u, v in edges]
+def get_ordered_arcs(graph: nx.DiGraph, method='random'):
+    edges_list = list(graph.edges)
     if method == 'random':
-        order = np.random.permutation(len(edges))
+        order = np.random.permutation(len(edges_list))
+        ordered_edges = []
+        for i in order:
+            ordered_edges.append(edges_list[i])
+    elif method == 'edmonds':
+        mst_graph = nx.maximum_spanning_arborescence(graph).edges
+        mst_arcs = list(mst_graph)
+        graph.remove_edges_from(mst_arcs)
+        ordered_edges = mst_arcs + list(graph.edges)
     else:
         raise ValueError(f'Method {method} is not available.')
 
-    for i in order:
-        ordered_edges.append(edges_list[i])
     return ordered_edges
