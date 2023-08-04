@@ -40,6 +40,11 @@ class JointDist(VariationalDistribution):
     def elbo(self, e):
         self._elbo = e
 
+    def get_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'elbo': np.array(self.elbo)
+        }
+
     def initialize(self, **kwargs):
         for q in self.get_units():
             q.initialize(**kwargs)

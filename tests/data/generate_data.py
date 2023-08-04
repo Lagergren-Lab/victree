@@ -1,3 +1,4 @@
+import anndata
 import torch
 
 import simul
@@ -51,6 +52,13 @@ def generate_data_balanced_tree(seed, n_cells, n_sites, n_copy_states):
         utils_testing.save_test_data(seed, tree, C, y, z, pi, mu, tau, eps)
     except FileExistsError:
         print(f"File exists: K{n_nodes}_N{n_cells}_M{n_sites}_A{n_copy_states}_Seed{seed}")
+
+
+def generate_2chr_adata(config):
+    n_chr = 2
+    chr_df = simul.generate_chromosome_binning(config.chain_length, method='uniform', n_chr=n_chr)
+    data = simul.simulate_full_dataset(config, chr_df=chr_df)
+    return data['adata']
 
 
 if __name__ == '__main__':
