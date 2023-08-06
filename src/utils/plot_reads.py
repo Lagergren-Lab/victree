@@ -13,8 +13,8 @@ if __name__ == '__main__':
     # ad = anndata.read_h5ad(h5_path)
     #
 
-    data = simul.simulate_full_dataset(Config(4, n_states=10, n_cells=100, chain_length=200),
-                                       eps_a=5., eps_b=100., dir_alpha=10.)
+    data = simul.simulate_full_dataset(Config(4, n_states=10, n_cells=100, chain_length=200), eps_a=5., eps_b=100.,
+                                       dir_delta=10.)
     ad = anndata.AnnData(X=data['raw'].numpy(), layers={
         'state': data['c'][data['z'], :].T.numpy(),
         'copy': data['obs'].numpy()

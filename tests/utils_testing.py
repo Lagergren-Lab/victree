@@ -113,7 +113,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
     n_nodes = len(tree.nodes)
     config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
     output_sim = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=nu_0, lambda0=lambda_0, alpha0=alpha0,
-                                             beta0=beta0, dir_alpha=dir_alpha0, tree=tree, raw_reads=simulate_raw_reads)
+                                             beta0=beta0, dir_delta=dir_alpha0, tree=tree, raw_reads=simulate_raw_reads)
     y = output_sim['obs']
     C = output_sim['c']
     z = output_sim['z']
