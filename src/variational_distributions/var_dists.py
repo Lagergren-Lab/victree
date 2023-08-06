@@ -1451,6 +1451,8 @@ class qEpsilonMulti(VariationalDistribution):
             self._random_init(**kwargs)
         elif method == 'non_mutation':
             self._non_mutation_init()
+        elif method == 'prior':
+            self._initialize_to_prior_parameters()
         else:
             raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
@@ -1472,6 +1474,11 @@ class qEpsilonMulti(VariationalDistribution):
             a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
             self.alpha_dict[e] = a
             self.beta_dict[e] = b
+
+    def _initialize_to_prior_parameters(self):
+        for e in self.alpha_dict.keys():
+            self.alpha_dict[e] = self.alpha_prior
+            self.beta_dict[e] = self.beta_prior
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -2459,6 +2466,10 @@ class qPi(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'fixed':
+            self._initialize_with_values(**kwargs)
+        elif method == 'prior':
+            self._initialize_to_prior_parameters()
         else:
             raise ValueError(f'method `{method}` for qZ initialization is not implemented')
         return super().initialize(**kwargs)
@@ -2469,6 +2480,12 @@ class qPi(VariationalDistribution):
 
     def _random_init(self):
         self.concentration_param = torch.distributions.Gamma(5., 1.).rsample(self.concentration_param.shape)
+
+    def _initialize_with_values(self, concentration_param_init):
+        self.concentration_param = concentration_param_init
+
+    def _initialize_to_prior_parameters(self):
+        self.concentration_param = self.concentration_param_prior
 
     @property
     def concentration_param(self):

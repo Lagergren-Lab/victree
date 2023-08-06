@@ -26,12 +26,14 @@ def set_up_q(config, eps_a_prior, eps_beta_prior, pi_delta_prior, mt_nu_prior, m
                  beta_prior=mt_beta_prior)
     return qc, qt, qeps, qz, qpi, qmt
 
-def init_q_to_prior_parameters(q, eps_a_prior, eps_beta_prior, pi_delta_prior, mt_nu_prior, mt_lmbda_prior,
+
+def init_q_to_prior_parameters(q, mt_nu_prior, mt_lmbda_prior,
                                mt_alpha_prior, mt_beta_prior):
-    eps_a_prior_dict =  {e: torch.empty(1) for e in gedges}
-    eps_b_prior_dict =  {e: torch.empty(1) for e in gedges}
-    q.initialize('fixed', eps_alpha_dict=eps_a_prior_dict, eps_beta_dict=eps_b_prior_dict, pi_delta_prior, mt_nu_prior, mt_lmbda_prior,
-                               mt_alpha_prior, mt_beta_prior)
+    q.initialize('fixed', mt_nu_prior, mt_lmbda_prior, mt_alpha_prior, mt_beta_prior)
+    q.eps.initialize('prior')
+    q.pi.initialize('prior')
+    q.mt.initialize('fixed', loc=mt_nu_prior, precision_factor=mt_lmbda_prior, shape=mt_alpha_prior, rate=mt_beta_prior)
+
 
 def create_output_catalog(ablation_study_specific_str):
     dirs = os.getcwd().split('/')
@@ -43,6 +45,7 @@ def create_output_catalog(ablation_study_specific_str):
     full_path = os.path.join(base_dir, path)
     pathlib.Path(path).mkdir(parents=True, exist_ok=False)
     return full_path
+
 
 def step_size_ablation_study(save=False):
     utils.config.set_seed(0)
@@ -92,9 +95,8 @@ def step_size_ablation_study(save=False):
                                                   mt_nu_prior=nu_0, mt_lmbda_prior=lambda_0, mt_alpha_prior=alpha0,
                                                   mt_beta_prior=beta0)
             q = VarTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
-            init_q_to_prior_parameters(q, eps_a_prior=a0, eps_beta_prior=b0, pi_delta_prior=dir_delta0,
-                                                  mt_nu_prior=nu_0, mt_lmbda_prior=lambda_0, mt_alpha_prior=alpha0,
-                                                  mt_beta_prior=beta0)
+            init_q_to_prior_parameters(q, mt_nu_prior=nu_0, mt_lmbda_prior=lambda_0, mt_alpha_prior=alpha0,
+                                       mt_beta_prior=beta0)
             copy_tree = VICTree(config, q, y)
 
             copy_tree.run(n_iter=n_iter)
