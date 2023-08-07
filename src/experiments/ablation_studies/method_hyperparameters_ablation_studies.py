@@ -9,7 +9,7 @@ from sklearn.metrics import adjusted_rand_score
 import simul
 import utils
 from inference.victree import VICTree
-from utils import tree_utils
+from utils import tree_utils, visualization_utils
 from utils.config import Config
 from variational_distributions.joint_dists import VarTreeJointDist
 from variational_distributions.var_dists import qC, qT, qEpsilonMulti, qZ, qPi, qMuTau
@@ -29,7 +29,7 @@ def set_up_q(config, eps_a_prior, eps_beta_prior, pi_delta_prior, mt_nu_prior, m
 
 def init_q_to_prior_parameters(q, mt_nu_prior, mt_lmbda_prior,
                                mt_alpha_prior, mt_beta_prior):
-    q.initialize('fixed', mt_nu_prior, mt_lmbda_prior, mt_alpha_prior, mt_beta_prior)
+    q.initialize()
     q.eps.initialize('prior')
     q.pi.initialize('prior')
     q.mt.initialize('fixed', loc=mt_nu_prior, precision_factor=mt_lmbda_prior, shape=mt_alpha_prior, rate=mt_beta_prior)
@@ -43,7 +43,7 @@ def create_output_catalog(ablation_study_specific_str):
     path = os.path.join(path, ablation_study_specific_str)
     base_dir = '../../../output'
     full_path = os.path.join(base_dir, path)
-    pathlib.Path(path).mkdir(parents=True, exist_ok=False)
+    pathlib.Path(full_path).mkdir(parents=True, exist_ok=True)
     return full_path
 
 
@@ -51,7 +51,7 @@ def step_size_ablation_study(save=False):
     utils.config.set_seed(0)
     inference_seeds = list(range(0, 5))
     step_sizes = [1., 0.5, 0.3, 0.1, 0.05, 0.01, 0.005]
-    n_iter = 300
+    n_iter = 500
     dir_delta0 = 10.
     nu_0 = 1.
     lambda_0 = 10.
@@ -70,7 +70,15 @@ def step_size_ablation_study(save=False):
     y, c, z, pi, mu, tau, eps, eps0, chr_idx = (out['obs'], out['c'], out['z'], out['pi'], out['mu'], out['tau'],
                                                 out['eps'], out['eps0'], out['chr_idx'])
     print(f"------------ Data set sanity check ------------")
-    print(f"c: {c}")
+    if save:
+        experiment_str = f'step_size/N{N}_M{M}_{K}_{A}_nIter{n_iter}'
+        save_path = create_output_catalog(ablation_study_specific_str=experiment_str)
+        visualization_utils.visualize_copy_number_profiles(c, save_path=save_path)
+        np.save(save_path + '/eps_simulated', np.array(eps))
+        np.save(save_path + '/pi_simulated', np.array(pi))
+        np.save(save_path + '/mu_simulated', np.array(mu))
+        np.save(save_path + '/tau_simulated', np.array(tau))
+
     print(f"pi: {pi}")
     print(f"eps: {eps}")
     print(f"Mu in range: [{mu.min()}, {mu.max()}] ")
@@ -94,7 +102,7 @@ def step_size_ablation_study(save=False):
             qc, qt, qeps, qz, qpi, qmt = set_up_q(config, eps_a_prior=a0, eps_beta_prior=b0, pi_delta_prior=dir_delta0,
                                                   mt_nu_prior=nu_0, mt_lmbda_prior=lambda_0, mt_alpha_prior=alpha0,
                                                   mt_beta_prior=beta0)
-            q = VarTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
             init_q_to_prior_parameters(q, mt_nu_prior=nu_0, mt_lmbda_prior=lambda_0, mt_alpha_prior=alpha0,
                                        mt_beta_prior=beta0)
             copy_tree = VICTree(config, q, y)
@@ -116,12 +124,12 @@ def step_size_ablation_study(save=False):
         print(f"mean ELBO for steps size {step_size}: {np.array(elbo).mean()} ({np.array(elbo).std()})")
 
         if save:
-            save_path = create_output_catalog()
-            np.save(save_path + 'elbo_mean', ari_list)
-            np.save(save_path + 'elbo_std', ari_list)
-            np.save(save_path + 'ari_mean', elbo_list)
-            np.save(save_path + 'ari_std', elbo_list)
+            np.save(save_path + '/' + 'elbo_mean', ari_list)
+            np.save(save_path + '/' + 'elbo_std', ari_std_list)
+            np.save(save_path + '/' + 'ari_mean', elbo_list)
+            np.save(save_path + '/' + 'ari_std', elbo_std_list)
+            np.save(save_path + '/' + 'step_sizes', step_sizes)
 
 
 if __name__ == '__main__':
-    step_size_ablation_study(save=False)
+    step_size_ablation_study(save=True)

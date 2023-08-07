@@ -18,6 +18,8 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
         matplotlib.use(matplotlib.rcParams['backend'])
     elif save_path is None:
         matplotlib.use(pyplot_backend)
+    else:
+        matplotlib.use('module://backend_interagg')
 
     if len(C.shape) > 2 and C.shape[2] > 1:
         C = torch.argmax(C, dim=2)  # convert one-hot-encoding to categories
@@ -41,10 +43,14 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
         axs[int(k / n_col), col_count].plot(sites, C_k)
         axs[int(k / n_col), col_count].set_title(f'k = {k}')
 
-    if save_path is None:
-        plt.show(block=block)
+    plt.show(block=False)
+
+    user_continue = input("Check plot and determine if C looks plausible. Continue? (y/n)")
+    if user_continue == 'y':
+        if save_path is not None:
+            fig.savefig(save_path + '/c_simulated')
     else:
-        plt.savefig(save_path)
+        raise Exception('Simulated C rejected by user.')
 
 
 def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array: np.array, save_path=None, pyplot_backend=None,
