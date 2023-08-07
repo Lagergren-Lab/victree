@@ -48,8 +48,8 @@ if __name__=='__main__':
             set_seed(j * 123 + 4)
             # generate dataset
             config = Config(n_nodes=k, chain_length=M, n_cells=N, wis_sample_size=wis_ss, n_run_iter=20, step_size=step_size)
-            data = simul.simulate_full_dataset(config=config, eps_a=40., eps_b=1000., dir_alpha=100.,
-                                               lambda0=100., alpha0=500., beta0=25.)
+            data = simul.simulate_full_dataset(config=config, eps_a=40., eps_b=1000., lambda0=100., alpha0=500.,
+                                               beta0=25., dir_delta=100.)
             # init distributions eps, c (from true) and T
             qeps: qEpsilonMulti = qEpsilonMulti(config, true_params={'eps': data['eps']})
             # qeps: qEpsilonMulti = qEpsilonMulti(config, alpha_prior=40., beta_prior=1000.).initialize()

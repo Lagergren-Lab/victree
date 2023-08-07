@@ -28,7 +28,7 @@ class simulTestCase(unittest.TestCase):
         dir_alpha0 = [1., 3., 3.]
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
         output_sim = simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=mu_0, lambda0=lmbda_0, alpha0=alpha0,
-                                           beta0=beta0, dir_alpha=dir_alpha0)
+                                           beta0=beta0, dir_delta=dir_alpha0)
         y = output_sim['obs']
         C = output_sim['c']
         z = output_sim['z']

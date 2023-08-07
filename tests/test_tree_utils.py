@@ -110,15 +110,15 @@ class treeUtilTestCase(unittest.TestCase):
         perm = [0, 1, 2, 3, 4]
 
         # Test identity mapping
-        T_map = tree_utils.remap_edge_labels([T], perm)[0]
+        T_map = tree_utils.remap_node_labels([T], perm)[0]
         self.assertEqual(T.edges, T_map.edges, msg='Identity mapping failed.')
 
         perm1 = [0, 2, 3, 1, 4]
-        T_map = tree_utils.remap_edge_labels([T], perm1)[0]
+        T_map = tree_utils.remap_node_labels([T], perm1)[0]
         self.assertNotEqual(T.edges, T_map.edges, msg='Mapped tree still equal to original after mapping.')
 
         perm1_inv = [0, 3, 1, 2, 4]
-        T_map_inv = tree_utils.remap_edge_labels([T_map], perm1_inv)[0]
+        T_map_inv = tree_utils.remap_node_labels([T_map], perm1_inv)[0]
         self.assertEqual(T.edges, T_map_inv.edges)
 
     def test_generate_all_directed_unlabeled_tree_topologies(self):

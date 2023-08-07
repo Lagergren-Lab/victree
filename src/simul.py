@@ -79,7 +79,7 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
 
 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True,
+                          alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False):
     """
 Generate full simulated dataset.
@@ -142,12 +142,12 @@ Generate full simulated dataset.
     mu = torch.distributions.Normal(mu0, 1. / torch.sqrt(lambda0 * tau)).sample()
     assert mu.shape == tau.shape
     # sample assignments
-    if isinstance(dir_alpha, float):
-        dir_alpha_tensor = torch.ones(config.n_nodes) * dir_alpha
-    elif isinstance(dir_alpha, list):
-        dir_alpha_tensor = torch.tensor(dir_alpha)
+    if isinstance(dir_delta, float):
+        dir_alpha_tensor = torch.ones(config.n_nodes) * dir_delta
+    elif isinstance(dir_delta, list):
+        dir_alpha_tensor = torch.tensor(dir_delta)
     else:
-        raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_alpha)})")
+        raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_delta)})")
     pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
@@ -436,7 +436,7 @@ def generate_dataset_var_tree(config: Config,
         raise ValueError(f"chrom argument `{chrom}` does not match any available option")
 
     simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
-                                       alpha0=alpha_prior, beta0=beta_prior, dir_alpha=dir_alpha, chr_df=chr_df)
+                                       alpha0=alpha_prior, beta0=beta_prior, dir_delta=dir_alpha, chr_df=chr_df)
 
     if chrom != 1:
         fix_qc = qCMultiChrom(config, true_params={
@@ -562,9 +562,9 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError(f"wrong number of chromosomes param: {args.n_chromosomes}")
 
     config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length)
-    data = simulate_full_dataset(config, dir_alpha=args.concentration_factor, mu0=args.mutau_params[0],
+    data = simulate_full_dataset(config, eps_a=args.eps_params[0], eps_b=args.eps_params[1], mu0=args.mutau_params[0],
                                  lambda0=args.mutau_params[1], alpha0=args.mutau_params[2], beta0=args.mutau_params[3],
-                                 eps_a=args.eps_params[0], eps_b=args.eps_params[1], chr_df=chr_df, nans=args.nans)
+                                 dir_delta=args.concentration_factor, chr_df=chr_df, nans=args.nans)
     filename = f'simul_' \
                f'k{config.n_nodes}a{config.n_states}n{config.n_cells}m{config.chain_length}' \
                f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \

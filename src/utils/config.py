@@ -13,8 +13,8 @@ class Config:
                  chain_length: int = 200,
                  chromosome_indexes=None,
                  wis_sample_size: int = 5,
-                 elbo_rtol: float = 5e-5,  # TODO: check if this is too low
-                 max_close_runs: int = 5,
+                 elbo_rtol: float = 5e-4,  # TODO: check if this is too low
+                 max_close_runs: int = 10,
                  sieving_size: int = 1,
                  n_sieving_iter: int = 20,
                  step_size=1.,

@@ -138,18 +138,19 @@ class VICTree:
             pbar.set_postfix({'elbo': self.elbo})
 
             # early-stopping
-            if ((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
+            if np.abs((self.elbo - old_elbo) / self.elbo) < self.config.elbo_rtol * self.config.step_size:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     logging.debug(f"run converged after {it}/{n_iter} iterations")
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
+                close_runs += 1
                 logging.warning("Elbo is decreasing")
             else:
                 close_runs = 0
 
-            if it % self.config.save_progress_every_niter == 0:
+            if it % self.config.save_progress_every_niter == 0 and False:
                 self.write()
 
         logging.info(f"ELBO final: {self.elbo:.2f}")

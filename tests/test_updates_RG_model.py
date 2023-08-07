@@ -418,9 +418,8 @@ class updatesRGModelTestCase(unittest.TestCase):
                 partial_elbo = qc.compute_elbo([fix_tree], [1.], fix_qeps) + qz.compute_elbo(fix_qpi)
                 utils.visualization_utils.visualize_copy_number_profiles(
                     torch.argmax(qc.single_filtering_probs, dim=-1),
-                    save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
-                    title_suff=f"- VI iter {i},"
-                               f" elbo: {partial_elbo}")
+                    save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png", title_suff=f"- VI iter {i},"
+                                                                                           f" elbo: {partial_elbo}")
             qmt.update(qc, qz, obs)
             qz.update(qmt, qc, fix_qpi, obs)
             qc.update(obs, fix_qeps, qz, qmt, trees=trees, tree_weights=wis_weights)
