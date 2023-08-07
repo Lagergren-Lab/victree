@@ -1,5 +1,6 @@
 import os
 
+import matplotlib
 from matplotlib import pyplot as plt
 
 from inference.victree import VICTree
@@ -12,6 +13,7 @@ def edge_probability_analysis(q_T: qT, L, true_tree=None, best_perm=None):
     """
     Given a trained qT, analyzes the edges in the trees sampled trees.
     """
+    matplotlib.use('module://backend_interagg')
 
     # T comparisons
     N, M, K, A = (q_T.config.n_cells, q_T.config.chain_length, q_T.config.n_nodes, q_T.config.n_states)
@@ -31,8 +33,9 @@ def edge_probability_analysis(q_T: qT, L, true_tree=None, best_perm=None):
         plt.xticks(ticks=x_axis, labels=labels, rotation=60)
 
     else:
+        labels = [str(e) for e in unique_edges_list]
         fig = plt.plot(x_axis, y_axis, 'o')
-        plt.xticks(ticks=x_axis, rotation=60)
+        plt.xticks(ticks=x_axis, labels=labels, rotation=60)
 
     plt.ylabel('Edges count')
     plt.xlabel('Unique edges in sampled trees')
@@ -44,7 +47,7 @@ def edge_probability_analysis(q_T: qT, L, true_tree=None, best_perm=None):
     base_dir = 'output/analysis'
     test_dir_name = data_handling.create_analysis_output_catalog(path, base_dir)
     plt.savefig(test_dir_name + f"/T_edge_plot_K{K}_N{N}_M{M}_A{A}.png")
-    plt.close()
+    plt.show()
 
 
 if __name__ == '__main__':

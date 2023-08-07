@@ -38,7 +38,7 @@ def run_analysis(args):
     if args.victree:
         raise NotImplementedError
     if args.qT:
-        q_T = factory_utils.construct_qT_from_checkpoint_data(checkpoint_data, config)
+        q_T = factory_utils.construct_qT_from_model_output_data(checkpoint_data, config)
         qT_analysis.edge_probability_analysis(q_T, args.tree_sample_size)
     if args.qZ:
         raise NotImplementedError

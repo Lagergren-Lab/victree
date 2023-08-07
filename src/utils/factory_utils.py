@@ -11,9 +11,17 @@ from variational_distributions.joint_dists import VarTreeJointDist
 
 def construct_config_from_checkpoint_data(checkpoint_data):
     qZ = checkpoint_data['qZ']['pi']
-    A, N, n_iter = qZ.shape
-    qC = checkpoint_data['qC'] if 'qC' in checkpoint_data.keys() else checkpoint_data['qCMultiChrom']
-    n_iter, K, M, A = qC['single_filtering_probs'].shape
+    N, K = qZ.shape
+    if 'qC' in checkpoint_data.keys():
+        qC = checkpoint_data['qC']
+        K, M, A = qC['single_filtering_probs'].shape
+    else:
+        qC = checkpoint_data['qCMultiChrom']
+        M = 0
+        A = qC['0']['eta2'].shape[2]
+        for key in qC.keys():
+            M += qC[key]['eta2'].shape[1] + 1
+
     return Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A)
 
 
@@ -41,6 +49,15 @@ def construct_qT_from_checkpoint_data(checkpoint_data, config=None):
     config = construct_config_from_checkpoint_data(checkpoint_data) if config is None else config
     qT_params = checkpoint_data['qT']
     qT_weight_matrix = torch.tensor(qT_params['weight_matrix'][-1])
+    qT = var_dists.qT(config)
+    qT.initialize()
+    qT._weight_matrix = qT_weight_matrix
+    return qT
+
+def construct_qT_from_model_output_data(model_output_data, config=None):
+    config = construct_config_from_checkpoint_data(model_output_data) if config is None else config
+    qT_params = model_output_data['qT']
+    qT_weight_matrix = torch.tensor(qT_params['weight_matrix'])
     qT = var_dists.qT(config)
     qT.initialize()
     qT._weight_matrix = qT_weight_matrix
