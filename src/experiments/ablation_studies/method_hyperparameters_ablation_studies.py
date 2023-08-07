@@ -58,7 +58,7 @@ def step_size_ablation_study(save=False):
     alpha0 = 500.
     beta0 = 50.
     a0 = 1.0
-    b0 = 500.0
+    b0 = 300.0
     N, M, K, A = (1000, 3000, 8, 7)
 
     tree = tree_utils.generate_fixed_tree(K)
@@ -105,13 +105,13 @@ def step_size_ablation_study(save=False):
             q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
             init_q_to_prior_parameters(q, mt_nu_prior=nu_0, mt_lmbda_prior=lambda_0, mt_alpha_prior=alpha0,
                                        mt_beta_prior=beta0)
-            copy_tree = VICTree(config, q, y)
+            victree = VICTree(config, q, y)
 
-            copy_tree.run(n_iter=n_iter)
+            victree.run(n_iter=n_iter)
 
-            ari_seed = adjusted_rand_score(z, copy_tree.q.z.pi.argmax(dim=-1))
+            ari_seed = adjusted_rand_score(z, victree.q.z.pi.argmax(dim=-1))
             ari.append(ari_seed)
-            elbo_seed = copy_tree.elbo
+            elbo_seed = victree.elbo
             elbo.append(elbo_seed)
             print(f"ARI for step size {step_size} and seed {seed}: {ari_seed}")
             print(f"ELBO for step size {step_size} and seed {seed}: {elbo_seed}")
