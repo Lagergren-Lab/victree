@@ -1,7 +1,9 @@
 import argparse
 import os
 
-from analysis import qT_analysis
+import torch
+
+from analysis import qT_analysis, qC_analysis
 from utils import factory_utils, data_handling
 from utils.config import set_seed
 from utils.data_handling import DataHandler
@@ -38,12 +40,13 @@ def run_analysis(args):
     if args.victree:
         raise NotImplementedError
     if args.qT:
-        q_T = factory_utils.construct_qT_from_checkpoint_data(checkpoint_data, config)
+        q_T = factory_utils.construct_qT_from_model_output_data(checkpoint_data, config)
         qT_analysis.edge_probability_analysis(q_T, args.tree_sample_size)
     if args.qZ:
         raise NotImplementedError
     if args.qC:
-        raise NotImplementedError
+        victree = factory_utils.construct_victree_object_from_model_output_and_data(checkpoint_data, obs, config)
+        qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
 
 
 
