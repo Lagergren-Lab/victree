@@ -150,7 +150,7 @@ class VICTree:
             else:
                 close_runs = 0
 
-            if it % self.config.save_progress_every_niter == 0 and False:
+            if it % self.config.save_progress_every_niter == 0:
                 self.write()
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
