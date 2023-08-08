@@ -2,8 +2,8 @@
 #
 #SBATCH -J victree
 #SBATCH -t 20:00:00
-#SBATCH --mem=70G
-#SBATCH --ntasks 12
+#SBATCH --mem=85G
+#SBATCH --ntasks 15
 #SBATCH --cpus-per-task 1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=haraldme@kth.se
