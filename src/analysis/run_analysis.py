@@ -49,7 +49,6 @@ def run_analysis(args):
         qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
 
 
-
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(

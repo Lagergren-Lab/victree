@@ -1386,6 +1386,12 @@ class qEpsilonMulti(VariationalDistribution):
             'beta': self.beta
         }
 
+    def get_prior_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'alpha_prior': self.alpha_prior.numpy(),
+            'beta_prior': self.beta_prior.numpy()
+        }
+
     def update_params(self, alpha: dict, beta: dict):
         rho = self.config.step_size
         for e in self.alpha_dict.keys():
@@ -1685,6 +1691,14 @@ class qMuTau(qPsi):
             'lmbda': self.lmbda.numpy(),
             'alpha': self.alpha.numpy(),
             'beta': self.beta.numpy()
+        }
+
+    def get_prior_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'nu_prior': self.nu_0.numpy(),
+            'lmbda_prior': self.lmbda_0.numpy(),
+            'alpha_prior': self.alpha_0.numpy(),
+            'beta_prior': self.beta_0.numpy()
         }
 
     def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
@@ -2498,6 +2512,11 @@ class qPi(VariationalDistribution):
     def get_params_as_dict(self) -> dict[str, np.ndarray]:
         return {
             'concentration_param': self.concentration_param.numpy()
+        }
+
+    def get_prior_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'concentration_param_prior': self.concentration_param_prior.numpy()
         }
 
     def update(self, qz: qZ):
