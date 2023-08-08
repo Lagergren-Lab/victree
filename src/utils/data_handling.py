@@ -58,7 +58,9 @@ class DataHandler:
 
                 # pandas categorical for chromosomes
                 self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
-                adata = ann_dataset
+                # adata = ann_dataset
+                adata = anndata.AnnData(obs.T.numpy())
+                adata.var = self.chr_df
 
             except Exception as ae:  # Couldn't load module for AnnDataReadError
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")

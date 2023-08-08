@@ -332,7 +332,6 @@ class VICTree:
                 params = q.get_params_as_dict()
                 prior_params = q.get_prior_params_as_dict()
                 prior_params = {} if prior_params is None else prior_params
-                print(prior_params)
                 if isinstance(q, qCMultiChrom):
                     # get params gives dict[str, list[np.ndarray]] for each unit qC
                     for i, qc in enumerate(q.qC_list):
