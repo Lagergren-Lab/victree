@@ -1,13 +1,12 @@
 #!/bin/bash
 #
 #SBATCH -J victree
-#SBATCH -t 00:30:00
-#SBATCH --mem=10G
-#SBATCH --ntasks 8
-#SBATCH --cpus-per-task 4
+#SBATCH -t 20:00:00
+#SBATCH --mem=70G
+#SBATCH --ntasks 12
+#SBATCH --cpus-per-task 1
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=haraldme@kth.se
-#SBATCH --reservation=devel
 #
 
 # Function to process each YAML file
