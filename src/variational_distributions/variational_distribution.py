@@ -67,3 +67,7 @@ class VariationalDistribution:
     @abstractmethod
     def get_params_as_dict(self):
         pass
+
+    @abstractmethod
+    def get_prior_params_as_dict(self):
+        pass

@@ -330,6 +330,9 @@ class VICTree:
             for q in self.q.get_units() + [self.q]:
                 qlay = f.create_group(q.__class__.__name__)
                 params = q.get_params_as_dict()
+                prior_params = q.get_prior_params_as_dict()
+                prior_params = {} if prior_params is None else prior_params
+                print(prior_params)
                 if isinstance(q, qCMultiChrom):
                     # get params gives dict[str, list[np.ndarray]] for each unit qC
                     for i, qc in enumerate(q.qC_list):
@@ -340,6 +343,9 @@ class VICTree:
                 else:
                     for k in params:
                         qlay.create_dataset(k, data=params[k])
+                    for k in prior_params:
+                        if k:
+                            qlay.create_dataset(k, data=prior_params[k])
         logging.debug(f"model saved in {path}")
 
     def write(self):
