@@ -48,7 +48,7 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
     user_continue = input("Check plot and determine if C looks plausible. Continue? (y/n)")
     if user_continue == 'y':
         if save_path is not None:
-            fig.savefig(save_path + '/c_simulated')
+            fig.savefig(save_path + 'c_simulated.png')
     else:
         raise Exception('Simulated C rejected by user.')
 
