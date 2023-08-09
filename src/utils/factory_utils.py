@@ -140,6 +140,7 @@ def construct_victree_object_from_model_output_and_data(model_output_h5_file, ob
     config = config if config is None else construct_config_from_checkpoint_data(model_output_h5_file)
     q = construct_q_from_checkpoint_data(model_output_h5_file, obs, config)
     victree = VICTree(config, q, obs)
+    victree.compute_elbo()
     return victree
 
 
