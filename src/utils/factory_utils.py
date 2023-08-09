@@ -1,5 +1,6 @@
 import os.path
 
+import numpy as np
 import torch
 
 from inference.victree import VICTree
@@ -104,7 +105,11 @@ def construct_qZ_from_model_output_data(model_output_data, config=None):
 def construct_qPi_from_model_output_data(model_output_data, config=None):
     config = construct_config_from_checkpoint_data(model_output_data) if config is None else config
     qpi_params = torch.tensor(model_output_data['qPi']['concentration_param'])
-    qpi = var_dists.qPi(config)
+    if 'concentration_param_prior' in model_output_data['qPi'].keys():
+        qpi_prior_params = list(model_output_data['qPi']['concentration_param_prior'])
+        qpi = var_dists.qPi(config, delta_prior=qpi_prior_params)
+    else:
+        qpi = var_dists.qPi(config)
     qpi.initialize()
     qpi.concentration_param = qpi_params
     return qpi
@@ -113,7 +118,15 @@ def construct_qPi_from_model_output_data(model_output_data, config=None):
 def construct_qMuTau_from_model_output_data(model_output_data, config=None):
     config = construct_config_from_checkpoint_data(model_output_data) if config is None else config
     qMuTau_params = model_output_data['qMuTau']
-    qmt = var_dists.qMuTau(config)
+    if 'nu_prior' in model_output_data['qMuTau'].keys():
+        nu_prior = float(np.array(model_output_data['qMuTau']['nu_prior']))
+        lambda_prior = float(np.array(model_output_data['qMuTau']['lmbda_prior']))
+        alpha_prior = float(np.array(model_output_data['qMuTau']['alpha_prior']))
+        beta_prior = float(np.array(model_output_data['qMuTau']['beta_prior']))
+        qmt = var_dists.qMuTau(config, nu_prior=nu_prior, lambda_prior=lambda_prior,
+                               alpha_prior=alpha_prior, beta_prior=beta_prior)
+    else:
+        qmt = var_dists.qMuTau(config)
     qmt.initialize()
     qmt.nu = torch.tensor(qMuTau_params['nu'])
     qmt.lmbda = torch.tensor(qMuTau_params['lmbda'])
@@ -125,7 +138,12 @@ def construct_qMuTau_from_model_output_data(model_output_data, config=None):
 def construct_qEpsilonMulti_from_model_output_data(model_output_data, config=None):
     config = construct_config_from_checkpoint_data(model_output_data) if config is None else config
     qEps_params = model_output_data['qEpsilonMulti']
-    qeps = var_dists.qEpsilonMulti(config)
+    if 'alpha_prior' in model_output_data['qEpsilonMulti'].keys():
+        alpha_prior = float(np.array(model_output_data['qEpsilonMulti']['alpha_prior']))
+        beta_prior = float(np.array(model_output_data['qEpsilonMulti']['beta_prior']))
+        qeps = var_dists.qEpsilonMulti(config, alpha_prior, beta_prior)
+    else:
+        qeps = var_dists.qEpsilonMulti(config)
     qeps.initialize()
     loaded_alphas = torch.tensor(qEps_params['alpha'])
     loaded_betas = torch.tensor(qEps_params['beta'])
