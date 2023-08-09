@@ -53,6 +53,33 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
         raise Exception('Simulated C rejected by user.')
 
 
+def visualize_copy_number_profiles_ipynb(C, title_suff: str = ''):
+    plt.interactive(True)
+    if len(C.shape) > 2 and C.shape[2] > 1:
+        C = torch.argmax(C, dim=2)  # convert one-hot-encoding to categories
+
+    K, M = C.shape
+    A_max = int(np.max(C))
+    n_col = 2
+    n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
+    fig, axs = plt.subplots(n_rows, n_col)
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
+
+    sites = range(1, M + 1)
+    for k in range(K):
+        C_k = C[k, :]
+        if k % n_col == 0:
+            col_count = 0
+        else:
+            col_count += 1
+
+        axs[int(k / n_col), col_count].plot(sites, C_k)
+        axs[int(k / n_col), col_count].set_title(f'k = {k}')
+
+    plt.show()
+
+
 def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array: np.array, save_path=None, pyplot_backend=None,
                                    title_suff: str = '', block=False):
     """

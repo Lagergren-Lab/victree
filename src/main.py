@@ -10,6 +10,7 @@ import argparse
 import logging
 import math
 import os
+import pathlib
 import sys
 import time
 
@@ -123,7 +124,7 @@ if __name__ == '__main__':
 
     # create the output path if it does not exist
     if not os.path.exists(args.out_dir):
-        os.mkdir(args.out_dir)
+        pathlib.Path(args.out_dir).mkdir(parents=True, exist_ok=False)
 
     # logger setup
     set_logger(args.debug, args.out_dir)
