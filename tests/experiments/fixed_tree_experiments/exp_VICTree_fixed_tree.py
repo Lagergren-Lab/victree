@@ -6,6 +6,7 @@ import sys
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as f
 from sklearn.metrics import adjusted_rand_score
@@ -105,7 +106,12 @@ class VICTreeFixedTreeExperiment():
             base_dir = '../../test_output'
             test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
             plt.savefig(test_dir_name + f"/ari_plot_N{N}_M{M}_A{A}.png")
-
+            df = pd.DataFrame({
+                'm': K_list,
+                'ari': ari_means,
+                'sd': ari_stds
+            })
+            df.to_csv(os.path.join(test_dir_name, f"k_ari_N{N}_M{M}_A{A}.csv"))
 
     def ari_as_function_of_M_experiment(self, save_plot=False):
         utils.config.set_seed(0)
@@ -173,8 +179,15 @@ class VICTreeFixedTreeExperiment():
             base_dir = '../../test_output'
             test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
             plt.savefig(test_dir_name + f"/ari_plot_N{N}_K{K}_A{A}.png")
+            df = pd.DataFrame({
+                'm': M_list,
+                'ari': ari_means,
+                'sd': ari_stds
+            })
+            df.to_csv(os.path.join(test_dir_name, f"m_ari_N{N}_K{K}_A{A}.csv"))
 
 
 if __name__ == '__main__':
     experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.ari_as_function_of_K_experiment(save_plot=True)
+    experiment_class.ari_as_function_of_M_experiment(save_plot=True)
