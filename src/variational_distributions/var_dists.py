@@ -401,7 +401,8 @@ class qC(VariationalDistribution):
     def _exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                  q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                  q_z: 'qZ',
-                 q_psi: 'qPsi') -> Tuple[torch.Tensor, torch.Tensor]:
+                 q_psi: 'qPsi',
+                 batch=None) -> Tuple[torch.Tensor, torch.Tensor]:
         """Expectation of natural parameter vector \\eta
 
         Parameters
@@ -432,8 +433,8 @@ class qC(VariationalDistribution):
 
         # eta_1_iota(m, i)
         e_eta1_m = torch.einsum('nv,nmvi->vmi',
-                                q_z.exp_assignment(),
-                                q_psi.exp_log_emission(obs))
+                                q_z.exp_assignment(batch),
+                                q_psi.exp_log_emission(obs, batch))
         # eta_1_iota(1, i)
         e_eta1[inner_nodes, :] = torch.einsum('pj,ij->pi',
                                               self.single_filtering_probs[
@@ -788,7 +789,7 @@ class qZ(VariationalDistribution):
             m_labels = kmeans.labels_
         raise NotImplemented("kmeans_per_site_init not complete")
 
-    def update(self, qpsi: 'qPsi', qc: 'qC', qpi: 'qPi', obs: torch.Tensor):
+    def update(self, qpsi: 'qPsi', qc: 'qC', qpi: 'qPi', obs: torch.Tensor, batch=None):
         """
         q(Z) is a Categorical with probabilities pi^{*}, where pi_k^{*} = exp(gamma_k) / sum_K exp(gamma_k)
         gamma_k = E[log \pi_k] + sum_{m,j} q(C_m^k = j) E_{\mu, \tau}[D_{nmj}]
@@ -803,32 +804,37 @@ class qZ(VariationalDistribution):
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
-        d_nmj = qpsi.exp_log_emission(obs)
+        d_nmj = qpsi.exp_log_emission(obs, batch)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
         T = self.config.annealing
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
-        new_pi = self.update_params(pi)
+        new_pi = self.update_params(pi, batch)
         # logging.debug("- z updated")
         super().update()
 
-    def update_params(self, pi: torch.Tensor):
+    def update_params(self, pi: torch.Tensor, batch=None):
         rho = self.config.step_size
-        new_pi = (1 - rho) * self.pi + rho * pi
-        self.pi[...] = new_pi
+        if batch is None:
+            new_pi = (1 - rho) * self.pi + rho * pi
+            self.pi[...] = new_pi
+        else:
+            new_pi = pi  # no rho for local updates
+            self.pi[batch] = new_pi
         return new_pi
 
-    def exp_assignment(self) -> torch.Tensor:
-        out_qz = torch.zeros((self.config.n_cells, self.config.n_nodes))
+    def exp_assignment(self, batch=None) -> torch.Tensor:
+        N = self.config.n_cells if batch is None else batch.shape[0]
+        out_qz = torch.zeros((N, self.config.n_nodes))
         if self.fixed:
             true_z = self.true_params["z"]
             # set prob of a true assignment to 1
             out_qz[torch.arange(self.config.n_cells), true_z] = 1.
         else:
             # simply the pi probabilities
-            out_qz[...] = self.pi
+            out_qz[...] = self.pi if batch is None else self.pi[batch]
         return out_qz
 
     def neg_cross_entropy(self, qpi: 'qPi') -> float:
@@ -1624,7 +1630,7 @@ class qMuTau(qPsi):
     def beta(self, b):
         self._beta[...] = b
 
-    def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
+    def update(self, qc: qC, qz: qZ, obs: torch.Tensor, batch=None):
         """
         Updates mu_n, tau_n for each cell n \in {1,...,N}.
         :param qc:
@@ -1635,7 +1641,7 @@ class qMuTau(qPsi):
         """
         A = self.config.n_states
         c_tensor = torch.arange(A, dtype=torch.float)
-        q_Z = qz.exp_assignment()
+        q_Z = qz.exp_assignment(batch)
 
         y = obs.detach().clone()
         nan_mask = torch.any(torch.isnan(y), dim=1)
@@ -1654,22 +1660,33 @@ class qMuTau(qPsi):
         if self.config.debug:
             assert not torch.isnan(beta).any()
 
-        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
+        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta, batch)
 
         super().update()
         # logging.debug("- mu/tau updated")
         return new_mu, new_lmbda, new_alpha, new_beta
 
-    def update_params(self, mu, lmbda, alpha, beta):
+    def update_params(self, nu, lmbda, alpha, beta, batch=None):
         rho = self.config.step_size
-        new_nu = (1 - rho) * self._nu + rho * mu
-        new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
-        new_alpha = (1 - rho) * self._alpha + rho * alpha
-        new_beta = (1 - rho) * self._beta + rho * beta
-        self.nu = new_nu
-        self.lmbda = new_lmbda
-        self.alpha = new_alpha
-        self.beta = new_beta
+        if batch is None:
+            new_nu = (1 - rho) * self._nu + rho * nu
+            new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
+            new_alpha = (1 - rho) * self._alpha + rho * alpha
+            new_beta = (1 - rho) * self._beta + rho * beta
+            self.nu = new_nu
+            self.lmbda = new_lmbda
+            self.alpha = new_alpha
+            self.beta = new_beta
+        else:
+            new_nu = nu
+            new_lmbda = lmbda
+            new_alpha = alpha
+            new_beta = beta
+            self.nu[batch] = new_nu
+            self.lmbda[batch] = new_lmbda
+            self.alpha[batch] = new_alpha
+            self.beta[batch] = new_beta
+
         return new_nu, new_lmbda, new_alpha, new_beta
 
     def initialize(self, method='fixed', **kwargs):
@@ -1775,7 +1792,7 @@ Initialize the mu and tau params given observations
     def elbo_old(self) -> float:
         return self.neg_cross_entropy_old() + self.entropy_old()
 
-    def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
+    def exp_log_emission(self, obs: torch.Tensor, batch=None) -> torch.Tensor:
         M, N = obs.shape
         K = self.config.n_nodes
         A = self.config.n_states
@@ -1796,12 +1813,15 @@ Initialize the mu and tau params given observations
             log_p_obs = log_p_obs[..., None].expand(M, N, A, K)
             out_arr[...] = torch.einsum('mniv->nmvi', log_p_obs)
         else:
-            E_log_tau = self.exp_log_tau()
-            E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
-            E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
-            E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:,
+            E_log_tau = self.exp_log_tau() if batch is None else self.exp_log_tau()[batch]
+            E_mu_tau = self.exp_mu_tau() if batch is None else self.exp_mu_tau()[batch]
+            E_mu2_tau = self.exp_mu2_tau() if batch is None else self.exp_mu2_tau()[batch]
+            E_tau = self.exp_tau() if batch is None else self.exp_tau()[batch]
+            E_tau_y2 = torch.einsum('mn,n->mn', torch.pow(obs, 2), E_tau)
+            E_mu_tau_c_y = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, E_mu_tau)
+            E_mu2_tau_c2 = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), E_mu2_tau)[:,
                         None, :]
-            log_p_obs = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
+            log_p_obs = .5 * (E_log_tau - E_tau_y2 + 2. * E_mu_tau_c_y - E_mu2_tau_c2)
             log_p_obs = log_p_obs.expand(K, A, M, N)
             out_arr[...] = torch.einsum('vimn->nmvi', log_p_obs)
 

@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.distributions as dist
-from scgenome.tools import create_bins
+#from scgenome.tools import create_bins
 
 #from scgenome.tl import create_bins
 

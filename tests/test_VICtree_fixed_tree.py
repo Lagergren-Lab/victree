@@ -96,7 +96,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
         print(f"Epsilon: {eps}")
-        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
+        config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.05,
                         debug=False, diagnostics=False)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
@@ -105,8 +105,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize()
-        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
-                          alpha=torch.ones(n_cells) * 10,
+        qmt.update_params(nu=mu, lmbda=torch.ones(n_cells) * 10, alpha=torch.ones(n_cells) * 10,
                           beta=torch.ones(n_cells) * 10)
         copy_tree = VICTree(config, q, y)
 
@@ -149,7 +148,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
+        config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.05,
                         diagnostics=False, out_dir=out_dir, annealing=1.)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
