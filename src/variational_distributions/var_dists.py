@@ -1807,7 +1807,7 @@ Initialize the mu and tau params given observations
         # FIXME: test does not work
         clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
 
-        self.nu = torch.mean(clean_obs, dim=0)
+        self.nu = torch.mean(clean_obs/2, dim=0)
         self.alpha = torch.ones((self.config.n_cells,))  # init alpha to small value (1)
         var = torch.var(clean_obs, dim=0).clamp(min=.01)  # avoid 0 variance
         self.beta = var * self.alpha
