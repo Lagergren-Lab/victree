@@ -43,12 +43,10 @@ class VICTreeFixedTreeExperiment():
         utils.config.set_seed(0)
 
         K_list = list(range(3, 16))
-        # K_list = list(range(3, 5))
         ari_list = []
         seeds = list(range(0, 5))
-        # seeds = [0]
 
-        N = 1000
+        N = 500
         M = 3000
         A = 7
         dir_alpha0 = 10.
