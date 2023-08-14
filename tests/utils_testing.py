@@ -108,7 +108,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
                                   a0=1.0,
                                   b0=20.0,
                                   dir_alpha0=1.0,
-                                  simulate_raw_reads=True,
+                                  simulate_raw_reads=True, return_anndata=False
                                   ):
     n_nodes = len(tree.nodes)
     config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
@@ -123,7 +123,10 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
     eps = output_sim['eps']
     eps0 = output_sim['eps0']
 
-    return y, C, z, pi, mu, tau, eps, eps0
+    if return_anndata:
+        return y, C, z, pi, mu, tau, eps, eps0, output_sim['adata']
+    else:
+        return y, C, z, pi, mu, tau, eps, eps0
 
 
 def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
@@ -259,6 +262,7 @@ def create_test_output_catalog(config=None, test_specific_string=None, base_dir=
     except FileExistsError:
         print("Dir already exists. Overwriting contents.")
     return path
+
 
 def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
     path = base_dir + "/" + experiment_path

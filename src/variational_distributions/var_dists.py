@@ -144,7 +144,10 @@ class qC(VariationalDistribution):
         }
 
     def get_padded_cfp(self):
-        return self._couple_filtering_probs
+        padded_cfp = torch.zeros((self.config.n_nodes, self.config.chain_length,
+                                  self.config.n_states, self.config.n_states))
+        padded_cfp[:, 1:, ...] = self._couple_filtering_probs
+        return padded_cfp
 
     def initialize(self, method='random', **kwargs):
         if method == 'baum-welch':
@@ -266,7 +269,7 @@ class qC(VariationalDistribution):
 
         self.compute_filtering_probs()
 
-    def entropy(self):
+    def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
         trans_mats = torch.empty_like(self.eta2)
         if self.fixed:
@@ -678,6 +681,9 @@ class qCMultiChrom(VariationalDistribution):
     @property
     def couple_filtering_probs(self):
         return torch.cat([qc.couple_filtering_probs for qc in self.qC_list], dim=1)
+
+    def get_entropy(self):
+        return sum(qc.get_entropy() for qc in self.qC_list)
 
     def get_params_as_dict(self) -> dict[str, list[np.ndarray]]:
         return {

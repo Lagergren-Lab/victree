@@ -1,4 +1,3 @@
-import logging
 import os.path
 import unittest
 
@@ -9,9 +8,8 @@ import tests.utils_testing
 from inference.victree import VICTree
 from variational_distributions.joint_dists import QuadrupletJointDist
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
+from variational_distributions.var_dists import qEpsilonMulti, qZ, qMuTau, qC
 
 
 class VICtreeQuadrupletTestCase(unittest.TestCase):
@@ -52,7 +50,7 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         qc.initialize()
         qeps.initialize()
         qmt.initialize(loc=1., precision_factor=1., shape=100., rate=10.)
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         copy_tree.run(n_iter=40)
 

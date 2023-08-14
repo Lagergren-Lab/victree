@@ -1,22 +1,12 @@
 import logging
-import random
 import unittest
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import torch
-import torch.nn.functional as f
 
 import simul
 import tests.utils_testing
-import utils.config
-from inference.victree import VICTree
-from variational_distributions.joint_dists import FixedTreeJointDist
-from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
-from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn, qCMultiChrom
+from variational_distributions.var_dists import qC, qCMultiChrom
 
 
 class SimulTestCase(unittest.TestCase):

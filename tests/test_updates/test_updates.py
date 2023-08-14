@@ -454,19 +454,24 @@ class updatesTestCase(unittest.TestCase):
         cfg.step_size = .3
         # print(obs)
 
+        # commented because it requires user input
+        # --- uncomment next line to visualize copy numbers
         # utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'],
-        #                                                          save_path="./test_output/update_qcqzqmt_true_cn.png",
+        #                                                          save_path="../test_output/update_qcqzqmt_true_cn.png",
         #                                                          title_suff="- true values")
+
         for i in range(20):
             if i % 5 == 0:
                 # print(f"Iter {i} qZ: {qz.exp_assignment()}")
                 # print(f"iter {i} qmt mean for each cell: {qmt.nu}")
                 # print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
                 partial_elbo = qc.compute_elbo([fix_tree], [1.], fix_qeps) + qz.compute_elbo(fix_qpi) + qmt.elbo_old()
-                utils.visualization_utils.visualize_copy_number_profiles(
-                    torch.argmax(qc.single_filtering_probs, dim=-1),
-                    save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png", title_suff=f"- VI iter {i},"
-                                                                                           f" elbo: {partial_elbo}")
+                # --- uncomment to visualize
+                # utils.visualization_utils.visualize_copy_number_profiles(
+                #     torch.argmax(qc.single_filtering_probs, dim=-1),
+                #     save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png", title_suff=f"- VI iter {i},"
+                #                                                                            f" elbo: {partial_elbo}")
+
             qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt, trees=trees, tree_weights=wis_weights)

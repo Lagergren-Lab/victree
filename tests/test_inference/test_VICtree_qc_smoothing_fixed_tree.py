@@ -1,24 +1,14 @@
-import logging
-import os.path
-import random
 import unittest
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import torch
-import torch.nn.functional as f
-import numpy as np
 
-import simul
 import tests.utils_testing
-import utils.config
 from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
-from utils import visualization_utils, data_handling
+from tests.utils_testing import simulate_full_dataset_no_pyro
 from utils.config import Config, set_seed
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
 
 
 @unittest.skip("Manual inspection tests/experiments")

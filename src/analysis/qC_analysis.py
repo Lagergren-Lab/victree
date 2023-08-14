@@ -15,7 +15,7 @@ def selectTrees(qt):
     return T
 
 
-def train_on_fixed_tree(victree: VICTree, n_iter: int, output_path=None):
+def train_on_fixed_tree(victree: VICTree, n_iter: int):
     victree_copy = copy.deepcopy(victree)
     qmt = victree_copy.q.mt
     qc = victree_copy.q.c
@@ -29,12 +29,7 @@ def train_on_fixed_tree(victree: VICTree, n_iter: int, output_path=None):
     T = selectTrees(qT)
     q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, T, obs)
 
-    if output_path is None:
-        config.save_progress_every_niter = 10000  # Make sure never saved
-        victree_fixed_tree = VICTree(config, q, obs)
-    else:
-        data_handler = DataHandler(output_path)
-        victree_fixed_tree = VICTree(config, q, obs, data_handler)
+    victree_fixed_tree = VICTree(config, q, obs, draft=True)
 
     print(f'ELBO before tuning: {victree_copy.elbo}')
     victree_fixed_tree.run(n_iter)

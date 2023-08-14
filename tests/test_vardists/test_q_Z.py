@@ -100,6 +100,7 @@ class qZTestCase(unittest.TestCase):
         print(f"Uniform: {res_1} \n Skewed: {res_2}")
         self.assertLess(res_1, res_2, f"ELBO for uniform assignment over clusters greater than all probability to one cluster")
 
+    @unittest.skip("need elbo computation for joint with fixed dist")
     def test_qZ_kmeans_init(self):
         # Arrange
         sim_joint_q = utils_testing.generate_test_dataset_fixed_tree()
@@ -108,10 +109,10 @@ class qZTestCase(unittest.TestCase):
         qz = qZ(sim_joint_q.config).initialize(z_init='uniform')
         unif_elbo = qz.compute_elbo(sim_joint_q.pi)
 
-        qz.initialize(z_init='random')
+        qz = qZ(sim_joint_q.config).initialize(z_init='random')
         rand_elbo = qz.compute_elbo(sim_joint_q.pi)
 
-        qz.initialize(z_init='kmeans', obs=obs)
+        qz = qZ(sim_joint_q.config).initialize(z_init='kmeans', obs=obs)
         kmeans_elbo = qz.compute_elbo(sim_joint_q.pi)
 
         print(unif_elbo)

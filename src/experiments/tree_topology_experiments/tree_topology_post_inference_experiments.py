@@ -111,7 +111,7 @@ class TreeTopologyPostInferenceExperiment():
                     dir_top_idx = dirs.index('experiments')
                     dir_path = dirs[dir_top_idx:]
                     path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                    base_dir = '../../test_output'
+                    base_dir = '../../../tests/test_output'
                     test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
                     plt.savefig(test_dir_name + f"/T_edge_plot_seed{seed}_K{K}_N{N}_M{M}_A{A}.png")
                     plt.close()
@@ -133,7 +133,7 @@ class TreeTopologyPostInferenceExperiment():
             dir_top_idx = dirs.index('experiments')
             dir_path = dirs[dir_top_idx:]
             path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-            base_dir = '../../test_output'
+            base_dir = '../../../tests/test_output'
             test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
             plt.savefig(test_dir_name + f"/ari_plot_N{N}_M{M}_A{A}.png")
             plt.close()

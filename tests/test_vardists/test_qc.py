@@ -4,7 +4,7 @@ import networkx as nx
 import torch
 
 from utils.config import Config, set_seed
-from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qPi
+from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qPi, qCMultiChrom
 from variational_distributions.joint_dists import VarTreeJointDist
 
 
@@ -13,8 +13,9 @@ class qCTestCase(unittest.TestCase):
     def setUp(self) -> None:
         # build config
         set_seed(101)
-        self.config = Config()
-        self.qc = qC(self.config)
+        self.config = Config(chromosome_indexes=[])
+        # self.qc = qC(self.config)
+        self.qc = qCMultiChrom(self.config)
         self.qt = qT(self.config)
         self.qeps = qEpsilonMulti(self.config, 2, 5)  # skewed towards 0
         self.qz = qZ(self.config)
@@ -34,16 +35,18 @@ class qCTestCase(unittest.TestCase):
         pass
 
     def test_expectation_size(self):
-        tree = nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
-        exp_alpha1, exp_alpha2 = self.qc._exp_alpha(tree, self.qeps)
-        self.assertEqual(exp_alpha1.shape, (self.config.n_nodes, self.config.n_states))
-        self.assertEqual(exp_alpha2.shape,
-                         (self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))
+        for qc in self.qc.qC_list:
+            chain_length = qc.config.chain_length
+            tree = nx.random_tree(self.config.n_nodes, create_using=nx.DiGraph)
+            exp_alpha1, exp_alpha2 = qc._exp_alpha(tree, self.qeps)
+            self.assertEqual(exp_alpha1.shape, (self.config.n_nodes, self.config.n_states))
+            self.assertEqual(exp_alpha2.shape,
+                             (self.config.n_nodes, chain_length-1, self.config.n_states, self.config.n_states))
 
-        exp_eta1, exp_eta2 = self.qc._exp_eta(self.obs, tree, self.qeps, self.qz, self.qmt)
-        self.assertEqual(exp_eta1.shape, (self.config.n_nodes, self.config.n_states))
-        self.assertEqual(exp_eta2.shape,
-                         (self.config.n_nodes, self.config.chain_length-1, self.config.n_states, self.config.n_states))
+            exp_eta1, exp_eta2 = qc._exp_eta(self.obs, tree, self.qeps, self.qz, self.qmt)
+            self.assertEqual(exp_eta1.shape, (self.config.n_nodes, self.config.n_states))
+            self.assertEqual(exp_eta2.shape,
+                             (self.config.n_nodes, chain_length-1, self.config.n_states, self.config.n_states))
 
     def test_ELBO(self):
         L_list = [1, 2, 5, 10, 20]
@@ -81,10 +84,10 @@ class qCTestCase(unittest.TestCase):
         self.assertGreater(entropy_rand, entropy_deterministic)
 
     def test_entropy_lower_for_random_transitions_than_uniform_transitions(self):
-        rand_res = self.qc.entropy()
-        qc_1 = qC(self.config)
-        qc_1._uniform_init()
-        uniform_res = qc_1.entropy()
+        rand_res = self.qc.get_entropy()
+        qc_1 = qCMultiChrom(self.config)
+        qc_1.initialize(method='uniform')
+        uniform_res = qc_1.get_entropy()
         print(f"Entropy random eta_2: {rand_res} - uniform eta_2: {uniform_res}")
         self.assertLess(rand_res, uniform_res)
 
@@ -111,7 +114,6 @@ class qCTestCase(unittest.TestCase):
         cross_entropy_deterministic = qc_2.neg_cross_entropy_arc(q_eps, 0, 1)
         print(f"Deterministic: {cross_entropy_deterministic}")
         self.assertLess(cross_entropy_rand, cross_entropy_deterministic)
-
 
     def test_baum_welch_init(self):
         torch.manual_seed(0)

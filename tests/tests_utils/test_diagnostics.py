@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 
 from inference.victree import VICTree
-from utils.data_handling import write_checkpoint_h5, load_h5_pseudoanndata, read_last_it_from_checkpoint
+from utils.data_handling import load_h5_pseudoanndata
 from variational_distributions.joint_dists import VarTreeJointDist
 from simul import generate_dataset_var_tree
 from utils.config import set_seed, Config
@@ -16,7 +16,7 @@ class InitTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(42)
-        self.output_dir = "./test_output"
+        self.output_dir = "../test_output"
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
@@ -128,7 +128,7 @@ class InitTestCase(unittest.TestCase):
                 self.assertTrue(isinstance(q.params_history[k][-1], np.ndarray),
                                 msg=f"param {k} is of type {type(q.params_history[k][-1])} but it should be np.ndarray")
 
-        victree.write_checkpoint_h5(victree)
+        victree.write_checkpoint_h5()
 
         # check what is saved in the checkpoint
         h5_checkpoint = load_h5_pseudoanndata(checkpoint_path)

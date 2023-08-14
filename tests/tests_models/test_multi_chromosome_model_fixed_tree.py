@@ -1,25 +1,15 @@
-import logging
 import os.path
-import random
 import unittest
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import torch
-import torch.nn.functional as f
 
-import simul
 import tests.utils_testing
-import utils.config
 from inference.victree import VICTree
 from model.multi_chromosome_model import MultiChromosomeGenerativeModel
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
-from utils import visualization_utils, data_handling
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent, \
-    qCMultiChrom
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qCMultiChrom
 
 
 class MultiChromosomeTestCase(unittest.TestCase):
@@ -76,7 +66,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         copy_tree.run(n_iter=50)
 
@@ -130,7 +120,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         # initialize all var dists
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         copy_tree.run(n_iter=100)
 
@@ -138,7 +128,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
         qc2 = qC(config)
         q2 = FixedTreeJointDist(config, qc2, qz2, qeps2, qmt2, qpi2, tree, y)
         q2.initialize()
-        copy_tree2 = VICTree(config, q2, y)
+        copy_tree2 = VICTree(config, q2, y, draft=True)
 
         copy_tree2.run(n_iter=100)
 
@@ -200,7 +190,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         copy_tree.run(n_iter=500)
         copy_tree.step()

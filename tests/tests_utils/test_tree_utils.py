@@ -6,7 +6,7 @@ import simul
 from utils import tree_utils
 
 
-class treeUtilTestCase(unittest.TestCase):
+class TreeUtilsTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         simul.set_seed(101)

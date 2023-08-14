@@ -1,23 +1,18 @@
 import logging
-import random
 import unittest
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import torch
 import torch.nn.functional as f
 
-import simul
 import tests.utils_testing
-import utils.config
 from inference.victree import VICTree
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
+from tests.utils_testing import simulate_full_dataset_no_pyro
 from utils import visualization_utils, tree_utils
 from utils.config import Config
 from variational_distributions.joint_dists import VarTreeJointDist
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
 
 
 class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
@@ -59,7 +54,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         # Act
         copy_tree.run(n_iter=5)
@@ -97,7 +92,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         # Act
         copy_tree.run(n_iter=100)
@@ -144,7 +139,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         # Act
         copy_tree.run(n_iter=100)
@@ -204,7 +199,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         # Act
         copy_tree.run(n_iter=50)
@@ -265,7 +260,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)
         q.initialize()
 
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
         copy_tree.q.pi.concentration_param = torch.tensor(dir_alpha0)
         copy_tree.q.z.pi[...] = f.one_hot(z, num_classes=K)
         copy_tree.q.c.single_filtering_probs[...] = f.one_hot(C.long(), num_classes=n_copy_states).float()
