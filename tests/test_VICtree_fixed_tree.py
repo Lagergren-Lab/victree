@@ -156,7 +156,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         copy_tree = VICTree(config, q, y)
 
-        copy_tree.run(n_iter=100)
+        copy_tree.run(n_iter=300)
 
         # Assert
         torch.set_printoptions(precision=2)

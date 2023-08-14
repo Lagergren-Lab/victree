@@ -341,7 +341,8 @@ class qC(VariationalDistribution):
                q_z: 'qZ',
                q_psi: 'qPsi',
                trees,
-               tree_weights):
+               tree_weights,
+               batch=None):
         """
         log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
         + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
@@ -358,7 +359,7 @@ class qC(VariationalDistribution):
             exp_alpha1, exp_alpha2 = self._exp_alpha(tree, q_eps)
 
             # init tree-specific update
-            tree_eta1, tree_eta2 = self._exp_eta(obs, tree, q_eps, q_z, q_psi)
+            tree_eta1, tree_eta2 = self._exp_eta(obs, tree, q_eps, q_z, q_psi, batch)
             for u in range(self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]
@@ -816,12 +817,12 @@ class qZ(VariationalDistribution):
         super().update()
 
     def update_params(self, pi: torch.Tensor, batch=None):
-        rho = self.config.step_size
+        rho = self.config.step_size * 10
         if batch is None:
             new_pi = (1 - rho) * self.pi + rho * pi
             self.pi[...] = new_pi
         else:
-            new_pi = pi  # no rho for local updates
+            new_pi = (1 - rho) * self.pi[batch] + rho * pi  # no rho for local updates
             self.pi[batch] = new_pi
         return new_pi
 
@@ -1667,7 +1668,7 @@ class qMuTau(qPsi):
         return new_mu, new_lmbda, new_alpha, new_beta
 
     def update_params(self, nu, lmbda, alpha, beta, batch=None):
-        rho = self.config.step_size
+        rho = self.config.step_size * 10
         if batch is None:
             new_nu = (1 - rho) * self._nu + rho * nu
             new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
@@ -1678,10 +1679,10 @@ class qMuTau(qPsi):
             self.alpha = new_alpha
             self.beta = new_beta
         else:
-            new_nu = nu
-            new_lmbda = lmbda
-            new_alpha = alpha
-            new_beta = beta
+            new_nu = (1 - rho) * self._nu[batch] + rho * nu
+            new_lmbda = (1 - rho) * self._lmbda[batch] + rho * lmbda
+            new_alpha = (1 - rho) * self._alpha[batch] + rho * alpha
+            new_beta = (1 - rho) * self._beta[batch] + rho * beta
             self.nu[batch] = new_nu
             self.lmbda[batch] = new_lmbda
             self.alpha[batch] = new_alpha

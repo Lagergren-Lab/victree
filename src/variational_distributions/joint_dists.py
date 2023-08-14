@@ -243,13 +243,14 @@ class FixedTreeJointDist(JointDist):
         """
         # Local updates
         batches = torch.randperm(self.obs.shape[1])
-        batch_size = 20
+        batch_size = 1
         for i in range(int(batches.shape[0] / batch_size)):
             batch = batches[i*batch_size: i*batch_size + batch_size]
+            batch_replica = torch.ones(self.config.n_cells, dtype=torch.long) * batches[i]
             self.z.update(self.mt, self.c, self.pi, self.obs[:, batch], batch)
             self.mt.update(self.c, self.z, self.obs[:, batch], batch)
 
-            self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
+            self.c.update(self.obs[:, batch_replica], self.eps, self.z, self.mt, [self.T], self.w_T, batch)
             if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
                 self.c.smooth_etas()
                 self.c.compute_filtering_probs()
