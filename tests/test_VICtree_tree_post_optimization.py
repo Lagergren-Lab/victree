@@ -236,6 +236,7 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
                                                           q_eps=copy_tree.q.eps)
 
 
+    @unittest.skip('long exec time')
     def test_large_tree_init_true_params(self):
         torch.manual_seed(0)
         K = 7

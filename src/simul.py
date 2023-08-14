@@ -17,15 +17,13 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.distributions as dist
-#from scgenome.tools import create_bins
-
-#from scgenome.tl import create_bins
+from scgenome.tools import create_bins
 
 from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils
 from utils.config import Config, set_seed
 from utils.eps_utils import h_eps, h_eps0
-from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT
+from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT, qCMultiChrom
 
 
 def sample_raw_counts_from_corrected_data(obs):
@@ -41,6 +39,19 @@ def sample_raw_counts_from_corrected_data(obs):
 
 
 def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None = None) -> pd.DataFrame:
+    """
+    Parameters
+    ----------
+    n: int, total number of bins/sites. Note: given the specified number of chromosomes, the number of bins in the
+        dataframe might be slightly larger
+    method: str, whether to use the human genome 19 chromosomes reference or a uniformly distributed set of chromosomes;
+        can be 'real' or 'uniform'
+    n_chr: int, number of chromosomes in the 'uniform' method
+
+    Returns
+    -------
+    dataframe with start, end and chr columns, sorted by chr,start
+    """
     if method == 'real':
         ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
         # https://www.ncbi.nlm.nih.gov/grc/human/data
@@ -67,7 +78,7 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
 
 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha: [float | list[float]] = 1., tree=None, raw_reads=True,
+                          alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False):
     """
 Generate full simulated dataset.
@@ -79,11 +90,11 @@ Generate full simulated dataset.
         lambda0: float, param for NormalGamma distribution over mu/tau
         alpha0: float, param for NormalGamma distribution over mu/tau
         beta0: float, param for NormalGamma distribution over mu/tau
-        chr_idx: list, chromosome breaks, needs to be sorted and each val < chain_length.
+        chr_df: pd.DataFrame with cols ['chr', 'start', 'end']
             If None, a real-data like 24 chr binning of the genome is used
 
     Returns:
-        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx']
+        dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx', 'adata']
     """
     # set chr_idx
     if chr_df is None:
@@ -130,12 +141,12 @@ Generate full simulated dataset.
     mu = torch.distributions.Normal(mu0, 1. / torch.sqrt(lambda0 * tau)).sample()
     assert mu.shape == tau.shape
     # sample assignments
-    if isinstance(dir_alpha, float):
-        dir_alpha_tensor = torch.ones(config.n_nodes) * dir_alpha
-    elif isinstance(dir_alpha, list):
-        dir_alpha_tensor = torch.tensor(dir_alpha)
+    if isinstance(dir_delta, float):
+        dir_alpha_tensor = torch.ones(config.n_nodes) * dir_delta
+    elif isinstance(dir_delta, list):
+        dir_alpha_tensor = torch.tensor(dir_delta)
     else:
-        raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_alpha)})")
+        raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_delta)})")
     pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
     z = torch.distributions.Categorical(pi).sample((config.n_cells,))
     # sample observations
@@ -155,6 +166,12 @@ Generate full simulated dataset.
         obs[nan_idx, :] = torch.nan
     assert obs.shape == (config.chain_length, config.n_cells)
 
+    # handy anndata object
+    adata = anndata.AnnData(raw_counts.T.numpy())
+    adata.layers['copy'] = obs.T.numpy()
+    if chr_df is not None:
+        adata.var = chr_df
+
     out_simul = {
         'obs': obs,
         'raw': raw_counts,
@@ -166,7 +183,8 @@ Generate full simulated dataset.
         'eps': eps,
         'eps0': eps0,
         'tree': tree,
-        'chr_idx': chr_idx
+        'chr_idx': chr_idx,
+        'adata': adata
     }
     return out_simul
 
@@ -405,13 +423,29 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
 def generate_dataset_var_tree(config: Config,
                               nu_prior=1., lambda_prior=100.,
                               alpha_prior=500., beta_prior=50.,
-                              dir_alpha=1.) -> VarTreeJointDist:
-    simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
-                                       alpha0=alpha_prior, beta0=beta_prior, dir_alpha=dir_alpha)
+                              dir_alpha=1., chrom: str | int = 1) -> VarTreeJointDist:
+    # set up default with one chromosome
+    chr_df = None
+    if chrom == 'real':
+        chr_df = generate_chromosome_binning(config.chain_length)
+    elif isinstance(chrom, int):
+        if chrom != 1:
+            chr_df = generate_chromosome_binning(config.chain_length, method='uniform', n_chr=chrom)
+    else:
+        raise ValueError(f"chrom argument `{chrom}` does not match any available option")
 
-    fix_qc = qC(config, true_params={
-        "c": simul_data['c']
-    })
+    simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
+                                       alpha0=alpha_prior, beta0=beta_prior, dir_delta=dir_alpha, chr_df=chr_df)
+
+    if chrom != 1:
+        fix_qc = qCMultiChrom(config, true_params={
+            "c": simul_data['c']
+        })
+    else:
+        # TODO: remove and leave just qCMultiChrom with one chrom when completely implemented
+        fix_qc = qC(config, true_params={
+            "c": simul_data['c']
+        })
 
     fix_qz = qZ(config, true_params={
         "z": simul_data['z']
@@ -449,7 +483,6 @@ def write_simulated_dataset_h5ad(data, chr_df, out_path, filename):
     anndat.layers['state'] = cn_state
     anndat.layers['copy'] = data['obs'].T.numpy()
 
-    # FIXME: set chr so that var/chr/codes is correctly assigned (rn is -1 everywhere)
     anndat.var = chr_df
 
     anndat.write_h5ad(Path(out_path, filename + '.h5ad'))
@@ -528,9 +561,9 @@ if __name__ == '__main__':
             raise argparse.ArgumentTypeError(f"wrong number of chromosomes param: {args.n_chromosomes}")
 
     config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=args.n_cells, chain_length=args.chain_length)
-    data = simulate_full_dataset(config, dir_alpha=args.concentration_factor, mu0=args.mutau_params[0],
+    data = simulate_full_dataset(config, eps_a=args.eps_params[0], eps_b=args.eps_params[1], mu0=args.mutau_params[0],
                                  lambda0=args.mutau_params[1], alpha0=args.mutau_params[2], beta0=args.mutau_params[3],
-                                 eps_a=args.eps_params[0], eps_b=args.eps_params[1], chr_df=chr_df, nans=args.nans)
+                                 dir_delta=args.concentration_factor, chr_df=chr_df, nans=args.nans)
     filename = f'simul_' \
                f'k{config.n_nodes}a{config.n_states}n{config.n_cells}m{config.chain_length}' \
                f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \

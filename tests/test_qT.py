@@ -220,8 +220,8 @@ class qTTestCase(unittest.TestCase):
         off_set_factor = 1 / 100.
         true_tree = utils_testing.get_tree_K_nodes_random(K)
         config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A, wis_sample_size=L)
-        out_simul = simul.simulate_full_dataset(config, tree=true_tree, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10.,
-                          alpha0=500., beta0=50., dir_alpha=10.)
+        out_simul = simul.simulate_full_dataset(config, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10., alpha0=500.,
+                                                beta0=50., dir_delta=10., tree=true_tree)
         c = out_simul["c"]
         eps = out_simul["eps"]
         q_T = qT(config=config)

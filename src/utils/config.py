@@ -13,8 +13,8 @@ class Config:
                  chain_length: int = 200,
                  chromosome_indexes=None,
                  wis_sample_size: int = 5,
-                 elbo_rtol: float = 5e-5,  # TODO: check if this is too low
-                 max_close_runs: int = 5,
+                 elbo_rtol: float = 5e-4,  # TODO: check if this is too low
+                 max_close_runs: int = 10,
                  sieving_size: int = 1,
                  n_sieving_iter: int = 20,
                  step_size=1.,
@@ -23,7 +23,10 @@ class Config:
                  diagnostics=False,
                  out_dir="./output",
                  n_run_iter: int = 10,
-                 qc_smoothing=False) -> None:
+                 save_progress_every_niter: int = 10,
+                 qc_smoothing=False,
+                 curr_it: int = 0) -> None:
+        self.curr_it = 0
         self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics
         self.step_size = step_size
@@ -43,6 +46,7 @@ class Config:
         self._n_sieving_iter = n_sieving_iter
         self._debug = debug
         self._out_dir = out_dir
+        self._save_progress_every_niter = save_progress_every_niter
 
     @property
     def n_nodes(self):
@@ -120,6 +124,14 @@ class Config:
     def out_dir(self):
         return self._out_dir
 
+    @property
+    def save_progress_every_niter(self):
+        return self._save_progress_every_niter
+
+    @save_progress_every_niter.setter
+    def save_progress_every_niter(self, save_progress_every_niter: int):
+        self._save_progress_every_niter = save_progress_every_niter
+
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \
             f"N={self.n_cells}," + \
@@ -133,21 +145,7 @@ class Config:
         return s
 
     def to_dict(self):
-        return {
-            'n_nodes': self.n_nodes,
-            'step_size': self.step_size,
-            'n_states': self.n_states,
-            'eps0': self.eps0,
-            'n_cells': self.n_cells,
-            'chain_length': self.chain_length,
-            'n_chromosomes': self.n_chromosomes,
-            'wis_sample_size': self.wis_sample_size,
-            'elbo_rtol': self.elbo_rtol,
-            'max_close_runs': self.max_close_runs,
-            'sieving_size': self.sieving_size,
-            'n_sieving_runs': self.n_sieving_iter,
-            'debug': self.debug
-        }
+        return self.__dict__
 
 
 def set_seed(seed):

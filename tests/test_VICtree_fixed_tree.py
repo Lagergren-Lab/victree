@@ -187,7 +187,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         sim_data_seed = 0
         torch.manual_seed(sim_data_seed)
         out_simul = simul.simulate_full_dataset(config=config, eps_a=1.0, eps_b=20., mu0=1., lambda0=10., alpha0=50.,
-                                                beta0=10., dir_alpha=dir_alpha0, tree=tree)
+                                                beta0=10., dir_delta=dir_alpha0, tree=tree)
         y = out_simul['obs']
         C = out_simul['c']
         z = out_simul['z']

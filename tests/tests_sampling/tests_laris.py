@@ -86,17 +86,15 @@ class LArISTestCase(unittest.TestCase):
                     G.edges[v, u]['weight'] = log_W[v, u]
         T_list = []
         log_T_list = []
-        L = 200
+        L = 1000
         for l in range(L):
-            T, log_T = laris.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True)
+            T, log_T = laris.sample_arborescence_from_weighted_graph(graph=G, root=0, debug=True, order_method="random")
             T_list.append(T)
             log_T_list.append(log_T)
 
         unique_edges_list, unique_edges_count = tree_utils.get_unique_edges(T_list)
         edges_freq = unique_edges_count / unique_edges_count.sum()
-        T_undirected = tree_utils.to_undirected(T_list)
-        prufer_seqs = tree_utils.to_prufer_sequences(T_undirected)
-        unique_seq, unique_seq_idx = tree_utils.unique_trees(prufer_list=prufer_seqs)
+        unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(T_list)
         print(f"N unique trees: {len(unique_seq)}")
         torch.set_printoptions(precision=2)
         print(f"Frequency edges: {edges_freq} \n W: {W}")

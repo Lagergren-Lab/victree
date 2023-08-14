@@ -1,14 +1,9 @@
 import logging
-import os
-
-import torch
-import numpy as np
 
 from inference.victree import VICTree
-from utils.tree_utils import newick_from_eps_arr
-from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
+from variational_distributions.joint_dists import VarTreeJointDist
 from utils.config import Config
-from utils.data_handling import read_sc_data, load_h5_pseudoanndata, write_output_h5, write_checkpoint_h5, DataHandler
+from utils.data_handling import DataHandler
 from variational_distributions.var_dists import qMuTau, qEpsilonMulti, qPi, qCMultiChrom
 
 
@@ -59,14 +54,14 @@ def run(args):
     # ---
     # Create copytree object and run inference
     # ---
-    copy_tree = VICTree(config, joint_q, obs)
+    victree = VICTree(config, joint_q, obs, data_handler=data_handler)
 
     logging.info('start inference')
-    copy_tree.run(args=args)
+    victree.run(args=args)
 
     # ---
     # Save output to H5
     # ---
-    write_output_h5(copy_tree, os.path.join(args.out_dir, "out_" + str(copy_tree) + ".h5"))
+    victree.write()
 
-    return copy_tree
+    return victree

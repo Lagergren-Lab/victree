@@ -1,25 +1,28 @@
 import copy
+import json
 import logging
 import math
 import os
 import random
 from typing import Union, List
 
+import h5py
 import numpy as np
 import torch
 import torch.distributions as dist
 from tqdm import tqdm
 
 from utils.config import Config
-from utils.data_handling import write_checkpoint_h5
+from utils.data_handling import write_checkpoint_h5, write_output, DataHandler
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
+from variational_distributions.var_dists import qCMultiChrom
 
 
 class VICTree:
 
     def __init__(self, config: Config,
                  q: Union[VarTreeJointDist, FixedTreeJointDist],
-                 obs: torch.Tensor):
+                 obs: torch.Tensor, data_handler: DataHandler | None = None):
         """
         Inference class, to set up, run and store results of inference.
         Parameters
@@ -37,6 +40,7 @@ class VICTree:
         self.it_counter = 0
         self._elbo: float = -np.infty
         self.sieve_models: List[Union[VarTreeJointDist, FixedTreeJointDist]] = []
+        self._data_handler: DataHandler = data_handler
 
     def __str__(self):
         return f"k{self.config.n_nodes}"\
@@ -62,6 +66,10 @@ class VICTree:
         assert 'elbo' in self.q.params_history
         return len(self.q.params_history['elbo'])
 
+    @property
+    def data_handler(self):
+        return self._data_handler
+
     def run(self, n_iter=-1, args=None):
         """
         Set-up diagnostics, run sieving and perform VI steps, checking elbo for early-stopping.
@@ -81,12 +89,11 @@ class VICTree:
         # ---
         # Diagnostic object setup
         # ---
+        checkpoint_path = os.path.join(self.config.out_dir, "victree.diagnostics.h5")
         if self.config.diagnostics:
-            checkpoint_path = os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5")
             # check if checkpoint already exists, then print warning
-            # TODO: implement checkpoint loading
             if os.path.exists(checkpoint_path):
-                logging.warning("checkpoint already exists, will be overwritten")
+                logging.warning("diagnostic file already exists, will be overwritten")
                 os.remove(checkpoint_path)
 
         # counts the number of converged updates
@@ -131,21 +138,25 @@ class VICTree:
             pbar.set_postfix({'elbo': self.elbo})
 
             # early-stopping
-            if ((old_elbo - self.elbo) / self.elbo) < self.config.elbo_rtol:
+            if np.abs((self.elbo - old_elbo) / self.elbo) < self.config.elbo_rtol * self.config.step_size:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     logging.debug(f"run converged after {it}/{n_iter} iterations")
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
+                close_runs += 1
                 logging.warning("Elbo is decreasing")
             else:
                 close_runs = 0
 
+            if it % self.config.save_progress_every_niter == 0 and self.config.diagnostics:
+                self.write()
+
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
-            write_checkpoint_h5(self, path=checkpoint_path)
+            self.write_checkpoint_h5(path=checkpoint_path)
 
     def topk_sieve(self, ktop: int = 1, **kwargs):
         """
@@ -293,7 +304,7 @@ class VICTree:
             self.elbo = self.q.compute_elbo()
         return self.elbo
 
-    def step(self):
+    def step(self, diagnostics_path: str = None):
         """
         Wrapper function for variational updates. Handles checkpoint saving.
         """
@@ -304,10 +315,86 @@ class VICTree:
             logging.debug(f"-------- it: {self.it_counter} --------")
             logging.debug(str(self.q))
         # save checkpoint every 20 iterations
-        if self.config.diagnostics and self.it_counter % 20 == 0:
-            write_checkpoint_h5(self, path=os.path.join(self.config.out_dir, "checkpoint_" + str(self) + ".h5"))
+        if self.config.diagnostics and self.it_counter % self.config.save_progress_every_niter == 0:
+            self.write_checkpoint_h5(path=diagnostics_path)
+        self.config.curr_it += 1
 
     def set_temperature(self, it, n_iter):
         # linear scheme: from annealing to 1 with equal steps between iterations
         self.q.z.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
         self.q.mt.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
+
+    def write_model(self, path: str):
+        # save victree distributions parameters
+        with h5py.File(path, 'w') as f:
+            for q in self.q.get_units() + [self.q]:
+                qlay = f.create_group(q.__class__.__name__)
+                params = q.get_params_as_dict()
+                prior_params = q.get_prior_params_as_dict()
+                prior_params = {} if prior_params is None else prior_params
+                if isinstance(q, qCMultiChrom):
+                    # get params gives dict[str, list[np.ndarray]] for each unit qC
+                    for i, qc in enumerate(q.qC_list):
+                        qclay = qlay.create_group(qc.chromosome_name)
+                        for k in params:
+                            qclay.create_dataset(k, data=params[k][i])
+                # regular distribution
+                else:
+                    for k in params:
+                        qlay.create_dataset(k, data=params[k])
+                    for k in prior_params:
+                        if k:
+                            qlay.create_dataset(k, data=prior_params[k])
+        logging.debug(f"model saved in {path}")
+
+    def write(self):
+        # write output in anndata
+        out_anndata_path = os.path.join(self.config.out_dir, 'victree.out.h5ad')
+        write_output(self, out_anndata_path, anndata=True)
+
+        # write output model
+        out_model_path = os.path.join(self.config.out_dir, 'victree.model.h5')
+        self.write_model(out_model_path)
+
+        # write configuration to json
+        out_json_path = os.path.join(self.config.out_dir, 'victree.config.json')
+        with open(out_json_path, 'w') as jsonf:
+            json.dump(self.config.to_dict(), jsonf)
+        logging.debug(f"config saved in {out_json_path}")
+
+    def write_checkpoint_h5(self, path=None):
+        if self.cache_size > 0:
+            if path is None:
+                path = os.path.join(self.config.out_dir, "victree.diagnostics.h5")
+
+            # append mode, so that if the file already exist, then the data is appended
+            with h5py.File(path, 'a') as f:
+                # for each of the individual q dist + the joint dist itself (e.g. to monitor joint_q.elbo)
+                if len(f.keys()) == 0:
+                    # init h5 file
+                    for q in self.q.get_units() + [self.q]:
+                        qlay = f.create_group(q.__class__.__name__)
+                        for k in q.params_history.keys():
+                            stacked_arr = np.stack(q.params_history[k], axis=0)
+                            # init dset with unlimited number of iteration and fix other dims
+                            ds = qlay.create_dataset(k, data=stacked_arr,
+                                                     maxshape=(
+                                                         self.config.n_sieving_iter + self.config.n_run_iter + 1,
+                                                         *stacked_arr.shape[1:]), chunks=True)
+                else:
+                    # resize and append
+                    for q in self.q.get_units() + [self.q]:
+                        qlay = f[q.__class__.__name__]
+                        for k in q.params_history.keys():
+                            stacked_arr = np.stack(q.params_history[k], axis=0)
+                            ds = qlay[k]
+                            ds.resize(ds.shape[0] + stacked_arr.shape[0], axis=0)
+                            ds[-stacked_arr.shape[0]:] = stacked_arr
+
+                # wipe cache
+                for q in self.q.get_units() + [self.q]:
+                    q.reset_params_history()
+
+            logging.debug(f"diagnostics saved in {path}")
+
+

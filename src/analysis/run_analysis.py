@@ -1,8 +1,10 @@
 import argparse
 import os
 
-from analysis import qT_analysis
-from utils import factory_utils, data_handling
+import torch
+
+from analysis import qT_analysis, qC_analysis
+from utils import factory_utils, data_handling, visualization_utils
 from utils.config import set_seed
 from utils.data_handling import DataHandler
 
@@ -38,23 +40,25 @@ def run_analysis(args):
     if args.victree:
         raise NotImplementedError
     if args.qT:
-        q_T = factory_utils.construct_qT_from_checkpoint_data(checkpoint_data, config)
+        q_T = factory_utils.construct_qT_from_model_output_data(checkpoint_data, config)
         qT_analysis.edge_probability_analysis(q_T, args.tree_sample_size)
     if args.qZ:
         raise NotImplementedError
     if args.qC:
-        raise NotImplementedError
-
+        victree = factory_utils.construct_victree_object_from_model_output_and_data(checkpoint_data, obs, config)
+        victree_fixed_tree = qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
+        qC_marginals_argmax = torch.argmax(victree_fixed_tree.q.c.single_filtering_probs, dim=-1)
+        visualization_utils.visualize_copy_number_profiles(qC_marginals_argmax)
 
 
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser(
         description="VIC-Tree analysis")
-    parser.add_argument("-i1", "--input_data", dest="data_path",
+    parser.add_argument("-i", "--input_data", dest="data_path",
                         type=validate_path, default='../../data/x_data/signals_SPECTRUM-OV-014.h5',
                         help="output model file", metavar="FILE")
-    parser.add_argument("-i2", "--input_checkpoint", dest="checkpoint_path",
+    parser.add_argument("-m", "--input_checkpoint", dest="checkpoint_path",
                         type=validate_path, default='../../output/checkpoint_k6a7n1105m6206.h5',
                         help="output model file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",

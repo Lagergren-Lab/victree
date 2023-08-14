@@ -423,7 +423,7 @@ class updatesTestCase(unittest.TestCase):
                 print(f"- qmt dist: {torch.pow(qmt.nu - joint_q.mt.true_params['mu'], 2).sum():.2f}")
 
             qmt.update(fix_qc, qz, obs)
-            qz.update(qmt)
+            qz.update(qmt, fix_qc, fix_qpi, obs)
         print(f"results after {n_iter} iter")
         print(f"- var z: {torch.max(qz.pi, dim=-1)[1]}")
         print(f"- var mu: {qmt.nu}")
@@ -465,9 +465,8 @@ class updatesTestCase(unittest.TestCase):
                 partial_elbo = qc.compute_elbo([fix_tree], [1.], fix_qeps) + qz.compute_elbo(fix_qpi) + qmt.elbo_old()
                 utils.visualization_utils.visualize_copy_number_profiles(
                     torch.argmax(qc.single_filtering_probs, dim=-1),
-                    save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png",
-                    title_suff=f"- VI iter {i},"
-                               f" elbo: {partial_elbo}")
+                    save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png", title_suff=f"- VI iter {i},"
+                                                                                           f" elbo: {partial_elbo}")
             qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt, trees=trees, tree_weights=wis_weights)

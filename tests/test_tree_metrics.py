@@ -27,6 +27,7 @@ class TreeMetricsTestCase(unittest.TestCase):
 
     def test_tree_sampling_accuracy(self):
         trees, trees_log_prob = self.qt5.enumerate_trees()
+        self.qt5.initialize()
         dsl_trees, dsl_trees_log_weights = self.qt5.get_trees_sample(sample_size=1000,
                                                                      torch_tensor=True, log_scale=True)
         self.assertAlmostEqual(dsl_trees_log_weights.exp().sum().item(), 1., places=5)

@@ -3,6 +3,7 @@ Interface class for Variational distributions
 """
 import copy
 import logging
+from abc import abstractmethod
 
 import numpy as np
 import torch
@@ -15,7 +16,7 @@ class VariationalDistribution:
     def __init__(self, config: Config, fixed: bool = False):
         self.config: Config = config
         self.fixed = fixed  # if true, don't update and exp-functions return fixed params
-        self.params_history: dict = {}
+        self.params_history = {}
 
     def initialize(self, **kwargs):
         if self.config.diagnostics:
@@ -35,6 +36,7 @@ class VariationalDistribution:
         # TODO: add iteration number record
         # e.g.
         # self.params_history["it"].append(it)
+        # NOTE: this function is never called by qCMultiChrom object
         if not self.config.diagnostics:
             raise Exception("progress tracking is being called but diagnostics are not requested")
 
@@ -57,4 +59,15 @@ class VariationalDistribution:
                 self.params_history[k] = []
             self.params_history[k].append(param_copy)
 
+    def reset_params_history(self):
+        # empty params_history for any single qC dist
+        for k in self.params_history.keys():
+            self.params_history[k] = []
 
+    @abstractmethod
+    def get_params_as_dict(self):
+        pass
+
+    @abstractmethod
+    def get_prior_params_as_dict(self):
+        pass

@@ -10,6 +10,7 @@ import argparse
 import logging
 import math
 import os
+import pathlib
 import sys
 import time
 
@@ -31,7 +32,7 @@ def main(args):
 
 def set_logger(debug: bool, out_dir: str):
     level = logging.DEBUG if debug else logging.INFO
-    f_handler = logging.FileHandler(os.path.join(out_dir, "out.log"))
+    f_handler = logging.FileHandler(os.path.join(out_dir, "victree.log"))
     c_handler = logging.StreamHandler(sys.stdout)
 
     f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
@@ -123,7 +124,7 @@ if __name__ == '__main__':
 
     # create the output path if it does not exist
     if not os.path.exists(args.out_dir):
-        os.mkdir(args.out_dir)
+        pathlib.Path(args.out_dir).mkdir(parents=True, exist_ok=False)
 
     # logger setup
     set_logger(args.debug, args.out_dir)

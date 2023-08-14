@@ -110,7 +110,7 @@ class qC(VariationalDistribution):
         self._couple_filtering_probs[...] = cfp
 
     @property
-    def eta1(self):
+    def eta1(self) -> torch.Tensor:
         if self.fixed:
             self._eta1[...] = self._single_filtering_probs[:, 0, :].log()
         return self._eta1
@@ -122,7 +122,7 @@ class qC(VariationalDistribution):
         self._eta1[...] = e1
 
     @property
-    def eta2(self):
+    def eta2(self) -> torch.Tensor:
         if self.fixed:
             self._eta2[...] = self._couple_filtering_probs.log()
         return self._eta2
@@ -136,6 +136,15 @@ class qC(VariationalDistribution):
     @property
     def chromosome_name(self):
         return self._chr_name
+
+    def get_params_as_dict(self):
+        return {
+            'eta1': self.eta1.numpy(),
+            'eta2': self.eta2.numpy()
+        }
+
+    def get_padded_cfp(self):
+        return self._couple_filtering_probs
 
     def initialize(self, method='random', **kwargs):
         if method == 'baum-welch':
@@ -586,6 +595,7 @@ class qC(VariationalDistribution):
 
     def get_checkpoint(self):
         return {"eta1": self.eta1, "eta2": self.eta2}
+
     # TODO: continue
 
     def smooth_etas(self):
@@ -593,17 +603,18 @@ class qC(VariationalDistribution):
         for k in range(self.config.n_nodes):
             for m in range(2, self.config.chain_length - 3):
                 current_state = self.eta2[k, m, :, :].argmax(dim=-1)
-                prev_state = self.eta2[k, m-1, :, :].argmax(dim=-1)
-                next_state = self.eta2[k, m+1, :, :].argmax(dim=-1)
+                prev_state = self.eta2[k, m - 1, :, :].argmax(dim=-1)
+                next_state = self.eta2[k, m + 1, :, :].argmax(dim=-1)
                 if (prev_state != current_state).any() and \
-                        (self.eta2[k, m-2, :, :].argmax(dim=-1) == prev_state).any() and \
+                        (self.eta2[k, m - 2, :, :].argmax(dim=-1) == prev_state).any() and \
                         (current_state != next_state).any() and \
-                        (self.eta2[k, m+2, :, :].argmax(dim=-1) == next_state).any():  # lag 2 outlier
+                        (self.eta2[k, m + 2, :, :].argmax(dim=-1) == next_state).any():  # lag 2 outlier
 
                     if torch.abs(current_state - prev_state).sum() < torch.abs(current_state - next_state).sum():
-                        self.eta2[k, m, :, :] = self.eta2[k, m-1, :, :]
+                        self.eta2[k, m, :, :] = self.eta2[k, m - 1, :, :]
                     else:
-                        self.eta2[k, m, :, :] = self.eta2[k, m+1, :, :]
+                        self.eta2[k, m, :, :] = self.eta2[k, m + 1, :, :]
+
 
 class qCMultiChrom(VariationalDistribution):
 
@@ -616,37 +627,31 @@ class qCMultiChrom(VariationalDistribution):
         true_params: dict, contains "c" key which is a torch.Tensor of shape (n_nodes, chain_length) with
             copy number integer values
         """
+        self.qC_list: list[qC] = []
         super().__init__(config, fixed=true_params is not None)
-
-        self.qC_list: List[qC] = []
-        self.n_chr = config.n_chromosomes
         self.chr_start_points = [0] + config.chromosome_indexes + [config.chain_length]
+
+        # validate true params
+        multi_true_params = [None] * config.n_chromosomes
+        if true_params is not None:
+            assert "c" in true_params
+            multi_true_params = [
+                {'c': true_params['c']
+                [:, self.chr_start_points[s]:self.chr_start_points[s + 1]]}
+                for s in range(self.config.n_chromosomes)]
+
+        self.n_chr = config.n_chromosomes
         self.M_cr = []
         for i in range(self.n_chr):
             M_chr_i = self.chr_start_points[i + 1] - self.chr_start_points[i]
             config_i = copy.deepcopy(self.config)
             config_i.chain_length = M_chr_i
             # TODO: add better name for chromosomes (using actual names)
-            self.qC_list.append(qC(config_i, true_params=true_params, chr_name=str(i)))
+            self.qC_list.append(qC(config_i, true_params=multi_true_params[i], chr_name=str(i)))
 
         self._single_filtering_probs = torch.empty((config.n_nodes, config.chain_length, config.n_states))
         self._couple_filtering_probs = torch.empty(
             (config.n_nodes, config.chain_length - self.n_chr, config.n_states, config.n_states))
-
-        # eta1 = log(pi) - log initial states probs
-        self._eta1: torch.Tensor = torch.empty((config.n_nodes, config.n_states))
-        # eta2 = log(phi) - log transition probs
-        self._eta2: torch.Tensor = torch.empty_like(self._couple_filtering_probs)
-
-        # validate true params
-        if true_params is not None:
-            assert "c" in true_params
-            raise NotImplementedError("qCMultiChrom has not been tested for fixed distr, might not work as expected")
-
-        # define dist param names
-        self.params_history["single_filtering_probs"] = []
-        # # not needed at the moment
-        # self.params_history["couple_filtering_probs"] = []
 
     def update(self, obs: torch.Tensor,
                q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -676,6 +681,23 @@ class qCMultiChrom(VariationalDistribution):
     def couple_filtering_probs(self):
         return torch.cat([qc.couple_filtering_probs for qc in self.qC_list], dim=1)
 
+    def get_params_as_dict(self) -> dict[str, list[np.ndarray]]:
+        return {
+            'eta1': [qc.eta1.numpy() for qc in self.qC_list],
+            'eta2': [qc.eta2.numpy() for qc in self.qC_list]
+        }
+
+    def get_padded_cfp(self):
+        padded_cfp = torch.zeros((self.config.n_nodes, self.config.chain_length,
+                                  self.config.n_states, self.config.n_states))
+        idx = 1
+        for qc in self.qC_list:
+            padded_cfp[:, idx:idx + qc.config.chain_length - 1, ...] = qc.couple_filtering_probs
+            idx += qc.config.chain_length
+
+        assert idx == self.config.chain_length + 1
+        return padded_cfp
+
     def initialize(self, method='random', **kwargs):
         if method not in {'random', 'uniform'}:
             raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
@@ -704,8 +726,18 @@ class qCMultiChrom(VariationalDistribution):
         return {'single_filtering_probs': multiqc_hist}
 
     @params_history.setter
-    def params_history(self, ph):
-        pass
+    def params_history(self, ph_dict):
+        # if dict is empty (init)
+        if not ph_dict:
+            pass
+        else:
+            raise NotImplementedError('qC params history is a proxy for individual qc distr, it shouldn\'t be set')
+
+    def reset_params_history(self):
+        # empty params_history for any single qC dist
+        for qc in self.qC_list:
+            for k in qc.params_history.keys():
+                qc.params_history[k] = []
 
     def __str__(self):
         # summary for multi chromosome qc
@@ -739,6 +771,11 @@ class qZ(VariationalDistribution):
         if self.fixed:
             logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._pi[...] = pi
+
+    def get_params_as_dict(self):
+        return {
+            'pi': self.pi.numpy()
+        }
 
     def initialize(self, z_init: str = 'random', **kwargs):
         if z_init == 'random':
@@ -907,6 +944,11 @@ class qT(VariationalDistribution):
     @property
     def trees_sample_weights(self) -> np.ndarray:
         return self.log_w_t.exp().data.cpu().numpy()
+
+    def get_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'weight_matrix': self.weight_matrix
+        }
 
     def _init_from_matrix(self, matrix, **kwargs):
         for e in self._weighted_graph.edges:
@@ -1345,6 +1387,18 @@ class qEpsilonMulti(VariationalDistribution):
         """
         return edge_dict_to_matrix(self._beta_dict, self.config.n_nodes)
 
+    def get_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'alpha': self.alpha,
+            'beta': self.beta
+        }
+
+    def get_prior_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'alpha_prior': self.alpha_prior.numpy(),
+            'beta_prior': self.beta_prior.numpy()
+        }
+
     def update_params(self, alpha: dict, beta: dict):
         rho = self.config.step_size
         for e in self.alpha_dict.keys():
@@ -1410,6 +1464,8 @@ class qEpsilonMulti(VariationalDistribution):
             self._random_init(**kwargs)
         elif method == 'non_mutation':
             self._non_mutation_init()
+        elif method == 'prior':
+            self._initialize_to_prior_parameters()
         else:
             raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
@@ -1431,6 +1487,11 @@ class qEpsilonMulti(VariationalDistribution):
             a, b = torch.distributions.Gamma(gamma_shape, gamma_rate).sample((2,))
             self.alpha_dict[e] = a
             self.beta_dict[e] = b
+
+    def _initialize_to_prior_parameters(self):
+        for e in self.alpha_dict.keys():
+            self.alpha_dict[e] = self.alpha_prior
+            self.beta_dict[e] = self.beta_prior
 
     def create_masks(self, A):
         co_mut_mask = torch.zeros((A, A, A, A))
@@ -1631,6 +1692,22 @@ class qMuTau(qPsi):
     def beta(self, b):
         self._beta[...] = b
 
+    def get_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'nu': self.nu.numpy(),
+            'lmbda': self.lmbda.numpy(),
+            'alpha': self.alpha.numpy(),
+            'beta': self.beta.numpy()
+        }
+
+    def get_prior_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'nu_prior': self.nu_0.numpy(),
+            'lmbda_prior': self.lmbda_0.numpy(),
+            'alpha_prior': self.alpha_0.numpy(),
+            'beta_prior': self.beta_0.numpy()
+        }
+
     def update(self, qc: qC, qz: qZ, obs: torch.Tensor, batch=None):
         """
         Updates mu_n, tau_n for each cell n \in {1,...,N}.
@@ -1651,7 +1728,8 @@ class qMuTau(qPsi):
         y[nan_mask, :] = 0.
 
         # copy numbers where observations are not present should not be included in the sum
-        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2, (~nan_mask).float())
+        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2,
+                                  (~nan_mask).float())
         sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, y)
         sum_M_y2 = torch.pow(y, 2).sum(dim=0)  # sum over M
         alpha = self.alpha_0 + M_notnan * .5  # Never updated
@@ -2400,10 +2478,10 @@ class qPhi(qPsi):
 
 class qPi(VariationalDistribution):
 
-    def __init__(self, config: Config, delta_prior: float = 1., true_params: dict | None = None):
+    def __init__(self, config: Config, delta_prior: float | list[float] = 1., true_params: dict | None = None):
         super().__init__(config, fixed=true_params is not None)
 
-        self.concentration_param_prior = torch.ones(config.n_nodes) * delta_prior
+        self.concentration_param_prior = torch.ones(config.n_nodes) * torch.tensor(delta_prior)
         self._concentration_param = torch.empty_like(self.concentration_param_prior)
 
         if true_params is not None:
@@ -2423,6 +2501,10 @@ class qPi(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'fixed':
+            self._initialize_with_values(**kwargs)
+        elif method == 'prior':
+            self._initialize_to_prior_parameters()
         else:
             raise ValueError(f'method `{method}` for qZ initialization is not implemented')
         return super().initialize(**kwargs)
@@ -2434,6 +2516,12 @@ class qPi(VariationalDistribution):
     def _random_init(self):
         self.concentration_param = torch.distributions.Gamma(5., 1.).rsample(self.concentration_param.shape)
 
+    def _initialize_with_values(self, concentration_param_init):
+        self.concentration_param = concentration_param_init
+
+    def _initialize_to_prior_parameters(self):
+        self.concentration_param = self.concentration_param_prior
+
     @property
     def concentration_param(self):
         return self._concentration_param
@@ -2441,6 +2529,16 @@ class qPi(VariationalDistribution):
     @concentration_param.setter
     def concentration_param(self, cp):
         self._concentration_param[...] = cp
+
+    def get_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'concentration_param': self.concentration_param.numpy()
+        }
+
+    def get_prior_params_as_dict(self) -> dict[str, np.ndarray]:
+        return {
+            'concentration_param_prior': self.concentration_param_prior.numpy()
+        }
 
     def update(self, qz: qZ):
         # pi_model = p(pi), parametrized by delta_k

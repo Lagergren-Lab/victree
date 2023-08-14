@@ -13,11 +13,13 @@ import torch
 def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None,
                                    title_suff: str = '', block=False):
     if save_path is None and pyplot_backend is None:
-        matplotlib.use('TkAgg')
+        matplotlib.use('module://backend_interagg')
     elif save_path is None and pyplot_backend == "default":
-        asd = 1 #matplotlib.use(matplotlib.rcParams['backend'])
+        matplotlib.use(matplotlib.rcParams['backend'])
     elif save_path is None:
-        matplotlib.use('TkAgg')
+        matplotlib.use(pyplot_backend)
+    else:
+        matplotlib.use('module://backend_interagg')
 
     if len(C.shape) > 2 and C.shape[2] > 1:
         C = torch.argmax(C, dim=2)  # convert one-hot-encoding to categories
@@ -40,6 +42,78 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
 
         axs[int(k / n_col), col_count].plot(sites, C_k)
         axs[int(k / n_col), col_count].set_title(f'k = {k}')
+
+    plt.show(block=False)
+
+    user_continue = input("Check plot and determine if C looks plausible. Continue? (y/n)")
+    if user_continue == 'y':
+        if save_path is not None:
+            fig.savefig(save_path + 'c_simulated.png')
+    else:
+        raise Exception('Simulated C rejected by user.')
+
+
+def visualize_copy_number_profiles_ipynb(C, title_suff: str = ''):
+    plt.interactive(True)
+    if len(C.shape) > 2 and C.shape[2] > 1:
+        C = torch.argmax(C, dim=2)  # convert one-hot-encoding to categories
+
+    K, M = C.shape
+    A_max = int(np.max(C))
+    n_col = 2
+    n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
+    fig, axs = plt.subplots(n_rows, n_col)
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
+
+    sites = range(1, M + 1)
+    for k in range(K):
+        C_k = C[k, :]
+        if k % n_col == 0:
+            col_count = 0
+        else:
+            col_count += 1
+
+        axs[int(k / n_col), col_count].plot(sites, C_k)
+        axs[int(k / n_col), col_count].set_title(f'k = {k}')
+
+    plt.show()
+
+
+def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array: np.array, save_path=None, pyplot_backend=None,
+                                   title_suff: str = '', block=False):
+    """
+    Plots S lines in K subplots with x-axis of length M.
+    Used to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
+    """
+    if save_path is None and pyplot_backend is None:
+        matplotlib.use('module://backend_interagg')
+    elif save_path is None and pyplot_backend == "default":
+        matplotlib.use(matplotlib.rcParams['backend'])
+    elif save_path is None:
+        matplotlib.use(pyplot_backend)
+
+    n_sources, K, M = multi_source_SxKxM_array.shape
+    A_max = int(np.max(multi_source_SxKxM_array))
+    n_col = 2
+    n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
+    fig, axs = plt.subplots(n_rows, n_col)
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
+    labels = ['1', '2', '3']
+    sites = range(1, M + 1)
+    for k in range(K):
+        if k % n_col == 0:
+            col_count = 0
+        else:
+            col_count += 1
+        for source in range(n_sources):
+            C_k = multi_source_SxKxM_array[source, k, :]
+            axs[int(k / n_col), col_count].plot(sites, C_k, label=f'{source}')
+            axs[int(k / n_col), col_count].set_title(f'k = {k}')
+
+        if k == 0:
+            axs[int(k / n_col), col_count].legend(labels)
 
     if save_path is None:
         plt.show(block=block)

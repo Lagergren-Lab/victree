@@ -16,7 +16,7 @@ from tests import model_variational_comparisons
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn, qCMultiChrom
 
 
 class SimulTestCase(unittest.TestCase):
@@ -90,6 +90,31 @@ class SimulTestCase(unittest.TestCase):
         self.assertEqual(len(dat['chr_idx']), n_chr - 1)
         self.assertTrue(all(dat['chr_idx'][i] <= dat['chr_idx'][i+1] for i in range(len(dat['chr_idx']) - 1)))
         self.assertEqual(dat['obs'].shape[0], full_length)
+
+    def test_generate_var_dataset_multichr(self):
+        # test balanced chromosomes
+        config = Config()
+        joint_q_3chr = simul.generate_dataset_var_tree(config, chrom=3)
+        self.assertTrue(isinstance(joint_q_3chr.c, qCMultiChrom))
+        self.assertEqual(config.n_chromosomes, 3)
+        self.assertTrue(joint_q_3chr.fixed)
+        for qc in joint_q_3chr.c.qC_list:
+            self.assertTrue(qc.fixed)
+        self.assertTrue(joint_q_3chr.c.fixed)
+        concat_single_c = torch.concat([qc.true_params['c'] for qc in joint_q_3chr.c.qC_list], dim=1)
+        self.assertTrue(torch.all(joint_q_3chr.c.true_params['c'] == concat_single_c))
+
+        # test hg19 real chromosomes
+        config = Config()
+        joint_q_hg19 = simul.generate_dataset_var_tree(config, chrom='real')
+        self.assertTrue(isinstance(joint_q_hg19.c, qCMultiChrom))
+        self.assertEqual(config.n_chromosomes, 24)
+
+        # test 1 chr
+        config = Config()
+        joint_q_1chr = simul.generate_dataset_var_tree(config, chrom=1)
+        self.assertTrue(isinstance(joint_q_1chr.c, qC))
+        self.assertEqual(config.n_chromosomes, 1)
 
 
 
