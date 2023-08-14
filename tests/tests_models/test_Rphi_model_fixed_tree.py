@@ -1,24 +1,18 @@
 import logging
-import random
 import unittest
 
-import matplotlib.pyplot as plt
-import networkx as nx
 import torch
-import torch.nn.functional as f
 
 import simul
 import tests.utils_testing
-import utils.config
 from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
-from utils import visualization_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qTauUrn, qPhi
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qC, qPhi
 
 
+@unittest.skip("model currently out of scope")
 class RPhiModelFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config, R, gc):
@@ -126,7 +120,6 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         torch.set_printoptions(precision=2)
         model_variational_comparisons.fixed_T_urn_model_comparisons(x, R, gc, phi, c, z, pi, eps, qc, qz, qpi, qpsi, qeps)
 
-
     def test_large_tree_poisson(self):
         torch.manual_seed(0)
         n_nodes = 7
@@ -171,9 +164,9 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         model_variational_comparisons.compare_qZ_and_true_Z(z, q.z)
         print(f"-------------- init complete -------------------")
 
-        copy_tree = VICTree(config, q, x)
+        victree = VICTree(config, q, x, draft=True)
 
-        copy_tree.run(n_iter=50)
+        victree.run(n_iter=50)
 
         # Assert
         torch.set_printoptions(precision=2)

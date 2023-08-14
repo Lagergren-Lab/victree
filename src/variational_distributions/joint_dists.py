@@ -157,6 +157,7 @@ class VarTreeJointDist(JointDist):
         -------
         elbo, float
         """
+        # FIXME: computation with part var, part fixed distributions is not implemented yet
         if t_list is None and w_list is None:
             t_list, w_list = self.t.get_trees_sample()
 

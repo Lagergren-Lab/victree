@@ -10,7 +10,7 @@ from utils.config import set_seed, Config
 from variational_distributions.var_dists import qCMultiChrom
 
 
-class MyTestCase(unittest.TestCase):
+class MainProgTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(42)

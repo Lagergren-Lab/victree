@@ -1,12 +1,13 @@
 import unittest
 
+import anndata
 from matplotlib.pyplot import logging
 from networkx.lazy_imports import os
 
 import simul
 from inference.victree import VICTree
 from utils.config import Config
-from utils.data_handling import read_sc_data, DataHandler
+from utils.data_handling import DataHandler
 from tests.data.generate_data import generate_2chr_adata
 from variational_distributions.joint_dists import VarTreeJointDist
 from variational_distributions.var_dists import qCMultiChrom
@@ -17,7 +18,7 @@ class dataHandlingTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
 
-        self.output_dir = "./test_output"
+        self.output_dir = "../test_output"
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
@@ -41,8 +42,7 @@ class dataHandlingTestCase(unittest.TestCase):
         write_output(victree, out_file, anndata=True)
 
         # read anndata and assert fields
-        out_dh = DataHandler(out_file)
-        out_adata = out_dh.get_anndata()
+        out_adata = anndata.read_h5ad(out_file)
 
         # check fields
         for l in ['victree-cn-viterbi', 'victree-cn-marginal']:

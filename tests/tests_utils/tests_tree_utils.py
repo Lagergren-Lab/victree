@@ -1,16 +1,10 @@
-import random
-import sys
-import os
-from os import path
-from matplotlib.pyplot import logging
-
 import torch
 import torch.nn.functional as f
 import unittest
 from utils import tree_utils
 
 
-class treeUtilsTestCase(unittest.TestCase):
+class TreeUtilsTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         return super().setUp()

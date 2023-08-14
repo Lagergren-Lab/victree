@@ -60,7 +60,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         # Act
         copy_tree.run(n_iter=80)
@@ -108,7 +108,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
                           alpha=torch.ones(n_cells) * 10,
                           beta=torch.ones(n_cells) * 10)
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         copy_tree.run(n_iter=50)
 
@@ -155,7 +155,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize()
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
 
         copy_tree.run(n_iter=100)
 
@@ -215,7 +215,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q.eps.initialize(method='non_mutation')
             q.z.pi = f.one_hot(z.long(), num_classes=K).float()
 
-            victree = VICTree(config, q, y)
+            victree = VICTree(config, q, y, draft=True)
 
             victree.run(n_iter=50)
 
@@ -256,7 +256,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
         q.initialize()
 
-        copy_tree = VICTree(config, q, y)
+        copy_tree = VICTree(config, q, y, draft=True)
         copy_tree.q.pi.concentration_param = dir_alpha0
 
         # Init Z with off-set from true params
@@ -330,7 +330,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
 
-            copy_tree = VICTree(config, q, y)
+            copy_tree = VICTree(config, q, y, draft=True)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
             off_set_z = 0.2
@@ -384,7 +384,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
 
-            copy_tree = VICTree(config, q, y)
+            copy_tree = VICTree(config, q, y, draft=True)
             # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
             z_one_hot = f.one_hot(z, num_classes=K)
             off_set_z = 0.2

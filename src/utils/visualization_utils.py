@@ -43,7 +43,7 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
         axs[int(k / n_col), col_count].plot(sites, C_k)
         axs[int(k / n_col), col_count].set_title(f'k = {k}')
 
-    plt.show(block=False)
+    plt.show(block=block)
 
     user_continue = input("Check plot and determine if C looks plausible. Continue? (y/n)")
     if user_continue == 'y':

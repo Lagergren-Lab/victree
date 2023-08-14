@@ -8,7 +8,7 @@ from utils import eps_utils
 from model.tree_hmm import CopyNumberTreeHMM
 
 
-class zippingTestCase(unittest.TestCase):
+class ZippingTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self.A = 7
 

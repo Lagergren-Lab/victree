@@ -9,7 +9,7 @@ from tests import utils_testing
 from utils import tree_utils, visualization_utils
 from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick
-from variational_distributions.var_dists import qEpsilonMulti, qT, qC, qEpsilon
+from variational_distributions.var_dists import qEpsilonMulti, qT, qC
 
 
 class qTTestCase(unittest.TestCase):
@@ -123,7 +123,6 @@ class qTTestCase(unittest.TestCase):
         for (u, v) in T.edges:
             for w in two_step_connections[u]:
                 self.assertGreater(W[u, v], W[u, w], msg='One step connection weaker than two step connection (based on true tree)')
-
 
     def test_qT_small_epsilon_simulated_data(self):
         N = 10

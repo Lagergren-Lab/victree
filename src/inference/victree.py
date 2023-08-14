@@ -6,14 +6,16 @@ import os
 import random
 from typing import Union, List
 
+import anndata
 import h5py
 import numpy as np
+import pandas as pd
 import torch
 import torch.distributions as dist
 from tqdm import tqdm
 
 from utils.config import Config
-from utils.data_handling import write_checkpoint_h5, write_output, DataHandler
+from utils.data_handling import write_output, DataHandler
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from variational_distributions.var_dists import qCMultiChrom
 
@@ -22,7 +24,8 @@ class VICTree:
 
     def __init__(self, config: Config,
                  q: Union[VarTreeJointDist, FixedTreeJointDist],
-                 obs: torch.Tensor, data_handler: DataHandler | None = None):
+                 obs: torch.Tensor, data_handler: DataHandler | None = None,
+                 draft=False):
         """
         Inference class, to set up, run and store results of inference.
         Parameters
@@ -35,11 +38,22 @@ class VICTree:
         self.config = config
         self.q = q
         self.obs = obs
+        self._draft = draft  # if true, does not save output on file
 
         # counts the number of steps performed
         self.it_counter = 0
         self._elbo: float = -np.infty
         self.sieve_models: List[Union[VarTreeJointDist, FixedTreeJointDist]] = []
+
+        if data_handler is None:
+            adata = anndata.AnnData(X=obs.T.numpy(),
+                                    layers={'copy': obs.T.numpy()},
+                                    var=pd.DataFrame({
+                                        'chr': [1] * self.config.chain_length,
+                                        'start': [i for i in range(self.config.chain_length)],
+                                        'end': [i+1 for i in range(self.config.chain_length)]
+                                    }))
+            data_handler = DataHandler(adata=adata)
         self._data_handler: DataHandler = data_handler
 
     def __str__(self):
@@ -348,19 +362,22 @@ class VICTree:
         logging.debug(f"model saved in {path}")
 
     def write(self):
-        # write output in anndata
-        out_anndata_path = os.path.join(self.config.out_dir, 'victree.out.h5ad')
-        write_output(self, out_anndata_path, anndata=True)
+        if not self._draft:
+            # write output in anndata
+            out_anndata_path = os.path.join(self.config.out_dir, 'victree.out.h5ad')
+            write_output(self, out_anndata_path, anndata=True)
 
-        # write output model
-        out_model_path = os.path.join(self.config.out_dir, 'victree.model.h5')
-        self.write_model(out_model_path)
+            # write output model
+            out_model_path = os.path.join(self.config.out_dir, 'victree.model.h5')
+            self.write_model(out_model_path)
 
-        # write configuration to json
-        out_json_path = os.path.join(self.config.out_dir, 'victree.config.json')
-        with open(out_json_path, 'w') as jsonf:
-            json.dump(self.config.to_dict(), jsonf)
-        logging.debug(f"config saved in {out_json_path}")
+            # write configuration to json
+            out_json_path = os.path.join(self.config.out_dir, 'victree.config.json')
+            with open(out_json_path, 'w') as jsonf:
+                json.dump(self.config.to_dict(), jsonf)
+            logging.debug(f"config saved in {out_json_path}")
+        else:
+            logging.debug(f"output saving skipped due to `draft` flag set to True")
 
     def write_checkpoint_h5(self, path=None):
         if self.cache_size > 0:
