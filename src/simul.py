@@ -80,7 +80,8 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
 
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
-                          chr_df: pd.DataFrame | None = None, nans: bool = False):
+                          chr_df: pd.DataFrame | None = None, nans: bool = False,
+                          fixed_z:torch.Tensor = None):
     """
 Generate full simulated dataset.
     Args:
@@ -149,7 +150,7 @@ Generate full simulated dataset.
     else:
         raise ValueError(f"dir_alpha param must be either a k-size list of float or a float (not {type(dir_delta)})")
     pi = torch.distributions.Dirichlet(dir_alpha_tensor).sample()
-    z = torch.distributions.Categorical(pi).sample((config.n_cells,))
+    z = torch.distributions.Categorical(pi).sample((config.n_cells,)) if fixed_z is None else fixed_z
     # sample observations
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
     scale_expanded = torch.pow(tau, -1 / 2).reshape(-1, 1).expand(-1, config.chain_length)

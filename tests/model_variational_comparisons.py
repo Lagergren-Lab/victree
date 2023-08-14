@@ -95,13 +95,13 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
 
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     N = true_mu.shape[0]
-    square_dist_mu = torch.pow(true_mu - q_mt.nu, 2)
-    print(f"MEAN square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
-    print(f"MAX square dist mu: {square_dist_mu.max()}")
+    square_dist_mu = torch.abs(true_mu - q_mt.nu)
+    print(f"MEAN dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
+    print(f"MAX dist mu: {square_dist_mu.max()}")
 
-    square_dist_tau = torch.pow(true_tau - q_mt.exp_tau(), 2)
-    print(f"MEAN square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
-    print(f"MAX square dist tau: {square_dist_tau.max()}")
+    square_dist_tau = torch.abs(true_tau - q_mt.exp_tau())
+    print(f"MEAN dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
+    print(f"MAX dist tau: {square_dist_tau.max()}")
     if N > 5:
         largest_error_cells_idx = torch.topk(square_dist_mu.flatten(), 5).indices
         return largest_error_cells_idx, square_dist_mu.mean()

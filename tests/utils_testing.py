@@ -53,7 +53,7 @@ def get_tree_K_nodes_random(K) -> nx.DiGraph:
 
 def get_tree_K_nodes_one_level(K):
     T = nx.DiGraph()
-    for k in range(K):
+    for k in range(1, K):
         T.add_edge(0, k)
 
     return T

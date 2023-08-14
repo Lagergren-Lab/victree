@@ -454,9 +454,9 @@ class updatesTestCase(unittest.TestCase):
         cfg.step_size = .3
         # print(obs)
 
-        utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'],
-                                                                 save_path="./test_output/update_qcqzqmt_true_cn.png",
-                                                                 title_suff="- true values")
+        # utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'],
+        #                                                          save_path="./test_output/update_qcqzqmt_true_cn.png",
+        #                                                          title_suff="- true values")
         for i in range(20):
             if i % 5 == 0:
                 # print(f"Iter {i} qZ: {qz.exp_assignment()}")
