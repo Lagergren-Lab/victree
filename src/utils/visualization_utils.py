@@ -121,7 +121,7 @@ def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array:
         plt.savefig(save_path)
 
 
-def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array: np.array, obs, assignments,
+def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array, obs, assignments,
                                                                     save_path=None, pyplot_backend=None,
                                    title_suff: str = ''):
     """
@@ -136,7 +136,8 @@ def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source
         matplotlib.use(pyplot_backend)
 
     n_sources, K, M = multi_source_SxKxM_array.shape
-    A_max = int(np.max(multi_source_SxKxM_array))
+    A_max = int(np.max(multi_source_SxKxM_array)) if type(multi_source_SxKxM_array) is np.ndarray \
+        else int(torch.max(multi_source_SxKxM_array))
     n_col = 2
     n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
     fig, axs = plt.subplots(n_rows, n_col)
