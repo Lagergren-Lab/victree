@@ -318,3 +318,7 @@ def initialize_qc_to_true_values(true_c, A, qc, indexes=None):
     qc.update_params(eta1=eta1_true, eta2=eta2_true)
     qc.compute_filtering_probs()
     return qc
+
+
+def write_inference_test_output(victree, y, c, z, tree, mu, tau, eps, eps0, pi, test_dir_path):
+    return None

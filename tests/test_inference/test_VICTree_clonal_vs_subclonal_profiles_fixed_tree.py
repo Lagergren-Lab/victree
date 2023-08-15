@@ -39,7 +39,7 @@ def generate_global_profile_data(A, C, K, M_general, M_local, N, eps, mu, tau, y
     return M_tot, c_tot, eps_tot, y_tot
 
 
-class VICtreeLocalVsGlobalProfilesFixedTreeTestCase(unittest.TestCase):
+class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
         qc = qC(config)
@@ -50,13 +50,13 @@ class VICtreeLocalVsGlobalProfilesFixedTreeTestCase(unittest.TestCase):
         qmt = qMuTau(config)
         return qc, qt, qeps, qz, qpi, qmt
 
-    def test_five_node_tree_local_vs_general_profiles(self):
+    def test_seven_node_tree_subclonal_profile_ratio_small(self):
         torch.manual_seed(0)
         K = 7
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         N = 500
-        M_local = 100
-        M_general = 2000
+        M_local = 300
+        M_general = 1700
         A = 7
         dir_delta0 = 10.
         nu_0 = 1.
@@ -65,7 +65,7 @@ class VICtreeLocalVsGlobalProfilesFixedTreeTestCase(unittest.TestCase):
         beta0 = 50.
         a0 = 10.0
         b0 = 100.0
-        y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M_local, A, tree,
+        y, c, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M_local, A, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_delta0)
@@ -81,7 +81,7 @@ class VICtreeLocalVsGlobalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         torch.set_printoptions(precision=2)
-        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi,
+        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi,
                                                                 true_mu=mu,
                                                                 true_tau=tau, true_epsilon=eps,
                                                                 q_c=victree.q.c,
@@ -89,8 +89,8 @@ class VICtreeLocalVsGlobalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                 q_mt=victree.q.mt, q_eps=qeps)
 
         # Extend clones with general structure
-        M_tot, c_tot, eps_tot, y_tot = generate_global_profile_data(A, C, K, M_general, M_local, N, eps, mu, tau,
-                                                                         y, z)
+        M_tot, c_tot, eps_tot, y_tot = generate_global_profile_data(A, c, K, M_general, M_local, N, eps, mu, tau,
+                                                                    y, z)
 
         config_general = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
                                 diagnostics=False, annealing=1.)
@@ -114,6 +114,8 @@ class VICtreeLocalVsGlobalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                 q_z=victree2.q.z, qpi=victree2.q.pi,
                                                                 q_mt=victree2.q.mt, q_eps=victree2.q.eps)
         ari, perm, acc = (out['ari'], out['perm'], out['acc'])
+
+        utils_testing.write_inference_test_output(victree, y, c, z, tree, mu, tau, eps, eps0, pi, test_dir_path=test_dir_name)
 
         c_true_and_qc_viterbi = np.zeros((2, K, M_tot))
         c_true_and_qc_viterbi[0] = np.array(c_tot)
