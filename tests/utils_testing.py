@@ -1,3 +1,4 @@
+import itertools
 import os.path
 import pathlib
 import pickle
@@ -53,7 +54,7 @@ def get_tree_K_nodes_random(K) -> nx.DiGraph:
 
 def get_tree_K_nodes_one_level(K):
     T = nx.DiGraph()
-    for k in range(K):
+    for k in range(1, K):
         T.add_edge(0, k)
 
     return T
@@ -289,3 +290,18 @@ def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None)
         two_sliced_marginals = two_sliced_marginals / two_sliced_marginals.sum(dim=(2, 3), keepdims=True)
 
     return two_sliced_marginals
+
+
+def initialize_epsilon_to_true_values(true_eps, a0, b0, qeps):
+    """
+    Initializes the parameters of qEpsilon/qMultiEpsilon as follows:
+    a_init = a0
+    b_init = a0 / eps for arc edge in true_eps (resulting in the expectation value of q being equal to eps)
+    b_init = a0 / b0 for arcs not in true_eps
+    """
+    gedges = [(u, v) for u, v in itertools.product(range(qeps.config.n_nodes),
+                                                   range(qeps.config.n_nodes)) if v != 0 and u != v]
+    eps_alpha_dict = {e: torch.tensor(a0) for e in gedges}
+    eps_beta_dict = {e: a0 / true_eps[e] if e in true_eps.keys() else torch.tensor(b0) for e in gedges}
+    qeps.initialize('fixed', eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
+    return qeps

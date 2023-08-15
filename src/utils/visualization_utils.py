@@ -84,7 +84,7 @@ def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array:
                                    title_suff: str = '', block=False):
     """
     Plots S lines in K subplots with x-axis of length M.
-    Used to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
+    Used e.g. to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
     """
     if save_path is None and pyplot_backend is None:
         matplotlib.use('module://backend_interagg')
@@ -117,6 +117,50 @@ def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array:
 
     if save_path is None:
         plt.show(block=block)
+    else:
+        plt.savefig(save_path)
+
+
+def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array, obs, assignments,
+                                                                    save_path=None, pyplot_backend=None,
+                                   title_suff: str = ''):
+    """
+    Plots S lines in K subplots with x-axis of length M.
+    Used e.g. to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
+    """
+    if save_path is None and pyplot_backend is None:
+        matplotlib.use('module://backend_interagg')
+    elif save_path is None and pyplot_backend == "default":
+        matplotlib.use(matplotlib.rcParams['backend'])
+    elif save_path is None:
+        matplotlib.use(pyplot_backend)
+
+    n_sources, K, M = multi_source_SxKxM_array.shape
+    A_max = int(np.max(multi_source_SxKxM_array)) if type(multi_source_SxKxM_array) is np.ndarray \
+        else int(torch.max(multi_source_SxKxM_array))
+    n_col = 2
+    n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
+    fig, axs = plt.subplots(n_rows, n_col)
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
+    labels = ['1', '2', '3']
+    sites = range(1, M + 1)
+    for k in range(K):
+        if k % n_col == 0:
+            col_count = 0
+        else:
+            col_count += 1
+        for source in range(n_sources):
+            C_k = multi_source_SxKxM_array[source, k, :]
+            axs[int(k / n_col), col_count].plot(sites, C_k, label=f'{source}')
+            axs[int(k / n_col), col_count].set_title(f'k = {k}')
+
+        axs[int(k / n_col), col_count].plot(obs[:, assignments == k], 'o', alpha=0.1)
+        if k == 0:
+            axs[int(k / n_col), col_count].legend(labels)
+
+    if save_path is None:
+        plt.show(block=False)
     else:
         plt.savefig(save_path)
 

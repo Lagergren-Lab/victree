@@ -58,7 +58,7 @@ def compare_qC_and_true_C(true_C, q_c: qC, qz_perm=None, threshold=10):
     return n_diff
 
 
-def compare_qZ_and_true_Z(true_Z, q_z: qZ):
+def compare_qZ_and_true_Z(true_Z, q_z: qZ, perm=None):
     """
     Compares the argmax of the parameters of qZ, i.e., the categorical probabilites, with the true cell-to-clone assignments used to generate the data.
     :param true_Z: True cell-to-clone assignments.
@@ -67,11 +67,15 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
     """
     print(f"------- Compare qZ clustering -----------")
     N, K = q_z.pi.shape
-    perms = []
-    perms_non_root = list(itertools.permutations(range(1, K)))
     max_prob_qZ = torch.argmax(q_z.pi, dim=1)
-    for perm in perms_non_root:
-        perms.append([0] + list(perm))
+    if perm is None:
+        perms = []
+        perms_non_root = list(itertools.permutations(range(1, K)))
+        for perm in perms_non_root:
+            perms.append([0] + list(perm))
+    else:
+        perms = [perm]
+
     n_perms = len(perms)
     print(f"Start q(Z) evaluation w.r.t. label switching on {n_perms} permutations")
     if n_perms > 10**7:
@@ -95,13 +99,13 @@ def compare_qZ_and_true_Z(true_Z, q_z: qZ):
 
 def compare_qMuTau_with_true_mu_and_tau(true_mu, true_tau, q_mt):
     N = true_mu.shape[0]
-    square_dist_mu = torch.pow(true_mu - q_mt.nu, 2)
-    print(f"MEAN square dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
-    print(f"MAX square dist mu: {square_dist_mu.max()}")
+    square_dist_mu = torch.abs(true_mu - q_mt.nu)
+    print(f"MEAN dist mu: {square_dist_mu.mean()} +- ({square_dist_mu.std()})")
+    print(f"MAX dist mu: {square_dist_mu.max()}")
 
-    square_dist_tau = torch.pow(true_tau - q_mt.exp_tau(), 2)
-    print(f"MEAN square dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
-    print(f"MAX square dist tau: {square_dist_tau.max()}")
+    square_dist_tau = torch.abs(true_tau - q_mt.exp_tau())
+    print(f"MEAN dist tau: {square_dist_tau.mean()} +- ({square_dist_tau.std()})")
+    print(f"MAX dist tau: {square_dist_tau.max()}")
     if N > 5:
         largest_error_cells_idx = torch.topk(square_dist_mu.flatten(), 5).indices
         return largest_error_cells_idx, square_dist_mu.mean()
@@ -181,9 +185,9 @@ def compare_qPi_and_true_pi(true_pi, qpi, perm):
 
 
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
-                        q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None):
+                        q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None, perm=None):
     torch.set_printoptions(precision=2)
-    ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z)
+    ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z, perm)
     if qpi is not None:
         compare_qPi_and_true_pi(true_pi, qpi, perm)
     qC_n_diff = compare_qC_and_true_C(true_C, q_c, qz_perm=perm, threshold=50)
