@@ -276,13 +276,12 @@ def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
 
 def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None):
     K, M = marginals.shape
-    two_sliced_marginals = torch.zeros((K, M-1, A, A))
-    marginals_one_hot = torch.nn.functional.one_hot(marginals, A)
-
+    two_sliced_marginals = torch.zeros((K, M - 1, A, A))
+    marginals = marginals.long()
     for u in range(K):
-        for m in range(0, M-1):
+        for m in range(0, M - 1):
             a_1 = marginals[u, m]
-            a_2 = marginals[u, m+1]
+            a_2 = marginals[u, m + 1]
             two_sliced_marginals[u, m, a_1, a_2] = 1.
 
     if offset is not None:
@@ -292,7 +291,7 @@ def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None)
     return two_sliced_marginals
 
 
-def initialize_epsilon_to_true_values(true_eps, a0, b0, qeps):
+def initialize_qepsilon_to_true_values(true_eps, a0, b0, qeps):
     """
     Initializes the parameters of qEpsilon/qMultiEpsilon as follows:
     a_init = a0
@@ -305,3 +304,17 @@ def initialize_epsilon_to_true_values(true_eps, a0, b0, qeps):
     eps_beta_dict = {e: a0 / true_eps[e] if e in true_eps.keys() else torch.tensor(b0) for e in gedges}
     qeps.initialize('fixed', eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
     return qeps
+
+
+def initialize_qc_to_true_values(true_c, A, qc, indexes=None):
+    K, M = true_c.shape
+    if indexes is None:
+        eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A)
+        eta2_true = get_two_sliced_marginals_from_one_slice_marginals(true_c, A=A)
+    else:
+        eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A) if 0 in indexes else 2.
+        eta2_true = torch.zeros(K, M-1, A, A)
+
+    qc.update_params(eta1=eta1_true, eta2=eta2_true)
+    qc.compute_filtering_probs()
+    return qc
