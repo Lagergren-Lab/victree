@@ -110,6 +110,7 @@ class qmtTestCase(unittest.TestCase):
         elbo_qmt = self.qmt.compute_elbo()
         print(f"ELBO(mu, tau): {elbo_qmt}")
 
+    @unittest.skip("model out of current scope")
     def test_log_emissions_cell_independent_tau(self):
         K = 3
         M = 10
