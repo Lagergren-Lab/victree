@@ -286,10 +286,10 @@ class qC(VariationalDistribution):
         # transitions_entropy = -torch.einsum("kmij, kmij ->", self.eta2, torch.log(self.eta2))
         return init_entropy + transitions_entropy
 
-    def marginal_entropy(self):
+    def marginal_entropy(self) -> float:
         eps = 0.00001  # To avoid log_marginals having entries of -inf
         log_marginals = torch.log(self.single_filtering_probs + eps)
-        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, log_marginals)
+        return -torch.einsum("kmi, kmi ->", self.single_filtering_probs, log_marginals).item()
 
     def cross_entropy_old(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         # E_q[log p(C|...)]
@@ -322,7 +322,7 @@ class qC(VariationalDistribution):
                 tree_CE += arc_CE
 
             E_T += w_T_list[l] * tree_CE
-        return E_T
+        return E_T.item()
 
     def neg_cross_entropy_arc(self, q_eps, u, v):
         log_h_eps0 = q_eps.h_eps0().log()
@@ -1774,6 +1774,8 @@ class qMuTau(qPsi):
         #     self._init_from_clustered_data(**kwargs)
         elif method == 'data':
             self._init_from_raw_data(**kwargs)
+        elif method == 'prior':
+            self._init_from_prior()
         else:
             raise ValueError(f'method `{method}` for qMuTau initialization is not implemented')
 
@@ -1949,6 +1951,12 @@ Initialize the mu and tau params given observations
         self.beta = self.alpha / self.true_params['tau']
         self.nu = self.true_params['mu']
         self.lmbda = torch.ones(self.config.n_cells) * 100.
+
+    def _init_from_prior(self):
+        self.alpha = self.alpha_0
+        self.beta = self.beta_0
+        self.nu = self.nu_0
+        self.lmbda = self.lmbda_0
 
 
 class qMuAndTauCellIndependent(VariationalDistribution):

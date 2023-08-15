@@ -167,7 +167,7 @@ class CellCNExperiment():
                     qc.update(y, qeps, qz_fixed, qmt, [tree], [1.])
                     qmt.update(qc, qz_fixed, y)
                     if i % 100 == 0:
-                        print(qc.compute_elbo([tree], [1.], qeps))
+                        print('elbo: ', qc.compute_elbo([tree], [1.], qeps))
 
                 c_score_seed = model_variational_comparisons.compare_qC_and_true_C(c, qc, qz_perm=list(range(0, N + 1)))
                 mutau_score_seed = model_variational_comparisons.compare_qMuTau_with_true_mu_and_tau(mu, tau, qmt)
