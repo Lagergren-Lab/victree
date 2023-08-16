@@ -129,7 +129,9 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         utils_testing.initialize_qepsilon_to_true_values(eps, self.a0, self.b0, qeps)
 
         # Make sure qZ is updated first based on good values
+        qz.config.step_size = 1.
         qz.update(qmt, qc, qpi, y)
+        qz.config.step_size = 0.1
 
         out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi,
                                                                 true_mu=mu,

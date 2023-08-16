@@ -2,7 +2,6 @@ import itertools
 import os.path
 import pathlib
 import pickle
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -310,15 +309,47 @@ def initialize_qc_to_true_values(true_c, A, qc, indexes=None):
     K, M = true_c.shape
     if indexes is None:
         eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A)
-        eta2_true = get_two_sliced_marginals_from_one_slice_marginals(true_c, A=A)
+        pairwise_marginals = get_two_sliced_marginals_from_one_slice_marginals(true_c, A=A)
+        eta2_true = torch.ones_like(pairwise_marginals) * (-30.)
+        for k in range(K):
+            for m in range(0, M-1):
+                transition_idxs = torch.where(pairwise_marginals[k, m])
+                eta2_true[k, m, :, transition_idxs[1]] = 0.
     else:
         eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A) if 0 in indexes else 2.
-        eta2_true = torch.zeros(K, M-1, A, A)
+        eta2_true = torch.zeros(K, M - 1, A, A)
 
-    qc.update_params(eta1=eta1_true, eta2=eta2_true)
+    qc.eta1 = eta1_true - eta1_true.logsumexp(dim=1, keepdim=True)
+    qc.eta2 = eta2_true - eta2_true.logsumexp(dim=3, keepdim=True)
     qc.compute_filtering_probs()
     return qc
 
 
-def write_inference_test_output(victree, y, c, z, tree, mu, tau, eps, eps0, pi, test_dir_path):
+def write_inference_test_output(victree, y, c, z, tree, mu, tau, eps, eps0, pi, test_dir_path, file_name_prefix=''):
+    config = victree.config
+    N = config.n_cells
+    M = config.chain_length
+    K = config.n_nodes
+    A = config.n_states
+    c_true_and_qc_viterbi = np.zeros((2, K, M))
+    c_true_and_qc_viterbi[0] = np.array(c)
+    c_true_and_qc_viterbi[1] = np.array(victree.q.c.get_viterbi())
+    visualization_utils.visualize_copy_number_profiles_of_multiple_sources(c_true_and_qc_viterbi,
+                                                                           save_path=test_dir_path +
+                                                                                     f'/{file_name_prefix}c_plot.png')
+    visualization_utils.visualize_observations_copy_number_profiles_of_multiple_sources(c_true_and_qc_viterbi,
+                                                                                        y, z,
+                                                                                        save_path=test_dir_path +
+                                                                                        f'/{file_name_prefix}c_obs_plot.png')
+
+    visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
+    visualization_utils.visualize_mu_tau_true_and_q(mu, tau, victree.q.mt)
+
     return None
+
+
+def remap_tensor(tensor, permutation_list):
+    """
+    Remaps a tensor along dimension 0 according to :param permutation_list:.
+    """
+    return tensor[permutation_list]
