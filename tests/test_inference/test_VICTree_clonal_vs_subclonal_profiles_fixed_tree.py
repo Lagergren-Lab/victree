@@ -198,6 +198,6 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         c_tot_remapped = utils_testing.remap_tensor(c_tot, perm)
         c_tot_remapped2 = utils_testing.remap_tensor(c_tot, perm2)
         utils_testing.write_inference_test_output(victree, y_tot, c_tot_remapped, z, tree, mu, tau, eps, eps0, pi,
-                                                  test_dir_path=test_dir_name, file_name_prefix='default_init')
+                                                  test_dir_path=test_dir_name, file_name_prefix='default_init_')
         utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z, tree, mu, tau, eps, eps0, pi,
-                                                  test_dir_path=test_dir_name, file_name_prefix='clonal_init')
+                                                  test_dir_path=test_dir_name, file_name_prefix='clonal_init_')

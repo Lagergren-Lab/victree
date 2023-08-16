@@ -102,7 +102,7 @@ def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array:
     fig, axs = plt.subplots(n_rows, n_col)
     title = "CN profile " + title_suff
     fig.suptitle(title)
-    labels = ['1', '2', '3']
+    labels = [str(i) for i in range(n_sources)]
     sites = range(1, M + 1)
     for k in range(K):
         if k % n_col == 0:
