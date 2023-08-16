@@ -425,7 +425,8 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
 def generate_dataset_var_tree(config: Config,
                               nu_prior=1., lambda_prior=100.,
                               alpha_prior=500., beta_prior=50.,
-                              dir_alpha=1., chrom: str | int = 1) -> VarTreeJointDist:
+                              dir_alpha=1., eps_a=5., eps_b=50., chrom: str | int = 1,
+                              ret_anndata=False):
     # set up default with one chromosome
     chr_df = None
     if chrom == 'real':
@@ -436,7 +437,7 @@ def generate_dataset_var_tree(config: Config,
     else:
         raise ValueError(f"chrom argument `{chrom}` does not match any available option")
 
-    simul_data = simulate_full_dataset(config, eps_a=5., eps_b=50., mu0=nu_prior, lambda0=lambda_prior,
+    simul_data = simulate_full_dataset(config, eps_a=eps_a, eps_b=eps_b, mu0=nu_prior, lambda0=lambda_prior,
                                        alpha0=alpha_prior, beta0=beta_prior, dir_delta=dir_alpha, chr_df=chr_df)
 
     if chrom != 1:
@@ -471,7 +472,10 @@ def generate_dataset_var_tree(config: Config,
     })
 
     joint_q = VarTreeJointDist(config, simul_data['obs'], fix_qc, fix_qz, fix_qt, fix_qeps, fix_qmt, fix_qpi)
-    return joint_q
+    if ret_anndata:
+        return joint_q, simul_data['adata']
+    else:
+        return joint_q
 
 
 # script for simulating data
