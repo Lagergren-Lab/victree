@@ -5,9 +5,11 @@ import argparse
 
 import matplotlib
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import torch
+from networkx.drawing.nx_agraph import graphviz_layout
 
 
 def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None,
@@ -100,7 +102,7 @@ def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array:
     fig, axs = plt.subplots(n_rows, n_col)
     title = "CN profile " + title_suff
     fig.suptitle(title)
-    labels = ['1', '2', '3']
+    labels = [str(i) for i in range(n_sources)]
     sites = range(1, M + 1)
     for k in range(K):
         if k % n_col == 0:
@@ -167,11 +169,11 @@ def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source
 
 def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save_path=None, pyplot_backend=None):
     if save_path is None and pyplot_backend is None:
-        matplotlib.use('TkAgg')
+        matplotlib.use('module://backend_interagg')
     elif save_path is None and pyplot_backend == "default":
         matplotlib.use(matplotlib.rcParams['backend'])
     elif save_path is None:
-        matplotlib.use('TkAgg')
+        matplotlib.use('module://backend_interagg')
 
     N = mu.shape[0]
     fig, axs = plt.subplots(1, 2)
@@ -354,30 +356,15 @@ def visualize_T_given_true_tree_and_distances(w_T_list, distances, g_T_list=None
     return fig
 
 
-def visualize_T_given_true_tree_and_distances(w_T_list, distances, g_T_list=None, save_path=None):
-    sorted_dist = np.sort(distances)
-    sorted_dist_idx = np.argsort(distances)
-    x_axis = np.arange(len(distances))
-    w_T_list_sorted = [w_T_list[i] for i in sorted_dist_idx]
-    fig = plt.plot(x_axis, w_T_list_sorted, 'o')
-    distances_break_points_indexes = np.where(sorted_dist[1:] - sorted_dist[:-1] > 0)[0] + 2
-    labels = ['' if i not in distances_break_points_indexes else sorted_dist[i] for i in x_axis]
-    labels[0] = sorted_dist[0]
-    plt.xlabel("Distance to true tree")
-    plt.ylabel("w(T)")
-    plt.xticks(ticks=x_axis, labels=labels)
-    if save_path is not None:
-        plt.savefig(save_path + '/w_T_and_T_to_true_tree_distance_plot.png')
-    if g_T_list is not None:
-        plt.close()
-        g_T_list_sorted = [g_T_list[i] for i in sorted_dist_idx]
-        fig = plt.plot(x_axis, g_T_list_sorted, 'o')
-        plt.xlabel("Distance to true tree")
-        plt.ylabel("g(T)")
-        plt.xticks(ticks=x_axis, labels=labels)
-        plt.savefig(save_path + '/g_T_and_T_to_true_tree_distance_plot.png')
+def draw_graph(G: nx.DiGraph, save_path=None):
+    pos = graphviz_layout(G, prog="dot")
 
-    return fig
+    f: plt.figure.Figure = plt.figure(figsize=(5, 5))
+    nx.draw(G, pos=pos, with_labels=True, ax=f.add_subplot(111))
+    if save_path is not None:
+        f.savefig(save_path, format="png")
+    else:
+        plt.show()
 
 
 def visualize_and_save_T_plots(save_path, true_tree, T_list, w_T_list, distances, g_T_list_unique=None):
@@ -458,3 +445,13 @@ if __name__ == '__main__':
                                 clones_to_vis_idxs=args.clones_list,
                                 edges_to_vis_idxs=args.edges_list,
                                 save_path=args.out_path)
+
+
+def visualize_mu_tau_true_and_q(mu, tau, qmt):
+    N = mu.shape[0]
+    x_axis = np.arange(0, N)
+    fig, axs = plt.subplots(1, 2)
+    axs[0].plot(x_axis, mu)
+    axs[0].plot(x_axis, qmt.nu)
+    axs[1].plot(x_axis, tau)
+    axs[1].plot(x_axis, qmt.exp_tau())

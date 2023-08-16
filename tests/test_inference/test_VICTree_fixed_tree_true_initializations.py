@@ -125,14 +125,13 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
 
         # Initialize qMuTau to true values.
         qmt.initialize('fixed', loc=mu, precision_factor=100., shape=self.alpha0, rate=self.alpha0 / tau)
-        eta1_true = torch.nn.functional.one_hot(c[:, 0], num_classes=self.A)
-        eta2_true = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A=self.A)
-        qc.update_params(eta1=eta1_true, eta2=eta2_true)
-        qc.compute_filtering_probs()
-        utils_testing.initialize_epsilon_to_true_values(eps, self.a0, self.b0, qeps)
+        utils_testing.initialize_qc_to_true_values(c, self.A, qc)
+        utils_testing.initialize_qepsilon_to_true_values(eps, self.a0, self.b0, qeps)
 
         # Make sure qZ is updated first based on good values
+        qz.config.step_size = 1.
         qz.update(qmt, qc, qpi, y)
+        qz.config.step_size = 0.1
 
         out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi,
                                                                 true_mu=mu,
