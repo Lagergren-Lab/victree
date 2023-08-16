@@ -158,10 +158,21 @@ class qC(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'fixed':
+            self._fixed_init(**kwargs)
         else:
             raise ValueError(f'method `{method}` for qC initialization is not implemented')
 
         return super().initialize(**kwargs)
+
+    def _fixed_init(self, eta1: torch.Tensor, eta2: torch.Tensor) -> None:
+        self.eta1 = eta1
+        self.eta2 = eta2
+
+        if self.config.debug:
+            assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
+            assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
+        self.compute_filtering_probs()
 
     def _random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
@@ -706,7 +717,7 @@ class qCMultiChrom(VariationalDistribution):
         if method not in {'random', 'uniform'}:
             raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
         for qc in self.qC_list:
-            qc.initialize(method)
+            qc.initialize(method, **kwargs)
 
         return self
 
@@ -799,6 +810,8 @@ class qZ(VariationalDistribution):
         self.pi[...] = torch.distributions.Dirichlet(torch.ones_like(self.pi)).sample()
 
     def _init_with_values(self, pi_init):
+        if self.config.debug:
+            assert torch.allclose(torch.sum(pi_init, dim=-1, keepdim=True), torch.ones_like(pi_init))
         self.pi[...] = pi_init
 
     def _uniform_init(self):
@@ -1707,7 +1720,7 @@ class qMuTau(qPsi):
             'beta_prior': self.beta_0.numpy()
         }
 
-    def update(self, qc: qC, qz: qZ, obs: torch.Tensor):
+    def update(self, qc: qC | qCMultiChrom, qz: qZ, obs: torch.Tensor):
         """
         Updates mu_n, tau_n for each cell n \in {1,...,N}.
         :param qc:

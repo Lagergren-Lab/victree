@@ -191,4 +191,4 @@ class CellCNExperiment():
 
 if __name__ == '__main__':
     experiment_class = CellCNExperiment()
-    experiment_class.infer_emission_parameters_given_true_C(save_plot=False)
+    experiment_class.infer_C_and_emission_parameters(save_plot=False)
