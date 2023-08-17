@@ -113,7 +113,7 @@ class qTTestCase(unittest.TestCase):
         two_slice_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A, offset=0.1)
         qc.couple_filtering_probs = two_slice_marginals
         qeps = qEpsilonMulti(config=config)
-        qeps.initialize('non_mutation')  # eps_alpha_dict=eps*10., eps_beta_dict=eps/10.)
+        qeps.initialize('non-mutation')  # eps_alpha_dict=eps*10., eps_beta_dict=eps/10.)
 
         qt = qT(config=config)
         qt.initialize()

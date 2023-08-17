@@ -82,8 +82,9 @@ def visualize_copy_number_profiles_ipynb(C, title_suff: str = ''):
     plt.show()
 
 
-def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array: np.array, save_path=None, pyplot_backend=None,
-                                   title_suff: str = '', block=False):
+def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array: np.array, save_path=None,
+                                                       pyplot_backend=None,
+                                                       title_suff: str = '', block=False):
     """
     Plots S lines in K subplots with x-axis of length M.
     Used e.g. to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
@@ -123,9 +124,63 @@ def visualize_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array:
         plt.savefig(save_path)
 
 
+def visualize_qC_true_C_qZ_and_true_Z(c, qc, z, qz, save_path=None,
+                                      title_suff: str = '', pyplot_backend=None):
+    """
+    Plots S lines in K subplots with x-axis of length M.
+    Used e.g. to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
+    """
+    if save_path is None and pyplot_backend is None:
+        matplotlib.use('module://backend_interagg')  # Used for plotting in PyCharm scientific mode
+    elif save_path is None and pyplot_backend == "default":
+        matplotlib.use(matplotlib.rcParams['backend'])
+    elif save_path is None:
+        matplotlib.use(pyplot_backend)
+
+    K, M, A = qc.single_filtering_probs.shape
+    qc_viterbi = qc.single_filtering_probs.argmax(dim=-1)
+    qz_mean_assignment = qz.pi.mean(dim=0)
+    z_mean = torch.nn.functional.one_hot(z, num_classes=K).float().mean(dim=0)
+    n_col = 2
+    n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
+    fig, axs = plt.subplots(n_rows, n_col)
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
+    labels = ['true c', 'qc viterbi']
+    sites = range(1, M + 1)
+
+    # Print format for z and qz
+    print_z_mean = ["{:.2f}".format(e) for e in z_mean.tolist()]
+    print_qz_mean = ["{:.2f}".format(e) for e in qz_mean_assignment.tolist()]
+
+    # Plot c and qc viterbi path in K subplots
+    for k in range(K):
+        if k % n_col == 0:
+            col_count = 0
+        else:
+            col_count += 1
+
+        row = int(k / n_col)
+        axs[row, col_count].plot(sites, c[k])
+        axs[row, col_count].plot(sites, qc_viterbi[k])
+        axs[row, col_count].set_title(f'k = {k}')
+        axs[row, col_count].text(0.1, 0.8, print_z_mean[k], fontsize=7, transform=axs[row, col_count].transAxes,
+                                 bbox={'facecolor': 'blue', 'alpha': 0.4, 'pad': 2})
+        axs[row, col_count].text(0.1, 0.6, print_qz_mean[k], fontsize=7, transform=axs[row, col_count].transAxes,
+                                 bbox={'facecolor': 'orange', 'alpha': 0.4, 'pad': 2})
+
+        if k == 0:
+            axs[int(k / n_col), col_count].legend(labels)
+
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+
+
 def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array, obs, assignments,
                                                                     save_path=None, pyplot_backend=None,
-                                   title_suff: str = ''):
+                                                                    title_suff: str = ''):
     """
     Plots S lines in K subplots with x-axis of length M.
     Used e.g. to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
@@ -179,7 +234,7 @@ def visualize_mu_tau(mu: torch.Tensor, tau: torch.Tensor, save_path=None, pyplot
     fig, axs = plt.subplots(1, 2)
     fig.suptitle('Mu and tau')
 
-    cells = range(1, N+1)
+    cells = range(1, N + 1)
     axs[0].plot(cells, mu)
     axs[0].set_title(f"mu")
     axs[1].plot(cells, tau)
@@ -208,9 +263,9 @@ def visualize_diagnostics(diagnostics_dict: dict, cells_to_vis_idxs=[0], clones_
     axs[0, 3].plot(diagnostics_dict["beta"][:, cells_to_vis_idxs[0]])
 
     axs[1, 0].plot(diagnostics_dict["C"][0, clones_to_vis_idxs[0], :].argmax(dim=-1))
-    axs[1, 1].plot(diagnostics_dict["C"][int(max_iter/4), clones_to_vis_idxs[0], :].argmax(dim=-1))
-    axs[1, 2].plot(diagnostics_dict["C"][int(max_iter/2), clones_to_vis_idxs[0], :].argmax(dim=-1))
-    axs[1, 3].plot(diagnostics_dict["C"][max_iter-1, clones_to_vis_idxs[0], :].argmax(dim=-1))
+    axs[1, 1].plot(diagnostics_dict["C"][int(max_iter / 4), clones_to_vis_idxs[0], :].argmax(dim=-1))
+    axs[1, 2].plot(diagnostics_dict["C"][int(max_iter / 2), clones_to_vis_idxs[0], :].argmax(dim=-1))
+    axs[1, 3].plot(diagnostics_dict["C"][max_iter - 1, clones_to_vis_idxs[0], :].argmax(dim=-1))
 
     for i, cell_idx in enumerate(cells_to_vis_idxs):
         if i >= n_cols:
@@ -236,11 +291,11 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
     max_iter, K, M, A = diagnostics_dict["C"].shape
 
     # number of rows: 3 from qMuTau, pi plot and extra C_m^u plot
-    n_rows = 3 + len(clones_to_vis_idxs) + int(len(cells_to_vis_idxs)/4 + 1) + int(len(edges_to_vis_idxs)/2 + 1)
+    n_rows = 3 + len(clones_to_vis_idxs) + int(len(cells_to_vis_idxs) / 4 + 1) + int(len(edges_to_vis_idxs) / 2 + 1)
     n_cols = 4
     rows_per_page = 6
     with PdfPages(save_path) as pdf:
-        fig, axs = plt.subplots(n_rows, n_cols, figsize=(n_cols*3, n_rows*3))
+        fig, axs = plt.subplots(n_rows, n_cols, figsize=(n_cols * 3, n_rows * 3))
         fig.tight_layout(pad=2.0)  # space between subplots
         fig.suptitle(f"Diagnostics - cells {cells_to_vis_idxs} - clones {clones_to_vis_idxs}")
         axs[0, 0].plot(diagnostics_dict["nu"][:, cells_to_vis_idxs[0]])
@@ -267,8 +322,8 @@ def plot_diagnostics_to_pdf(diagnostics_dict: dict,
 
         # C_m^u for single u and m over all iter
         m0 = 0
-        m1 = int(M * 1/3)
-        m2 = int(M * 2/3)
+        m1 = int(M * 1 / 3)
+        m2 = int(M * 2 / 3)
         m3 = M - 1
         clone_idx = clones_to_vis_idxs[0]
         axs[i, 0].plot(diagnostics_dict["C"][:, clone_idx, m0].argmax(dim=-1))
@@ -356,6 +411,32 @@ def visualize_T_given_true_tree_and_distances(w_T_list, distances, g_T_list=None
     return fig
 
 
+def visualize_mu_tau_true_and_q(mu, tau, qmt, save_path=None):
+    N = mu.shape[0]
+    x_axis = np.arange(0, N)
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle('qMuTau vs true mu and tau')
+    axs[0, 0].plot(x_axis, mu)
+    axs[0, 0].plot(x_axis, qmt.nu)
+    axs[0, 0].set_title('mu')
+    axs[0, 0].legend(['true mu', 'E_q[mu]'])
+    axs[0, 1].plot(x_axis, tau)
+    axs[0, 1].plot(x_axis, qmt.exp_tau())
+    axs[0, 1].set_title('tau')
+    axs[0, 1].legend(['true tau', 'E_q[tau]'])
+
+    # Errors
+    axs[1, 0].plot(x_axis, torch.abs(mu - qmt.nu))
+    axs[1, 0].set_title('mu error')
+    axs[1, 1].plot(x_axis, torch.abs(tau - qmt.exp_tau()))
+    axs[1, 1].set_title('tau error')
+
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+
+
 def draw_graph(G: nx.DiGraph, save_path=None):
     pos = graphviz_layout(G, prog="dot")
 
@@ -377,12 +458,12 @@ def test_visualization():
     C_test = torch.ones((K_test, M_test))
     C_test[2, int(M_test / 2):] = 2.
     C_test[3, int(M_test / 2):] = 2.
-    #visualize_copy_number_profiles(C_test)
+    # visualize_copy_number_profiles(C_test)
 
     N_test = 15
     mu_test = torch.ones(N_test) * 5. + torch.rand(N_test) * 2.0
     tau_test = torch.ones(N_test) * 0.1 * torch.rand(N_test)
-    #visualize_mu_tau(mu_test, tau_test)
+    # visualize_mu_tau(mu_test, tau_test)
 
     n_iter = 10
     diag_C = torch.ones((n_iter, K_test, M_test, A_test))
@@ -438,20 +519,9 @@ if __name__ == '__main__':
     args = cli.parse_args()
 
     with open(args.pickle_file, 'rb') as f:
-
         diag_dict = pickle.load(f)
         plot_diagnostics_to_pdf(diagnostics_dict=diag_dict,
                                 cells_to_vis_idxs=args.cells_list,
                                 clones_to_vis_idxs=args.clones_list,
                                 edges_to_vis_idxs=args.edges_list,
                                 save_path=args.out_path)
-
-
-def visualize_mu_tau_true_and_q(mu, tau, qmt):
-    N = mu.shape[0]
-    x_axis = np.arange(0, N)
-    fig, axs = plt.subplots(1, 2)
-    axs[0].plot(x_axis, mu)
-    axs[0].plot(x_axis, qmt.nu)
-    axs[1].plot(x_axis, tau)
-    axs[1].plot(x_axis, qmt.exp_tau())

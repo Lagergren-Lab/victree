@@ -158,6 +158,8 @@ class qC(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'clonal':
+            self._clonal_init(**kwargs)
         elif method == 'fixed':
             self._fixed_init(**kwargs)
         else:
@@ -279,6 +281,26 @@ class qC(VariationalDistribution):
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
         self.compute_filtering_probs()
+
+    def _clonal_init(self, obs, mu=1.0):
+        # Estimate marginals from data
+        scaled_obs_mean = torch.mean(obs, dim=1).reshape(obs.shape[0], 1)
+        pseudo_config = Config(n_cells=1, n_nodes=self.config.n_nodes, chain_length=self.config.chain_length,
+                               n_states=self.config.n_states)
+        q_eps = qEpsilonMulti(pseudo_config)
+        q_eps.initialize(method='non-mutation')
+        q_z = qZ(pseudo_config)
+        q_z.initialize(method='uniform')
+        q_psi = qMuTau(pseudo_config)
+        q_psi.initialize(method='fixed', loc=1., precision_factor=1000., shape=500., rate=50.)
+        star_tree = nx.DiGraph()
+        for k in range(1, self.config.n_nodes):
+            star_tree.add_edge(0, k)
+        weight = 1.0
+        inference_step_size = self.config.step_size
+        self.config.step_size = 1.0
+        self.update(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
+        self.config.step_size = inference_step_size
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
@@ -1474,7 +1496,7 @@ class qEpsilonMulti(VariationalDistribution):
             self._uniform_init()
         elif method == 'random':
             self._random_init(**kwargs)
-        elif method == 'non_mutation':
+        elif method == 'non-mutation':
             self._non_mutation_init()
         elif method == 'prior':
             self._initialize_to_prior_parameters()
@@ -1492,7 +1514,7 @@ class qEpsilonMulti(VariationalDistribution):
         self._set_equal_params(1., 1.)
 
     def _non_mutation_init(self):
-        self._set_equal_params(1., 10.)
+        self._set_equal_params(1., 100.)
 
     def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
         for e in self.alpha_dict.keys():
@@ -1915,6 +1937,12 @@ Initialize the mu and tau params given observations
 
     def exp_tau(self):
         return self.alpha / self.beta
+
+    def var_tau(self):
+        return self.alpha / self.beta**2
+
+    def var_mu(self):
+        return self.beta / (self.lmbda * (self.alpha - 1))
 
     def exp_log_tau(self):
         return torch.digamma(self.alpha) - torch.log(self.beta)

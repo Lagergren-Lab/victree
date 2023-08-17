@@ -210,7 +210,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
             q.initialize()
             qmt.initialize(method='fixed', loc=1., precision_factor=10., shape=50., rate=10.)
-            q.eps.initialize(method='non_mutation')
+            q.eps.initialize(method='non-mutation')
             q.z.pi = f.one_hot(z.long(), num_classes=K).float()
 
             victree = VICTree(config, q, y, draft=True)
