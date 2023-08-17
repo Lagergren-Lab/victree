@@ -138,7 +138,7 @@ def visualize_qC_true_C_qZ_and_true_Z(c, qc, z, qz, save_path=None,
         matplotlib.use(pyplot_backend)
 
     K, M, A = qc.single_filtering_probs.shape
-    qc_viterbi = qc.get_viterbi()
+    qc_viterbi = qc.single_filtering_probs.argmax(dim=-1)
     qz_mean_assignment = qz.pi.mean(dim=0)
     z_mean = torch.nn.functional.one_hot(z, num_classes=K).float().mean(dim=0)
     n_col = 2
@@ -149,6 +149,10 @@ def visualize_qC_true_C_qZ_and_true_Z(c, qc, z, qz, save_path=None,
     labels = ['true c', 'qc viterbi']
     sites = range(1, M + 1)
 
+    # Print format for z and qz
+    print_z_mean = ["{:.2f}".format(e) for e in z_mean.tolist()]
+    print_qz_mean = ["{:.2f}".format(e) for e in qz_mean_assignment.tolist()]
+
     # Plot c and qc viterbi path in K subplots
     for k in range(K):
         if k % n_col == 0:
@@ -156,26 +160,17 @@ def visualize_qC_true_C_qZ_and_true_Z(c, qc, z, qz, save_path=None,
         else:
             col_count += 1
 
-        axs[int(k / n_col), col_count].plot(sites, c[k])
-        axs[int(k / n_col), col_count].plot(sites, qc_viterbi[k])
-        axs[int(k / n_col), col_count].set_title(f'k = {k}')
+        row = int(k / n_col)
+        axs[row, col_count].plot(sites, c[k])
+        axs[row, col_count].plot(sites, qc_viterbi[k])
+        axs[row, col_count].set_title(f'k = {k}')
+        axs[row, col_count].text(0.1, 0.8, print_z_mean[k], fontsize=7, transform=axs[row, col_count].transAxes,
+                                 bbox={'facecolor': 'blue', 'alpha': 0.4, 'pad': 2})
+        axs[row, col_count].text(0.1, 0.6, print_qz_mean[k], fontsize=7, transform=axs[row, col_count].transAxes,
+                                 bbox={'facecolor': 'orange', 'alpha': 0.4, 'pad': 2})
 
         if k == 0:
             axs[int(k / n_col), col_count].legend(labels)
-
-    # Print z and qz
-    print_z_mean = ["{:.2f}".format(e) for e in z_mean.tolist()]
-    print_qz_mean = ["{:.2f}".format(e) for e in qz_mean_assignment.tolist()]
-    if K % 2 == 1:
-        axs[int(K / 2), 1].text(0, 0.6, print_z_mean, fontsize=7,
-                                bbox={'facecolor': 'blue', 'alpha': 0.5, 'pad': 10})
-        axs[int(K / 2), 1].text(0, 0.2, print_qz_mean, fontsize=7,
-                                bbox={'facecolor': 'orange', 'alpha': 0.5, 'pad': 10})
-    else:
-        axs[0, 1].text(0.1, 0.8, f'{z_mean.tolist()}', fontsize=7,
-                       bbox={'facecolor': 'blue', 'alpha': 0.5, 'pad': 5})
-        axs[0, 1].text(0.1, 0.2, f'{qz_mean_assignment.tolist()}', fontsize=7,
-                       bbox={'facecolor': 'orange', 'alpha': 0.5, 'pad': 5})
 
     if save_path is None:
         plt.show()

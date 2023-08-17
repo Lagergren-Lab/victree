@@ -125,7 +125,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped, z, tree, mu, tau, eps, eps0, pi,
                                                   test_dir_path=test_dir_name, file_name_prefix='clonal_and_subclonal_')
 
-    def test_init_clones_to_clonal_profile(self):
+    def test_init_clones_to_true_clonal_profile(self):
         torch.manual_seed(0)
         n_iter = 100
         K = 7
@@ -179,6 +179,83 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         c_clonal_extended = torch.ones_like(c_tot) * 2.
         c_clonal_extended[:, 0:M_clonal] = c_clonal
         utils_testing.initialize_qc_to_true_values(c_clonal_extended, A, qc2)
+        victree2 = VICTree(config_init2, q2, y_tot, draft=True)
+
+        victree2.run(n_iter=n_iter)
+
+        # Assert
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
+                                                                       base_dir='./../test_output')
+        torch.set_printoptions(precision=2)
+        out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
+                                                                 true_mu=mu,
+                                                                 true_tau=tau, true_epsilon=eps_tot,
+                                                                 q_c=victree2.q.c,
+                                                                 q_z=victree2.q.z, qpi=victree2.q.pi,
+                                                                 q_mt=victree2.q.mt, q_eps=victree2.q.eps)
+        ari, perm, acc = (out['ari'], out['perm'], out['acc'])
+        ari2, perm2, acc2 = (out2['ari'], out2['perm'], out2['acc'])
+        c_tot_remapped = c_tot[perm]
+        c_tot_remapped2 = c_tot[perm2]
+        z_remapped = torch.tensor([perm[i] for i in z])
+        z2_remapped = torch.tensor([perm2[i] for i in z])
+        utils_testing.write_inference_test_output(victree, y_tot, c_tot_remapped, z_remapped, tree, mu, tau, eps, eps0, pi,
+                                                  test_dir_path=test_dir_name, file_name_prefix='default_init_')
+        utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z2_remapped, tree, mu, tau, eps, eps0, pi,
+                                                  test_dir_path=test_dir_name, file_name_prefix='clonal_init_')
+
+    def test_clonal_profile_init(self):
+        torch.manual_seed(0)
+        n_iter = 100
+        K = 7
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        N = 500
+        M_subclonal = 300
+        M_clonal = 1700
+        A = 7
+        dir_delta0 = 10.
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 300.0
+        y, c_local, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M_subclonal, A, tree,
+                                                                              nu_0=nu_0,
+                                                                              lambda_0=lambda_0, alpha0=alpha0,
+                                                                              beta0=beta0,
+                                                                              a0=a0, b0=b0, dir_alpha0=dir_delta0)
+
+        # Extend clones with general structure
+        M_tot, c_tot, eps_tot, y_tot, c_clonal = generate_clonal_profile_data(A, c_local, K, M_clonal, M_subclonal, N,
+                                                                              eps, mu,
+                                                                              tau, y, z)
+
+        # Run VICTree using normal initialization
+        config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
+                              diagnostics=False, annealing=1.)
+
+        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
+        q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y_tot)
+        q.initialize()
+        victree = VICTree(config_init1, q, y_tot, draft=True)
+        victree.run(n_iter=n_iter)
+
+        out = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
+                                                                true_mu=mu,
+                                                                true_tau=tau, true_epsilon=eps,
+                                                                q_c=victree.q.c,
+                                                                q_z=victree.q.z, qpi=victree.q.pi,
+                                                                q_mt=victree.q.mt, q_eps=qeps)
+
+        # Run VICTree using init to clonal structure
+        config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
+                              diagnostics=False, annealing=1.)
+
+        qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
+        q2 = FixedTreeJointDist(config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree, y_tot)
+        q2.initialize()
+        qc2.initialize(method='clonal', obs=y_tot)
         victree2 = VICTree(config_init2, q2, y_tot, draft=True)
 
         victree2.run(n_iter=n_iter)
