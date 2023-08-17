@@ -195,9 +195,11 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                  q_mt=victree2.q.mt, q_eps=victree2.q.eps)
         ari, perm, acc = (out['ari'], out['perm'], out['acc'])
         ari2, perm2, acc2 = (out2['ari'], out2['perm'], out2['acc'])
-        c_tot_remapped = utils_testing.remap_tensor(c_tot, perm)
-        c_tot_remapped2 = utils_testing.remap_tensor(c_tot, perm2)
-        utils_testing.write_inference_test_output(victree, y_tot, c_tot_remapped, z, tree, mu, tau, eps, eps0, pi,
+        c_tot_remapped = c_tot[perm]
+        c_tot_remapped2 = c_tot[perm2]
+        z_remapped = torch.tensor([perm[i] for i in z])
+        z2_remapped = torch.tensor([perm2[i] for i in z])
+        utils_testing.write_inference_test_output(victree, y_tot, c_tot_remapped, z_remapped, tree, mu, tau, eps, eps0, pi,
                                                   test_dir_path=test_dir_name, file_name_prefix='default_init_')
-        utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z, tree, mu, tau, eps, eps0, pi,
+        utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z2_remapped, tree, mu, tau, eps, eps0, pi,
                                                   test_dir_path=test_dir_name, file_name_prefix='clonal_init_')

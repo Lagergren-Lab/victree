@@ -1916,6 +1916,12 @@ Initialize the mu and tau params given observations
     def exp_tau(self):
         return self.alpha / self.beta
 
+    def var_tau(self):
+        return self.alpha / self.beta**2
+
+    def var_mu(self):
+        return self.beta / (self.lmbda * (self.alpha - 1))
+
     def exp_log_tau(self):
         return torch.digamma(self.alpha) - torch.log(self.beta)
 
