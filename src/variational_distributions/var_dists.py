@@ -160,8 +160,12 @@ class qC(VariationalDistribution):
             self._uniform_init()
         elif method == 'fixed':
             self._fixed_init(**kwargs)
+        elif method == 'diploid':
+            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=3.)
         else:
             raise ValueError(f'method `{method}` for qC initialization is not implemented')
+
+        self.compute_filtering_probs()
 
         return super().initialize(**kwargs)
 
@@ -172,15 +176,12 @@ class qC(VariationalDistribution):
         if self.config.debug:
             assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
             assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
-        self.compute_filtering_probs()
 
     def _random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
         self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.rand(self.eta2.shape)
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
-
-        self.compute_filtering_probs()
 
     def _baum_welch_init(self, obs: torch.Tensor, qmt: 'qMuTau'):
         # TODO: test
@@ -208,8 +209,6 @@ class qC(VariationalDistribution):
         self.eta1 = torch.log(torch.tensor(hmm.startprob_))
         self.eta2 = torch.log(torch.tensor(hmm.transmat_))
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
-
-        self.compute_filtering_probs()
 
     def _init_bw_cluster_data(self, obs: torch.Tensor, clusters):
         # qz must be initialized already
@@ -253,11 +252,9 @@ class qC(VariationalDistribution):
             # hmmlearn.vhmm.VariationalGaussianHMM()
 
         # init root node
-        self._init_root_skewed2()
+        self._init_diploid(nodes=[0])
 
-        self.compute_filtering_probs()
-
-    def _init_root_skewed2(self, skewness=5.):
+    def _init_diploid(self, nodes: list, skewness=5.):
         # skewness towards cn=2 wrt to default 1
         # e.g. skewness 5 -> cn2 will be 5 times more likely than other states in log-scale
         root_startprob = torch.ones(self.config.n_states)
@@ -265,9 +262,9 @@ class qC(VariationalDistribution):
         root_transmat = torch.ones((self.config.n_states, self.config.n_states))
         root_transmat[2, :] = skewness
         # normalize and log-transform
-        self.eta1[0, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
+        self.eta1[nodes, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
         normalized_log_transmat = root_transmat - torch.logsumexp(root_transmat, dim=-1, keepdim=True)
-        self.eta2[0, ...] = normalized_log_transmat[None, ...]  # expand for all sites 1, ..., M
+        self.eta2[nodes, ...] = normalized_log_transmat[None, ...]  # expand for all sites 1, ..., M
 
     def _uniform_init(self):
         """
@@ -277,8 +274,6 @@ class qC(VariationalDistribution):
         self.eta1 = self.eta1 - torch.logsumexp(self.eta1, dim=-1, keepdim=True)
         self.eta2 = torch.ones(self.eta2.shape)
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
-
-        self.compute_filtering_probs()
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
@@ -417,6 +412,9 @@ class qC(VariationalDistribution):
         self.eta1 = new_eta1 - new_eta1.logsumexp(dim=1, keepdim=True)
         self.eta2 = new_eta2 - new_eta2.logsumexp(dim=3, keepdim=True)
         if self.config.debug:
+            # might go to nan if step size is not small enough
+            assert not torch.any(torch.isnan(self.eta1))
+            assert not torch.any(torch.isnan(self.eta2))
             assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
             assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
         return self.eta1, self.eta2
@@ -628,6 +626,7 @@ class qC(VariationalDistribution):
                         self.eta2[k, m, :, :] = self.eta2[k, m + 1, :, :]
 
 
+
 class qCMultiChrom(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
@@ -714,7 +713,7 @@ class qCMultiChrom(VariationalDistribution):
         return padded_cfp
 
     def initialize(self, method='random', **kwargs):
-        if method not in {'random', 'uniform'}:
+        if method not in {'random', 'uniform', 'diploid'}:
             raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
         for qc in self.qC_list:
             qc.initialize(method, **kwargs)
@@ -1749,6 +1748,7 @@ class qMuTau(qPsi):
         mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
         beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
         if self.config.debug:
+            assert torch.all(beta > 0)
             assert not torch.isnan(beta).any()
 
         new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta)
