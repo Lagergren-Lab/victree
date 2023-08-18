@@ -11,6 +11,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 import torch
 from networkx.drawing.nx_agraph import graphviz_layout
 
+from variational_distributions.var_dists import qMuTau
+
 
 def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backend=None,
                                    title_suff: str = '', block=False):
@@ -480,6 +482,26 @@ def visualize_mu_tau_true_and_q(mu, tau, qmt, save_path=None):
     axs[1, 0].set_title('mu error')
     axs[1, 1].plot(x_axis, torch.abs(tau - qmt.exp_tau()))
     axs[1, 1].set_title('tau error')
+
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+
+
+def visualize_qMuTau(qmt: qMuTau, save_path=None):
+    N = qmt.nu.shape[0]
+    x_axis = np.arange(0, N)
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle('qMuTau visualization')
+    axs[0, 0].plot(x_axis, qmt.nu)
+    axs[0, 1].plot(x_axis, qmt.var_mu())
+    axs[0, 0].set_title('E[mu]')
+    axs[0, 1].set_title('Var[mu]')
+    axs[1, 0].plot(x_axis, qmt.exp_tau())
+    axs[1, 1].plot(x_axis, qmt.var_tau())
+    axs[1, 0].set_title('E[tau]')
+    axs[1, 1].set_title('Var[tau]')
 
     if save_path is None:
         plt.show()
