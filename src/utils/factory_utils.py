@@ -77,6 +77,7 @@ def construct_qC_from_model_output_data(model_output_data, config=None):
     qC.initialize()
     qC.eta1 = eta1
     qC.eta2 = eta2
+    qC.compute_filtering_probs()
     return qC
 
 

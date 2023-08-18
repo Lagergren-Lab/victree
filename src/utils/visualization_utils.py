@@ -178,6 +178,56 @@ def visualize_qC_true_C_qZ_and_true_Z(c, qc, z, qz, save_path=None,
         plt.savefig(save_path)
 
 
+def visualize_qC_qZ_and_obs(qc, qz, obs, save_path=None,
+                                      title_suff: str = '', pyplot_backend=None):
+    """
+    Plots S lines in K subplots with x-axis of length M.
+    Used e.g. to plot simulated C, qC marginals and qC marginals after fixed tree tuning for all clones.
+    """
+    if save_path is None and pyplot_backend is None:
+        matplotlib.use('module://backend_interagg')  # Used for plotting in PyCharm scientific mode
+    elif save_path is None and pyplot_backend == "default":
+        matplotlib.use(matplotlib.rcParams['backend'])
+    elif save_path is None:
+        matplotlib.use(pyplot_backend)
+
+    K, M, A = qc.single_filtering_probs.shape
+    qc_viterbi = qc.single_filtering_probs.argmax(dim=-1)
+    qz_mean_assignment = qz.pi.mean(dim=0)
+    n_col = 2
+    n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
+    fig, axs = plt.subplots(n_rows, n_col)
+    title = "CN profile " + title_suff
+    fig.suptitle(title)
+    labels = ['qc viterbi, obs']
+    sites = range(1, M + 1)
+
+    # Print format for z and qz
+    print_qz_mean = ["{:.2f}".format(e) for e in qz_mean_assignment.tolist()]
+
+    # Plot c and qc viterbi path in K subplots
+    for k in range(K):
+        if k % n_col == 0:
+            col_count = 0
+        else:
+            col_count += 1
+
+        row = int(k / n_col)
+        #axs[row, col_count].plot(sites, obs[:, qz.pi.argmax(dim=-1) == k])
+        axs[row, col_count].plot(sites, qc_viterbi[k])
+        axs[row, col_count].set_title(f'k = {k}')
+        axs[row, col_count].text(0.1, 0.6, print_qz_mean[k], fontsize=7, transform=axs[row, col_count].transAxes,
+                                 bbox={'facecolor': 'orange', 'alpha': 0.4, 'pad': 2})
+
+        if k == 0:
+            axs[int(k / n_col), col_count].legend(labels)
+
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path)
+
+
 def visualize_observations_copy_number_profiles_of_multiple_sources(multi_source_SxKxM_array, obs, assignments,
                                                                     save_path=None, pyplot_backend=None,
                                                                     title_suff: str = ''):
