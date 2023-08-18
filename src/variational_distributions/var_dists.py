@@ -389,7 +389,7 @@ class qC(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights):
-        new_eta1_norm, new_eta2_norm = self.update_CAVI(obs, q_eps, q_psi, q_z, tree_weights, trees)
+        new_eta1_norm, new_eta2_norm = self.update_CAVI(obs, q_eps, q_z, q_psi, trees, tree_weights)
 
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
@@ -398,7 +398,8 @@ class qC(VariationalDistribution):
         # logging.debug("- copy number updated")
         super().update()
 
-    def update_CAVI(self, obs, q_eps, q_psi, q_z, tree_weights, trees):
+    def update_CAVI(self, obs: torch.Tensor, q_eps: Union['qEpsilon', 'qEpsilonMulti'], q_z: 'qZ', q_psi: 'qPsi',
+                    trees: List[nx.DiGraph], tree_weights: List[float]):
         """
             log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
             + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
