@@ -348,5 +348,5 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         visualization_utils.visualize_qC_qZ_and_obs(victree2.q.c, victree2.q.z, y,
                                                     save_path=test_dir_name + 'clonal_init_qc_qz_obs_plot')
 
-        visualization_utils.visualize_qMuTau(victree.q.mt)
-        visualization_utils.visualize_qMuTau(victree2.q.mt)
+        visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_name + '/defualt_init_qmt_plot')
+        visualization_utils.visualize_qMuTau(victree2.q.mt, save_path=test_dir_name + '/clonal_init_qmt_plot')
