@@ -46,8 +46,8 @@ def run_analysis(args):
         raise NotImplementedError
     if args.qC:
         victree = factory_utils.construct_victree_object_from_model_output_and_data(checkpoint_data, obs, config)
-        victree_fixed_tree = qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
-        qC_marginals_argmax = torch.argmax(victree_fixed_tree.q.c.single_filtering_probs, dim=-1)
+        #victree_fixed_tree = qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
+        qC_marginals_argmax = torch.argmax(victree.q.c.single_filtering_probs, dim=-1)
         visualization_utils.visualize_copy_number_profiles(qC_marginals_argmax)
 
 

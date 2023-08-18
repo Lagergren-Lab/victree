@@ -284,7 +284,8 @@ class qC(VariationalDistribution):
 
     def _clonal_init(self, obs, mu=1.0):
         # Estimate marginals from data
-        scaled_obs_mean = torch.mean(obs, dim=1).reshape(obs.shape[0], 1)
+        obs_removed_nans = torch.nan_to_num(obs, 2.)
+        scaled_obs_mean = torch.mean(obs_removed_nans, dim=1).reshape(obs.shape[0], 1)
         pseudo_config = Config(n_cells=1, n_nodes=self.config.n_nodes, chain_length=self.config.chain_length,
                                n_states=self.config.n_states)
         q_eps = qEpsilonMulti(pseudo_config)
@@ -298,9 +299,10 @@ class qC(VariationalDistribution):
             star_tree.add_edge(0, k)
         weight = 1.0
         inference_step_size = self.config.step_size
-        self.config.step_size = 1.0
-        self.update(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
-        self.config.step_size = inference_step_size
+        eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
+        self.eta1 = eta1
+        self.eta2 = eta2
+        self.compute_filtering_probs()
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
@@ -387,17 +389,26 @@ class qC(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights):
-        """
-        log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
-        + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
+        new_eta1_norm, new_eta2_norm = self.update_CAVI(obs, q_eps, q_psi, q_z, tree_weights, trees)
 
-        CAVI update based on the dot product of the sufficient statistic of the 
-        HMM and simplified expected value over the natural parameter.
-        :return:
+        # update the filtering probs
+        self.update_params(new_eta1_norm, new_eta2_norm)
+
+        self.compute_filtering_probs()
+        # logging.debug("- copy number updated")
+        super().update()
+
+    def update_CAVI(self, obs, q_eps, q_psi, q_z, tree_weights, trees):
         """
+            log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
+            + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
+
+            CAVI update based on the dot product of the sufficient statistic of the
+            HMM and simplified expected value over the natural parameter.
+            :return:
+            """
         new_eta1 = torch.zeros_like(self.eta1)
         new_eta2 = torch.zeros_like(self.eta2)
-
         for tree, weight in zip(trees, tree_weights):
             # compute all alpha quantities
             exp_alpha1, exp_alpha2 = self._exp_alpha(tree, q_eps)
@@ -416,18 +427,11 @@ class qC(VariationalDistribution):
 
             new_eta1 = new_eta1 + tree_eta1 * weight
             new_eta2 = new_eta2 + tree_eta2 * weight
-
         # eta1 and eta2 don't come out normalized (in exp scale)
         # need normalization
         new_eta1_norm = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
         new_eta2_norm = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
-
-        # update the filtering probs
-        self.update_params(new_eta1_norm, new_eta2_norm)
-
-        self.compute_filtering_probs()
-        # logging.debug("- copy number updated")
-        super().update()
+        return new_eta1_norm, new_eta2_norm
 
     def update_params(self, eta1, eta2):
         lrho = torch.tensor(self.config.step_size).log()
@@ -736,10 +740,15 @@ class qCMultiChrom(VariationalDistribution):
         return padded_cfp
 
     def initialize(self, method='random', **kwargs):
-        if method not in {'random', 'uniform'}:
-            raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
-        for qc in self.qC_list:
-            qc.initialize(method, **kwargs)
+        if method not in {'random', 'uniform', 'clonal'}:
+            raise ValueError("Multi-chromosome qC init only accept `random`, `uniform` or 'clonal' method")
+
+        for (i, qc) in enumerate(self.qC_list):
+            if method == 'clonal':
+                obs = kwargs['obs'][self.chr_start_points[i]:self.chr_start_points[i+1]]
+                qc._clonal_init(obs)
+            else:
+                qc.initialize(method, **kwargs)
 
         return self
 

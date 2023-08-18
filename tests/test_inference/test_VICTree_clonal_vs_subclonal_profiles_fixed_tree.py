@@ -13,12 +13,14 @@ import simul
 import tests.utils_testing
 import utils.config
 from inference.victree import VICTree
+from utils.data_handling import DataHandler
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
 from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils, data_handling
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent, \
+    qCMultiChrom
 
 
 def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau, y, z):
@@ -280,3 +282,68 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                   test_dir_path=test_dir_name, file_name_prefix='default_init_')
         utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z2_remapped, tree, mu, tau, eps, eps0, pi,
                                                   test_dir_path=test_dir_name, file_name_prefix='clonal_init_')
+
+    def test_clonal_profile_init_real_data(self):
+        torch.manual_seed(0)
+        n_iter = 100
+        K = 7
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        A = 7
+        dir_delta0 = 10.
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 300.0
+
+        file_path ='../../data/x_data/P01-066_cn_data.h5ad'
+        data_handler = DataHandler(file_path)
+        y = data_handler.norm_reads
+        M, N = y.shape
+
+
+        # Run VICTree using normal initialization
+        config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
+                              diagnostics=False, annealing=1., chromosome_indexes=data_handler.get_chr_idx())
+
+        qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
+        qc = qCMultiChrom(config_init1)
+        q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y)
+        q.initialize()
+        qmt.initialize(method='fixed', loc=1.0, precision_factor=100., shape=5000., rate=500.)
+        victree = VICTree(config_init1, q, y, draft=True)
+        victree.run(n_iter=n_iter)
+
+
+        # Run VICTree using init to clonal structure
+        config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
+                              diagnostics=False, annealing=1., chromosome_indexes=data_handler.get_chr_idx())
+
+        qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
+        qc2 = qCMultiChrom(config_init2)
+        q2 = FixedTreeJointDist(config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree, y)
+        q2.initialize()
+        qc2.initialize(method='clonal', obs=y)
+        qmt2.initialize(method='fixed', loc=1.0, precision_factor=100., shape=5000., rate=500.)
+        qz2.update(qmt2, qc2, qpi2, y)
+        victree2 = VICTree(config_init2, q2, y, draft=True)
+
+        victree2.run(n_iter=n_iter)
+
+        # Assert
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
+                                                                       base_dir='./../test_output')
+        torch.set_printoptions(precision=2)
+
+        print(f"Dir param 1: {victree.q.pi}")
+        print(f"Dir param 2: {victree2.q.pi}")
+        z1 = victree.q.z.pi
+        z2 = victree2.q.z.pi
+        print(f"Avg assignment 1: {z1.mean(dim=0)}")
+        print(f"Avg assignment 2: {z2.mean(dim=0)}")
+
+        visualization_utils.visualize_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
+                                                    save_path=test_dir_name + 'default_init_qc_qz_obs_plot')
+        visualization_utils.visualize_qC_qZ_and_obs(victree2.q.c, victree2.q.z, y,
+                                                    save_path=test_dir_name + 'clonal_init_qc_qz_obs_plot')
