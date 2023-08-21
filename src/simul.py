@@ -488,6 +488,9 @@ def write_simulated_dataset_h5ad(data, chr_df, out_path, filename):
     assert cn_state.shape == anndat.shape
     anndat.layers['state'] = cn_state
     anndat.layers['copy'] = data['obs'].T.numpy()
+    anndat.obs['clone'] = z.numpy()
+    anndat.obs['clone'] = anndat.obs['clone'].astype('category')
+    anndat.obs['baseline'] = data['mu'].numpy()
 
     anndat.var = chr_df
 

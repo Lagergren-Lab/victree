@@ -103,7 +103,7 @@ if __name__ == '__main__':
     # priors parameters
     parser.add_argument("--prior-eps", default=[1., 50.], nargs=2, type=float, help="prior on epsilon  (Beta dist)",
                         metavar=("ALPHA", "BETA"))
-    parser.add_argument("--prior-mutau", default=[1., 10., 500, 50], nargs=4, type=float,
+    parser.add_argument("--prior-mutau", default=[1., 100., 5000., 500.], nargs=4, type=float,
                         help="prior on mu-tau (Normal-Gamma dist)",
                         metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
     parser.add_argument("--prior-pi", default=[10.], nargs='*', type=float,
