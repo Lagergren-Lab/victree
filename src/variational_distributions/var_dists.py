@@ -298,7 +298,6 @@ class qC(VariationalDistribution):
         for k in range(1, self.config.n_nodes):
             star_tree.add_edge(0, k)
         weight = 1.0
-        inference_step_size = self.config.step_size
         eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
         self.eta1 = eta1
         self.eta2 = eta2
@@ -886,21 +885,24 @@ class qZ(VariationalDistribution):
         :param qpsi:
         :return:
         """
+        pi = self.update_CAVI(qpsi, qc, qpi, obs)
+        new_pi = self.update_params(pi)
+        # logging.debug("- z updated")
+        super().update()
+
+    def update_CAVI(self, qpsi, qc, qpi, obs):
         # single_filtering_probs: q(Cmk = j), shape: K x M x J
         qc_kmj = qc.single_filtering_probs
         # expected log pi
         e_logpi = qpi.exp_log_pi()
         # Dnmj
         d_nmj = qpsi.exp_log_emission(obs)
-
         # op shapes: k + S_mS_j mkj nmj -> nk
         gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
         T = self.config.annealing
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
-        new_pi = self.update_params(pi)
-        # logging.debug("- z updated")
-        super().update()
+        return pi
 
     def update_params(self, pi: torch.Tensor):
         rho = self.config.step_size

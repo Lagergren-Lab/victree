@@ -51,15 +51,15 @@ class VICTree:
                                     var=pd.DataFrame({
                                         'chr': [1] * self.config.chain_length,
                                         'start': [i for i in range(self.config.chain_length)],
-                                        'end': [i+1 for i in range(self.config.chain_length)]
+                                        'end': [i + 1 for i in range(self.config.chain_length)]
                                     }))
             data_handler = DataHandler(adata=adata)
         self._data_handler: DataHandler = data_handler
 
     def __str__(self):
-        return f"k{self.config.n_nodes}"\
-               f"a{self.config.n_states}"\
-               f"n{self.config.n_cells}"\
+        return f"k{self.config.n_nodes}" \
+               f"a{self.config.n_states}" \
+               f"n{self.config.n_cells}" \
                f"m{self.config.chain_length}"
 
     @property
@@ -137,6 +137,8 @@ class VICTree:
         pbar = tqdm(range(1, n_iter + 1))
         for it in pbar:
             # KEY inference algorithm iteration step
+            if self.config.split:
+                self.split()
             self.step()
 
             # update all the other meta-parameters
@@ -263,7 +265,7 @@ class VICTree:
                     sel_elbos[sel] = curr_elbo
                     sel_models[sel] = m
 
-            return self.halve_sieve_r(sel_models, sel_elbos, start_iter=start_iter+step_iters)
+            return self.halve_sieve_r(sel_models, sel_elbos, start_iter=start_iter + step_iters)
         else:
             final_model_idx = np.argmax(elbos)
             logging.info(f"[siev] selected model with elbo: {elbos[final_model_idx]}")
@@ -335,8 +337,8 @@ class VICTree:
 
     def set_temperature(self, it, n_iter):
         # linear scheme: from annealing to 1 with equal steps between iterations
-        self.q.z.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
-        self.q.mt.temp = self.config.annealing - (it - 1)/(n_iter - 1) * (self.config.annealing - 1.)
+        self.q.z.temp = self.config.annealing - (it - 1) / (n_iter - 1) * (self.config.annealing - 1.)
+        self.q.mt.temp = self.config.annealing - (it - 1) / (n_iter - 1) * (self.config.annealing - 1.)
 
     def write_model(self, path: str):
         # save victree distributions parameters
@@ -414,4 +416,44 @@ class VICTree:
 
             logging.debug(f"diagnostics saved in {path}")
 
+    def split(self):
+        """
+
+        """
+        # Select clusters to reassign
+        cluster_assignments_avg = self.q.z.pi.mean(dim=0)
+        empty_clusters = torch.where(cluster_assignments_avg < 0.01)[0]
+        if empty_clusters.shape[0] == 0:
+            logging.debug(f'No empty clusters found')
+            return
+
+        # Select clusters to split
+        largest_clusters_values, largest_clusters_idx = torch.sort(cluster_assignments_avg, descending=True)
+        cumulative_cluster_prob = torch.cumsum(largest_clusters_values, dim=0)
+        print(f'Split clusters with indexes: {empty_clusters}')
+        logging.debug(f'Based on average cluster assignments: {cluster_assignments_avg}')
+
+        # Split clusters into empty clusters (duplication)
+        # naive split - split largest cluster into first empty cluster
+        logging.debug(f'')
+        k_split_cluster = largest_clusters_idx[0]
+        k_merge_cluster = empty_clusters[0]
+        # perturbate copy number profile
+        self.q.c.eta1[k_merge_cluster] = self.q.c.eta1[k_split_cluster] + 0.05 * torch.randn(self.config.n_nodes)
+        self.q.c.eta2[k_merge_cluster] = self.q.c.eta2[k_split_cluster] + \
+                                         0.05 * torch.randn((self.config.chain_length - 1, self.config.n_states,
+                                                            self.config.n_states))
+        self.q.c.compute_filtering_probs()
+
+        # Set concentration parameters equal
+        self.q.pi.concentration_param[k_merge_cluster] = self.q.pi.concentration_param[k_split_cluster] / 2
+        self.q.pi.concentration_param[k_split_cluster] = self.q.pi.concentration_param[k_split_cluster] / 2
+
+        # Manually update assignments i.e. reassign cells from the large cluster to the empty
+        # Select cells to update
+        selected_cells = self.q.z.pi.argmax(dim=-1) == largest_clusters_idx[0]
+
+        # Calculate new assignment probability of selected cells using CAVI update
+        assignments = self.q.z.update_CAVI(self.q.mt, self.q.c, self.q.pi, self.obs)
+        self.q.z.pi[selected_cells, :] = assignments[selected_cells, :]
 
