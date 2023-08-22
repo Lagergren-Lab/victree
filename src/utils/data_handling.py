@@ -59,6 +59,10 @@ class DataHandler:
 
                 adata = anndata.AnnData(obs.T.numpy())
                 adata.var = self.chr_df
+                if 'state' in ann_dataset.layers:
+                    adata.layers['hmmcopy-state'] = ann_dataset.layers['state']
+                if 'cluster_id' in ann_dataset.obs:
+                    adata.obs['cluster_id'] = ann_dataset.obs['cluster_id']
 
             except Exception as ae:  # Couldn't load module for AnnDataReadError
                 logging.debug("anndata read failed. reading pseudo-anndata h5 file")

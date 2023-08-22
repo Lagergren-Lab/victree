@@ -348,6 +348,17 @@ class FixedTreeJointDist(JointDist):
 
         return elbo
 
+    def __str__(self):
+        # summary for joint dist
+        tot_str = "+++ Joint summary +++"
+        tot_str += f"\nfixed tree: {tree_to_newick(self.T)}"
+        tot_str += f"\n ELBO: {self.elbo}"
+        for q in [self.c, self.eps, self.pi, self.z, self.mt]:
+            tot_str += str(q)
+            tot_str += "\n --- \n"
+        tot_str += "+++ end of summary +++"
+        return tot_str
+
 
 class QuadrupletJointDist(JointDist):
     def __init__(self, config: Config,

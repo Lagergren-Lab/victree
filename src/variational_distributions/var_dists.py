@@ -161,7 +161,7 @@ class qC(VariationalDistribution):
         elif method == 'fixed':
             self._fixed_init(**kwargs)
         elif method == 'diploid':
-            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=3.)
+            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=5.)
         else:
             raise ValueError(f'method `{method}` for qC initialization is not implemented')
 
@@ -475,7 +475,6 @@ class qC(VariationalDistribution):
                                          e_eta1_m[edges_mask[1], 1:, None, :]
 
         # natural parameters for root node are fixed to healthy state
-        # FIXME: cells shouldn't be assigned to this node
         e_eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
@@ -825,14 +824,17 @@ class qZ(VariationalDistribution):
         N = self.config.n_cells
         M = self.config.chain_length
         obs = obs.T if obs.shape == (N, M) else obs
-        m_obs = obs.mean(dim=0, keepdim=True)
-        sd_obs = obs.std(dim=0, keepdim=True)
-        # standardize to keep pattern
-        scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
-        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
+        # m_obs = obs.mean(dim=0, keepdim=True)
+        # sd_obs = obs.std(dim=0, keepdim=True)
+        # # standardize to keep pattern
+        # scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(obs.T)
         m_labels = kmeans.labels_
         self.kmeans_labels[...] = torch.tensor(m_labels).long()
-        self.pi[...] = torch.nn.functional.one_hot(self.kmeans_labels, num_classes=self.config.n_nodes)
+        self.pi = torch.ones_like(self.pi)
+        # skew by a factor
+        self.pi[self.kmeans_labels, :] = 5.
+        self.pi = self.pi / torch.sum(self.pi, dim=1, keepdim=True)
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape
@@ -1643,8 +1645,8 @@ class qEpsilonMulti(VariationalDistribution):
 class qMuTau(qPsi):
 
     def __init__(self, config: Config, true_params=None,
-                 nu_prior: float = 1., lambda_prior: float = .1,
-                 alpha_prior: float = .5, beta_prior: float = .5):
+                 nu_prior: float = 1., lambda_prior: float = 100.,
+                 alpha_prior: float = 50000., beta_prior: float = 500.):
         super().__init__(config, true_params is not None)
 
         # params for each cell
