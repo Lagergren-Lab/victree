@@ -235,7 +235,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Run VICTree using normal initialization
         config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
-                              diagnostics=False, annealing=1., split=True)
+                              diagnostics=False, annealing=1.)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
         q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y_tot)
@@ -249,7 +249,6 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                 q_c=victree.q.c,
                                                                 q_z=victree.q.z, qpi=victree.q.pi,
                                                                 q_mt=victree.q.mt, q_eps=qeps)
-        return
         # Run VICTree using init to clonal structure
         config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
                               diagnostics=False, annealing=1.)

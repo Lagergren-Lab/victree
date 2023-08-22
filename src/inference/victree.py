@@ -14,6 +14,7 @@ import torch
 import torch.distributions as dist
 from tqdm import tqdm
 
+from inference.split_and_merge_operations import SplitAndMergeOperations
 from utils.config import Config
 from utils.data_handling import write_output, DataHandler
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
@@ -55,6 +56,8 @@ class VICTree:
                                     }))
             data_handler = DataHandler(adata=adata)
         self._data_handler: DataHandler = data_handler
+        if self.config.split:
+            self.split_operation = SplitAndMergeOperations()
 
     def __str__(self):
         return f"k{self.config.n_nodes}" \
@@ -417,43 +420,5 @@ class VICTree:
             logging.debug(f"diagnostics saved in {path}")
 
     def split(self):
-        """
-
-        """
-        # Select clusters to reassign
-        cluster_assignments_avg = self.q.z.pi.mean(dim=0)
-        empty_clusters = torch.where(cluster_assignments_avg < 0.01)[0]
-        if empty_clusters.shape[0] == 0:
-            logging.debug(f'No empty clusters found')
-            return
-
-        # Select clusters to split
-        largest_clusters_values, largest_clusters_idx = torch.sort(cluster_assignments_avg, descending=True)
-        cumulative_cluster_prob = torch.cumsum(largest_clusters_values, dim=0)
-        print(f'Split clusters with indexes: {empty_clusters}')
-        logging.debug(f'Based on average cluster assignments: {cluster_assignments_avg}')
-
-        # Split clusters into empty clusters (duplication)
-        # naive split - split largest cluster into first empty cluster
-        logging.debug(f'')
-        k_split_cluster = largest_clusters_idx[0]
-        k_merge_cluster = empty_clusters[0]
-        # perturbate copy number profile
-        self.q.c.eta1[k_merge_cluster] = self.q.c.eta1[k_split_cluster] + 0.05 * torch.randn(self.config.n_nodes)
-        self.q.c.eta2[k_merge_cluster] = self.q.c.eta2[k_split_cluster] + \
-                                         0.05 * torch.randn((self.config.chain_length - 1, self.config.n_states,
-                                                            self.config.n_states))
-        self.q.c.compute_filtering_probs()
-
-        # Set concentration parameters equal
-        self.q.pi.concentration_param[k_merge_cluster] = self.q.pi.concentration_param[k_split_cluster] / 2
-        self.q.pi.concentration_param[k_split_cluster] = self.q.pi.concentration_param[k_split_cluster] / 2
-
-        # Manually update assignments i.e. reassign cells from the large cluster to the empty
-        # Select cells to update
-        selected_cells = self.q.z.pi.argmax(dim=-1) == largest_clusters_idx[0]
-
-        # Calculate new assignment probability of selected cells using CAVI update
-        assignments = self.q.z.update_CAVI(self.q.mt, self.q.c, self.q.pi, self.obs)
-        self.q.z.pi[selected_cells, :] = assignments[selected_cells, :]
+        self.split_operation.split(self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi)
 

@@ -16,7 +16,7 @@ class SplitAndMergeOperations:
 
         """
         # Select clusters to reassign
-        cluster_assignments_avg, empty_clusters = self.find_empty_clusters()
+        cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
         if empty_clusters.shape[0] == 0:
             logging.debug(f'No empty clusters found')
             return
@@ -24,10 +24,10 @@ class SplitAndMergeOperations:
         k_merge_cluster, k_split_cluster, largest_clusters_idx = self.select_clusters_to_split(cluster_assignments_avg,
                                                                                                empty_clusters)
         # perturbate copy number profile
-        self.update_cluster_profiles(k_merge_cluster, k_split_cluster)
+        self.update_cluster_profiles(qc, k_merge_cluster, k_split_cluster)
 
         # Set concentration parameters equal
-        self.update_cluster_concentration_parameters(k_merge_cluster, k_split_cluster)
+        self.update_cluster_concentration_parameters(qpi, k_merge_cluster, k_split_cluster)
 
         # Manually update assignments i.e. reassign cells from the large cluster to the empty
         # Select cells to update
