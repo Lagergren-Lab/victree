@@ -4,7 +4,6 @@ import torch
 import simul
 import tests
 from tests import utils_testing
-from tests.utils_testing import simul_data_pyro_full_model
 from utils import visualization_utils
 from utils.config import Config
 

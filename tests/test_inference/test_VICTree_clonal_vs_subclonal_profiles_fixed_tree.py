@@ -1,6 +1,7 @@
 import logging
 import os.path
 import random
+import sys
 import unittest
 
 import matplotlib.pyplot as plt
@@ -16,7 +17,7 @@ from inference.victree import VICTree
 from utils.data_handling import DataHandler
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
+from tests.utils_testing import simulate_full_dataset_no_pyro
 from utils import visualization_utils, data_handling
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent, \
@@ -284,9 +285,16 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def test_clonal_profile_init_real_data(self):
         torch.manual_seed(0)
-        n_iter = 200
+
+        n_iter = 1
         K = 7
-        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        tree = nx.DiGraph()
+        tree.add_edge(0, 1)
+        tree.add_edge(0, 2)
+        tree.add_edge(1, 3)
+        tree.add_edge(1, 4)
+        tree.add_edge(3, 5)
+        tree.add_edge(3, 6)
         A = 7
         dir_delta0 = 10.
         nu_0 = 1.
@@ -305,6 +313,12 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         # Run VICTree using normal initialization
         config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
                               diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
+
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config_init1, self.id().replace(".", "/") + 'asd',
+                                                                       base_dir='./../test_output')
+        orig_stdout = sys.stdout
+        f = open(test_dir_name + '/out.txt', 'w')
+        sys.stdout = f
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
         qc = qCMultiChrom(config_init1)
@@ -331,8 +345,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         victree2.run(n_iter=n_iter)
 
         # Assert
-        test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
-                                                                       base_dir='./../test_output')
+
         torch.set_printoptions(precision=2)
 
         print(f"Dir param 1: {victree.q.pi}")
@@ -343,12 +356,17 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         print(f"Avg assignment 2: {z2.mean(dim=0)}")
 
         visualization_utils.visualize_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
-                                                    save_path=test_dir_name + 'default_init_qc_qz_obs_plot')
+                                                    save_path=test_dir_name + '/default_init_qc_qz_obs_plot')
         visualization_utils.visualize_qC_qZ_and_obs(victree2.q.c, victree2.q.z, y,
-                                                    save_path=test_dir_name + 'clonal_init_qc_qz_obs_plot')
+                                                    save_path=test_dir_name + '/clonal_init_qc_qz_obs_plot')
 
         visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_name + '/defualt_init_qmt_plot')
         visualization_utils.visualize_qMuTau(victree2.q.mt, save_path=test_dir_name + '/clonal_init_qmt_plot')
+
+        sys.stdout = orig_stdout
+        f.close()
+
+
 
     def test_clonal_profile_init_and_split_vs_no_split(self):
         utils.config.set_seed(0)
