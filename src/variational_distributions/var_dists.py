@@ -1650,10 +1650,10 @@ class qMuTau(qPsi):
         super().__init__(config, true_params is not None)
 
         # params for each cell
-        self._nu = torch.empty(config.n_cells)
-        self._lmbda = torch.empty(config.n_cells)
-        self._alpha = torch.empty(config.n_cells)
-        self._beta = torch.empty(config.n_cells)
+        self._nu = torch.empty(config.n_cells, config.n_nodes)
+        self._lmbda = torch.empty(config.n_cells, config.n_nodes)
+        self._alpha = torch.empty(config.n_cells, config.n_nodes)
+        self._beta = torch.empty(config.n_cells, config.n_nodes)
         # prior / generative model
         self.nu_0 = torch.tensor(nu_prior)
         self.lmbda_0 = torch.tensor(lambda_prior)
@@ -1741,14 +1741,14 @@ class qMuTau(qPsi):
         y[nan_mask, :] = 0.
 
         # copy numbers where observations are not present should not be included in the sum
-        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2,
+        sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> nk", qc.single_filtering_probs, q_Z, c_tensor ** 2,
                                   (~nan_mask).float())
-        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> n", qc.single_filtering_probs, q_Z, c_tensor, y)
+        sum_MCZ_cy = torch.einsum("kma, nk, a, mn -> nk", qc.single_filtering_probs, q_Z, c_tensor, y)
         sum_M_y2 = torch.pow(y, 2).sum(dim=0)  # sum over M
         alpha = self.alpha_0 + M_notnan * .5  # Never updated
         lmbda = self.lmbda_0 + sum_MCZ_c2
         mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
-        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
+        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2[:, None] - lmbda * mu ** 2)
         if self.config.debug:
             assert torch.all(beta > 0)
             assert not torch.isnan(beta).any()
@@ -1796,12 +1796,12 @@ class qMuTau(qPsi):
 
         return super().initialize(**kwargs)
 
-    def _initialize_with_values(self, loc: float = 1, precision_factor: float = .1,
-                                shape: float = 5, rate: float = 5, **kwargs):
-        self.nu = loc * torch.ones(self.config.n_cells)
-        self.lmbda = precision_factor * torch.ones(self.config.n_cells)
-        self.alpha = shape * torch.ones(self.config.n_cells)
-        self.beta = rate * torch.ones(self.config.n_cells)
+    def _initialize_with_values(self, loc: float | torch.Tensor = 1., precision_factor: float = .1,
+                                shape: float = 5., rate: float = 5., **kwargs):
+        self.nu = loc * torch.ones(self.config.n_cells, self.config.n_nodes)
+        self.lmbda = precision_factor * torch.ones(self.config.n_cells, self.config.n_nodes)
+        self.alpha = shape * torch.ones(self.config.n_cells, self.config.n_nodes)
+        self.beta = rate * torch.ones(self.config.n_cells, self.config.n_nodes)
 
     def _init_from_clustered_data(self, obs, clusters, copy_numbers):
         """
@@ -1838,7 +1838,7 @@ Initialize the mu and tau params given observations
         CE_cross_terms = - self.beta_0 * self.exp_tau() + (self.alpha_0 - 1) * self.exp_log_tau() - \
                          0.5 * self.lmbda_0 / self.lmbda
         CE_arr = CE_constants + CE_prior + CE_var_terms + CE_cross_terms
-        return torch.sum(CE_arr)
+        return torch.sum(CE_arr).item()
 
     def entropy_old(self) -> float:
         entropy_prior = self.alpha * torch.log(self.beta) + 0.5 * torch.log(self.lmbda) - torch.lgamma(self.alpha)
@@ -1847,7 +1847,7 @@ Initialize the mu and tau params given observations
         CE_cross_terms = self.beta * self.exp_tau() + (self.alpha - 1) * self.exp_log_tau() - \
                          0.5 * 1.  # lmbda / lmbda
         entropy_arr = entropy_constants + entropy_prior + CE_var_terms + CE_cross_terms
-        return -torch.sum(entropy_arr)
+        return -torch.sum(entropy_arr).item()
 
     def entropy(self):
         ent = self.config.n_cells * .5 * np.log(2 * np.pi) + \
@@ -1855,7 +1855,7 @@ Initialize the mu and tau params given observations
               (.5 - self.alpha) * torch.digamma(self.alpha) + self.alpha + torch.lgamma(self.alpha)
 
         if self.config.debug:
-            assert ent.shape == (self.config.n_cells,)
+            assert ent.shape == (self.config.n_cells, self.config.n_nodes)
 
         return torch.sum(ent)
 
@@ -1866,15 +1866,12 @@ Initialize the mu and tau params given observations
                  self.alpha_0 * self.beta_0.log() - torch.lgamma(self.alpha_0) - self.beta_0 * self.alpha / self.beta
 
         if self.config.debug:
-            assert neg_ce.shape == (self.config.n_cells,)
+            assert neg_ce.shape == (self.config.n_cells, self.config.n_nodes)
 
         return torch.sum(neg_ce)
 
     def compute_elbo(self) -> float:
-        return self.neg_cross_entropy() + self.entropy()
-
-    def elbo_old(self) -> float:
-        return self.neg_cross_entropy_old() + self.entropy_old()
+        return (self.neg_cross_entropy() + self.entropy()).item()
 
     def exp_log_emission(self, obs: torch.Tensor) -> torch.Tensor:
         M, N = obs.shape
@@ -1897,19 +1894,21 @@ Initialize the mu and tau params given observations
             log_p_obs = log_p_obs[..., None].expand(M, N, A, K)
             out_arr[...] = torch.einsum('mniv->nmvi', log_p_obs)
         else:
-            E_log_tau = self.exp_log_tau()
-            E_tau = torch.einsum('mn,n->mn', torch.pow(obs, 2), self.exp_tau())
-            E_mu_tau = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
-            E_mu2_tau = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), self.exp_mu2_tau())[:,
-                        None, :]
+            E_log_tau = self.exp_log_tau()[None, None, ...]
+            E_tau = torch.einsum('mn,nk->mnk', torch.pow(obs, 2), self.exp_tau())[None, ...]
+            E_mu_tau = torch.einsum('i,mn,nk->imnk', torch.arange(self.config.n_states), obs, self.exp_mu_tau())
+            E_mu2_tau = torch.einsum('i,nk->ink',
+                                     torch.pow(torch.arange(self.config.n_states), 2),
+                                     self.exp_mu2_tau())[:, None, :, :]
             log_p_obs = .5 * (E_log_tau - E_tau + 2. * E_mu_tau - E_mu2_tau)
-            log_p_obs = log_p_obs.expand(K, A, M, N)
-            out_arr[...] = torch.einsum('vimn->nmvi', log_p_obs)
+            out_arr[...] = torch.einsum('imnk->nmki', log_p_obs)
 
         assert out_arr.shape == out_shape
         # not necessarily correct
         # an accepted way to deal with missing y is to set p(y | C) = 1
         # see Speekenbrink, 2021
+
+        # this sets: log p(y | C) = 0.
         out_arr[self.get_nan_mask(obs)] = 0.
         if self.config.debug:
             assert not torch.isnan(out_arr).any()
@@ -1927,15 +1926,6 @@ Initialize the mu and tau params given observations
     def exp_mu2_tau(self):
         return 1. / self.lmbda + torch.pow(self.nu, 2) * self.alpha / self.beta
 
-    def exp_mu2_tau_c(self):
-        A = self.config.n_states
-        N = self.config.n_cells
-        c = torch.arange(0, A, dtype=torch.float)
-        exp_c_lmbda = torch.einsum("i, n -> in", c, 1. / self.lmbda)
-        exp_mu2_tau = torch.pow(self.nu, 2) * self.alpha / self.beta
-        exp_sum = exp_c_lmbda + exp_mu2_tau
-        return exp_sum
-
     def __str__(self):
         summary = ["[qMuTau summary]"]
         if self.fixed:
@@ -1945,17 +1935,17 @@ Initialize the mu and tau params given observations
             summary.append(f"-tau\t{self.true_params['tau'].mean(dim=-1):.2f} " +
                            pm_uni + f" {self.true_params['tau'].std(dim=-1):.2f}")
         else:
-            summary.append(f"-alpha\t{self.alpha.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.alpha.std(dim=-1):.2f}" +
+            summary.append(f"-alpha\t{self.alpha.mean():.2f} " +
+                           pm_uni + f" {self.alpha.std():.2f}" +
                            f" (prior {self.alpha_0:.2f})")
-            summary.append(f"-beta\t{self.beta.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.beta.std(dim=-1):.2f}" +
+            summary.append(f"-beta\t{self.beta.mean():.2f} " +
+                           pm_uni + f" {self.beta.std():.2f}" +
                            f" (prior {self.beta_0:.2f})")
-            summary.append(f"-nu\t\t{self.nu.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.nu.std(dim=-1):.2f}" +
+            summary.append(f"-nu\t\t{self.nu.mean():.2f} " +
+                           pm_uni + f" {self.nu.std():.2f}" +
                            f" (prior {self.nu_0:.2f})")
-            summary.append(f"-lambda\t{self.lmbda.mean(dim=-1):.2f} " +
-                           pm_uni + f" {self.lmbda.std(dim=-1):.2f}" +
+            summary.append(f"-lambda\t{self.lmbda.mean():.2f} " +
+                           pm_uni + f" {self.lmbda.std():.2f}" +
                            f" (prior {self.lmbda_0:.2f})")
             summary.append(f"partial ELBO\t{self.compute_elbo():.2f}")
 
@@ -1963,9 +1953,9 @@ Initialize the mu and tau params given observations
 
     def _init_from_true_params(self):
         self.alpha = self.alpha_0 + (self.config.chain_length + 1) * self.config.n_cells * .5
-        self.beta = self.alpha / self.true_params['tau']
-        self.nu = self.true_params['mu']
-        self.lmbda = torch.ones(self.config.n_cells) * 100.
+        self.beta = self.alpha / self.true_params['tau'][:, None]
+        self.nu = self.true_params['mu'][:, None]
+        self.lmbda = torch.ones(self.config.n_cells, self.config.n_nodes) * 100.
 
     def _init_from_prior(self):
         self.alpha = self.alpha_0
