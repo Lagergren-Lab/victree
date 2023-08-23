@@ -56,10 +56,10 @@ class SplitAndMergeOperations:
                                                            qc.config.n_states))
         else:
             for qc_chrom in qc.qC_list:
-                qc_chrom.eta1[k_merge_cluster] = qc_chrom.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
+                qc_chrom.eta1[k_merge_cluster] = qc_chrom.eta1[k_split_cluster] + 0.05 * torch.randn(qc_chrom.config.n_states)
                 qc_chrom.eta2[k_merge_cluster] = qc_chrom.eta2[k_split_cluster] + \
-                                                 0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
-                                                                     qc.config.n_states))
+                                                 0.05 * torch.randn((qc_chrom.config.chain_length - 1, qc_chrom.config.n_states,
+                                                                     qc_chrom.config.n_states))
         qc.compute_filtering_probs()
 
     def select_clusters_to_split(self, cluster_assignments_avg, empty_clusters):

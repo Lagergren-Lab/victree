@@ -284,7 +284,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def test_clonal_profile_init_real_data(self):
         torch.manual_seed(0)
-        n_iter = 100
+        n_iter = 200
         K = 7
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         A = 7
@@ -304,7 +304,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Run VICTree using normal initialization
         config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
-                              diagnostics=False, annealing=1., chromosome_indexes=data_handler.get_chr_idx())
+                              diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
         qc = qCMultiChrom(config_init1)
@@ -317,7 +317,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Run VICTree using init to clonal structure
         config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
-                              diagnostics=False, annealing=1., chromosome_indexes=data_handler.get_chr_idx())
+                              diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
         qc2 = qCMultiChrom(config_init2)
