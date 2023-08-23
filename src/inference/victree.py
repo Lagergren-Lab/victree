@@ -420,5 +420,7 @@ class VICTree:
             logging.debug(f"diagnostics saved in {path}")
 
     def split(self):
-        self.split_operation.split(self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi)
+        split = self.split_operation.split(self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi)
+        if split:
+            self.q.mt.update(self.q.c, self.q.z, self.q.obs)
 

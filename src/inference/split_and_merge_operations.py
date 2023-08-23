@@ -19,7 +19,7 @@ class SplitAndMergeOperations:
         cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
         if empty_clusters.shape[0] == 0:
             logging.debug(f'No empty clusters found')
-            return
+            return False
 
         k_merge_cluster, k_split_cluster, largest_clusters_idx = self.select_clusters_to_split(cluster_assignments_avg,
                                                                                                empty_clusters)
@@ -35,6 +35,7 @@ class SplitAndMergeOperations:
 
         # Calculate new assignment probability of selected cells using CAVI update
         self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, selected_cells)
+        return True
 
     def update_assignment_probabilities(self, obs, qc, qpi, qpsi, qz, selected_cells):
         assignments = qz.update_CAVI(qpsi, qc, qpi, obs)
@@ -45,7 +46,7 @@ class SplitAndMergeOperations:
         qpi.concentration_param[k_split_cluster] = qpi.concentration_param[k_split_cluster] / 2
 
     def update_cluster_profiles(self, qc: qC, k_merge_cluster, k_split_cluster):
-        qc.eta1[k_merge_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_nodes)
+        qc.eta1[k_merge_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
         qc.eta2[k_merge_cluster] = qc.eta2[k_split_cluster] + \
                                          0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
                                                              qc.config.n_states))
