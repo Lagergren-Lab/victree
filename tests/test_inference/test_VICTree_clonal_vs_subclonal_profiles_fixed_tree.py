@@ -286,7 +286,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
     def test_clonal_profile_init_real_data(self):
         torch.manual_seed(0)
 
-        n_iter = 1
+        n_iter = 200
         K = 7
         tree = nx.DiGraph()
         tree.add_edge(0, 1)
@@ -363,6 +363,8 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_name + '/defualt_init_qmt_plot')
         visualization_utils.visualize_qMuTau(victree2.q.mt, save_path=test_dir_name + '/clonal_init_qmt_plot')
 
+        print(f"ELBO 1: {victree.elbo}")
+        print(f"ELBO 2: {victree2.elbo}")
         sys.stdout = orig_stdout
         f.close()
 
