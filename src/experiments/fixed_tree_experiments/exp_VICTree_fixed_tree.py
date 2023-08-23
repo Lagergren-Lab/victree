@@ -18,7 +18,7 @@ from inference.victree import VICTree
 from utils.data_handling import DataHandler
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
+from tests.utils_testing import simulate_full_dataset_no_pyro
 from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent

@@ -15,7 +15,7 @@ import utils.config
 from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
+from tests.utils_testing import simulate_full_dataset_no_pyro
 from utils import visualization_utils, data_handling
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
@@ -294,110 +294,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
     @unittest.skip("long exec time")
     def test_large_tree_good_init_multiple_runs(self):
-        logger = logging.getLogger()
-        logger.level = logging.INFO
-        K = 5
-        tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 2000
-        n_sites_list = [100, 100, 100, 100, 100]
-        n_copy_states = 7
-        dir_alpha0 = 1.
-        n_tests = len(n_sites_list)
-        alpha_0_list = [1., 1., 1.]
-        beta_0_list = [1., 1., 1.]
-        mu_0_list = [10., 10., 10., 10., 10.]
-        lmbda_0_list = [10., 10., 10.]
-        for i in range(n_tests):
-            torch.manual_seed(i)
-            print(f"---------- Experiment number {i} - seed {i} -----------")
-            n_sites = n_sites_list[i]
-            data = torch.ones((n_sites, n_cells))
-            # FIXME: use simulate_full_dataset
-            C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                   mu_0=torch.tensor(mu_0_list[i]),
-                                                                   lambda_0=1.,
-                                                                   alpha0=10.,
-                                                                   beta0=40.,
-                                                                   a0=1.0,
-                                                                   b0=10.0,
-                                                                   dir_alpha0=1.0)
-
-            visualization_utils.visualize_copy_number_profiles(C)
-            config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3)
-            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize()
-
-            copy_tree = VICTree(config, q, y, draft=True)
-            # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
-            z_one_hot = f.one_hot(z, num_classes=K)
-            off_set_z = 0.2
-            z_perturbed = z_one_hot + off_set_z
-            copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
-
-            c_one_hot = f.one_hot(C.long(), num_classes=n_copy_states).float()
-            off_set_c = 0.0
-            c_perturbed = c_one_hot + off_set_c
-            copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
-
-            copy_tree.run(n_iter=50)
-
-            torch.set_printoptions(precision=2)
-            model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                              true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                              q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                              q_mt=copy_tree.q.mt)
+        pass  # Rewrite test
 
     @unittest.skip("long exec time")
     def test_large_tree_good_init_seiving(self):
-        K = 5
-        tree = tests.utils_testing.get_tree_K_nodes_random(K)
-        n_cells = 1000
-        n_sites_list = [100, 100, 100, 100, 100]
-        n_copy_states = 7
-        dir_alpha0 = 1.
-        n_tests = len(n_sites_list)
-        alpha_0_list = [1., 1., 1.]
-        beta_0_list = [1., 1., 1.]
-        mu_0_list = [10., 10., 10., 10., 10.]
-        lmbda_0_list = [10., 10., 10.]
-        for i in range(n_tests):
-            torch.manual_seed(i)
-            print(f"---------- Experiment number {i} - seed {i} -----------")
-            n_sites = n_sites_list[i]
-            data = torch.ones((n_sites, n_cells))
-            # FIXME: sim
-            C, y, z, pi, mu, tau, eps = simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                                   mu_0=mu_0_list[i],
-                                                                   lambda_0=1.,
-                                                                   alpha0=10.,
-                                                                   beta0=40.,
-                                                                   a0=1.0,
-                                                                   b0=20.0,
-                                                                   dir_alpha0=1.0)
-
-            config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, sieving_size=10,
-                            n_sieving_iter=40, step_size=0.3)
-            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
-            q.initialize()
-
-            copy_tree = VICTree(config, q, y, draft=True)
-            # copy_tree.q.pi.concentration_param = dir_alpha0 * torch.ones(K)
-            z_one_hot = f.one_hot(z, num_classes=K)
-            off_set_z = 0.2
-            z_perturbed = z_one_hot + off_set_z
-            copy_tree.q.z.pi[...] = z_perturbed / z_perturbed.sum(1, keepdims=True)
-
-            c_one_hot = f.one_hot(C.long(), num_classes=n_copy_states).float()
-            off_set_c = 0.0
-            c_perturbed = c_one_hot + off_set_c
-            copy_tree.q.c.single_filtering_probs[...] = c_perturbed / c_perturbed.sum(dim=-1, keepdims=True)
-
-            copy_tree.run(n_iter=50)
-
-            torch.set_printoptions(precision=2)
-            model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
-                                                              true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
-                                                              q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
-                                                              q_mt=copy_tree.q.mt)
+        pass  # Rewrite test

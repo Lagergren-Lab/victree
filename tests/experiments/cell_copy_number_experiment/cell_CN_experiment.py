@@ -14,10 +14,7 @@ from sklearn.metrics import adjusted_rand_score
 import simul
 import tests.utils_testing
 import utils.config
-from inference.victree import VICTree
-from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
 from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
