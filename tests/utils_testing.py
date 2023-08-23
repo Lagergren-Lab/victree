@@ -2,7 +2,6 @@ import itertools
 import os.path
 import pathlib
 import pickle
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -276,13 +275,12 @@ def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
 
 def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None):
     K, M = marginals.shape
-    two_sliced_marginals = torch.zeros((K, M-1, A, A))
-    marginals_one_hot = torch.nn.functional.one_hot(marginals, A)
-
+    two_sliced_marginals = torch.zeros((K, M - 1, A, A))
+    marginals = marginals.long()
     for u in range(K):
-        for m in range(0, M-1):
+        for m in range(0, M - 1):
             a_1 = marginals[u, m]
-            a_2 = marginals[u, m+1]
+            a_2 = marginals[u, m + 1]
             two_sliced_marginals[u, m, a_1, a_2] = 1.
 
     if offset is not None:
@@ -292,7 +290,7 @@ def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None)
     return two_sliced_marginals
 
 
-def initialize_epsilon_to_true_values(true_eps, a0, b0, qeps):
+def initialize_qepsilon_to_true_values(true_eps, a0, b0, qeps):
     """
     Initializes the parameters of qEpsilon/qMultiEpsilon as follows:
     a_init = a0
@@ -305,3 +303,70 @@ def initialize_epsilon_to_true_values(true_eps, a0, b0, qeps):
     eps_beta_dict = {e: a0 / true_eps[e] if e in true_eps.keys() else torch.tensor(b0) for e in gedges}
     qeps.initialize('fixed', eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
     return qeps
+
+
+def initialize_qc_to_true_values(true_c, A, qc, indexes=None):
+    K, M = true_c.shape
+    if indexes is None:
+        eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A)
+        pairwise_marginals = get_two_sliced_marginals_from_one_slice_marginals(true_c, A=A)
+        eta2_true = torch.ones_like(pairwise_marginals) * (-30.)
+        for k in range(K):
+            for m in range(0, M-1):
+                transition_idxs = torch.where(pairwise_marginals[k, m])
+                eta2_true[k, m, :, transition_idxs[1]] = 0.
+    else:
+        eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A) if 0 in indexes else 2.
+        eta2_true = torch.zeros(K, M - 1, A, A)
+
+    qc.eta1 = eta1_true - eta1_true.logsumexp(dim=1, keepdim=True)
+    qc.eta2 = eta2_true - eta2_true.logsumexp(dim=3, keepdim=True)
+    qc.compute_filtering_probs()
+    return qc
+
+
+def write_inference_test_output(victree, y, c, z, tree, mu, tau, eps, eps0, pi, test_dir_path, file_name_prefix=''):
+    config = victree.config
+    N = config.n_cells
+    M = config.chain_length
+    K = config.n_nodes
+    A = config.n_states
+    c_true_and_qc_viterbi = np.zeros((2, K, M))
+    c_true_and_qc_viterbi[0] = np.array(c)
+    c_true_and_qc_viterbi[1] = np.array(victree.q.c.get_viterbi())
+    visualization_utils.visualize_qC_true_C_qZ_and_true_Z(c, victree.q.c, z, victree.q.z,
+                                                                           save_path=test_dir_path +
+                                                                                     f'/{file_name_prefix}qC_c_qZ_z_plot.png')
+
+    visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
+    visualization_utils.visualize_mu_tau_true_and_q(mu, tau, victree.q.mt,
+                                                    save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
+
+    return None
+
+
+def write_inference_test_output_no_ground_truth(victree, y, test_dir_path, file_name_prefix='', tree=None):
+    config = victree.config
+    N = config.n_cells
+    M = config.chain_length
+    K = config.n_nodes
+    A = config.n_states
+    c_true_and_qc_viterbi = np.zeros((2, K, M))
+    c_true_and_qc_viterbi[0] = np.array(c)
+    c_true_and_qc_viterbi[1] = np.array(victree.q.c.get_viterbi())
+    visualization_utils.visualize_qC_true_C_qZ_and_true_Z(c, victree.q.c, z, victree.q.z,
+                                                                           save_path=test_dir_path +
+                                                                                     f'/{file_name_prefix}qC_c_qZ_z_plot.png')
+
+    visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
+    visualization_utils.visualize_mu_tau_true_and_q(mu, tau, victree.q.mt,
+                                                    save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
+
+    return None
+
+
+def remap_tensor(tensor, permutation_list):
+    """
+    Remaps a tensor along dimension 0 according to :param permutation_list:.
+    """
+    return tensor[permutation_list]

@@ -38,9 +38,9 @@ class qEpsilonTestCase(unittest.TestCase):
 
         config = Config(n_nodes=K, n_states=A, chain_length=M)
         q_eps1 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
-        q_eps1.initialize('non_mutation')
+        q_eps1.initialize('non-mutation')
         q_eps2 = qEpsilonMulti(config, alpha_prior=1., beta_prior=10.)
-        q_eps2.initialize('non_mutation')
+        q_eps2.initialize('non-mutation')
         T = nx.DiGraph()
         T.add_edge(0, 1)
         w_T = [1.]

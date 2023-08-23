@@ -25,7 +25,9 @@ class Config:
                  n_run_iter: int = 10,
                  save_progress_every_niter: int = 10,
                  qc_smoothing=False,
-                 curr_it: int = 0) -> None:
+                 curr_it: int = 0,
+                 split=True) -> None:
+        self.split = split
         self.curr_it = curr_it
         self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics

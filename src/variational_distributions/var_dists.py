@@ -158,6 +158,8 @@ class qC(VariationalDistribution):
             self._random_init()
         elif method == 'uniform':
             self._uniform_init()
+        elif method == 'clonal':
+            self._clonal_init(**kwargs)
         elif method == 'fixed':
             self._fixed_init(**kwargs)
         elif method == 'diploid':
@@ -275,6 +277,26 @@ class qC(VariationalDistribution):
         self.eta2 = torch.ones(self.eta2.shape)
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
+    def _clonal_init(self, obs, mu=1.0):
+        # Estimate marginals from data
+        obs_removed_nans = torch.nan_to_num(obs, 2.)
+        scaled_obs_mean = torch.mean(obs_removed_nans, dim=1).reshape(obs.shape[0], 1)
+        pseudo_config = Config(n_cells=1, n_nodes=self.config.n_nodes, chain_length=self.config.chain_length,
+                               n_states=self.config.n_states)
+        q_eps = qEpsilonMulti(pseudo_config)
+        q_eps.initialize(method='non-mutation')
+        q_z = qZ(pseudo_config)
+        q_z.initialize(method='uniform')
+        q_psi = qMuTau(pseudo_config)
+        q_psi.initialize(method='fixed', loc=1., precision_factor=1000., shape=500., rate=50.)
+        star_tree = nx.DiGraph()
+        for k in range(1, self.config.n_nodes):
+            star_tree.add_edge(0, k)
+        weight = 1.0
+        eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
+        self.eta1 = eta1
+        self.eta2 = eta2
+
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
         trans_mats = torch.empty_like(self.eta2)
@@ -360,17 +382,27 @@ class qC(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights):
-        """
-        log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
-        + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
+        new_eta1_norm, new_eta2_norm = self.update_CAVI(obs, q_eps, q_z, q_psi, trees, tree_weights)
 
-        CAVI update based on the dot product of the sufficient statistic of the 
-        HMM and simplified expected value over the natural parameter.
-        :return:
+        # update the filtering probs
+        self.update_params(new_eta1_norm, new_eta2_norm)
+
+        self.compute_filtering_probs()
+        # logging.debug("- copy number updated")
+        super().update()
+
+    def update_CAVI(self, obs: torch.Tensor, q_eps: Union['qEpsilon', 'qEpsilonMulti'], q_z: 'qZ', q_psi: 'qPsi',
+                    trees: List[nx.DiGraph], tree_weights: List[float]):
         """
+            log q*(C) += ( E_q(mu)q(sigma)[rho_Y(Y^u, mu, sigma)] + E_q(T)[E_{C^p_u}[eta(C^p_u, epsilon)] +
+            + Sum_{u,v in T} E_{C^v}[rho_C(C^v,epsilon)]] ) dot T(C^u)
+
+            CAVI update based on the dot product of the sufficient statistic of the
+            HMM and simplified expected value over the natural parameter.
+            :return:
+            """
         new_eta1 = torch.zeros_like(self.eta1)
         new_eta2 = torch.zeros_like(self.eta2)
-
         for tree, weight in zip(trees, tree_weights):
             # compute all alpha quantities
             exp_alpha1, exp_alpha2 = self._exp_alpha(tree, q_eps)
@@ -394,13 +426,7 @@ class qC(VariationalDistribution):
         # need normalization
         new_eta1_norm = new_eta1 - torch.logsumexp(new_eta1, dim=-1, keepdim=True)
         new_eta2_norm = new_eta2 - torch.logsumexp(new_eta2, dim=-1, keepdim=True)
-
-        # update the filtering probs
-        self.update_params(new_eta1_norm, new_eta2_norm)
-
-        self.compute_filtering_probs()
-        # logging.debug("- copy number updated")
-        super().update()
+        return new_eta1_norm, new_eta2_norm
 
     def update_params(self, eta1, eta2):
         lrho = torch.tensor(self.config.step_size).log()
@@ -412,9 +438,6 @@ class qC(VariationalDistribution):
         self.eta1 = new_eta1 - new_eta1.logsumexp(dim=1, keepdim=True)
         self.eta2 = new_eta2 - new_eta2.logsumexp(dim=3, keepdim=True)
         if self.config.debug:
-            # might go to nan if step size is not small enough
-            assert not torch.any(torch.isnan(self.eta1))
-            assert not torch.any(torch.isnan(self.eta2))
             assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
             assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
         return self.eta1, self.eta2
@@ -626,7 +649,6 @@ class qC(VariationalDistribution):
                         self.eta2[k, m, :, :] = self.eta2[k, m + 1, :, :]
 
 
-
 class qCMultiChrom(VariationalDistribution):
 
     def __init__(self, config: Config, true_params=None):
@@ -713,10 +735,15 @@ class qCMultiChrom(VariationalDistribution):
         return padded_cfp
 
     def initialize(self, method='random', **kwargs):
-        if method not in {'random', 'uniform', 'diploid'}:
-            raise ValueError("Multi-chromosome qC init only accept `random` or `uniform` method")
-        for qc in self.qC_list:
-            qc.initialize(method, **kwargs)
+        if method not in {'random', 'uniform', 'clonal', 'diploid'}:
+            raise ValueError("Multi-chromosome qC init only accept `random`, `uniform` or 'clonal' method")
+
+        for (i, qc) in enumerate(self.qC_list):
+            if method == 'clonal':
+                obs = kwargs['obs'][self.chr_start_points[i]:self.chr_start_points[i+1]]
+                qc._clonal_init(obs)
+            else:
+                qc.initialize(method, **kwargs)
 
         return self
 
@@ -853,6 +880,12 @@ class qZ(VariationalDistribution):
         :param qpsi:
         :return:
         """
+        pi = self.update_CAVI(qpsi, qc, qpi, obs)
+        new_pi = self.update_params(pi)
+        # logging.debug("- z updated")
+        super().update()
+
+    def update_CAVI(self, qpsi, qc, qpi, obs):
         # single_filtering_probs: q(Cmk = j), shape: K x M x J
         qc_kmj = qc.single_filtering_probs
         # expected log pi
@@ -865,9 +898,7 @@ class qZ(VariationalDistribution):
         T = self.config.annealing
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
-        new_pi = self.update_params(pi)
-        # logging.debug("- z updated")
-        super().update()
+        return pi
 
     def update_params(self, pi: torch.Tensor):
         rho = self.config.step_size
