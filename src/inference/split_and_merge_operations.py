@@ -3,7 +3,7 @@ import logging
 import torch
 
 from variational_distributions.observational_variational_distribution import qPsi
-from variational_distributions.var_dists import qC, qZ, qPi
+from variational_distributions.var_dists import qC, qZ, qPi, qCMultiChrom
 
 
 class SplitAndMergeOperations:
@@ -11,9 +11,12 @@ class SplitAndMergeOperations:
     def __init__(self, cluster_split_threshold=0.01):
         self.cluster_split_threshold = cluster_split_threshold
 
-    def split(self, obs, qc: qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+    def split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
         """
-
+        Implements the split part of the split-and-merge algorithm commonly used in Expectation Maximization.
+        Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
+        copy number profile of k1 to k2 with some added noise, redistributing the concentration parameters equally and
+        cluster assignment for cells assigned to k1 by the qZ CAVI update.
         """
         # Select clusters to reassign
         cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
@@ -45,11 +48,18 @@ class SplitAndMergeOperations:
         qpi.concentration_param[k_merge_cluster] = qpi.concentration_param[k_split_cluster] / 2
         qpi.concentration_param[k_split_cluster] = qpi.concentration_param[k_split_cluster] / 2
 
-    def update_cluster_profiles(self, qc: qC, k_merge_cluster, k_split_cluster):
-        qc.eta1[k_merge_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
-        qc.eta2[k_merge_cluster] = qc.eta2[k_split_cluster] + \
-                                         0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
-                                                             qc.config.n_states))
+    def update_cluster_profiles(self, qc: qCMultiChrom | qC, k_merge_cluster, k_split_cluster):
+        if type(qc) == qC:
+            qc.eta1[k_merge_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
+            qc.eta2[k_merge_cluster] = qc.eta2[k_split_cluster] + \
+                                       0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
+                                                           qc.config.n_states))
+        else:
+            for qc_chrom in qc.qC_list:
+                qc_chrom.eta1[k_merge_cluster] = qc_chrom.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
+                qc_chrom.eta2[k_merge_cluster] = qc_chrom.eta2[k_split_cluster] + \
+                                                 0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
+                                                                     qc.config.n_states))
         qc.compute_filtering_probs()
 
     def select_clusters_to_split(self, cluster_assignments_avg, empty_clusters):
