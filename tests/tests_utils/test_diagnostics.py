@@ -1,6 +1,8 @@
+import json
 import os.path
 import unittest
 
+import anndata
 import h5py
 import numpy as np
 import torch
@@ -13,7 +15,7 @@ from utils.config import set_seed, Config
 from variational_distributions.var_dists import qCMultiChrom
 
 
-class InitTestCase(unittest.TestCase):
+class DiagnosticsTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(42)
@@ -23,6 +25,12 @@ class InitTestCase(unittest.TestCase):
 
         # for progress tracking multiple combined test
         self.progress_tracking_filepath = os.path.join(self.output_dir, "progress_tracking.diagnostics.h5")
+
+    def tearDown(self) -> None:
+        # remove files (cleanup)
+        for fname in os.listdir(self.output_dir):
+            if os.path.isfile(fname):
+                os.remove(fname)
 
     def test_halve_sieve(self):
         n_iter = 3
@@ -69,6 +77,15 @@ class InitTestCase(unittest.TestCase):
 
         victree.write_checkpoint_h5(path=self.progress_tracking_filepath)
 
+        # test checkpoint loading
+        if not os.path.exists(self.progress_tracking_filepath):
+            raise Exception("Test checkpoint file doesn't exist! Run test 'test_progress_tracking' first.")
+
+        loaded_checkpoint = h5py.File(self.progress_tracking_filepath, 'r')
+
+        # should match (sieving + n_iter + 1, n_nodes, n_nodes) from previous test
+        self.assertTrue(loaded_checkpoint['qT']['weight_matrix'].shape == (27, 3, 3))
+
     def test_append_checkpoint(self):
 
         file_path = os.path.join(self.output_dir, "append_test.h5")
@@ -89,15 +106,6 @@ class InitTestCase(unittest.TestCase):
             dset.resize(len(dset) + new_data_size, axis=0)
             dset[-new_data_size:] = np.arange(new_data_size * dim2).reshape((new_data_size, -1))
             self.assertEqual(dset.shape, (init_data_size + new_data_size, dim2))
-
-    def test_load_checkpoint(self):
-        if not os.path.exists(self.progress_tracking_filepath):
-            raise Exception("Test checkpoint file doesn't exist! Run test 'test_progress_tracking' first.")
-
-        loaded_checkpoint = h5py.File(self.progress_tracking_filepath, 'r')
-
-        # should match (sieving + n_iter + 1, n_nodes, n_nodes) from previous test
-        self.assertTrue(loaded_checkpoint['qT']['weight_matrix'].shape == (27, 3, 3))
 
     def test_multichr_history_length(self):
         n_iter = 23
@@ -148,6 +156,30 @@ class InitTestCase(unittest.TestCase):
         victree = VICTree(fixtree_joint.config, fixtree_joint, fixtree_joint.obs)
         victree.write()
 
+        out_ad, mod_h5, cfg_dict = self.read_victree_out()
+
+        self.assertEqual(out_ad.n_obs, n_cells)
+        self.assertTrue('FixedTreeJointDist' in mod_h5.keys())
+        self.assertEqual(cfg_dict['_chain_length'], chain_length)
+
+    def read_victree_out(
+            self,
+            output_file: str = "victree.out.h5ad",
+            model_file: str = "victree.model.h5",
+            config_file: str = "victree.config.json"
+    ) -> (anndata.AnnData, h5py.File, dict):
+
+        # read inference output
+        ad = anndata.read_h5ad(os.path.join(self.output_dir, output_file))
+
+        # read model output
+        mod = h5py.File(os.path.join(self.output_dir, model_file))
+
+        # read config
+        with open(os.path.join(self.output_dir, config_file)) as jsf:
+            cfg = json.load(jsf)
+
+        return ad, mod, cfg
 
 
 
