@@ -4,7 +4,7 @@ import torch
 import simul
 import utils.config
 from utils.tree_utils import star_tree
-from tests import model_variational_comparisons
+from tests import model_variational_comparisons, utils_testing
 from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC

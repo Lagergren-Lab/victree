@@ -14,7 +14,6 @@ from tests import model_variational_comparisons
 from utils.config import set_seed, Config
 from utils.tree_utils import tree_to_newick
 from variational_distributions.var_dists import qC, qZ, qMuTau, qPi, qEpsilonMulti, qT, qTauRG
-from tests.utils_testing import simul_data_pyro_full_model
 
 
 # FIXME: observations wrong shape
@@ -27,15 +26,6 @@ class updatesRGModelTestCase(unittest.TestCase):
 
         # set all seeds for reproducibility
         set_seed(101)
-
-    def generate_test_dataset_pyro(self, config: Config):
-        tree = nx.random_tree(config.n_nodes, create_using=nx.DiGraph)
-        fict_data = torch.ones((config.chain_length, config.n_cells))
-        data = simul_data_pyro_full_model(fict_data, config.n_cells,
-                                          config.chain_length,
-                                          config.n_states, tree,
-                                          mu_0=1., lambda_0=10.)
-        return data + (tree,)
 
     def generate_test_dataset_fixed_tree(self, mm: int = 1, step_size: float = 1.) -> tuple[FixedTreeJointDist, Any]:
         """

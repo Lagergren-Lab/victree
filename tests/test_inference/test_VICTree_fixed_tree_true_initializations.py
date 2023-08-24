@@ -15,7 +15,7 @@ import utils.config
 from inference.victree import VICTree
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons, utils_testing
-from tests.utils_testing import simul_data_pyro_full_model, simulate_full_dataset_no_pyro
+from tests.utils_testing import simulate_full_dataset_no_pyro
 from utils import visualization_utils, data_handling
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
@@ -27,7 +27,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         torch.manual_seed(0)
 
         if not hasattr(self, 'K'):
-            self.K = 10
+            self.K = 8
             self.tree = tests.utils_testing.get_tree_K_nodes_random(self.K)
             self.N = 500
             self.M = 2000
@@ -66,7 +66,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
     def test_init_true_Z(self):
         y, c, z, pi, mu, tau, eps, eps0 = (self.y, self.c, self.z, self.pi, self.mu, self.tau, self.eps, self.eps0)
 
-        config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M, step_size=0.1,
+        config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M, step_size=0.3,
                         diagnostics=False, annealing=1.)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"),
@@ -80,12 +80,9 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         # Initialize Z to true values.
         qz.initialize('fixed', pi_init=torch.nn.functional.one_hot(z, num_classes=self.K))
 
-        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi,
-                                                                true_mu=mu,
-                                                                true_tau=tau, true_epsilon=eps,
-                                                                q_c=qc,
-                                                                q_z=qz, qpi=qpi,
-                                                                q_mt=qmt, q_eps=qeps, perm=list(range(0, self.K)))
+        ari_init, best_perm_init, accuracy_best_init = model_variational_comparisons.compare_qZ_and_true_Z(z, qz)
+        self.assertTrue(ari_init > 0.99)
+
         victree = VICTree(config, q, y, draft=True)
         victree.run(n_iter=100)
 
@@ -115,7 +112,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 
-        config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M, step_size=0.1,
+        config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M, step_size=0.3,
                         diagnostics=False, out_dir=out_dir, annealing=1.)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"))
@@ -132,16 +129,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         utils_testing.initialize_qepsilon_to_true_values(eps, self.a0, self.b0, qeps)
 
         # Make sure qZ is updated first based on good values
-        qz.config.step_size = 1.
-        qz.update(qmt, qc, qpi, y)
-        qz.config.step_size = 0.1
-
-        out = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=c, true_Z=z, true_pi=pi,
-                                                                true_mu=mu,
-                                                                true_tau=tau, true_epsilon=eps,
-                                                                q_c=qc,
-                                                                q_z=qz, qpi=qpi,
-                                                                q_mt=qmt, q_eps=qeps, perm=list(range(0, self.K)))
+        qz.pi = qz.update_CAVI(qmt, qc, qpi, y)
 
         copy_tree = VICTree(config, q, y, draft=True)
         copy_tree.run(n_iter=100)

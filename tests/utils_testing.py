@@ -77,30 +77,6 @@ def get_root_q_C(M, A):
     return q_C_init, q_C_transitions
 
 
-def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                               mu_0=torch.tensor(1.),
-                               lambda_0=torch.tensor(1.),
-                               alpha0=torch.tensor(1.),
-                               beta0=torch.tensor(1.),
-                               a0=torch.tensor(1.0),
-                               b0=torch.tensor(20.0),
-                               dir_alpha0=torch.tensor(1.0)
-                               ):
-    # FIXME: change to simul.simulate_full_dataset
-    model_tree_markov_full = simul.model_tree_markov_full
-    unconditioned_model = poutine.uncondition(model_tree_markov_full)
-    C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                    mu_0,
-                                                    lambda_0,
-                                                    alpha0,
-                                                    beta0,
-                                                    a0,
-                                                    b0,
-                                                    dir_alpha0)
-
-    return C, y, z, pi, mu, tau, eps
-
-
 def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                                   nu_0=1.,
                                   lambda_0=1.,
