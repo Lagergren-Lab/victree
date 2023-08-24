@@ -63,7 +63,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
@@ -117,7 +117,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
@@ -126,7 +126,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config)
         qc2 = qC(config)
-        q2 = FixedTreeJointDist(config, qc2, qz2, qeps2, qmt2, qpi2, tree, y)
+        q2 = FixedTreeJointDist(y, config, qc2, qz2, qeps2, qmt2, qpi2, tree)
         q2.initialize()
         copy_tree2 = VICTree(config, q2, y, draft=True)
 
@@ -188,7 +188,7 @@ class MultiChromosomeTestCase(unittest.TestCase):
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
 

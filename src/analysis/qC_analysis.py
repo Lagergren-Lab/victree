@@ -27,7 +27,7 @@ def train_on_fixed_tree(victree: VICTree, n_iter: int):
     config = victree_copy.config
 
     T = selectTrees(qT)
-    q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, T, obs)
+    q = FixedTreeJointDist(obs, config, qc, qz, qeps, qmt, qpi, T)
 
     victree_fixed_tree = VICTree(config, q, obs, draft=True)
 

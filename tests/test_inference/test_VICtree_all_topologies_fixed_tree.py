@@ -55,7 +55,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         elbos = torch.zeros(n_top,)
         for i, T in enumerate(T_list):
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, T, y)
+            q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, T)
             q.initialize()
             copy_tree = VICTree(config, q, y)
 

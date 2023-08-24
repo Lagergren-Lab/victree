@@ -77,7 +77,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         config_local = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_subclonal, step_size=0.3,
                               diagnostics=False, annealing=1.)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_local)
-        q = FixedTreeJointDist(config_local, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config_local, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         victree = VICTree(config_local, q, y, draft=True)
 
@@ -104,7 +104,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                        base_dir='./../test_output')
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_general)
-        q2 = FixedTreeJointDist(config_general, qc2, qz2, qeps2, qmt2, qpi2, tree, y_tot)
+        q2 = FixedTreeJointDist(y_tot, config_general, qc2, qz2, qeps2, qmt2, qpi2, tree)
         q2.initialize()
         victree2 = VICTree(config_general, q2, y_tot, draft=True)
 
@@ -159,7 +159,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                               diagnostics=False, annealing=1.)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
-        q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y_tot)
+        q = FixedTreeJointDist(y_tot, config_init1, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         victree = VICTree(config_init1, q, y_tot, draft=True)
         victree.run(n_iter=n_iter)
@@ -176,7 +176,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                               diagnostics=False, annealing=1.)
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
-        q2 = FixedTreeJointDist(config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree, y_tot)
+        q2 = FixedTreeJointDist(y_tot, config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree)
         q2.initialize()
         c_clonal_extended = torch.ones_like(c_tot) * 2.
         c_clonal_extended[:, 0:M_clonal] = c_clonal
@@ -238,7 +238,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                               diagnostics=False, annealing=1.)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
-        q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y_tot)
+        q = FixedTreeJointDist(y_tot, config_init1, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         victree = VICTree(config_init1, q, y_tot, draft=True)
         victree.run(n_iter=n_iter)
@@ -254,7 +254,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                               diagnostics=False, annealing=1.)
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
-        q2 = FixedTreeJointDist(config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree, y_tot)
+        q2 = FixedTreeJointDist(y_tot, config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree)
         q2.initialize()
         qc2.initialize(method='clonal', obs=y_tot)
         victree2 = VICTree(config_init2, q2, y_tot, draft=True)
@@ -308,7 +308,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
         qc = qCMultiChrom(config_init1)
-        q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config_init1, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         qmt.initialize(method='fixed', loc=1.0, precision_factor=100., shape=5000., rate=500.)
         victree = VICTree(config_init1, q, y, draft=True)
@@ -321,7 +321,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
         qc2 = qCMultiChrom(config_init2)
-        q2 = FixedTreeJointDist(config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree, y)
+        q2 = FixedTreeJointDist(y, config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree)
         q2.initialize()
         qc2.initialize(method='clonal', obs=y)
         qmt2.initialize(method='fixed', loc=1.0, precision_factor=100., shape=5000., rate=500.)
@@ -393,7 +393,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                       diagnostics=False, annealing=1., split=True)
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
-                q = FixedTreeJointDist(config_init1, qc, qz, qeps, qmt, qpi, tree, y_tot)
+                q = FixedTreeJointDist(y_tot, config_init1, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
                 victree = VICTree(config_init1, q, y_tot, draft=True)
                 victree.run(n_iter=n_iter)
@@ -409,7 +409,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                       diagnostics=False, annealing=1., split=False)
 
                 qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
-                q2 = FixedTreeJointDist(config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree, y_tot)
+                q2 = FixedTreeJointDist(y_tot, config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree)
                 q2.initialize()
                 #qc2.initialize(method='clonal', obs=y_tot)
                 victree2 = VICTree(config_init2, q2, y_tot, draft=True)

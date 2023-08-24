@@ -58,7 +58,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
 
@@ -101,7 +101,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
         qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
@@ -152,7 +152,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                         diagnostics=False, annealing=1.)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
 
@@ -207,7 +207,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qmt = qMuTau(config, true_params={"mu": mu, "tau": tau})
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             q.initialize()
             qmt.initialize(method='fixed', loc=1., precision_factor=10., shape=50., rate=10.)
             q.eps.initialize(method='non-mutation')
@@ -251,7 +251,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                         diagnostics=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
 
         copy_tree = VICTree(config, q, y, draft=True)
@@ -325,7 +325,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             visualization_utils.visualize_copy_number_profiles(C)
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             q.initialize()
 
             copy_tree = VICTree(config, q, y, draft=True)
@@ -379,7 +379,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, sieving_size=10,
                             n_sieving_iter=40, step_size=0.3)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             q.initialize()
 
             copy_tree = VICTree(config, q, y, draft=True)

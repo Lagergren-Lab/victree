@@ -62,7 +62,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
         phi_init = 1.
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
-        q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
+        q = FixedTreeJointDist(x, config, qc, qz, qeps, qpsi, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, x)
 
@@ -110,7 +110,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
         phi_init = 1.
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
-        q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
+        q = FixedTreeJointDist(x, config, qc, qz, qeps, qpsi, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, x)
 
@@ -156,7 +156,7 @@ class RPhiModelFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi = self.set_up_q(config, R, gc)
         phi_init = 1.
         qpsi = qPhi(config, phi_init, x, gc, R, n_copy_states, emission_model="poisson")
-        q = FixedTreeJointDist(config, qc, qz, qeps, qpsi, qpi, tree, x)
+        q = FixedTreeJointDist(x, config, qc, qz, qeps, qpsi, qpi, tree)
         q.initialize()
         q.z.initialize(z_init='kmeans', obs=x)
 

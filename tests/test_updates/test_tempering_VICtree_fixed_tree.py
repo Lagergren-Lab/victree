@@ -50,7 +50,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         victree = VICTree(config, q, y, draft=True)
 
@@ -58,7 +58,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                              step_size=0.3, annealing=start_temp, debug=False, diagnostics=False)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_temp)
-        q_temp = FixedTreeJointDist(config_temp, qc, qz, qeps, qmt, qpi, tree, y)
+        q_temp = FixedTreeJointDist(y, config_temp, qc, qz, qeps, qmt, qpi, tree)
         q_temp.initialize()
         victree_temp = VICTree(config_temp, q_temp, y, draft=True)
 
@@ -106,7 +106,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
         victree = VICTree(config, q, y, draft=True)
@@ -116,7 +116,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                              step_size=0.3, annealing=start_temp, debug=False, diagnostics=False)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_temp)
-        q_temp = FixedTreeJointDist(config_temp, qc, qz, qeps, qmt, qpi, tree, y)
+        q_temp = FixedTreeJointDist(y, config_temp, qc, qz, qeps, qmt, qpi, tree)
         q_temp.initialize()
         victree_temp = VICTree(config_temp, q_temp, y, draft=True)
 
@@ -161,7 +161,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                         diagnostics=False)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
 
@@ -170,7 +170,7 @@ class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
                              step_size=0.1, annealing=start_temp, debug=False, diagnostics=False)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_temp)
-        q_temp = FixedTreeJointDist(config_temp, qc, qz, qeps, qmt, qpi, tree, y)
+        q_temp = FixedTreeJointDist(y, config_temp, qc, qz, qeps, qmt, qpi, tree)
         q_temp.initialize()
         copy_tree_temp = VICTree(config_temp, q_temp, y, draft=True)
 

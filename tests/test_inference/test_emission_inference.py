@@ -58,7 +58,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
         copy_tree = VICTree(config, q, y, draft=True)
 
@@ -102,7 +102,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
         qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,

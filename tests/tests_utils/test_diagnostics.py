@@ -3,10 +3,11 @@ import unittest
 
 import h5py
 import numpy as np
+import torch
 
 from inference.victree import VICTree
 from utils.data_handling import load_h5_pseudoanndata
-from variational_distributions.joint_dists import VarTreeJointDist
+from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from simul import generate_dataset_var_tree
 from utils.config import set_seed, Config
 from variational_distributions.var_dists import qCMultiChrom
@@ -136,6 +137,16 @@ class InitTestCase(unittest.TestCase):
             for param_name in h5_checkpoint[dist_name].keys():
                 ds = h5_checkpoint[dist_name][param_name]
                 self.assertEqual(ds.shape[0], config.n_sieving_iter + config.n_run_iter + 1)
+
+    def test_write_fixed_tree(self):
+        chain_length, n_cells = (200, 20)
+        config = Config(out_dir=self.output_dir, chain_length=chain_length, n_cells=n_cells)
+        fixtree_joint = FixedTreeJointDist(config=config, obs=torch.tensor(
+            np.clip(np.random.random((chain_length, n_cells)) + 2., a_min=0., a_max=None))
+        )
+        fixtree_joint.initialize()
+        victree = VICTree(fixtree_joint.config, fixtree_joint, fixtree_joint.obs)
+        victree.write()
 
 
 

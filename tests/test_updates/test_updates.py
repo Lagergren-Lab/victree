@@ -88,7 +88,7 @@ class updatesTestCase(unittest.TestCase):
         fix_tree = nx.DiGraph()
         fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-        joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
+        joint_q = FixedTreeJointDist(obs, cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree)
         return joint_q
 
     def test_update_qt_simul_data(self):

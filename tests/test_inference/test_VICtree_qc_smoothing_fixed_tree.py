@@ -55,8 +55,8 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config2)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
-        q2 = FixedTreeJointDist(config2, qc2, qz2, qeps2, qmt2, qpi2, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
+        q2 = FixedTreeJointDist(y, config2, qc2, qz2, qeps2, qmt2, qpi2, tree)
         # initialize all var dists
         q.initialize()
         q2.initialize()
@@ -116,8 +116,8 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config2)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
-        q2 = FixedTreeJointDist(config2, qc2, qz2, qeps2, qmt2, qpi2, tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
+        q2 = FixedTreeJointDist(y, config2, qc2, qz2, qeps2, qmt2, qpi2, tree)
         # initialize all var dists
         q.initialize()
         q2.initialize()

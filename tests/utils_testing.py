@@ -11,7 +11,7 @@ import torch.nn.functional as f
 
 import simul
 from variational_distributions.joint_dists import FixedTreeJointDist
-from utils import tree_utils, visualization_utils
+from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
@@ -52,6 +52,7 @@ def get_tree_K_nodes_random(K) -> nx.DiGraph:
 
 
 def get_tree_K_nodes_one_level(K):
+    print("DEPRECATED: use `utils.tree_utils.star_tree(k: int)`")
     T = nx.DiGraph()
     for k in range(1, K):
         T.add_edge(0, k)
@@ -208,7 +209,7 @@ def generate_test_dataset_fixed_tree() -> FixedTreeJointDist:
     fix_tree = nx.DiGraph()
     fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-    joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
+    joint_q = FixedTreeJointDist(obs, cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree)
     return joint_q
 
 
