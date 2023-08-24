@@ -1504,7 +1504,7 @@ class qEpsilonMulti(VariationalDistribution):
             self._uniform_init()
         elif method == 'random':
             self._random_init(**kwargs)
-        elif method == 'non_mutation':
+        elif method == 'non-mutation':
             self._non_mutation_init()
         elif method == 'prior':
             self._initialize_to_prior_parameters()

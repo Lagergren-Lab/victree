@@ -443,7 +443,7 @@ class updatesTestCase(unittest.TestCase):
         qmt.initialize(loc=1., precision_factor=.1, rate=5., shape=5.)
         almost_true_z_init = joint_q.z.exp_assignment() + .2
         almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
-        qz.initialize(z_init='fixed', pi_init=joint_q.z.exp_assignment() + .2)
+        qz.initialize(z_init='fixed', pi_init=almost_true_z_init)
         # qz.initialize(method='kmeans', obs=obs)
         qc.initialize()
 
