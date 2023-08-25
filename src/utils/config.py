@@ -25,8 +25,10 @@ class Config:
                  n_run_iter: int = 10,
                  save_progress_every_niter: int = 10,
                  qc_smoothing=False,
-                 curr_it: int = 0) -> None:
-        self.curr_it = 0
+                 curr_it: int = 0,
+                 split=False) -> None:
+        self.split = split
+        self.curr_it = curr_it
         self.qc_smoothing = qc_smoothing
         self._diagnostics = diagnostics
         self.step_size = step_size

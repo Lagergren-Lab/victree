@@ -12,7 +12,7 @@ from numpy import infty
 
 from utils import math_utils
 from utils.config import Config
-from utils.tree_utils import tree_to_newick
+from utils.tree_utils import star_tree
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qPhi, qCMultiChrom
 from variational_distributions.variational_distribution import VariationalDistribution
@@ -105,14 +105,15 @@ class VarTreeJointDist(JointDist):
         """
         self.t.update(self.c, self.eps)
         trees, weights = self.t.get_trees_sample()
+        self.mt.update(self.c, self.z, self.obs)
+        self.z.update(self.mt, self.c, self.pi, self.obs)
         self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
         if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
             self.c.smooth_etas()
             self.c.compute_filtering_probs()  #FIXME: calculated twice (here and in qC.update)
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
-        self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.mt.update(self.c, self.z, self.obs)
+
 
         super().update()
 
@@ -157,6 +158,7 @@ class VarTreeJointDist(JointDist):
         -------
         elbo, float
         """
+        # FIXME: computation with part var, part fixed distributions is not implemented yet
         if t_list is None and w_list is None:
             t_list, w_list = self.t.get_trees_sample()
 
@@ -216,23 +218,33 @@ class VarTreeJointDist(JointDist):
 
 
 class FixedTreeJointDist(JointDist):
-    def __init__(self, config: Config,
-                 qc, qz, qeps, qpsi, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
+    def __init__(self,
+                 obs: torch.Tensor,
+                 config: Config = None,
+                 qc: qCMultiChrom | qC = None,
+                 qz: qZ = None,
+                 qeps: qEpsilonMulti | qEpsilon = None,
+                 qpsi: qPsi = None,
+                 qpi: qPi = None,
+                 T: nx.DiGraph = None, R=None):
         """
         Fixed tree joint distribution. The topology is fixed in advance and passed as an input (T).
         Parameters
         -------
         T: networkx.DiGraph, tree topology
         """
+        if config is None:
+            config = Config(chain_length=obs.shape[0], n_cells=obs.shape[1])
         super().__init__(config)
-        self.c: Union[qC, qCMultiChrom] = qc
-        self.z: qZ = qz
-        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
-        self.mt: qPsi = qpsi
-        self.pi: qPi = qpi
+        self.c: Union[qC, qCMultiChrom] = qc if qc is not None else qC(config)
+        self.z: qZ = qz if qz is not None else qZ(config)
+        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps if qeps is not None else qEpsilonMulti(config)
+        self.mt: qPsi = qpsi if qpsi is not None else qMuTau(config)
+        self.pi: qPi = qpi if qpi is not None else qPi(config)
         self.obs = obs
         self.R = R
-        self.T = T
+        # init to star tree if no tree is provided
+        self.T = T if T is not None else star_tree(config.n_nodes)
         self.w_T = [1.0]
 
     def update(self, it=0):
@@ -344,16 +356,16 @@ class FixedTreeJointDist(JointDist):
 
             c2 = c ** 2
             M, N = y.shape
-            E_CZ_log_tau = torch.einsum("umi, nu, n, m ->", qC, qZ, E_log_tau, (~nan_mask).float()) \
+            E_CZ_log_tau = torch.einsum("nu, n ->", qZ, E_log_tau) * M_notnan \
                 if type(self.mt) is qMuTau \
                 else torch.einsum("umi, nu, m ->", qC, qZ, E_log_tau, (~nan_mask).float())
 
-            E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+            E_CZ_tau_y2 = torch.einsum("nu, n, mn ->", qZ, E_tau, y ** 2) if type(
                 self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
             E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
             E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i, m ->", qC, qZ, E_mu2_tau, c2, (~nan_mask).float())
-            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M_notnan *
-                            torch.log(torch.tensor(2 * torch.pi)))
+            constant_term = N * M_notnan * torch.log(torch.tensor(2 * torch.pi))
+            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - constant_term)
 
             if self.config.debug:
                 assert not torch.isnan(elbo).any()

@@ -1,7 +1,7 @@
+import itertools
 import os.path
 import pathlib
 import pickle
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -11,7 +11,7 @@ import torch.nn.functional as f
 
 import simul
 from variational_distributions.joint_dists import FixedTreeJointDist
-from utils import tree_utils, visualization_utils
+from utils import visualization_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qZ, qPi, qMuTau, qEpsilonMulti
 
@@ -52,8 +52,9 @@ def get_tree_K_nodes_random(K) -> nx.DiGraph:
 
 
 def get_tree_K_nodes_one_level(K):
+    print("DEPRECATED: use `utils.tree_utils.star_tree(k: int)`")
     T = nx.DiGraph()
-    for k in range(K):
+    for k in range(1, K):
         T.add_edge(0, k)
 
     return T
@@ -76,30 +77,6 @@ def get_root_q_C(M, A):
     return q_C_init, q_C_transitions
 
 
-def simul_data_pyro_full_model(data, n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
-                               mu_0=torch.tensor(1.),
-                               lambda_0=torch.tensor(1.),
-                               alpha0=torch.tensor(1.),
-                               beta0=torch.tensor(1.),
-                               a0=torch.tensor(1.0),
-                               b0=torch.tensor(20.0),
-                               dir_alpha0=torch.tensor(1.0)
-                               ):
-    # FIXME: change to simul.simulate_full_dataset
-    model_tree_markov_full = simul.model_tree_markov_full
-    unconditioned_model = poutine.uncondition(model_tree_markov_full)
-    C, y, z, pi, mu, tau, eps = unconditioned_model(data, n_cells, n_sites, n_copy_states, tree,
-                                                    mu_0,
-                                                    lambda_0,
-                                                    alpha0,
-                                                    beta0,
-                                                    a0,
-                                                    b0,
-                                                    dir_alpha0)
-
-    return C, y, z, pi, mu, tau, eps
-
-
 def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGraph,
                                   nu_0=1.,
                                   lambda_0=1.,
@@ -108,7 +85,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
                                   a0=1.0,
                                   b0=20.0,
                                   dir_alpha0=1.0,
-                                  simulate_raw_reads=True,
+                                  simulate_raw_reads=True, return_anndata=False
                                   ):
     n_nodes = len(tree.nodes)
     config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
@@ -123,7 +100,10 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
     eps = output_sim['eps']
     eps0 = output_sim['eps0']
 
-    return y, C, z, pi, mu, tau, eps, eps0
+    if return_anndata:
+        return y, C, z, pi, mu, tau, eps, eps0, output_sim['adata']
+    else:
+        return y, C, z, pi, mu, tau, eps, eps0
 
 
 def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
@@ -205,7 +185,7 @@ def generate_test_dataset_fixed_tree() -> FixedTreeJointDist:
     fix_tree = nx.DiGraph()
     fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-    joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
+    joint_q = FixedTreeJointDist(obs, cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree)
     return joint_q
 
 
@@ -260,6 +240,7 @@ def create_test_output_catalog(config=None, test_specific_string=None, base_dir=
         print("Dir already exists. Overwriting contents.")
     return path
 
+
 def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
     path = base_dir + "/" + experiment_path
     try:
@@ -271,13 +252,12 @@ def create_experiment_output_catalog(experiment_path, base_dir="./test_output"):
 
 def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None):
     K, M = marginals.shape
-    two_sliced_marginals = torch.zeros((K, M-1, A, A))
-    marginals_one_hot = torch.nn.functional.one_hot(marginals, A)
-
+    two_sliced_marginals = torch.zeros((K, M - 1, A, A))
+    marginals = marginals.long()
     for u in range(K):
-        for m in range(0, M-1):
+        for m in range(0, M - 1):
             a_1 = marginals[u, m]
-            a_2 = marginals[u, m+1]
+            a_2 = marginals[u, m + 1]
             two_sliced_marginals[u, m, a_1, a_2] = 1.
 
     if offset is not None:
@@ -285,3 +265,81 @@ def get_two_sliced_marginals_from_one_slice_marginals(marginals, A, offset=None)
         two_sliced_marginals = two_sliced_marginals / two_sliced_marginals.sum(dim=(2, 3), keepdims=True)
 
     return two_sliced_marginals
+
+
+def initialize_qepsilon_to_true_values(true_eps, a0, b0, qeps):
+    """
+    Initializes the parameters of qEpsilon/qMultiEpsilon as follows:
+    a_init = a0
+    b_init = a0 / eps for arc edge in true_eps (resulting in the expectation value of q being equal to eps)
+    b_init = a0 / b0 for arcs not in true_eps
+    """
+    gedges = [(u, v) for u, v in itertools.product(range(qeps.config.n_nodes),
+                                                   range(qeps.config.n_nodes)) if v != 0 and u != v]
+    eps_alpha_dict = {e: torch.tensor(a0) for e in gedges}
+    eps_beta_dict = {e: a0 / true_eps[e] if e in true_eps.keys() else torch.tensor(b0) for e in gedges}
+    qeps.initialize('fixed', eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
+    return qeps
+
+
+def initialize_qc_to_true_values(true_c, A, qc, indexes=None):
+    K, M = true_c.shape
+    if indexes is None:
+        eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A)
+        pairwise_marginals = get_two_sliced_marginals_from_one_slice_marginals(true_c, A=A)
+        eta2_true = torch.ones_like(pairwise_marginals) * (-30.)
+        for k in range(K):
+            for m in range(0, M-1):
+                transition_idxs = torch.where(pairwise_marginals[k, m])
+                eta2_true[k, m, :, transition_idxs[1]] = 0.
+    else:
+        eta1_true = torch.nn.functional.one_hot(true_c[:, 0].long(), num_classes=A) if 0 in indexes else 2.
+        eta2_true = torch.zeros(K, M - 1, A, A)
+
+    qc.eta1 = eta1_true - eta1_true.logsumexp(dim=1, keepdim=True)
+    qc.eta2 = eta2_true - eta2_true.logsumexp(dim=3, keepdim=True)
+    qc.compute_filtering_probs()
+    return qc
+
+
+def write_inference_test_output(victree, y, c, z, tree, mu, tau, eps, eps0, pi, test_dir_path, file_name_prefix=''):
+    config = victree.config
+    N = config.n_cells
+    M = config.chain_length
+    K = config.n_nodes
+    A = config.n_states
+    c_true_and_qc_viterbi = np.zeros((2, K, M))
+    c_true_and_qc_viterbi[0] = np.array(c)
+    c_true_and_qc_viterbi[1] = np.array(victree.q.c.get_viterbi())
+    visualization_utils.visualize_qC_true_C_qZ_and_true_Z(c, victree.q.c, z, victree.q.z,
+                                                                           save_path=test_dir_path +
+                                                                                     f'/{file_name_prefix}qC_c_qZ_z_plot.png')
+
+    visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
+    visualization_utils.visualize_mu_tau_true_and_q(mu, tau, victree.q.mt,
+                                                    save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
+
+    return None
+
+
+def write_inference_test_output_no_ground_truth(victree, y, test_dir_path, file_name_prefix='', tree=None):
+    config = victree.config
+    N = config.n_cells
+    M = config.chain_length
+    K = config.n_nodes
+    A = config.n_states
+    visualization_utils.visualize_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
+                                                save_path=test_dir_path +
+                                                          f'/{file_name_prefix}qC_qZ_plot.png')
+
+    visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
+    if tree is not None:
+        visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
+    return None
+
+
+def remap_tensor(tensor, permutation_list):
+    """
+    Remaps a tensor along dimension 0 according to :param permutation_list:.
+    """
+    return tensor[permutation_list]

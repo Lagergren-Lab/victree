@@ -12,7 +12,6 @@ import torch
 import unittest
 
 from networkx import maximum_spanning_arborescence
-from networkx.algorithms.tree import Edmonds
 
 from sampling import laris
 from sampling.laris import new_graph_force_arc, \

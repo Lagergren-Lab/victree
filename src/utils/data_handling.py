@@ -1,7 +1,6 @@
 import logging
 import os
 import pathlib
-from typing import List, Tuple, Union
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,7 @@ import h5py
 import networkx as nx
 import anndata
 
-from utils.tree_utils import newick_from_eps_arr
+from utils.tree_utils import newick_from_eps_arr, tree_to_newick
 
 
 class DataHandler:
@@ -40,13 +39,8 @@ class DataHandler:
         self.chr_df = None
 
         fname, fext = os.path.splitext(file_path)
-        if fext == '.txt':
-            # handle both simple tables in text files
-            cell_names, gene_ids, obs = read_sc_data(file_path)
-            obs = obs.float()
-            adata.X = obs.T.numpy()
 
-        elif fext in {'.h5', '.h5ad'}:
+        if fext in {'.h5', '.h5ad'}:
             try:
                 # actual AnnData format
                 logging.debug("reading anndata file")
@@ -58,7 +52,11 @@ class DataHandler:
 
                 # pandas categorical for chromosomes
                 self.chr_df = ann_dataset.var[['chr', 'start', 'end']].reset_index()
+                # original anndata file can potentially be kept with all its layers
+                # but for simplicity, a new clean anndata file is instantiated instead
+                # (gave issues with some datasets)
                 # adata = ann_dataset
+
                 adata = anndata.AnnData(obs.T.numpy())
                 adata.var = self.chr_df
 
@@ -110,49 +108,26 @@ def _sort_anndata(ann_dataset):
 def _impute_nans(ann_dataset: anndata.AnnData, method: str = 'ignore') -> anndata.AnnData:
     """
     Remove bins corresponding to NaNs in the 'copy' layer
+    method = ['ignore', 'remove', 'fill']
     """
     nan_sites_count = np.isnan(ann_dataset.layers['copy']).any(axis=0).sum()
     if nan_sites_count > 0:
         logging.debug(f"found {nan_sites_count} sites with nan values. proceeding with method `{method}`")
 
-    if method == 'remove':
-        ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)]
-        # drop chromosomes with just one site
-        filter_df = ann_dataset.var['chr'].value_counts() < 2
-        unit_chr_list = filter_df[filter_df].index.to_list()
-        ann_dataset = ann_dataset[:, ann_dataset.var['chr'].isin(unit_chr_list)].copy()
-        logging.debug(f"removed chromosome(s): {unit_chr_list}")
-    elif method == 'fill':
-        ann_dataset.layers['copy'][:, np.isnan(ann_dataset.layers['copy']).any(axis=0)] = 2.0
-    elif method == 'ignore':
-        pass
-    else:
-        raise NotImplementedError(f"method {method} for imputing nans is not available")
+        if method == 'remove':
+            ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)]
+            # drop chromosomes with just one site
+            filter_df = ann_dataset.var['chr'].value_counts() < 2
+            unit_chr_list = filter_df[filter_df].index.to_list()
+            ann_dataset = ann_dataset[:, ann_dataset.var['chr'].isin(unit_chr_list)].copy()
+            logging.debug(f"removed chromosome(s): {unit_chr_list}")
+        elif method == 'fill':
+            ann_dataset.layers['copy'][:, np.isnan(ann_dataset.layers['copy']).any(axis=0)] = 2.0
+        elif method == 'ignore':
+            pass
+        else:
+            raise NotImplementedError(f"method {method} for imputing nans is not available")
     return ann_dataset
-
-
-def read_sc_data(file_path: Union[str, Path]) -> Tuple[List, List, torch.Tensor]:
-    # FIXME: obsolete function, remove or adapt to new inputs
-    with open(file_path, 'r') as f:
-        cell_names = f.readline().strip().split(" ")
-        gene_ids = []
-        obs_lst = []
-        nlines = 0
-        for line in f:
-            nlines += 1
-            lspl = line.strip().split(" ")
-            gene_ids.append(lspl[0])
-            new_obs = list(map(int, lspl[1:]))
-            if len(cell_names) != len(new_obs):
-                err_msg = f"file format not valid: {file_path} has \
-                {len(cell_names)} cells and {len(new_obs)} \
-                reads at line {nlines} (gene_id {lspl[0]})"
-                raise RuntimeError(err_msg)
-
-            obs_lst.append(new_obs)
-
-        obs = torch.tensor(obs_lst)
-        return cell_names, gene_ids, obs
 
 
 def dict_to_tensor(a: dict):
@@ -210,18 +185,21 @@ def write_output_anndata(victree, out_path):
     adata.varm['victree-cn-pprobs'] = torch.permute(victree.q.c.get_padded_cfp(), (1, 0, 2, 3)).numpy()
 
     # unstructured - tree, eps
-    graph_adj_matrix = nx.to_numpy_array(victree.q.t.weighted_graph)
-    k = graph_adj_matrix.shape[0]
+    k = victree.config.n_nodes
     alpha_tensor = edge_dict_to_matrix(victree.q.eps.alpha_dict, k)
     beta_tensor = edge_dict_to_matrix(victree.q.eps.beta_dict, k)
 
-    qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
-
     adata.uns['victree-eps-alpha'] = alpha_tensor
     adata.uns['victree-eps-beta'] = beta_tensor
-    adata.uns['victree-tree-graph'] = nx.to_numpy_array(victree.q.t.weighted_graph)
-    adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
-    adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
+
+    if hasattr(victree.q, "T"):
+        # FixedTreeJointDist
+        adata.uns['victree-tree-newick'] = np.array([tree_to_newick(victree.q.T)], dtype='S')
+    else:
+        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
+        adata.uns['victree-tree-graph'] = nx.to_numpy_array(victree.q.t.weighted_graph)
+        adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
+        adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
 
     adata.write_h5ad(Path(out_path))
 

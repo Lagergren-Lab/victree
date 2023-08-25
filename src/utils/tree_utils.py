@@ -144,7 +144,9 @@ def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0), lab
     if labeled_distance:
         # edge_match = lambda (u1,v1), (u2,v2) : u1==u2 and v1
         node_match = lambda u1, u2: u1 == u2
-    distance = nx.graph_edit_distance(T_1, T_2, roots=roots, node_match=node_match)
+        distance = nx.graph_edit_distance(T_1, T_2, roots=roots, node_match=node_match)
+    else:
+        distance = nx.graph_edit_distance(T_1, T_2, roots=roots)
     return distance
 
 
@@ -160,13 +162,13 @@ def relabel_trees(T_list: list[nx.DiGraph], labeling):
     return [relabel_nodes(T, labeling) for T in T_list]
 
 
-def distances_to_true_tree(true_tree, trees_to_compare: list[nx.DiGraph], labeling=None):
+def distances_to_true_tree(true_tree, trees_to_compare: list[nx.DiGraph], labeling=None, labeled_distance=True):
     L = len(trees_to_compare)
     distances = np.zeros(L, )
     for l, T in enumerate(trees_to_compare):
         if labeling is not None:
             T = relabel_nodes(T, labeling)
-        distances[l] = calculate_graph_distance(true_tree, T)
+        distances[l] = calculate_graph_distance(true_tree, T, labeled_distance=labeled_distance)
     return distances
 
 
@@ -261,3 +263,9 @@ def get_all_tree_topologies(K):
 
     assert tot_trees == c
     return trees
+
+
+def star_tree(k: int) -> nx.DiGraph:
+    t = nx.DiGraph()
+    t.add_edges_from([(0, u) for u in range(1, k)])
+    return t
