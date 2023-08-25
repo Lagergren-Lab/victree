@@ -248,7 +248,7 @@ class VICTreeFixedTreeExperiment():
             qpi = qPi(config, delta_prior=dir_alpha0)
             qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
             qc = qCMultiChrom(config)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             q.initialize()
             qmt.initialize(method='prior')
             victree = VICTree(config, q, y, data_handler)
