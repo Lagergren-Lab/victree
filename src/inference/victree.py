@@ -327,7 +327,10 @@ class VICTree:
         """
         Wrapper function for variational updates. Handles checkpoint saving.
         """
-        self.q.SVI_update(self.it_counter)
+        if self.config.SVI:
+            self.q.SVI_update(self.it_counter)
+        else:
+            self.q.update(self.it_counter)
         self.it_counter += 1
         # print info about dist every 10 it
         if self.it_counter % 10 == 0:
