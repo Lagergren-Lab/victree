@@ -19,9 +19,10 @@ from utils.data_handling import DataHandler
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
 from tests.utils_testing import simulate_full_dataset_no_pyro
-from utils import visualization_utils
+from utils import visualization_utils, analysis_utils
 from utils.config import Config
-from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent, \
+    qCMultiChrom
 
 
 class VICTreeFixedTreeExperiment():
@@ -193,9 +194,86 @@ class VICTreeFixedTreeExperiment():
             })
             df.to_csv(os.path.join(test_dir_name, f"m_ari_N{N}_K{K}_A{A}.csv"), index=False)
 
+    def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
+        # Hyper parameters
+        seeds = list(range(0, 5))
+        K = 7
+        A = 7
+        step_size = 1.0
+
+        # Prior parameters
+        dir_alpha0 = 10.
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 1.0
+        b0 = 200.0
+
+        # Fixed tree
+        tree = nx.DiGraph()
+        tree.add_edge(0, 1)
+        tree.add_edge(0, 2)
+        tree.add_edge(1, 3)
+        tree.add_edge(1, 4)
+        tree.add_edge(3, 5)
+        tree.add_edge(3, 6)
+
+        # Load data
+        file_path = './../../../data/x_data/P01-066_cn_data.h5ad'
+        data_handler = DataHandler(file_path)
+        y = data_handler.norm_reads
+        M, N = y.shape
+
+        # Output storage variables
+        elbo_list = []
+        elbo = []
+
+        if save_plot:
+            dirs = os.getcwd().split('/')
+            dir_top_idx = dirs.index('experiments')
+            dir_path = dirs[dir_top_idx:]
+            path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
+            path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}')
+            base_dir = '../../../tests/test_output'
+            test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
+
+        for seed in seeds:
+            utils.config.set_seed(seed)
+            config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size,
+                            save_progress_every_niter=n_iter + 1, chromosome_indexes=data_handler.get_chr_idx(),
+                            out_dir=test_dir_name, split=True)
+            qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
+            qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
+            qpi = qPi(config, delta_prior=dir_alpha0)
+            qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
+            qc = qCMultiChrom(config)
+            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+            q.initialize()
+            qmt.initialize(method='prior')
+            victree = VICTree(config, q, y, data_handler)
+
+            victree.run(n_iter=n_iter)
+
+            elbo_seed = victree.elbo
+            elbo.append(elbo_seed)
+            print(f"ARI for M {M} and seed {seed}: {elbo_seed}")
+            if save_plot:
+                analysis_utils.write_inference_output_no_ground_truth(victree, y, test_dir_name, f'seed{seed}_',
+                                                                      tree=tree)
+
+        np_elbo = np.array(elbo)
+
+        if save_plot:
+            df = pd.DataFrame({
+                'elbo': np_elbo,
+            })
+            df.to_csv(os.path.join(test_dir_name, f"realdata_ELBO_K{K}_A{A}.csv"), index=False)
+
 
 if __name__ == '__main__':
     n_iter = 200
     experiment_class = VICTreeFixedTreeExperiment()
-    experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
-    experiment_class.ari_as_function_of_M_experiment(save_plot=True, n_iter=n_iter)
+    experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
+    #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
+    #experiment_class.ari_as_function_of_M_experiment(save_plot=True, n_iter=n_iter)
