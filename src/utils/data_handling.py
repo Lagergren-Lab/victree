@@ -9,7 +9,7 @@ import h5py
 import networkx as nx
 import anndata
 
-from utils.tree_utils import newick_from_eps_arr
+from utils.tree_utils import newick_from_eps_arr, tree_to_newick
 
 
 class DataHandler:
@@ -185,18 +185,21 @@ def write_output_anndata(victree, out_path):
     adata.varm['victree-cn-pprobs'] = torch.permute(victree.q.c.get_padded_cfp(), (1, 0, 2, 3)).numpy()
 
     # unstructured - tree, eps
-    graph_adj_matrix = nx.to_numpy_array(victree.q.t.weighted_graph)
-    k = graph_adj_matrix.shape[0]
+    k = victree.config.n_nodes
     alpha_tensor = edge_dict_to_matrix(victree.q.eps.alpha_dict, k)
     beta_tensor = edge_dict_to_matrix(victree.q.eps.beta_dict, k)
 
-    qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
-
     adata.uns['victree-eps-alpha'] = alpha_tensor
     adata.uns['victree-eps-beta'] = beta_tensor
-    adata.uns['victree-tree-graph'] = nx.to_numpy_array(victree.q.t.weighted_graph)
-    adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
-    adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
+
+    if hasattr(victree.q, "T"):
+        # FixedTreeJointDist
+        adata.uns['victree-tree-newick'] = np.array([tree_to_newick(victree.q.T)], dtype='S')
+    else:
+        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, desc_sorted=True)
+        adata.uns['victree-tree-graph'] = nx.to_numpy_array(victree.q.t.weighted_graph)
+        adata.uns['victree-tree-newick'] = np.array(list(qt_pmf.keys()), dtype='S')
+        adata.uns['victree-tree-probs'] = np.array(list(qt_pmf.values()))
 
     adata.write_h5ad(Path(out_path))
 

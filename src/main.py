@@ -87,6 +87,9 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", dest="file_path",
                         type=validate_path, default='../datasets/simul_k5a7n300m1000e1-50d10mt1-10-500-50.h5',
                         help="input data file", metavar="FILE")
+    parser.add_argument("--tree", dest="tree_path",
+                        type=str, default="",
+                        help="newick tree file for fixed tree inference", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
                         help="output dir", metavar="DIR", default="./output")
     parser.add_argument("-d", "--debug", action="store_true", help="additional inspection for debugging purposes")
@@ -103,7 +106,7 @@ if __name__ == '__main__':
     # priors parameters
     parser.add_argument("--prior-eps", default=[1., 50.], nargs=2, type=float, help="prior on epsilon  (Beta dist)",
                         metavar=("ALPHA", "BETA"))
-    parser.add_argument("--prior-mutau", default=[1., 10., 500, 50], nargs=4, type=float,
+    parser.add_argument("--prior-mutau", default=[1., 100., 5000., 500.], nargs=4, type=float,
                         help="prior on mu-tau (Normal-Gamma dist)",
                         metavar=("NU", "LAMBDA", "ALPHA", "BETA"))
     parser.add_argument("--prior-pi", default=[10.], nargs='*', type=float,

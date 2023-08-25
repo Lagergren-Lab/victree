@@ -88,7 +88,7 @@ class updatesTestCase(unittest.TestCase):
         fix_tree = nx.DiGraph()
         fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-        joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, obs)
+        joint_q = FixedTreeJointDist(obs, cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree)
         return joint_q
 
     def test_update_qt_simul_data(self):
@@ -443,7 +443,7 @@ class updatesTestCase(unittest.TestCase):
         qmt.initialize(loc=1., precision_factor=.1, rate=5., shape=5.)
         almost_true_z_init = joint_q.z.exp_assignment() + .2
         almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
-        qz.initialize(z_init='fixed', pi_init=joint_q.z.exp_assignment() + .2)
+        qz.initialize(z_init='fixed', pi_init=almost_true_z_init)
         # qz.initialize(method='kmeans', obs=obs)
         qc.initialize()
 

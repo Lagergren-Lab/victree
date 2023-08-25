@@ -3,7 +3,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics.cluster import adjusted_rand_score
 
 import simul
-from tests.utils_testing import get_tree_K_nodes_one_level
+from utils.tree_utils import star_tree
 from utils.config import Config
 from variational_distributions.var_dists import qMuTau, qCMultiChrom, qZ, qEpsilonMulti
 
@@ -34,7 +34,7 @@ def run(M: int, K: int, A: int, N: int, n_iter: int, n_datasets: int):
     # run inference with qmt,cell-qc
     fixed_z = torch.arange(1, N + 1)
     qz_cells_fix = qZ(cell_config, true_params={'z': fixed_z})
-    tree = get_tree_K_nodes_one_level(N + 1)
+    tree = star_tree(N + 1)
 
     print("running inference...")
     for i in range(n_iter):

@@ -74,7 +74,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, self.tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, self.tree)
         q.initialize()
 
         # Initialize Z to true values.
@@ -119,7 +119,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 
-        q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, self.tree, y)
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, self.tree)
         # initialize all var dists
         q.initialize()
 

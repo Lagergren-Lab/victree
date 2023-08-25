@@ -12,7 +12,7 @@ from numpy import infty
 
 from utils import math_utils
 from utils.config import Config
-from utils.tree_utils import tree_to_newick
+from utils.tree_utils import star_tree
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qPhi, qCMultiChrom
 from variational_distributions.variational_distribution import VariationalDistribution
@@ -218,23 +218,33 @@ class VarTreeJointDist(JointDist):
 
 
 class FixedTreeJointDist(JointDist):
-    def __init__(self, config: Config,
-                 qc, qz, qeps, qpsi, qpi, T: nx.DiGraph, obs: torch.Tensor, R=None):
+    def __init__(self,
+                 obs: torch.Tensor,
+                 config: Config = None,
+                 qc: qCMultiChrom | qC = None,
+                 qz: qZ = None,
+                 qeps: qEpsilonMulti | qEpsilon = None,
+                 qpsi: qPsi = None,
+                 qpi: qPi = None,
+                 T: nx.DiGraph = None, R=None):
         """
         Fixed tree joint distribution. The topology is fixed in advance and passed as an input (T).
         Parameters
         -------
         T: networkx.DiGraph, tree topology
         """
+        if config is None:
+            config = Config(chain_length=obs.shape[0], n_cells=obs.shape[1])
         super().__init__(config)
-        self.c: Union[qC, qCMultiChrom] = qc
-        self.z: qZ = qz
-        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps
-        self.mt: qPsi = qpsi
-        self.pi: qPi = qpi
+        self.c: Union[qC, qCMultiChrom] = qc if qc is not None else qC(config)
+        self.z: qZ = qz if qz is not None else qZ(config)
+        self.eps: Union[qEpsilon, qEpsilonMulti] = qeps if qeps is not None else qEpsilonMulti(config)
+        self.mt: qPsi = qpsi if qpsi is not None else qMuTau(config)
+        self.pi: qPi = qpi if qpi is not None else qPi(config)
         self.obs = obs
         self.R = R
-        self.T = T
+        # init to star tree if no tree is provided
+        self.T = T if T is not None else star_tree(config.n_nodes)
         self.w_T = [1.0]
 
     def update(self, it=0):

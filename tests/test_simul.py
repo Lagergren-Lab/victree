@@ -5,6 +5,7 @@ import torch
 
 import simul
 import tests.utils_testing
+import utils.tree_utils
 from utils.config import Config
 from variational_distributions.var_dists import qC, qCMultiChrom
 
@@ -20,7 +21,7 @@ class SimulTestCase(unittest.TestCase):
         eps_a = 1.
         eps_b = 10.
         eps_0 = 0.1
-        tree = tests.utils_testing.get_tree_K_nodes_one_level(K)
+        tree = utils.tree_utils.star_tree(K)
         eps, c = simul.simulate_copy_tree_data(K, M, A, tree, eps_a, eps_b, eps_0)
         torch.equal(c[0, :], torch.ones((M,), dtype=torch.int) * 2)
 

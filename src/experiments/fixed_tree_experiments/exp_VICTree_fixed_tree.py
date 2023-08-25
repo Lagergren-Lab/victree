@@ -77,7 +77,7 @@ class VICTreeFixedTreeExperiment():
                 config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.05,
                                 save_progress_every_niter=n_iter + 1)
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-                q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+                q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
                 dh = DataHandler(adata=adata)
                 copy_tree = VICTree(config, q, y, dh)
@@ -154,7 +154,7 @@ class VICTreeFixedTreeExperiment():
                 config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.1,
                                 save_progress_every_niter=n_iter + 1)
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
-                q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, tree, y)
+                q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
                 dh = DataHandler(adata=adata)
                 copy_tree = VICTree(config, q, y, dh)

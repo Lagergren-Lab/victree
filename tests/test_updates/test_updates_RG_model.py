@@ -100,7 +100,7 @@ class updatesRGModelTestCase(unittest.TestCase):
         fix_tree = nx.DiGraph()
         fix_tree.add_edges_from([(0, 1), (0, 2)], weight=.5)
 
-        joint_q = FixedTreeJointDist(cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, y, R)
+        joint_q = FixedTreeJointDist(y, cfg, fix_qc, fix_qz, fix_qeps, fix_qmt, fix_qpi, fix_tree, R)
         return joint_q, true_gamma
 
     def test_update_qc(self):

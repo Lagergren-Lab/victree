@@ -263,3 +263,9 @@ def get_all_tree_topologies(K):
 
     assert tot_trees == c
     return trees
+
+
+def star_tree(k: int) -> nx.DiGraph:
+    t = nx.DiGraph()
+    t.add_edges_from([(0, u) for u in range(1, k)])
+    return t

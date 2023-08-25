@@ -1,7 +1,6 @@
 import logging
 import unittest
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,10 +8,9 @@ import torch
 
 import tests.utils_testing
 from inference.victree import VICTree
-from tests import utils_testing
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests.utils_testing import simulate_full_dataset_no_pyro
-from utils import tree_utils, visualization_utils
+from utils import tree_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
@@ -61,7 +59,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         for i, T in enumerate(T_list):
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
-            q = FixedTreeJointDist(config, qc, qz, qeps, qmt, qpi, T, y)
+            q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, T)
             q.initialize()
             victree = VICTree(config, q, y)
 
@@ -120,9 +118,4 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                        'T_max_elbo', 'distance max', 'elbo max',
                                        'T_min_elbo', 'distance min', 'elbo min'])
         out_df.to_csv(test_dir_name + '/edges_max_min_elbo_trees.csv')
-
-
-        #utils_testing.write_inference_test_output(victree, y, c, z, T, mu, tau, eps, eps0, pi, test_dir_name,
-        #                                              file_name_prefix="")
-
 
