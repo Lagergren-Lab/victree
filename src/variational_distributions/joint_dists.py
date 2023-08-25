@@ -329,8 +329,8 @@ class FixedTreeJointDist(JointDist):
                 self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
             E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
             E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i, m ->", qC, qZ, E_mu2_tau, c2, (~nan_mask).float())
-            constant_term = N * M_notnan * torch.log(torch.sqrt(torch.tensor(2 * torch.pi)))
-            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2) - constant_term
+            constant_term = N * M_notnan * torch.log(torch.tensor(2 * torch.pi))
+            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - constant_term)
 
             if self.config.debug:
                 assert not torch.isnan(elbo).any()
