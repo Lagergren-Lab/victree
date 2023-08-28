@@ -27,7 +27,9 @@ class Config:
                  qc_smoothing=False,
                  curr_it: int = 0,
                  split=False,
-                 SVI=False) -> None:
+                 SVI=False,
+                 batch_size=20) -> None:
+        self.batch_size = batch_size
         self.SVI = SVI
         self.split = split
         self.curr_it = curr_it
