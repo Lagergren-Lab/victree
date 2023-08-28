@@ -28,7 +28,13 @@ class Config:
                  curr_it: int = 0,
                  split=False,
                  SVI=False,
-                 batch_size=20) -> None:
+                 batch_size=20,
+                 step_size_scheme='None',
+                 step_size_forgetting_rate=0.7,
+                 step_size_delay=2.) -> None:
+        self.step_size_delay = step_size_delay
+        self.step_size_forgetting_rate = step_size_forgetting_rate
+        self.step_size_scheme = step_size_scheme
         self.batch_size = batch_size
         self.SVI = SVI
         self.split = split
