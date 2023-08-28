@@ -51,7 +51,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
         qpi = qPi(config)
-        qmt = qMuTau(config, nu_prior=1.0, lambda_prior=100., alpha_prior=50., beta_prior=5.)
+        qmt = qMuTau(config, nu_prior=1.0, lambda_prior=100., alpha_prior=500., beta_prior=50.)
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_seven_node_tree_subclonal_profile_ratio_small(self):
@@ -507,13 +507,14 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
             for i in range(len(seeds)):
                 # Run VICTree using SVI, split and init to clonal structure
                 config_init = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.01,
+                                     step_size_scheme='inverse',
                                      diagnostics=False, annealing=1., split=True, SVI=True)
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init)
-                q2 = FixedTreeJointDist(y_tot, config_init, qc, qz, qeps, qmt, qpi, tree)
-                q2.initialize()
+                q = FixedTreeJointDist(y_tot, config_init, qc, qz, qeps, qmt, qpi, tree)
+                q.initialize()
                 qc.initialize(method='clonal', obs=y_tot)
-                victree = VICTree(config_init, q2, y_tot, draft=True)
+                victree = VICTree(config_init, q, y_tot, draft=True)
                 victree.run(n_iter=n_iter)
 
                 # Assert
