@@ -903,11 +903,12 @@ class qZ(VariationalDistribution):
         return pi
 
     def update_params(self, pi: torch.Tensor, batch=None):
-        rho = self.config.step_size * 10
+        rho = self.config.step_size
         if batch is None:
             new_pi = (1 - rho) * self.pi + rho * pi
             self.pi[...] = new_pi
         else:
+            rho = 0.5
             new_pi = (1 - rho) * self.pi[batch] + rho * pi  # no rho for local updates
             self.pi[batch] = new_pi
         return new_pi
@@ -1796,7 +1797,7 @@ class qMuTau(qPsi):
         return new_mu, new_lmbda, new_alpha, new_beta
 
     def update_params(self, nu, lmbda, alpha, beta, batch=None):
-        rho = self.config.step_size * 10
+        rho = self.config.step_size
         if batch is None:
             new_nu = (1 - rho) * self._nu + rho * nu
             new_lmbda = (1 - rho) * self._lmbda + rho * lmbda
@@ -1807,6 +1808,7 @@ class qMuTau(qPsi):
             self.alpha = new_alpha
             self.beta = new_beta
         else:
+            rho = 0.5
             new_nu = (1 - rho) * self._nu[batch] + rho * nu
             new_lmbda = (1 - rho) * self._lmbda[batch] + rho * lmbda
             new_alpha = (1 - rho) * self._alpha[batch] + rho * alpha
