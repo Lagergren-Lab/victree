@@ -262,6 +262,39 @@ class FixedTreeJointDist(JointDist):
 
         super().update()
 
+
+    def SVI_update(self, it=0):
+        """
+        Joint distribution SVI update: update the local variables batch wise, then update global variables
+        with smaller step size.
+        """
+
+        N = self.obs.shape[1]
+        batches = torch.randperm(N)
+        batch_size = self.config.batch_size
+        n_batches = int(N / batch_size)
+        for i in range(n_batches + 1):
+            # Local updates
+            if i == n_batches and N % batch_size != 0:
+                batch = batches[i * batch_size: i * batch_size + N % batch_size]
+            elif i == n_batches and N % batch_size == 0:
+                continue
+            else:
+                batch = batches[i*batch_size: i*batch_size + batch_size]
+            self.z.update(self.mt, self.c, self.pi, self.obs[:, batch], batch)
+            self.mt.update(self.c, self.z, self.obs[:, batch], batch)
+
+            # Global updates
+            self.c.update(self.obs[:, batch], self.eps, self.z, self.mt, [self.T], self.w_T, batch)
+
+            if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
+                self.c.smooth_etas()
+                self.c.compute_filtering_probs()
+            self.eps.update([self.T], self.w_T, self.c)
+            self.pi.update(self.z)
+
+        super().update()
+
     def get_units(self) -> list:
         # TODO: if needed, specify an ordering
         return [self.c, self.eps, self.pi, self.z, self.mt]
