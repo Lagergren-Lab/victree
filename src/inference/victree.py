@@ -426,7 +426,11 @@ class VICTree:
     def split(self):
         split = self.split_operation.split(self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi)
         if split:
-            self.q.mt.update(self.q.c, self.q.z, self.q.obs)
+            mu, lmbda, alpha, beta = self.q.mt.update_CAVI(self.q.obs, self.q.c, self.q.z)
+            #self.q.mt.nu = mu
+            #self.q.mt.lmbda = lmbda
+            #self.q.mt.alpha = alpha
+            #self.q.mt.beta = beta
 
     def set_step_size(self):
         if self.config.step_size_scheme == "inverse":
