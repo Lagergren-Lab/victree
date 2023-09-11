@@ -155,7 +155,7 @@ Generate full simulated dataset.
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
     scale_expanded = torch.pow(tau, -1 / 2).reshape(-1, 1).expand(-1, config.chain_length)
     # (chain_length x n_cells)
-    obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
+    obs = torch.distributions.Normal(obs_mean, scale_expanded).sample().clamp(min=0.)
     obs = obs.T
 
     raw_counts = sample_raw_counts_from_corrected_data(obs) if raw_reads is True else None
