@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-@unittest.skip('long exec test')
+#@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -51,7 +51,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
         qpi = qPi(config)
-        qmt = qMuTau(config, nu_prior=1.0, lambda_prior=100., alpha_prior=50., beta_prior=5.)
+        qmt = qMuTau(config, nu_prior=1.0, lambda_prior=100., alpha_prior=500., beta_prior=50.)
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_seven_node_tree_subclonal_profile_ratio_small(self):
@@ -369,13 +369,11 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         sys.stdout = orig_stdout
         f.close()
 
-
-
     def test_clonal_profile_init_and_split_vs_no_split(self):
         utils.config.set_seed(0)
-        seeds = list(range(0, 5))
-        data_seeds = list(range(0, 5))
-        n_iter = 200
+        seeds = list(range(2, 4))
+        data_seeds = list(range(0, 2))
+        n_iter = 50
         K = 6
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         N = 500
@@ -410,14 +408,14 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
             for i in range(len(seeds)):
                 # Run VICTree using normal initialization
                 utils.config.set_seed(seeds[i])
-                config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
+                config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.5,
                                       diagnostics=False, annealing=1., split=True)
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
                 q = FixedTreeJointDist(y_tot, config_init1, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
                 victree = VICTree(config_init1, q, y_tot, draft=True)
-                victree.run(n_iter=n_iter)
+                victree.run(n_iter=1)
 
                 out = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                         true_mu=mu,
@@ -426,20 +424,20 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                         q_z=victree.q.z, qpi=victree.q.pi,
                                                                         q_mt=victree.q.mt, q_eps=qeps)
                 # Run VICTree using init to clonal structure
-                config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
+                config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.01,
                                       diagnostics=False, annealing=1., split=False)
 
                 qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
                 q2 = FixedTreeJointDist(y_tot, config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree)
                 q2.initialize()
-                #qc2.initialize(method='clonal', obs=y_tot)
+                qc2.initialize(method='clonal', obs=y_tot)
                 victree2 = VICTree(config_init2, q2, y_tot, draft=True)
-
-                victree2.run(n_iter=n_iter)
+                n_iter_svi = 80
+                victree2.run(n_iter=n_iter_svi)
 
                 # Assert
                 test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/")
-                                                                               + f'/data_seed_{data_seed}',
+                                                                               + f'/SVI/data_seed_{data_seed}',
                                                                                base_dir='./../test_output')
                 torch.set_printoptions(precision=2)
                 out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
@@ -471,4 +469,76 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         print(f'NO SPLIT ARIs: {ari2_list_list}')
         print(f'SPLIT - ARI mean over inference seed: {np.mean(ari_list_list, axis=-1)} ({np.std(ari_list_list, axis=-1)})')
         print(f'NO SPLIT - ARI mean over inference seed: {np.mean(ari2_list_list, axis=-1)} ({np.std(ari2_list_list, axis=-1)})')
+
+    def test_SVI_split_and_clonal_init(self):
+        utils.config.set_seed(0)
+        seeds = list(range(0, 5))
+        data_seeds = list(range(0, 5))
+        n_iter = 80
+        K = 8
+        tree = tests.utils_testing.get_tree_K_nodes_random(K)
+        N = 500
+        M_subclonal = 100
+        M_clonal = 1000
+        A = 7
+        dir_delta0 = 3.
+        nu_0 = 1.
+        lambda_0 = 10.
+        alpha0 = 500.
+        beta0 = 50.
+        a0 = 10.0
+        b0 = 100.0
+
+        ari_list_list = []
+        for data_seed in data_seeds:
+            utils.config.set_seed(data_seed)
+            y, c_local, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(N, M_subclonal, A, tree,
+                                                                                  nu_0=nu_0,
+                                                                                  lambda_0=lambda_0, alpha0=alpha0,
+                                                                                  beta0=beta0,
+                                                                                  a0=a0, b0=b0, dir_alpha0=dir_delta0)
+
+            # Extend clones with general structure
+            M_tot, c_tot, eps_tot, y_tot, c_clonal = generate_clonal_profile_data(A, c_local, K, M_clonal, M_subclonal, N,
+                                                                                  eps, mu,
+                                                                                  tau, y, z)
+
+            ari_list = []
+            for i in range(len(seeds)):
+                # Run VICTree using SVI, split and init to clonal structure
+                config_init = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.01,
+                                     step_size_scheme='inverse',
+                                     diagnostics=False, annealing=1., split=True, SVI=True)
+
+                qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init)
+                q = FixedTreeJointDist(y_tot, config_init, qc, qz, qeps, qmt, qpi, tree)
+                q.initialize()
+                qc.initialize(method='clonal', obs=y_tot)
+                victree = VICTree(config_init, q, y_tot, draft=True)
+                victree.run(n_iter=n_iter)
+
+                # Assert
+                test_dir_name = tests.utils_testing.create_test_output_catalog(config_init, self.id().replace(".", "/")
+                                                                               + f'/data_seed_{data_seed}',
+                                                                               base_dir='./../test_output')
+                torch.set_printoptions(precision=2)
+                out = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
+                                                                        true_mu=mu,
+                                                                        true_tau=tau, true_epsilon=eps_tot,
+                                                                        q_c=victree.q.c,
+                                                                        q_z=victree.q.z, qpi=victree.q.pi,
+                                                                        q_mt=victree.q.mt, q_eps=victree.q.eps)
+                ari, perm, acc = (out['ari'], out['perm'], out['acc'])
+                c_tot_remapped = c_tot[perm]
+                z2_remapped = torch.tensor([perm[i] for i in z])
+                utils_testing.write_inference_test_output(victree, y_tot, c_tot_remapped, z2_remapped, tree, mu, tau, eps, eps0, pi,
+                                                          test_dir_path=test_dir_name, file_name_prefix=f'seed{seeds[i]}_no_split_')
+
+                ari_list.append(ari)
+
+            print(f'ARI scores SVI: {ari_list}')
+            ari_list_list.append(ari_list)
+
+        print(f'SPLIT ARIs: {ari_list_list}')
+        print(f'ARI mean over inference seed: {np.mean(ari_list_list, axis=-1)} ({np.std(ari_list_list, axis=-1)})')
 

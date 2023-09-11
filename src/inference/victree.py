@@ -327,7 +327,11 @@ class VICTree:
         """
         Wrapper function for variational updates. Handles checkpoint saving.
         """
-        self.q.update(self.it_counter)
+        self.set_step_size()
+        if self.config.SVI:
+            self.q.SVI_update(self.it_counter)
+        else:
+            self.q.update(self.it_counter)
         self.it_counter += 1
         # print info about dist every 10 it
         if self.it_counter % 10 == 0:
@@ -422,5 +426,17 @@ class VICTree:
     def split(self):
         split = self.split_operation.split(self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi)
         if split:
-            self.q.mt.update(self.q.c, self.q.z, self.q.obs)
+            mu, lmbda, alpha, beta = self.q.mt.update_CAVI(self.q.obs, self.q.c, self.q.z)
+            #self.q.mt.nu = mu
+            #self.q.mt.lmbda = lmbda
+            #self.q.mt.alpha = alpha
+            #self.q.mt.beta = beta
 
+    def set_step_size(self):
+        if self.config.step_size_scheme == "inverse":
+            forgetting_rate = self.config.step_size_forgetting_rate  # must be in range (0.5, 1.0)
+            delay = self.config.step_size_delay  # must be larger than 0. Down weights early iterations.
+            rho = lambda iteration: (iteration + delay) ** -forgetting_rate  # Eq 26. Hoffman 2013
+            self.config.step_size = rho(self.it_counter)
+        else:
+            self.config.step_size = self.config.step_size

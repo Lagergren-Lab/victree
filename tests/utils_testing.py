@@ -328,17 +328,13 @@ def write_inference_test_output_no_ground_truth(victree, y, test_dir_path, file_
     M = config.chain_length
     K = config.n_nodes
     A = config.n_states
-    c_true_and_qc_viterbi = np.zeros((2, K, M))
-    c_true_and_qc_viterbi[0] = np.array(c)
-    c_true_and_qc_viterbi[1] = np.array(victree.q.c.get_viterbi())
-    visualization_utils.visualize_qC_true_C_qZ_and_true_Z(c, victree.q.c, z, victree.q.z,
-                                                                           save_path=test_dir_path +
-                                                                                     f'/{file_name_prefix}qC_c_qZ_z_plot.png')
+    visualization_utils.visualize_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
+                                                save_path=test_dir_path +
+                                                          f'/{file_name_prefix}qC_qZ_plot.png')
 
-    visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
-    visualization_utils.visualize_mu_tau_true_and_q(mu, tau, victree.q.mt,
-                                                    save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
-
+    visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
+    if tree is not None:
+        visualization_utils.draw_graph(tree, save_path=test_dir_path + '/true_tree_plot.png')
     return None
 
 
