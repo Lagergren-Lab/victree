@@ -1759,24 +1759,31 @@ class qMuTau(qPsi):
         }
 
     def update(self, qc: qC | qCMultiChrom, qz: qZ, obs: torch.Tensor, batch=None):
+        alpha, beta, lmbda, mu = self.update_CAVI(obs, qc, qz, batch)
+
+        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta, batch)
+
+        super().update()
+        # logging.debug("- mu/tau updated")
+        return new_mu, new_lmbda, new_alpha, new_beta
+
+    def update_CAVI(self, obs, qc, qz, batch=None):
         """
-        Updates mu_n, tau_n for each cell n \in {1,...,N}.
-        :param qc:
-        :param qz:
-        :param obs: tensor of shape (M, N)
-        :param sum_M_y2:
-        :return:
-        """
+            Updates mu_n, tau_n for each cell n \in {1,...,N}.
+            :param qc:
+            :param qz:
+            :param obs: tensor of shape (M, N)
+            :param sum_M_y2:
+            :return:
+            """
         A = self.config.n_states
         c_tensor = torch.arange(A, dtype=torch.float)
         q_Z = qz.exp_assignment(batch)
-
         y = obs.detach().clone()
         nan_mask = torch.any(torch.isnan(y), dim=1)
         # when nan in obs, the number of observations for mu-tau decreases
         M_notnan = torch.sum(~nan_mask)
         y[nan_mask, :] = 0.
-
         # copy numbers where observations are not present should not be included in the sum
         sum_MCZ_c2 = torch.einsum("kma, nk, a, m -> n", qc.single_filtering_probs, q_Z, c_tensor ** 2,
                                   (~nan_mask).float())
@@ -1789,12 +1796,7 @@ class qMuTau(qPsi):
         if self.config.debug:
             assert torch.all(beta > 0)
             assert not torch.isnan(beta).any()
-
-        new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta, batch)
-
-        super().update()
-        # logging.debug("- mu/tau updated")
-        return new_mu, new_lmbda, new_alpha, new_beta
+        return mu, lmbda, alpha, beta
 
     def update_params(self, nu, lmbda, alpha, beta, batch=None):
         rho = self.config.step_size
@@ -1987,6 +1989,12 @@ Initialize the mu and tau params given observations
         exp_mu2_tau = torch.pow(self.nu, 2) * self.alpha / self.beta
         exp_sum = exp_c_lmbda + exp_mu2_tau
         return exp_sum
+
+    def var_mu(self):
+        return self.beta / (self.lmbda * (self.alpha - 1))
+
+    def var_tau(self):
+        return self.alpha / self.beta ** 2
 
     def __str__(self):
         summary = ["[qMuTau summary]"]

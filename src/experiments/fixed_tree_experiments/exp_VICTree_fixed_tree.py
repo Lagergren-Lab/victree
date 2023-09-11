@@ -199,14 +199,14 @@ class VICTreeFixedTreeExperiment():
         seeds = list(range(0, 5))
         K = 7
         A = 7
-        step_size = 1.0
+        step_size = 0.3
 
         # Prior parameters
         dir_alpha0 = 10.
         nu_0 = 1.
-        lambda_0 = 10.
-        alpha0 = 500.
-        beta0 = 50.
+        lambda_0 = 100.
+        alpha0 = 5000.
+        beta0 = 500.
         a0 = 1.0
         b0 = 200.0
 
@@ -229,28 +229,33 @@ class VICTreeFixedTreeExperiment():
         elbo_list = []
         elbo = []
 
-        if save_plot:
-            dirs = os.getcwd().split('/')
-            dir_top_idx = dirs.index('experiments')
-            dir_path = dirs[dir_top_idx:]
-            path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-            path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}')
-            base_dir = '../../../tests/test_output'
-            test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
+
 
         for seed in seeds:
             utils.config.set_seed(seed)
+            if save_plot:
+                dirs = os.getcwd().split('/')
+                dir_top_idx = dirs.index('experiments')
+                dir_path = dirs[dir_top_idx:]
+                path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}/seed_{seed}')
+                base_dir = '../../../tests/test_output'
+                test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
+
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size,
-                            save_progress_every_niter=n_iter + 1, chromosome_indexes=data_handler.get_chr_idx(),
-                            out_dir=test_dir_name, split=True)
+                            save_progress_every_niter=10, chromosome_indexes=data_handler.get_chr_idx(),
+                            out_dir=test_dir_name, split=True,
+                            diagnostics=False)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
             qpi = qPi(config, delta_prior=dir_alpha0)
             qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
-            qc = qCMultiChrom(config)
+            qc = qC(config)
             q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             q.initialize()
             qmt.initialize(method='prior')
+            qc.initialize(method='clonal', obs=y)
+            qz.update(qmt, qc, qpi, y)
             victree = VICTree(config, q, y, data_handler)
 
             victree.run(n_iter=n_iter)
@@ -272,7 +277,7 @@ class VICTreeFixedTreeExperiment():
 
 
 if __name__ == '__main__':
-    n_iter = 200
+    n_iter = 20
     experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
