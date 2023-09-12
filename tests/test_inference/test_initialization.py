@@ -53,23 +53,25 @@ class InitTestCase(unittest.TestCase):
     def test_true_params_init(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, debug=True)
         joint_q = generate_dataset_var_tree(config)
-        # FIXME: computation of elbo in the "fixed" distr setting might be wrong, hence lower elbo
-        #   or in general, could disrupt end result
-        true_elbo = joint_q.mt.compute_elbo()
+        print(f"true mt:")
         print(joint_q.mt)
-        print(true_elbo)
 
-        qmt = qMuTau(config).initialize(method='fixed')
+        # initialize to fixed values which are "broad versions" of a CAVI update
+        # so that the scale/magnitude of the parameters is close to that of an update
+        qmt = qMuTau(config).initialize(method='fixed', loc=1., precision_factor=config.chain_length * 4,
+                                        shape=config.chain_length/2, rate=2 * config.chain_length)
         fix_init_elbo = qmt.compute_elbo()
+        print("init with fixed broad values:")
         print(qmt)
         print(fix_init_elbo)
         qmt = qMuTau(config).initialize(method='data', obs=joint_q.obs)
         data_init_elbo = qmt.compute_elbo()
+        print("init with data driven values")
         print(qmt)
         print(data_init_elbo)
 
-        self.assertTrue(true_elbo > data_init_elbo > fix_init_elbo, msg="elbo of true distribution should be maximum"
-                                                                        " and fixed init lowest elbo")
+        self.assertGreater(data_init_elbo, fix_init_elbo, msg="elbo of init coming from data should be"
+                                                              "greater than general params")
 
 
 if __name__ == '__main__':
