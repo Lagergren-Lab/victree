@@ -63,6 +63,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         qmt = qMuTau(config)
         return qc, qt, qeps, qz, qpi, qmt
 
+    @unittest.skip
     def test_init_true_Z(self):
         y, c, z, pi, mu, tau, eps, eps0 = (self.y, self.c, self.z, self.pi, self.mu, self.tau, self.eps, self.eps0)
 

@@ -57,10 +57,9 @@ def draw_graph(G: nx.DiGraph, to_file=None):
 def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                                    root: int = 0, debug: bool = False, order_method='random'):
     # FIXME: something wrong with LArIS
-    # TODO: rename to laris
     # start with empty graph (only root)
-    s = nx.DiGraph()
-    s.add_node(root)
+    out_graph = nx.DiGraph()
+    out_graph.add_node(root)
     # copy graph so to remove arcs which shouldn't be considered
     # while S gets constructed
     skimmed_graph = copy.deepcopy(graph)
@@ -70,22 +69,27 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
     log_g = 0.
     candidate_arcs = get_ordered_arcs(skimmed_graph, method=order_method)
 
-    while s.number_of_edges() < graph.number_of_nodes() - 1:
+    while out_graph.number_of_edges() < graph.number_of_nodes() - 1:
         # new graph with all s arcs
-        g_with_s = new_graph_with_arcs(s.edges, graph)
+        g_with_s = new_graph_with_arcs(out_graph.edges, graph)
         num_candidates_left = len(candidate_arcs)
 
         feasible_arcs = []
         for u, v in candidate_arcs:
-
+            # from current graph, generate two new graphs
+            # one with the next candidate, one without
             g_w = new_graph_force_arc(u, v, g_with_s)
             g_wo = new_graph_without_arc(u, v, g_with_s)
-            t_w = t_wo = nx.DiGraph()  # empty graph
+            t_w = t_wo = nx.DiGraph()  # empty trees
+            # find MSTs from both graphs (if possible)
             try:
                 t_w = maximum_spanning_arborescence(g_w, preserve_attrs=True)
-                # save max feasible arcs
+                # save max feasible arcs if t_w has been found
                 feasible_arcs.append((u, v, graph.edges[u, v]['weight']))
                 t_wo = maximum_spanning_arborescence(g_wo, preserve_attrs=True)
+
+            # *****
+            # handle exceptions
             except nx.NetworkXException as nxe:
                 # go to next arc if, once some arcs are removed, no spanning arborescence exists
                 miss_counter += 1
@@ -98,45 +102,45 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
             if num_candidates_left == 0 and len(feasible_arcs) > 0:
                 # no arc allows for both t_w and t_wo to exist
                 # must choose one of the feasible ones (for which t_w exists)
-                # obliged choice -> theta = 1
-                # theta = torch.tensor(1.)
                 # randomize selection based on weights
                 (u, v), theta = _sample_feasible_arc(feasible_arcs)
             elif num_candidates_left == 0:
-                # heuristic: reset s
+                # heuristic: reset out_graph and start over
                 logging.debug("No more candidates in LArIS tree reconstruction. Restarting algorithm.")
-                s = nx.DiGraph()
-                s.add_node(root)
-                #skimmed_graph = copy.deepcopy(graph)
+                out_graph = nx.DiGraph()
+                out_graph.add_node(root)
                 break
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
                     raise Exception('t_w and t_wo are empty but being called')
+                # finish handling exceptions
+                # *****
+                # compute acceptance probability theta
                 w_Tw = torch.tensor([log_W[u, v] for (u, v) in t_w.edges()]).sum()
                 w_To = torch.tensor([log_W[u, v] for (u, v) in t_wo.edges()]).sum()
                 theta = torch.exp(w_Tw - torch.logaddexp(w_Tw, w_To))
-                # theta2 = torch.exp(t_w.size(weight='weight') -
-                #                   torch.logaddexp(t_w.size(weight='weight'), t_wo.size(weight='weight')))
 
             if torch.rand(1) < theta:
-                s.add_edge(u, v, weight=graph.edges[u, v]['weight'])
-                # remove all incoming arcs to v (including u,v)
-                #skimmed_graph.remove_edges_from(graph.in_edges(v))
-                #skimmed_graph.remove_edges_from([(v, u)])
+                out_graph.add_edge(u, v, weight=graph.edges[u, v]['weight'])
+
+                # remove all incoming arcs to v (including u,v) from candidates
                 candidates_to_remove = list(graph.in_edges(v))
                 candidates_to_remove.append((v, u))
                 candidate_arcs = [a for a in candidate_arcs if a not in candidates_to_remove]
+
                 # prob of sampling the tree: prod of bernoulli trials
                 log_g += torch.log(theta)
-                # go to while and check if s is complete
+                # go to while and check if out_graph is complete
                 break
 
-    return s, log_g
+    return out_graph, log_g
 
 
 def _sample_feasible_arc(weighted_arcs):
     # weighted_arcs is a list of 3-tuples (u, v, weight)
     unnorm_probs = torch.stack([w for u, v, w in weighted_arcs])
+    # heuristic for choosing which arc to select among
+    # the feasible ones (w is in log scale, but here it doesn't matter)
     probs = unnorm_probs / unnorm_probs.sum()
     c = np.random.choice(np.arange(len(weighted_arcs)), p=probs.numpy())
     return weighted_arcs[c][:2], probs[c]

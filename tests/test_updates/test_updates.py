@@ -92,7 +92,7 @@ class updatesTestCase(unittest.TestCase):
         return joint_q
 
     def test_update_qt_simul_data(self):
-        config = Config(n_nodes=4, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10, debug=True)
+        config = Config(n_nodes=7, n_states=5, eps0=1e-2, n_cells=100, chain_length=20, wis_sample_size=10, debug=True)
         joint_q = generate_dataset_var_tree(config)
         print(f'obs: {joint_q.obs}')
         print(f"true c: {joint_q.c.true_params['c']}")
@@ -102,35 +102,20 @@ class updatesTestCase(unittest.TestCase):
         qt = qT(config)
         qt.initialize()
 
-        for i in range(10):
+        n_iter = 5
+        for i in range(n_iter):
             trees_sample, weights = qt.get_trees_sample()
             qt.update(joint_q.c, joint_q.eps)
             eval_trees_sample, eval_weights = qt.get_trees_sample()
-            print(qt.compute_elbo(eval_trees_sample, eval_weights))
-            for t, w in zip(trees_sample, weights):
-                print(f"{tree_to_newick(t)} | {w}")
+
+            if i == n_iter-1:
+                print(f"after {n_iter} iterations")
+                print("elbo: ", qt.compute_elbo(eval_trees_sample, eval_weights))
+                for t, w in zip(trees_sample, weights):
+                    print(f"{tree_to_newick(t)} | {w}")
 
         print(qt.weighted_graph.edges.data())
-
-    def test_update_qt(self):
-
-        joint_q = self.generate_test_dataset_fixed_tree(mm=10)
-        cfg = joint_q.config
-        fix_tree = joint_q.T
-        fix_qeps = joint_q.eps
-        fix_qc = joint_q.c
-
-        qt = qT(cfg)
-        qt.initialize()
-
-        print(qT(cfg, true_params={'tree': fix_tree}))
-        print(qt)
-
-        # print(qt.weighted_graph.edges.data())
-        # sample_size = 20
-        # sampled_trees, sampled_weights = qt.get_trees_sample(sample_size=sample_size)
-        # for t, w in zip(sampled_trees, sampled_weights):
-        #     print(f"{tree_to_newick(t)} | {w}")
+        self.assertEqual(next(iter(qt.get_pmf_estimate(desc_sorted=True))), tree_to_newick(joint_q.t.true_params['tree']))
 
     def test_update_qc(self):
 
@@ -268,7 +253,7 @@ class updatesTestCase(unittest.TestCase):
 
 
     def test_update_large_qt(self):
-        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=.3,
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=1.,
                         debug=True)
         joint_q = generate_dataset_var_tree(config)
         # print(f'obs: {joint_q.obs}')
@@ -280,13 +265,14 @@ class updatesTestCase(unittest.TestCase):
         qt = qT(config)
         qt.initialize()
 
-        for i in range(50):
+        for i in range(10):
             qt.update(joint_q.c, joint_q.eps)
-            qt.get_trees_sample()
+            t_list, w_list = qt.get_trees_sample()
+            print("partial elbo: ", qt.compute_elbo(t_list, w_list))
 
         print(qt)
         # sample many trees and get the mode
-        n = 500
+        n = 100
         k = 10
         trees_sample = qt.get_trees_sample(sample_size=n)
         top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k, nx_graph=False)

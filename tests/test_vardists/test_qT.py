@@ -93,7 +93,7 @@ class qTTestCase(unittest.TestCase):
                         msg=f"true " + gt_tree_newick + f" not in the first {tol} trees. those are:"
                                                         f"{sorted_newick[0]} | {sorted_newick[1]} | {sorted_newick[2]}")
 
-    def test_qT_one_step_conncections_more_probable_than_two_step_connections_on_simulated_data(self):
+    def test_qT_one_step_connections_more_probable_than_two_step_connections_on_simulated_data(self):
         N = 10
         M = 200
         K = 10
@@ -122,7 +122,8 @@ class qTTestCase(unittest.TestCase):
         two_step_connections = tree_utils.get_all_two_step_connections(T)
         for (u, v) in T.edges:
             for w in two_step_connections[u]:
-                self.assertGreater(W[u, v], W[u, w], msg='One step connection weaker than two step connection (based on true tree)')
+                self.assertGreater(W[u, v], W[u, w], msg='One step connection weaker than two step connection'
+                                                         ' (based on true tree)')
 
     def test_qT_small_epsilon_simulated_data(self):
         N = 10
@@ -169,44 +170,6 @@ class qTTestCase(unittest.TestCase):
             else:
                 print(f"Non edge: {unique_edges_count[u, v]}")
 
-    # def test_qT_update_low_weights_for_improbable_epsilon(self):
-    #     set_seed(0)
-    #     N = 100
-    #     M = 100
-    #     K = 10
-    #     A = 7
-    #     eps_a = 5.
-    #     eps_b = 200.
-    #     true_tree = utils_testing.get_tree_K_nodes_random(K)
-    #     config = Config(n_cells=N, chain_length=M, n_nodes=K, n_states=A)
-    #     out_simul = simul.simulate_full_dataset(config, tree=true_tree, eps_a=eps_a, eps_b=eps_b, mu0=1., lambda0=10.,
-    #                       alpha0=500., beta0=50., dir_alpha=10.)
-    #     c = out_simul["c"]
-    #     eps = out_simul["eps"]
-    #     q_T = qT(config=config)
-    #     q_C = qC(config=config)
-    #     q_C_pairwise_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A)
-    #     q_C.couple_filtering_probs = q_C_pairwise_marginals
-    #     q_epsilon = qEpsilonMulti(config=config)
-    #     gedges = [(u, v) for u, v in itertools.product(range(config.n_nodes),
-    #                                                    range(config.n_nodes)) if v != 0 and u != v]
-    #
-    #     # Set epsilon parameters close to true parameters for edges in true tree and far away for edges not in tree
-    #     eps_alpha_dict = {e: torch.tensor(1.) for e in gedges}
-    #     eps_beta_dict = {e: 1./eps[e] if e in eps.keys() else torch.tensor(eps_b / 100.) for e in gedges}
-    #     q_epsilon.initialize(method="fixed", eps_alpha_dict=eps_alpha_dict, eps_beta_dict=eps_beta_dict)
-    #     q_T.initialize()
-    #     q_T.update(q_C, q_epsilon)
-    #     print(q_T)
-    #
-    #     # Expect weights of edges in true tree to be larger than edges not in true tree
-    #     min_weight = np.min([q_T.weight_matrix[u, v] for (u, v) in true_tree.edges()])
-    #
-    #     for u in range(K):
-    #         for v in range(K):
-    #             if (u, v) not in true_tree.edges() and v != 0 and u != v:
-    #                 self.assertGreater(min_weight, q_T.weight_matrix[u, v])
-    #
     def test_qT_given_true_parameters(self):
         set_seed(0)
         N = 100

@@ -957,7 +957,9 @@ class qT(VariationalDistribution):
         # so that tree.size() is log_prob of tree (sum of log_weights)
         self.log_g_t = torch.empty((config.wis_sample_size,))
         self.log_w_t = torch.zeros((config.wis_sample_size,))
-        self.nx_trees_sample = []
+        self.nx_trees_sample = [None] * config.wis_sample_size
+        # weights in the graph are in log-scale
+        # i.e. sum(w in T) \propto log q(T)
         self._weighted_graph = nx.DiGraph()
         self._weighted_graph.add_edges_from([(u, v)
                                              for u, v in itertools.permutations(range(config.n_nodes), 2)
@@ -1007,6 +1009,9 @@ class qT(VariationalDistribution):
         else:
             raise ValueError(f'method `{method}` for qT initialization is not implemented')
 
+        # initialize cached (tree, weight) list
+        # in self.log_w_t, self.nx_tree_sample
+        self.get_trees_sample()
         return super().initialize(**kwargs)
 
     def neg_cross_entropy(self):
@@ -1038,7 +1043,7 @@ other elbos such as qC.
         """
         if trees is None or weights is None:
             trees = self.nx_trees_sample
-            weights = self.log_w_t.exp()
+            weights = self.log_w_t
         elbo = self.neg_cross_entropy() + self.entropy(trees, weights)
         # convert to python float
         return elbo.item()
@@ -1050,7 +1055,7 @@ other elbos such as qC.
         super().update()
 
     def update_params(self, new_weights: torch.Tensor):
-        rho = self.config.step_size  # TODO: step size not applicable here?
+        rho = self.config.step_size
         prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
         stepped_weights = (1 - rho) * prev_weights + rho * new_weights
 
@@ -1064,11 +1069,7 @@ other elbos such as qC.
         for u, v in all_edges:
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-        # chain length determines how large log-weights are
-        # while they should be length invariant
-        # FIXME: avoid this hack
-        # TODO: implement tempering (check tempered/annealing in VI)
-        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
+        w_tensor = torch.tensor(list(new_log_weights.values()))
         self.update_params(w_tensor)
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
@@ -1157,25 +1158,23 @@ Sample trees from q(T) with importance sampling.
             for i in range(l):
                 t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph)
                 trees.append(t)
-                log_q = t.size(weight='weight')  # unnormalized q(T)
+                log_q = t.size(weight='weight')  # unnormalized log q(T)
                 log_weights[i] = log_q - log_g
                 log_gs[i] = log_g
-                # get_trees_sample can be called with arbitrary sample_size
-                # e.g. in case of evaluation we might want more than config.wis_sample_size trees
-                # this avoids IndexOutOfRange error
-                if i < self.config.wis_sample_size:
-                    self.log_g_t[i] = log_g.detach().clone()
-                    self.log_w_t[i] = log_weights[i]
             # the weights are normalized
             # TODO: aggregate equal trees and adjust their weights accordingly
             log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
-        # only first trees are saved (see comment above)
-        # FIXME: this is just a temporary fix for sample_size param being different than config.wis_sample_size
-        min_size = min(self.config.wis_sample_size, l)
-        self.nx_trees_sample = trees[:min_size]
+        # cache trees, log_g and log_w
+        # get_trees_sample can be called with arbitrary sample_size
+        # e.g. in case of evaluation we might want more than config.wis_sample_size trees
+        if l >= self.config.wis_sample_size:
+            self.nx_trees_sample = trees[:self.config.wis_sample_size]
+            self.log_g_t = log_gs[:self.config.wis_sample_size]
+            self.log_w_t = log_weights[:self.config.wis_sample_size]
+
         out_weights = log_weights
         if not log_scale:
             out_weights = torch.exp(log_weights)
@@ -1226,10 +1225,11 @@ of the variational distribution over the topology.
         else:
             summary.append(f"-adj matrix\n\t{nx.to_numpy_array(self._weighted_graph)}")
             summary.append(f"-sampled trees:")
-            qdist = self.get_pmf_estimate()
-            # TODO: sort in get_pmf_estimate
+            qdist = self.get_pmf_estimate(desc_sorted=True)
             display_num = min(10, len(qdist.keys()))
-            for t_nwk in sorted(qdist, key=qdist.get, reverse=True)[:display_num]:
+            qdist_iter = iter(qdist)
+            for i in range(display_num):
+                t_nwk = next(qdist_iter)
                 summary.append(f"\t\t{t_nwk} | {qdist[t_nwk]:.4f}")
             summary.append(f"partial ELBO\t{self.compute_elbo():.2f}")
 
@@ -1850,15 +1850,14 @@ Initialize the mu and tau params given observations
         Args:
             obs: data, tensor (chain_length, n_cells)
         """
-        # FIXME: test does not work
         clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
 
-        self.nu = torch.mean(clean_obs/2, dim=0)
-        self.alpha = torch.ones((self.config.n_cells,))  # init alpha to small value (1)
+        self.nu = torch.ones((self.config.n_cells,))
+        self.alpha = self.config.chain_length / 2 * torch.ones((self.config.n_cells,))
         var = torch.var(clean_obs, dim=0).clamp(min=.01)  # avoid 0 variance
         self.beta = var * self.alpha
-        # set lambda to 1. (arbitrarily)
-        self.lmbda = torch.tensor(1.) * torch.ones((self.config.n_cells,))
+        # set lambda to a value which scales with total chain length (in concordance with CAVI update)
+        self.lmbda = 4 * self.config.chain_length * torch.ones((self.config.n_cells,))
 
     def neg_cross_entropy_old(self) -> float:
         CE_prior = self.alpha_0 * torch.log(self.beta_0) + 0.5 * torch.log(self.lmbda_0) - torch.lgamma(self.alpha_0)
