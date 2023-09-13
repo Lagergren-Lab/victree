@@ -47,12 +47,7 @@ def run(args):
     if config.chromosome_indexes:
         qc = qCMultiChrom(config)
     if args.tree_path:
-        tree = Phylo.read(args.tree_path, 'newick')
-        und_tree_nx = Phylo.to_networkx(tree)
-        und_tree_nx = nx.convert_node_labels_to_integers(und_tree_nx)
-        tree_nx = nx.DiGraph()
-        tree_nx.add_edges_from(und_tree_nx.edges())
-        assert tree_nx.number_of_nodes() == config.n_nodes, "newick tree does not match the number of nodes K"
+        tree_nx = parse_newick(args, config)
         joint_q = FixedTreeJointDist(obs=obs, config=config, qc=qc, qeps=qeps, qpsi=qmt, qpi=qpi, T=tree_nx)
     else:
         joint_q = VarTreeJointDist(config, obs, qc=qc, qmt=qmt, qeps=qeps, qpi=qpi)
@@ -77,3 +72,13 @@ def run(args):
     victree.write()
 
     return victree
+
+
+def parse_newick(args, config):
+    tree = Phylo.read(args.tree_path, 'newick')
+    und_tree_nx = Phylo.to_networkx(tree)
+    und_tree_nx = nx.convert_node_labels_to_integers(und_tree_nx)
+    tree_nx = nx.DiGraph()
+    tree_nx.add_edges_from(und_tree_nx.edges())
+    assert tree_nx.number_of_nodes() == config.n_nodes, "newick tree does not match the number of nodes K"
+    return tree_nx
