@@ -11,7 +11,13 @@ class SplitAndMergeOperations:
     def __init__(self, cluster_split_threshold=0.01):
         self.cluster_split_threshold = cluster_split_threshold
 
-    def split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+    def split(self, method, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+        if method == 'naive':
+            self.naive_split(obs, qc, qz, qpsi, qpi)
+        elif method == 'new':
+            self.new_split(obs, qc, qz, qpsi, qpi)
+
+    def naive_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
         """
         Implements the split part of the split-and-merge algorithm commonly used in Expectation Maximization.
         Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
@@ -82,3 +88,6 @@ class SplitAndMergeOperations:
         if root in empty_clusters:
             empty_clusters = empty_clusters[empty_clusters != 0]
         return cluster_assignments_avg, empty_clusters
+
+    def new_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+        pass
