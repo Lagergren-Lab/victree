@@ -1043,6 +1043,9 @@ other elbos such as qC.
         """
         if trees is None or weights is None:
             trees = self.nx_trees_sample
+            # FIXME: weights should not be in log scale when computing entropy
+            #   but if the log weights are too large in abs value, exponentiating
+            #   will lead to zero
             weights = self.log_w_t
         elbo = self.neg_cross_entropy() + self.entropy(trees, weights)
         # convert to python float
@@ -1064,12 +1067,13 @@ other elbos such as qC.
         return self._weighted_graph.edges.data('weight')
 
     def update_graph_weights(self, qc: qC | qCMultiChrom, qeps: Union['qEpsilon', 'qEpsilonMulti']):
+
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
         new_log_weights = {}
         for u, v in all_edges:
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
-        w_tensor = torch.tensor(list(new_log_weights.values()))
+        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length * self.config.tree_confidence_factor
         self.update_params(w_tensor)
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):

@@ -15,7 +15,7 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qC
 class qTTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
-        set_seed(42)
+        set_seed(1010)
 
     def test_tree_enumeration(self):
         qt5: qT = qT(config=Config(n_nodes=5))
@@ -225,4 +225,24 @@ class qTTestCase(unittest.TestCase):
         print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
         print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
         print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
+
+    def test_tree_confidence_factor(self):
+
+        config = Config(n_nodes=6, n_states=7, n_cells=500, chain_length=1000,
+                        wis_sample_size=50, step_size=1., debug=True)
+        joint_q = simul.generate_dataset_var_tree(config)
+        true_tree_newick = tree_to_newick(joint_q.t.true_params['tree'])
+        print(f"true tree: {true_tree_newick}")
+        for tcf in [1., 10., 50., 100., 500., 1000.]:
+            config.tree_confidence_factor = tcf
+
+            qt = qT(config)
+            qt.initialize()
+
+            for i in range(10):
+                qt.update(joint_q.c, joint_q.eps)
+
+            print(f"factor: {tcf}")
+            print(qt.get_pmf_estimate(normalized=True, desc_sorted=True))
+
 

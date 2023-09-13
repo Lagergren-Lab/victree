@@ -26,7 +26,8 @@ class Config:
                  save_progress_every_niter: int = 10,
                  qc_smoothing=False,
                  curr_it: int = 0,
-                 split=False) -> None:
+                 split=False,
+                 tree_confidence_factor: float = 1.) -> None:
         self.split = split
         self.curr_it = curr_it
         self.qc_smoothing = qc_smoothing
@@ -49,6 +50,7 @@ class Config:
         self._debug = debug
         self._out_dir = out_dir
         self._save_progress_every_niter = save_progress_every_niter
+        self._tree_confidence_factor = tree_confidence_factor
 
     @property
     def n_nodes(self):
@@ -133,6 +135,15 @@ class Config:
     @save_progress_every_niter.setter
     def save_progress_every_niter(self, save_progress_every_niter: int):
         self._save_progress_every_niter = save_progress_every_niter
+
+    @property
+    def tree_confidence_factor(self):
+        # large factor will output tree samples that are more confident on one or fewer trees
+        return self._tree_confidence_factor
+
+    @tree_confidence_factor.setter
+    def tree_confidence_factor(self, a):
+        self._tree_confidence_factor = a
 
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \
