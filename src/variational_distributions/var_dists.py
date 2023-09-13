@@ -1759,7 +1759,7 @@ class qMuTau(qPsi):
         }
 
     def update(self, qc: qC | qCMultiChrom, qz: qZ, obs: torch.Tensor, batch=None):
-        alpha, beta, lmbda, mu = self.update_CAVI(obs, qc, qz, batch)
+        mu, lmbda, alpha, beta = self.update_CAVI(obs, qc, qz, batch)
 
         new_mu, new_lmbda, new_alpha, new_beta = self.update_params(mu, lmbda, alpha, beta, batch)
 

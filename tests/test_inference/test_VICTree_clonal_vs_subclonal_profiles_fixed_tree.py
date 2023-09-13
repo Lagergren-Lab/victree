@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-#@unittest.skip('long exec test')
+@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -284,6 +284,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z2_remapped, tree, mu, tau, eps, eps0, pi,
                                                   test_dir_path=test_dir_name, file_name_prefix='clonal_init_')
 
+    @unittest.skip('long exec test')
     def test_clonal_profile_init_real_data(self):
         torch.manual_seed(0)
 
@@ -369,6 +370,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         sys.stdout = orig_stdout
         f.close()
 
+    @unittest.skip('long exec test')
     def test_clonal_profile_init_and_split_vs_no_split(self):
         utils.config.set_seed(0)
         seeds = list(range(2, 4))
@@ -470,6 +472,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         print(f'SPLIT - ARI mean over inference seed: {np.mean(ari_list_list, axis=-1)} ({np.std(ari_list_list, axis=-1)})')
         print(f'NO SPLIT - ARI mean over inference seed: {np.mean(ari2_list_list, axis=-1)} ({np.std(ari2_list_list, axis=-1)})')
 
+    @unittest.skip('long exec test')
     def test_SVI_split_and_clonal_init(self):
         utils.config.set_seed(0)
         seeds = list(range(0, 5))
