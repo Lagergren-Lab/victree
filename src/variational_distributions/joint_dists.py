@@ -262,6 +262,39 @@ class FixedTreeJointDist(JointDist):
 
         super().update()
 
+
+    def SVI_update(self, it=0):
+        """
+        Joint distribution SVI update: update the local variables batch wise, then update global variables
+        with smaller step size.
+        """
+
+        N = self.obs.shape[1]
+        batches = torch.randperm(N)
+        batch_size = self.config.batch_size
+        n_batches = int(N / batch_size)
+        for i in range(n_batches + 1):
+            # Local updates
+            if i == n_batches and N % batch_size != 0:
+                batch = batches[i * batch_size: i * batch_size + N % batch_size]
+            elif i == n_batches and N % batch_size == 0:
+                continue
+            else:
+                batch = batches[i*batch_size: i*batch_size + batch_size]
+            self.z.update(self.mt, self.c, self.pi, self.obs[:, batch], batch)
+            self.mt.update(self.c, self.z, self.obs[:, batch], batch)
+
+            # Global updates
+            self.c.update(self.obs[:, batch], self.eps, self.z, self.mt, [self.T], self.w_T, batch)
+
+            if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
+                self.c.smooth_etas()
+                self.c.compute_filtering_probs()
+            self.eps.update([self.T], self.w_T, self.c)
+            self.pi.update(self.z)
+
+        super().update()
+
     def get_units(self) -> list:
         # TODO: if needed, specify an ordering
         return [self.c, self.eps, self.pi, self.z, self.mt]
@@ -331,16 +364,16 @@ class FixedTreeJointDist(JointDist):
 
             c2 = c ** 2
             M, N = y.shape
-            E_CZ_log_tau = torch.einsum("umi, nu, n, m ->", qC, qZ, E_log_tau, (~nan_mask).float()) \
+            E_CZ_log_tau = torch.einsum("nu, n ->", qZ, E_log_tau) * M_notnan \
                 if type(self.mt) is qMuTau \
                 else torch.einsum("umi, nu, m ->", qC, qZ, E_log_tau, (~nan_mask).float())
 
-            E_CZ_tau_y2 = torch.einsum("umi, nu, n, mn ->", qC, qZ, E_tau, y ** 2) if type(
+            E_CZ_tau_y2 = torch.einsum("nu, n, mn ->", qZ, E_tau, y ** 2) if type(
                 self.mt) is qMuTau else torch.einsum("umi, nu, , mn ->", qC, qZ, E_tau, y ** 2)
             E_CZ_mu_tau_cy = torch.einsum("umi, nu, n, mn, mni ->", qC, qZ, E_mu_tau, y, c.expand(M, N, A))
             E_CZ_mu2_tau_c2 = torch.einsum("umi, nu, n, i, m ->", qC, qZ, E_mu2_tau, c2, (~nan_mask).float())
-            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - N * M_notnan *
-                            torch.log(torch.tensor(2 * torch.pi)))
+            constant_term = N * M_notnan * torch.log(torch.tensor(2 * torch.pi))
+            elbo = 1 / 2 * (E_CZ_log_tau - E_CZ_tau_y2 + 2 * E_CZ_mu_tau_cy - E_CZ_mu2_tau_c2 - constant_term)
 
             if self.config.debug:
                 assert not torch.isnan(elbo).any()

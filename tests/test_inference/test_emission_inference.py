@@ -105,7 +105,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
-        qmt.update_params(mu=mu, lmbda=torch.ones(n_cells) * 10,
+        qmt.update_params(nu=mu, lmbda=torch.ones(n_cells) * 10,
                           alpha=torch.ones(n_cells) * 10,
                           beta=torch.ones(n_cells) * 10)
         copy_tree = VICTree(config, q, y, draft=True)

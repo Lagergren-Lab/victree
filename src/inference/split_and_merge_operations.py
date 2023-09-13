@@ -11,7 +11,13 @@ class SplitAndMergeOperations:
     def __init__(self, cluster_split_threshold=0.01):
         self.cluster_split_threshold = cluster_split_threshold
 
-    def split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+    def split(self, method, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+        if method == 'naive':
+            self.naive_split(obs, qc, qz, qpsi, qpi)
+        elif method == 'new':
+            self.new_split(obs, qc, qz, qpsi, qpi)
+
+    def naive_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
         """
         Implements the split part of the split-and-merge algorithm commonly used in Expectation Maximization.
         Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
@@ -62,9 +68,10 @@ class SplitAndMergeOperations:
                                                                      qc_chrom.config.n_states))
         qc.compute_filtering_probs()
 
-    def select_clusters_to_split(self, cluster_assignments_avg, empty_clusters):
+    def select_clusters_to_split(self, cluster_assignments_avg, empty_clusters, root=0):
         # Select clusters to split
         largest_clusters_values, largest_clusters_idx = torch.sort(cluster_assignments_avg, descending=True)
+
         cumulative_cluster_prob = torch.cumsum(largest_clusters_values, dim=0)
         print(f'Split clusters with indexes: {empty_clusters}')
         logging.debug(f'Based on average cluster assignments: {cluster_assignments_avg}')
@@ -75,7 +82,12 @@ class SplitAndMergeOperations:
         k_merge_cluster = empty_clusters[0]
         return k_merge_cluster, k_split_cluster, largest_clusters_idx
 
-    def find_empty_clusters(self, qz: qZ):
+    def find_empty_clusters(self, qz: qZ, root=0):
         cluster_assignments_avg = qz.pi.mean(dim=0)
         empty_clusters = torch.where(cluster_assignments_avg < self.cluster_split_threshold)[0]
+        if root in empty_clusters:
+            empty_clusters = empty_clusters[empty_clusters != 0]
         return cluster_assignments_avg, empty_clusters
+
+    def new_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+        pass

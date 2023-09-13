@@ -13,7 +13,7 @@ class qPsi(VariationalDistribution):
         self.temp = 1.0
         super().__init__(config, fixed)
 
-    def exp_log_emission(self, obs: torch.Tensor):
+    def exp_log_emission(self, obs: torch.Tensor, batch):
         raise NotImplementedError
 
     def get_nan_mask(self, obs):
