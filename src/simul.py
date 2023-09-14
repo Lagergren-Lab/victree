@@ -98,7 +98,7 @@ def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu):
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False,
-                          fixed_z:torch.Tensor = None):
+                          fixed_z:torch.Tensor = None, cne_length_factor: int = 0):
     """
 Generate full simulated dataset.
     Args:
@@ -111,6 +111,9 @@ Generate full simulated dataset.
         beta0: float, param for NormalGamma distribution over mu/tau
         chr_df: pd.DataFrame with cols ['chr', 'start', 'end']
             If None, a real-data like 24 chr binning of the genome is used
+        cne_length_factor: int, the higher, the longer the copy number events will be on average.
+         if set to 0, no correction is performed and copy number transition is only
+         determined by the markov model
 
     Returns:
         dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx', 'adata']
@@ -150,10 +153,24 @@ Generate full simulated dataset.
         for ci in range(n_chromosomes):
             lb, ub = ext_chr_idx[ci], ext_chr_idx[ci + 1]
             c[v, lb] = torch.distributions.Categorical(probs=t0).sample()
+            basal_cn_idx = lb
+
+            on_cne = False
             for m in range(lb + 1, ub):
                 # j', j, i', i
-                transition = h_eps_uv[:, c[v, m - 1], c[u, m], c[u, m - 1]]
-                c[v, m] = torch.distributions.Categorical(probs=transition).sample()
+
+                if on_cne and torch.rand(1) < 1 / cne_length_factor:
+                    # terminate cn event
+                    c[v, m] = c[v, basal_cn_idx]
+                else:
+                    transition = h_eps_uv[:, c[v, m - 1], c[u, m], c[u, m - 1]]
+                    c[v, m] = torch.distributions.Categorical(probs=transition).sample()
+
+                # in case of copy number change, keep track of previous cn
+                # and alter transition to favor copy number comeback
+                if cne_length_factor != 0 and c[v, m] != c[v, m-1]:
+                    # set flag to true when cn event starts, back to false if it ends
+                    on_cne = c[v, m] != c[v, basal_cn_idx]
 
     # sample mu_n, tau_n
     tau = torch.distributions.Gamma(alpha0, beta0).sample((config.n_cells,))
