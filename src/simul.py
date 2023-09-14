@@ -77,6 +77,24 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
     return splits_df
 
 
+def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu):
+
+    adata = anndata.AnnData(raw_counts.T.numpy())
+    adata.layers['copy'] = obs.T.numpy()
+
+    cn_state = c[z, :].numpy()
+    assert cn_state.shape == adata.shape
+    adata.layers['state'] = cn_state
+    adata.obs['clone'] = z.numpy()
+    adata.obs['clone'] = adata.obs['clone'].astype('category')
+    adata.obs['baseline'] = mu.numpy()
+
+    if chr_dataframe is not None:
+        adata.var = chr_dataframe
+
+    return adata
+
+
 def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
                           alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False,
@@ -154,7 +172,7 @@ Generate full simulated dataset.
     obs_mean = c[z, :] * mu[:, None]  # n_cells x chain_length
     scale_expanded = torch.pow(tau, -1 / 2).reshape(-1, 1).expand(-1, config.chain_length)
     # (chain_length x n_cells)
-    obs = torch.distributions.Normal(obs_mean, scale_expanded).sample()
+    obs = torch.distributions.Normal(obs_mean, scale_expanded).sample().clamp(min=0.)
     obs = obs.T
 
     raw_counts = sample_raw_counts_from_corrected_data(obs) if raw_reads is True else None
@@ -168,10 +186,7 @@ Generate full simulated dataset.
     assert obs.shape == (config.chain_length, config.n_cells)
 
     # handy anndata object
-    adata = anndata.AnnData(raw_counts.T.numpy())
-    adata.layers['copy'] = obs.T.numpy()
-    if chr_df is not None:
-        adata.var = chr_df
+    adata = make_anndata(obs, raw_counts, chr_df, c, z, mu)
 
     out_simul = {
         'obs': obs,
@@ -478,24 +493,6 @@ def generate_dataset_var_tree(config: Config,
 
 
 # script for simulating data
-def write_simulated_dataset_h5ad(data, chr_df, out_path, filename):
-
-    x_ds = data['raw'].T.numpy()
-    anndat = anndata.AnnData(X=x_ds)
-    z = data['z']
-    cn_state = data['c'][z, :].numpy()
-    assert cn_state.shape == anndat.shape
-    anndat.layers['state'] = cn_state
-    anndat.layers['copy'] = data['obs'].T.numpy()
-    anndat.obs['clone'] = z.numpy()
-    anndat.obs['clone'] = anndat.obs['clone'].astype('category')
-    anndat.obs['baseline'] = data['mu'].numpy()
-
-    anndat.var = chr_df
-
-    anndat.write_h5ad(Path(out_path, filename + '.h5ad'))
-
-
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(
         description="Data simulation script. Output format is compatible with VIC-Tree interface."
@@ -577,6 +574,6 @@ if __name__ == '__main__':
                f'e{int(args.eps_params[0])}-{int(args.eps_params[1])}' \
                f'd{conc_fact_str}' \
                f'mt{"-".join(map(str, map(int, args.mutau_params)))}'
-    write_simulated_dataset_h5ad(data, chr_df, args.out_path, filename)
+    data['adata'].write_h5ad(Path(args.out_path, filename + '.h5ad'))
     # write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')
