@@ -23,6 +23,9 @@ def write_inference_output_no_ground_truth(victree, y, test_dir_path, file_name_
     visualization_utils.visualize_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
                                                 save_path=test_dir_path +
                                                           f'/{file_name_prefix}qC_qZ_plot.png')
+    visualization_utils.visualize_subclonal_structures_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
+                                                            save_path=test_dir_path +
+                                                          f'/{file_name_prefix}no_clonal_qC_qZ_plot.png')
 
     visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_path + f'/{file_name_prefix}qMuTau_plot.png')
     if tree is not None:
