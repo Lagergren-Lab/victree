@@ -187,6 +187,7 @@ def compare_qPi_and_true_pi(true_pi, qpi, perm):
 def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_epsilon,
                         q_c: qC, q_z: qZ, qpi: qPi, q_mt: qMuTau, q_eps: qEpsilonMulti = None, perm=None):
     torch.set_printoptions(precision=2)
+    print("----------------------- Fixed tree comparisons START --------------------------------------------------- \n")
     ari, perm, acc = compare_qZ_and_true_Z(true_Z, q_z, perm)
     if qpi is not None:
         compare_qPi_and_true_pi(true_pi, qpi, perm)
@@ -196,7 +197,7 @@ def fixed_T_comparisons(obs, true_C, true_Z, true_pi, true_mu, true_tau, true_ep
     if q_eps is not None:
         compare_qEpsilon_and_true_epsilon(true_epsilon, q_eps, perm)
     log_L_true_model, log_L_var_model = compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu, true_tau, q_c, q_z, q_mt, perm)
-    print("---- Fixed tree comparisons END ------- \n")
+    print("------------------------ Fixed tree comparisons END ---------------------------------------------------- \n")
     out = {'ari': ari, 'perm': perm, 'acc': acc, 'qC_n_diff': qC_n_diff,
            'll_true': log_L_true_model, 'll_var': log_L_var_model, 'mu_avg_dist': mu_avg_dist}
     return out

@@ -245,6 +245,12 @@ def visualize_subclonal_structures_qC_qZ_and_obs(qc, qz, obs, save_path=None,
 
     K, M, A = qc.single_filtering_probs.shape
     qc_viterbi = qc.get_viterbi()
+    subclonal_sites = []
+    for m in range(M):
+        if (qc_viterbi[1:, m] - qc_viterbi[1, m]).sum() != 0:
+            subclonal_sites.append(m)
+
+    n_subclonal_sites = len(subclonal_sites)
     qz_mean_assignment = qz.pi.mean(dim=0)
     n_col = 2
     n_rows = int(K / n_col) + 1 if K % n_col != 0 else int(K / n_col)
@@ -266,7 +272,7 @@ def visualize_subclonal_structures_qC_qZ_and_obs(qc, qz, obs, save_path=None,
 
         row = int(k / n_col)
         # axs[row, col_count].plot(sites, obs[:, qz.pi.argmax(dim=-1) == k])
-        axs[row, col_count].plot(sites, qc_viterbi[k])
+        axs[row, col_count].plot(range(n_subclonal_sites), qc_viterbi[k, subclonal_sites])
         axs[row, col_count].set_title(f'k = {k}')
         axs[row, col_count].text(0.1, 0.6, print_qz_mean[k], fontsize=7, transform=axs[row, col_count].transAxes,
                                  bbox={'facecolor': 'orange', 'alpha': 0.4, 'pad': 2})

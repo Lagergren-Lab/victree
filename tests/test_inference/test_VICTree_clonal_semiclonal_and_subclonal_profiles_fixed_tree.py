@@ -284,11 +284,11 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         utils_testing.write_inference_test_output(victree2, y_tot, c_tot_remapped2, z2_remapped, tree, mu, tau, eps, eps0, pi,
                                                   test_dir_path=test_dir_name, file_name_prefix='clonal_init_')
 
-    #@unittest.skip('long exec test')
+    @unittest.skip('long exec test')
     def test_clonal_profile_init_real_data(self):
         torch.manual_seed(0)
 
-        n_iter = 50
+        n_iter = 200
         K = 7
         tree = nx.DiGraph()
         tree.add_edge(0, 1)
@@ -313,7 +313,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
 
         # Run VICTree using normal initialization
-        config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.5,
+        config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
                               diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init1, self.id().replace(".", "/"),
@@ -332,7 +332,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
 
         # Run VICTree using init to clonal structure
-        config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.5,
+        config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
                               diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
@@ -357,9 +357,9 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         print(f"Avg assignment 1: {z1.mean(dim=0)}")
         print(f"Avg assignment 2: {z2.mean(dim=0)}")
 
-        visualization_utils.visualize_subclonal_structures_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
+        visualization_utils.visualize_qC_qZ_and_obs(victree.q.c, victree.q.z, y,
                                                     save_path=test_dir_name + '/default_init_qc_qz_obs_plot')
-        visualization_utils.visualize_subclonal_structures_qC_qZ_and_obs(victree2.q.c, victree2.q.z, y,
+        visualization_utils.visualize_qC_qZ_and_obs(victree2.q.c, victree2.q.z, y,
                                                     save_path=test_dir_name + '/clonal_init_qc_qz_obs_plot')
 
         visualization_utils.visualize_qMuTau(victree.q.mt, save_path=test_dir_name + '/defualt_init_qmt_plot')
