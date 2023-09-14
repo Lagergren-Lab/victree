@@ -199,7 +199,7 @@ class VICTreeFixedTreeExperiment():
         seeds = list(range(0, 5))
         K = 7
         A = 7
-        step_size = 0.3
+        step_size = 0.5
 
         # Prior parameters
         dir_alpha0 = 10.
@@ -243,19 +243,22 @@ class VICTreeFixedTreeExperiment():
                 test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
 
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size,
-                            save_progress_every_niter=10, chromosome_indexes=data_handler.get_chr_idx(),
+                            save_progress_every_niter=1000, chromosome_indexes=data_handler.get_chr_idx(),
                             out_dir=test_dir_name, split=True,
-                            diagnostics=False)
+                            diagnostics=True)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
             qpi = qPi(config, delta_prior=dir_alpha0)
             qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
-            qc = qC(config)
+            qc = qCMultiChrom(config)
             q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
-            q.initialize()
+            qpi.initialize()
+            qz.initialize()
+            qeps.initialize()
             qmt.initialize(method='prior')
             qc.initialize(method='clonal', obs=y)
-            qz.update(qmt, qc, qpi, y)
+            qz_param = qz.update_CAVI(qmt, qc, qpi, y)
+            qz.pi = qz_param
             victree = VICTree(config, q, y, data_handler)
 
             victree.run(n_iter=n_iter)
@@ -277,7 +280,7 @@ class VICTreeFixedTreeExperiment():
 
 
 if __name__ == '__main__':
-    n_iter = 20
+    n_iter = 50
     experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)

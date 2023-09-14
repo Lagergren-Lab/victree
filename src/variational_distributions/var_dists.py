@@ -293,9 +293,20 @@ class qC(VariationalDistribution):
         for k in range(1, self.config.n_nodes):
             star_tree.add_edge(0, k)
         weight = 1.0
+
+        # set root node to healthy sequence before update
+        root = 0
+        self.eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
+        self.eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
+        all_but_2 = torch.arange(self.config.n_states) != 2
+        self.eta1[root, all_but_2] = -torch.inf
+        self.eta2[root, :, :, all_but_2] = -torch.inf
+        self.compute_filtering_probs()
+
         eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
         self.eta1 = eta1
         self.eta2 = eta2
+        self.compute_filtering_probs()
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
@@ -742,12 +753,12 @@ class qCMultiChrom(VariationalDistribution):
 
         for (i, qc) in enumerate(self.qC_list):
             if method == 'clonal':
-                obs = kwargs['obs'][self.chr_start_points[i]:self.chr_start_points[i+1]]
-                qc._clonal_init(obs)
+                obs = {'obs': kwargs['obs'][self.chr_start_points[i]:self.chr_start_points[i+1]]}
+                qc.initialize(method, **obs)
             else:
                 qc.initialize(method, **kwargs)
 
-        return self
+        return super().initialize()
 
     def compute_elbo(self, T_list, w_T_list, q_eps: Union['qEpsilon', 'qEpsilonMulti']) -> float:
         elbo = 0

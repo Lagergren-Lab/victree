@@ -14,8 +14,8 @@ class SplitAndMergeOperations:
     def split(self, method, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
         if method == 'naive':
             self.naive_split(obs, qc, qz, qpsi, qpi)
-        elif method == 'new':
-            self.new_split(obs, qc, qz, qpsi, qpi)
+        elif method == 'categorical':
+            self.categorical_split(obs, qc, qz, qpsi, qpi)
 
     def naive_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
         """
@@ -30,8 +30,8 @@ class SplitAndMergeOperations:
             logging.debug(f'No empty clusters found')
             return False
 
-        k_merge_cluster, k_split_cluster, largest_clusters_idx = self.select_clusters_to_split(cluster_assignments_avg,
-                                                                                               empty_clusters)
+        k_merge_cluster, k_split_cluster, largest_clusters_idx = self.select_clusters_to_split_by_largest_cluster(
+            cluster_assignments_avg, empty_clusters)
         # perturbate copy number profile
         self.update_cluster_profiles(qc, k_merge_cluster, k_split_cluster)
 
@@ -68,19 +68,22 @@ class SplitAndMergeOperations:
                                                                      qc_chrom.config.n_states))
         qc.compute_filtering_probs()
 
-    def select_clusters_to_split(self, cluster_assignments_avg, empty_clusters, root=0):
-        # Select clusters to split
+    def select_clusters_to_split_by_largest_cluster(self, cluster_assignments_avg, empty_clusters, root=0):
+        # Select from cluster by largest cell to clone assignment
         largest_clusters_values, largest_clusters_idx = torch.sort(cluster_assignments_avg, descending=True)
+        from_cluster_idx = largest_clusters_idx[0]
+        to_cluster_idx = empty_clusters[0]
+        logging.debug(f'Split from cluster {from_cluster_idx} into cluster {to_cluster_idx} by argmax of average'
+                      f' cluster assignments: {cluster_assignments_avg}')
+        return to_cluster_idx, from_cluster_idx, largest_clusters_idx
 
-        cumulative_cluster_prob = torch.cumsum(largest_clusters_values, dim=0)
-        print(f'Split clusters with indexes: {empty_clusters}')
-        logging.debug(f'Based on average cluster assignments: {cluster_assignments_avg}')
-        # Split clusters into empty clusters (duplication)
-        # naive split - split largest cluster into first empty cluster
-        logging.debug(f'')
-        k_split_cluster = largest_clusters_idx[0]
-        k_merge_cluster = empty_clusters[0]
-        return k_merge_cluster, k_split_cluster, largest_clusters_idx
+    def select_clusters_to_split_categorical(self, cluster_assignments_avg, empty_clusters, root=0):
+        categorical_rv = torch.distributions.categorical.Categorical(probs=cluster_assignments_avg)
+        from_cluster_idx = categorical_rv.sample()
+        to_cluster_idx = empty_clusters[0]
+        logging.debug(f'Split from cluster {from_cluster_idx} into cluster {to_cluster_idx} by categorical sample'
+                      f' from average cluster assignments: {cluster_assignments_avg}')
+        return to_cluster_idx, from_cluster_idx
 
     def find_empty_clusters(self, qz: qZ, root=0):
         cluster_assignments_avg = qz.pi.mean(dim=0)
@@ -89,5 +92,31 @@ class SplitAndMergeOperations:
             empty_clusters = empty_clusters[empty_clusters != 0]
         return cluster_assignments_avg, empty_clusters
 
-    def new_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
-        pass
+    def categorical_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+        """
+        Implements the split part of the split algorithm commonly used in Expectation Maximization.
+        Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
+        copy number profile of k1 to k2 with some added noise, redistributing the concentration parameters equally and
+        cluster assignment for cells assigned to k1 by the qZ CAVI update.
+        """
+        # Select clusters to reassign
+        cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
+        if empty_clusters.shape[0] == 0:
+            logging.debug(f'No empty clusters found')
+            return False
+
+        into_cluster, from_cluster = self.select_clusters_to_split_categorical(
+            cluster_assignments_avg, empty_clusters)
+        # perturbate copy number profile
+        self.update_cluster_profiles(qc, into_cluster, from_cluster)
+
+        # Set concentration parameters equal
+        self.update_cluster_concentration_parameters(qpi, into_cluster, from_cluster)
+
+        # Manually update assignments i.e. reassign cells from the large cluster to the empty
+        # Select cells to update
+        selected_cells = qz.pi.argmax(dim=-1) == from_cluster
+
+        # Calculate new assignment probability of selected cells using CAVI update
+        self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, selected_cells)
+        return True
