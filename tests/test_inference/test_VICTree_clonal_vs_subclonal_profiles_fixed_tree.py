@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-#@unittest.skip('long exec test')
+@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):

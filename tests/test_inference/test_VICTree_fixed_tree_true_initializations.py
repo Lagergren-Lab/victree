@@ -64,9 +64,14 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_init_true_Z(self):
+        """
+        If step size small enough, the algorithm shouldn't leave optima of true Z during optimization and ARI should
+        be close to 1 (not necessarily = 1 as data generation is stochastic).
+        """
+
         y, c, z, pi, mu, tau, eps, eps0 = (self.y, self.c, self.z, self.pi, self.mu, self.tau, self.eps, self.eps0)
 
-        config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M, step_size=0.3,
+        config = Config(n_nodes=self.K, n_states=self.A, n_cells=self.N, chain_length=self.M, step_size=0.1,
                         diagnostics=False, annealing=1.)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"),
