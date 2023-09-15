@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 import torch
 from networkx.drawing.nx_agraph import graphviz_layout
+import scgenome.plotting as pl
 
 from variational_distributions.var_dists import qMuTau
 
@@ -55,6 +56,55 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
             fig.savefig(save_path + 'c_simulated.png')
     else:
         raise Exception('Simulated C rejected by user.')
+
+
+def plot_cn_matrix(c, z):
+    """
+
+    Parameters
+    ----------
+    c: copy number matrix (n_nodes, chain_length)
+    z: cells assignment (n_cells,)
+    ax: plt.Axes
+
+    Returns
+    -------
+    dict with ax and im
+    """
+
+    c_colors = pl.cn_colors.map_cn_colors(c)
+
+    fig, ax = plt.subplots(1, 2, width_ratios=(10, 1), squeeze=True)
+
+    ax[0].imshow(c_colors[np.sort(z)], aspect='auto', interpolation='none')
+    # legend axis
+    ax[1].set_axis_off()
+
+    ax[0].set_xlabel('bins', fontsize=8)
+    ax[0].set_ylabel('cells', fontsize=8)
+
+    pl.cn_colors.cn_legend(ax[1], title='cn')
+
+    return {
+        'ax': ax,
+        'fig': fig
+    }
+
+
+def plot_obs(y, z):
+
+    cmap = matplotlib.cm.get_cmap('viridis')
+    fig, ax = plt.subplots(1, 1)
+    im = ax.imshow(y[:, np.argsort(z)].T, cmap=cmap, aspect='auto', interpolation='none')
+
+    ax.set_xlabel('bins', fontsize=8)
+    ax.set_ylabel('cells', fontsize=8)
+    fig.colorbar(im)
+
+    return {
+        'ax': ax,
+        'fig': fig
+    }
 
 
 def visualize_copy_number_profiles_ipynb(C, title_suff: str = ''):
