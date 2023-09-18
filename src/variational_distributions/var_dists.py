@@ -704,12 +704,13 @@ class qCMultiChrom(VariationalDistribution):
                q_z: 'qZ',
                q_psi: 'qPsi',
                trees,
-               tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
+               tree_weights,
+               batch=None) -> Tuple[torch.Tensor, torch.Tensor]:
 
         for i, qc in enumerate(self.qC_list):
             chr_i_start = self.chr_start_points[i]
             chr_i_end = self.chr_start_points[i + 1]
-            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
+            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights, batch)
 
     def compute_filtering_probs(self):
         for i, qc in enumerate(self.qC_list):
