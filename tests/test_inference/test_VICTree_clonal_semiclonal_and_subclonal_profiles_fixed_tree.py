@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-#@unittest.skip('long exec test')
+@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -480,7 +480,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         utils.config.set_seed(0)
         seeds = list(range(0, 5))
         data_seeds = list(range(0, 2))
-        n_iter = 20
+        n_iter = 30
         K = 6
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         N = 500
