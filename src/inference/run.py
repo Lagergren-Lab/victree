@@ -31,7 +31,8 @@ def run(args):
     config = Config(n_nodes=args.n_nodes, n_states=args.n_states, n_cells=n_cells, chain_length=n_bins,
                     wis_sample_size=args.tree_sample_size, sieving_size=args.sieving[0], n_sieving_iter=args.sieving[1],
                     step_size=args.step_size, debug=args.debug, diagnostics=args.diagnostics, out_dir=args.out_dir,
-                    n_run_iter=args.n_iter, elbo_rtol=args.r_tol, chromosome_indexes=data_handler.get_chr_idx())
+                    n_run_iter=args.n_iter, elbo_rtol=args.r_tol, chromosome_indexes=data_handler.get_chr_idx(),
+                    split=args.split)
     logging.debug(str(config))
 
     # ---

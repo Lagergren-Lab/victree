@@ -56,7 +56,7 @@ class VICTree:
                                     }))
             data_handler = DataHandler(adata=adata)
         self._data_handler: DataHandler = data_handler
-        if self.config.split:
+        if self.config.split != 'None':
             self.split_operation = SplitAndMergeOperations()
 
     def __str__(self):
@@ -140,7 +140,7 @@ class VICTree:
         pbar = tqdm(range(1, n_iter + 1))
         for it in pbar:
             # KEY inference algorithm iteration step
-            if self.config.split:
+            if self.config.split != 'None':
                 self.split()
             self.step()
 
