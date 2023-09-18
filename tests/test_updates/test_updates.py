@@ -2,6 +2,7 @@ import itertools
 import unittest
 
 import networkx as nx
+import numpy as np
 import torch
 from sklearn.metrics.cluster import adjusted_rand_score
 
@@ -164,6 +165,38 @@ class updatesTestCase(unittest.TestCase):
         self.assertTrue(torch.all(qc.couple_filtering_probs[0, :, 2, 2] > qc.couple_filtering_probs[0, :, 2, 0]))
         self.assertEqual(qc.couple_filtering_probs[1, 3, 2, 3], qc.couple_filtering_probs[1, 3, 2, :].max())
         self.assertEqual(qc.couple_filtering_probs[2, 7, 2, 3], qc.couple_filtering_probs[2, 7, 2, :].max())
+
+    def test_update_qc_simul_data(self):
+        max_iter = 50
+        rtol = 1e-3
+        config = Config(n_nodes=5, n_cells=300, chain_length=1000, step_size=.2, debug=True)
+        joint_q = generate_dataset_var_tree(config, eps_a=10., eps_b=4000.,
+                                            nu_prior=1., lambda_prior=3., alpha_prior=2500., beta_prior=50.,
+                                            cne_length_factor=200, dir_alpha=10.)
+        true_tree = joint_q.t.true_params['tree']
+        print(f"true tree: {tree_to_newick(true_tree)}")
+
+        qc = qC(config)
+        qc.initialize(method='diploid')
+
+        i = 0
+        convergence = False
+        curr_elbo = - np.inf
+        while not convergence and i < max_iter:
+            qc.update(joint_q.obs, joint_q.eps, joint_q.z, joint_q.mt, [true_tree], [1.])
+            new_elbo = qc.compute_elbo([true_tree], [1.], joint_q.eps)
+            improvement = abs((new_elbo - curr_elbo) / curr_elbo)
+            print(f"[{i}] elbo: {new_elbo:.3f} (rel impr: {improvement:.3f})")
+            if improvement < rtol:
+                convergence = True
+                print(f"converged after {i} iterations")
+            curr_elbo = new_elbo
+            i += 1
+
+        # mean abs deviation
+        mad = torch.mean(torch.abs(qc.get_viterbi() - joint_q.c.true_params['c']).float())
+        print(f"MAD: {mad}")
+        self.assertLess(mad, 0.1)
 
     def test_update_qz(self):
 

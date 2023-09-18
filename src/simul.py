@@ -457,7 +457,7 @@ def generate_dataset_var_tree(config: Config,
                               nu_prior=1., lambda_prior=100.,
                               alpha_prior=500., beta_prior=50.,
                               dir_alpha=1., eps_a=5., eps_b=50., chrom: str | int = 1,
-                              ret_anndata=False):
+                              ret_anndata=False, cne_length_factor: int = 0):
     # set up default with one chromosome
     chr_df = None
     if chrom == 'real':
@@ -469,7 +469,8 @@ def generate_dataset_var_tree(config: Config,
         raise ValueError(f"chrom argument `{chrom}` does not match any available option")
 
     simul_data = simulate_full_dataset(config, eps_a=eps_a, eps_b=eps_b, mu0=nu_prior, lambda0=lambda_prior,
-                                       alpha0=alpha_prior, beta0=beta_prior, dir_delta=dir_alpha, chr_df=chr_df)
+                                       alpha0=alpha_prior, beta0=beta_prior, dir_delta=dir_alpha, chr_df=chr_df,
+                                       cne_length_factor=cne_length_factor)
 
     if chrom != 1:
         fix_qc = qCMultiChrom(config, true_params={
