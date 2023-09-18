@@ -511,7 +511,6 @@ class qC(VariationalDistribution):
                                          e_eta1_m[edges_mask[1], 1:, None, :]
 
         # natural parameters for root node are fixed to healthy state
-        # FIXME: cells shouldn't be assigned to this node
         e_eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
@@ -1527,6 +1526,8 @@ class qEpsilonMulti(VariationalDistribution):
             self._non_mutation_init()
         elif method == 'prior':
             self._initialize_to_prior_parameters()
+        elif method == 'data':
+            self._data_init(**kwargs)
         else:
             raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
@@ -1542,6 +1543,23 @@ class qEpsilonMulti(VariationalDistribution):
 
     def _non_mutation_init(self):
         self._set_equal_params(1., 10.)
+
+    def _data_init(self, obs: torch.Tensor, change_ratio=0.02):
+        """
+        Sets eps params to values in the same scale as the one will be inferred
+        with CAVI updates, that is in the same scale as the total number of bins.
+        Parameters
+        ----------
+        obs: shape (n_bins, n_cells) counts matrix
+        change_ratio: float, proportion of copy number changes over the total number
+            of bins
+
+        Returns
+        -------
+
+        """
+        M = obs.shape[0]
+        self._set_equal_params(eps_alpha=change_ratio * M, eps_beta=(1-change_ratio) * M)
 
     def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
         for e in self.alpha_dict.keys():
