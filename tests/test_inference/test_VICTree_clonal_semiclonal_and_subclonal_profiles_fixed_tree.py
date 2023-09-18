@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-@unittest.skip('long exec test')
+#@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -55,6 +55,10 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_seven_node_tree_subclonal_profile_ratio_small(self):
+        """
+        Demonstrates the poor performance of VICTree when running on clonal + subclonal data vs only running
+        on subclonal data.
+        """
         torch.manual_seed(0)
         n_iter = 100
         K = 7
