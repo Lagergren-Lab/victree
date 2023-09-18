@@ -28,7 +28,8 @@ class DataHandler:
         self.chr_df = None
         if adata is not None:
             self._adata = adata
-            self._obs = torch.tensor(adata.layers['copy']).T
+            self.chr_df = adata.var[['chr', 'start', 'end']].reset_index()
+            self._obs = torch.tensor(adata.layers['copy']).T.float()
         elif file_path is not None:
             self._adata, self._obs = self._read_multiple_sources(file_path)
         else:
