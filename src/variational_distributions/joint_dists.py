@@ -262,7 +262,6 @@ class FixedTreeJointDist(JointDist):
 
         super().update()
 
-
     def SVI_update(self, it=0):
         """
         Joint distribution SVI update: update the local variables batch wise, then update global variables
@@ -281,17 +280,32 @@ class FixedTreeJointDist(JointDist):
                 continue
             else:
                 batch = batches[i*batch_size: i*batch_size + batch_size]
-            self.z.update(self.mt, self.c, self.pi, self.obs[:, batch], batch)
-            self.mt.update(self.c, self.z, self.obs[:, batch], batch)
+            pi = self.z.update_CAVI(self.mt, self.c, self.pi, self.obs[:, batch], batch)
+            self.z.update_params(pi, batch)
+            mu, lmbda, alpha, beta = self.mt.update_CAVI(self.obs[:, batch], self.c, self.z, batch)
+            self.mt.update_params(mu, lmbda, alpha, beta, batch)
 
             # Global updates
-            self.c.update(self.obs[:, batch], self.eps, self.z, self.mt, [self.T], self.w_T, batch)
+            new_eta1_norm, new_eta2_norm = self.c.update_CAVI(self.obs[:, batch], self.eps, self.z, self.mt, [self.T],
+                                                              self.w_T, batch)
+            self.c.update_params(new_eta1_norm, new_eta2_norm)
+            self.c.compute_filtering_probs()
 
             if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
                 self.c.smooth_etas()
                 self.c.compute_filtering_probs()
-            self.eps.update([self.T], self.w_T, self.c)
-            self.pi.update(self.z)
+            alpha, beta = self.eps.update_CAVI([self.T], self.w_T, self.c)
+            self.eps.update_params(alpha, beta)
+            delta = self.pi.update_CAVI(self.z)
+            self.pi.update_params(delta)
+
+        # Call track progress only once per step
+        if self.config.diagnostics:
+            self.c.track_progress()
+            self.z.track_progress()
+            self.mt.track_progress()
+            self.eps.track_progress()
+            self.pi.track_progress()
 
         super().update()
 
