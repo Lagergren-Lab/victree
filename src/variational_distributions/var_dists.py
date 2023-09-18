@@ -704,12 +704,37 @@ class qCMultiChrom(VariationalDistribution):
                q_z: 'qZ',
                q_psi: 'qPsi',
                trees,
-               tree_weights) -> Tuple[torch.Tensor, torch.Tensor]:
+               tree_weights,
+               batch=None) -> Tuple[torch.Tensor, torch.Tensor]:
 
         for i, qc in enumerate(self.qC_list):
             chr_i_start = self.chr_start_points[i]
             chr_i_end = self.chr_start_points[i + 1]
-            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights)
+            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights, batch)
+
+    def update_CAVI(self, obs: torch.Tensor,
+                    q_eps: Union['qEpsilon', 'qEpsilonMulti'],
+                    q_z: 'qZ',
+                    q_psi: 'qPsi',
+                    trees,
+                    tree_weights,
+                    batch=None) -> Tuple[torch.Tensor, torch.Tensor]:
+
+        eta1 = []
+        eta2 = []
+        for i, qc in enumerate(self.qC_list):
+            chr_i_start = self.chr_start_points[i]
+            chr_i_end = self.chr_start_points[i + 1]
+            eta1_i, eta2_i = qc.update_CAVI(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights,
+                                            batch)
+            eta1.append(eta1_i)
+            eta2.append(eta2_i)
+
+        return eta1, eta2
+
+    def update_params(self, eta1_list, eta2_list):
+        for i, qc in enumerate(self.qC_list):
+            qc.update_params(eta1_list[i], eta2_list[i])
 
     def compute_filtering_probs(self):
         for i, qc in enumerate(self.qC_list):
@@ -753,7 +778,7 @@ class qCMultiChrom(VariationalDistribution):
 
         for (i, qc) in enumerate(self.qC_list):
             if method == 'clonal':
-                obs = {'obs': kwargs['obs'][self.chr_start_points[i]:self.chr_start_points[i+1]]}
+                obs = {'obs': kwargs['obs'][self.chr_start_points[i]:self.chr_start_points[i + 1]]}
                 qc.initialize(method, **obs)
             else:
                 qc.initialize(method, **kwargs)
@@ -1468,7 +1493,8 @@ class qEpsilonMulti(VariationalDistribution):
         return self.alpha_dict, self.beta_dict
 
     def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC | qCMultiChrom):
-        self.update_CAVI(tree_list, tree_weights, qc)
+        new_alpha, new_beta = self.update_CAVI(tree_list, tree_weights, qc)
+        self.update_params(new_alpha, new_beta)
         super().update()
 
     def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC | qCMultiChrom):
@@ -1506,7 +1532,6 @@ class qEpsilonMulti(VariationalDistribution):
                 new_alpha[e] += ww * exp_cuv_a[e]
                 new_beta[e] += ww * exp_cuv_b[e]
 
-        self.update_params(new_alpha, new_beta)
         return new_alpha, new_beta
 
     def _set_equal_params(self, eps_alpha: float, eps_beta: float):
@@ -1886,7 +1911,7 @@ Initialize the mu and tau params given observations
         # FIXME: test does not work
         clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
 
-        self.nu = torch.mean(clean_obs/2, dim=0)
+        self.nu = torch.mean(clean_obs / 2, dim=0)
         self.alpha = torch.ones((self.config.n_cells,))  # init alpha to small value (1)
         var = torch.var(clean_obs, dim=0).clamp(min=.01)  # avoid 0 variance
         self.beta = var * self.alpha
@@ -1966,7 +1991,7 @@ Initialize the mu and tau params given observations
             E_tau_y2 = torch.einsum('mn,n->mn', torch.pow(obs, 2), E_tau)
             E_mu_tau_c_y = torch.einsum('i,mn,n->imn', torch.arange(self.config.n_states), obs, E_mu_tau)
             E_mu2_tau_c2 = torch.einsum('i,n->in', torch.pow(torch.arange(self.config.n_states), 2), E_mu2_tau)[:,
-                        None, :]
+                           None, :]
             log_p_obs = .5 * (E_log_tau - E_tau_y2 + 2. * E_mu_tau_c_y - E_mu2_tau_c2)
             log_p_obs = log_p_obs.expand(K, A, M, N)
             out_arr[...] = torch.einsum('vimn->nmvi', log_p_obs)
@@ -2623,14 +2648,16 @@ class qPi(VariationalDistribution):
         # pi_model = p(pi), parametrized by delta_k
         # generative model for pi
 
-        concentration_param = self.concentration_param_prior + \
-                              torch.sum(qz.exp_assignment(), dim=0)
-
-        new_concentration_param = self.update_params(concentration_param)
-
+        new_concentration_param = self.update_CAVI(qz)
+        self.update_params(new_concentration_param)
         super().update()
         # logging.debug("- pi updated")
         return new_concentration_param
+
+    def update_CAVI(self, qz):
+        concentration_param = self.concentration_param_prior + \
+                              torch.sum(qz.exp_assignment(), dim=0)
+        return concentration_param
 
     def exp_log_pi(self):
         e_log_pi = torch.empty_like(self.concentration_param)

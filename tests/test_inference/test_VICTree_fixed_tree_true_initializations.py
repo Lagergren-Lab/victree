@@ -75,7 +75,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
                         diagnostics=False, annealing=1.)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"),
-                                                                       base_dir='./../test_output')
+                                                                       base_dir='./test_output')
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
 

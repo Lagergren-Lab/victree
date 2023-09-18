@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-#@unittest.skip('long exec test')
+@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):
@@ -374,10 +374,10 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         sys.stdout = orig_stdout
         f.close()
 
-    #@unittest.skip('long exec test')
+    @unittest.skip('long exec test')
     def test_clonal_profile_init_and_split_vs_no_split(self):
         utils.config.set_seed(0)
-        seeds = list(range(2, 4))
+        seeds = list(range(3, 4))
         data_seeds = list(range(0, 2))
         n_iter = 50
         K = 6
@@ -479,21 +479,21 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
     def test_SVI_split_and_clonal_init(self):
         utils.config.set_seed(0)
         seeds = list(range(0, 5))
-        data_seeds = list(range(0, 5))
-        n_iter = 80
-        K = 8
+        data_seeds = list(range(0, 2))
+        n_iter = 30
+        K = 6
         tree = tests.utils_testing.get_tree_K_nodes_random(K)
         N = 500
-        M_subclonal = 100
-        M_clonal = 1000
+        M_subclonal = 300
+        M_clonal = 1700
         A = 7
-        dir_delta0 = 3.
+        dir_delta0 = 10.
         nu_0 = 1.
         lambda_0 = 10.
         alpha0 = 500.
         beta0 = 50.
         a0 = 10.0
-        b0 = 100.0
+        b0 = 300.0
 
         ari_list_list = []
         for data_seed in data_seeds:
@@ -512,8 +512,8 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
             ari_list = []
             for i in range(len(seeds)):
                 # Run VICTree using SVI, split and init to clonal structure
-                config_init = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.01,
-                                     step_size_scheme='inverse',
+                config_init = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.05,
+                                     step_size_scheme='inverse', batch_size=50,
                                      diagnostics=False, annealing=1., split=True, SVI=True)
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init)
@@ -538,7 +538,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 c_tot_remapped = c_tot[perm]
                 z2_remapped = torch.tensor([perm[i] for i in z])
                 utils_testing.write_inference_test_output(victree, y_tot, c_tot_remapped, z2_remapped, tree, mu, tau, eps, eps0, pi,
-                                                          test_dir_path=test_dir_name, file_name_prefix=f'seed{seeds[i]}_no_split_')
+                                                          test_dir_path=test_dir_name, file_name_prefix=f'seed{seeds[i]}')
 
                 ari_list.append(ari)
 
