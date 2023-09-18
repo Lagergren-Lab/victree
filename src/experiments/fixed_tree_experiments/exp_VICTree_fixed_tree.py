@@ -196,7 +196,7 @@ class VICTreeFixedTreeExperiment():
 
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
-        seeds = list(range(0, 5))
+        seeds = list(range(0, 1))
         K = 7
         A = 7
         step_size = 0.5
@@ -238,13 +238,13 @@ class VICTreeFixedTreeExperiment():
                 dir_top_idx = dirs.index('experiments')
                 dir_path = dirs[dir_top_idx:]
                 path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}/seed_{seed}')
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI/seed_{seed}')
                 base_dir = '../../../tests/test_output'
                 test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
 
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size,
                             save_progress_every_niter=1000, chromosome_indexes=data_handler.get_chr_idx(),
-                            out_dir=test_dir_name, split=True,
+                            out_dir=test_dir_name, split=True, SVI=True, batch_size=30, step_size_scheme='inverse',
                             diagnostics=True)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
@@ -280,7 +280,7 @@ class VICTreeFixedTreeExperiment():
 
 
 if __name__ == '__main__':
-    n_iter = 50
+    n_iter = 20
     experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
