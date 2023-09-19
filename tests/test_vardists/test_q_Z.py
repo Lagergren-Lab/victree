@@ -100,26 +100,34 @@ class qZTestCase(unittest.TestCase):
         print(f"Uniform: {res_1} \n Skewed: {res_2}")
         self.assertLess(res_1, res_2, f"ELBO for uniform assignment over clusters greater than all probability to one cluster")
 
-    @unittest.skip("need elbo computation for joint with fixed dist")
     def test_qZ_kmeans_init(self):
-        # Arrange
+        # this tests asserts that, after one cavi update,
+        # the distribution initialized by kmeans improves by a
+        # smaller amount than the others, i.e. it's closer
+        # to convergence
         sim_joint_q = utils_testing.generate_test_dataset_fixed_tree()
         obs = sim_joint_q.obs
 
         qz = qZ(sim_joint_q.config).initialize(z_init='uniform')
-        unif_elbo = qz.compute_elbo(sim_joint_q.pi)
+        elbo0 = qz.compute_elbo(sim_joint_q.pi)
+        qz.update(sim_joint_q.mt, sim_joint_q.c, sim_joint_q.pi, sim_joint_q.obs)
+        unif_elbo_impr = - (qz.compute_elbo(sim_joint_q.pi) - elbo0) / elbo0
 
         qz = qZ(sim_joint_q.config).initialize(z_init='random')
-        rand_elbo = qz.compute_elbo(sim_joint_q.pi)
+        elbo0 = qz.compute_elbo(sim_joint_q.pi)
+        qz.update(sim_joint_q.mt, sim_joint_q.c, sim_joint_q.pi, sim_joint_q.obs)
+        rand_elbo_impr = - (qz.compute_elbo(sim_joint_q.pi) - elbo0) / elbo0
 
-        qz = qZ(sim_joint_q.config).initialize(z_init='kmeans', obs=obs)
-        kmeans_elbo = qz.compute_elbo(sim_joint_q.pi)
+        qz = qZ(sim_joint_q.config).initialize(z_init='kmeans', data=obs, skewness=10.)
+        elbo0 = qz.compute_elbo(sim_joint_q.pi)
+        qz.update(sim_joint_q.mt, sim_joint_q.c, sim_joint_q.pi, sim_joint_q.obs)
+        kmeans_elbo_impr = - (qz.compute_elbo(sim_joint_q.pi) - elbo0) / elbo0
 
-        print(unif_elbo)
-        print(rand_elbo)
-        print(kmeans_elbo)
-        self.assertGreater(kmeans_elbo, unif_elbo, f"ELBO for uniform assignment over clusters is greater than KMeans")
-        self.assertGreater(kmeans_elbo, rand_elbo, f"ELBO for random assignment over clusters is greater than KMeans")
+        print(unif_elbo_impr)
+        print(rand_elbo_impr)
+        print(kmeans_elbo_impr)
+        self.assertLess(kmeans_elbo_impr, unif_elbo_impr, f"ELBO for uniform assignment over clusters is greater than KMeans")
+        self.assertLess(kmeans_elbo_impr, rand_elbo_impr, f"ELBO for random assignment over clusters is greater than KMeans")
 
     def test_summary(self):
         print(self.q_Z_test)

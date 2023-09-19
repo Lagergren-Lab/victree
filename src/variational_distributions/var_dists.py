@@ -163,7 +163,7 @@ class qC(VariationalDistribution):
         elif method == 'fixed':
             self._fixed_init(**kwargs)
         elif method == 'diploid':
-            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=3.)
+            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=5.)
         else:
             raise ValueError(f'method `{method}` for qC initialization is not implemented')
 
@@ -881,22 +881,19 @@ class qZ(VariationalDistribution):
         # initialize to uniform probs among nodes
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
 
-    def _kmeans_init(self, obs, **kwargs):
-        # TODO: find a soft k-means version
-        # https://github.com/omadson/fuzzy-c-means
+    def _kmeans_init(self, data: torch.Tensor,
+                     skewness=5, **kwargs):
         logging.debug("Running k-means for z init")
-        eps = 1e-4
         N = self.config.n_cells
         M = self.config.chain_length
-        obs = obs.T if obs.shape == (N, M) else obs
-        m_obs = obs.mean(dim=0, keepdim=True)
-        sd_obs = obs.std(dim=0, keepdim=True)
-        # standardize to keep pattern
-        scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
-        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
+        data = data.T if data.shape == (N, M) else data
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(data.T)
         m_labels = kmeans.labels_
+        pi_init = torch.ones_like(self.pi)
+        pi_init[torch.arange(self.config.n_cells), m_labels] = skewness
+        pi_init = pi_init / pi_init.sum(dim=1, keepdim=True)
         self.kmeans_labels[...] = torch.tensor(m_labels).long()
-        self.pi[...] = torch.nn.functional.one_hot(self.kmeans_labels, num_classes=self.config.n_nodes)
+        self.pi[...] = pi_init
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape
@@ -1926,7 +1923,6 @@ Initialize the mu and tau params given observations
         Args:
             obs: data, tensor (chain_length, n_cells)
         """
-        # FIXME: test does not work
         clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
 
         self.nu = torch.mean(clean_obs / 2, dim=0)

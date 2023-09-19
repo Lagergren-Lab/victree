@@ -55,7 +55,7 @@ def run(args):
 
     logging.info('initializing distributions..')
     joint_q.initialize()
-    joint_q.z.initialize(z_init=args.z_init, obs=obs)
+    joint_q.z.initialize(z_init=args.z_init, data=obs)
     joint_q.mt.initialize(method='data', obs=obs)
     joint_q.eps.initialize(method='uniform')
 
