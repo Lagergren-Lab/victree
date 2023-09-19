@@ -54,18 +54,24 @@ class SplitAndMergeOperations:
         qpi.concentration_param[k_merge_cluster] = qpi.concentration_param[k_split_cluster] / 2
         qpi.concentration_param[k_split_cluster] = qpi.concentration_param[k_split_cluster] / 2
 
-    def update_cluster_profiles(self, qc: qCMultiChrom | qC, k_merge_cluster, k_split_cluster):
+    def update_cluster_profiles(self, qc: qCMultiChrom | qC, k_to_cluster, k_split_cluster):
         if type(qc) == qC:
-            qc.eta1[k_merge_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
-            qc.eta2[k_merge_cluster] = qc.eta2[k_split_cluster] + \
-                                       0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
+            qc.eta1[k_to_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
+            qc.eta1[k_to_cluster] = qc.eta1[k_to_cluster] - torch.logsumexp(qc.eta1[k_to_cluster], dim=-1)
+            qc.eta2[k_to_cluster] = qc.eta2[k_split_cluster] + \
+                                    0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
                                                            qc.config.n_states))
+            qc.eta2[k_to_cluster] = qc.eta2[k_to_cluster] - torch.logsumexp(qc.eta2[k_to_cluster], dim=-1)
         else:
-            for qc_chrom in qc.qC_list:
-                qc_chrom.eta1[k_merge_cluster] = qc_chrom.eta1[k_split_cluster] + 0.05 * torch.randn(qc_chrom.config.n_states)
-                qc_chrom.eta2[k_merge_cluster] = qc_chrom.eta2[k_split_cluster] + \
-                                                 0.05 * torch.randn((qc_chrom.config.chain_length - 1, qc_chrom.config.n_states,
-                                                                     qc_chrom.config.n_states))
+            for qc_i in qc.qC_list:
+                qc_i.eta1[k_to_cluster] = qc_i.eta1[k_split_cluster] + 0.05 * torch.randn(qc_i.config.n_states)
+                qc_i.eta1[k_to_cluster] = qc_i.eta1[k_to_cluster] - torch.logsumexp(qc_i.eta1[k_to_cluster], dim=-1)
+                qc_i.eta2[k_to_cluster] = qc_i.eta2[k_split_cluster] + \
+                                          0.05 * torch.randn((qc_i.config.chain_length - 1, qc_i.config.n_states,
+                                                                 qc_i.config.n_states))
+                qc_i.eta2[k_to_cluster] = qc_i.eta2[k_to_cluster] - torch.logsumexp(qc_i.eta2[k_to_cluster], dim=-1,
+                                                                                    keepdim=True)
+
         qc.compute_filtering_probs()
 
     def select_clusters_to_split_by_largest_cluster(self, cluster_assignments_avg, empty_clusters, root=0):

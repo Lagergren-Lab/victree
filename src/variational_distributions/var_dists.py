@@ -301,8 +301,9 @@ class qC(VariationalDistribution):
         all_but_2 = torch.arange(self.config.n_states) != 2
         self.eta1[root, all_but_2] = -torch.inf
         self.eta2[root, :, :, all_but_2] = -torch.inf
-        self.compute_filtering_probs()
+        self.compute_filtering_probs(k=[root])
 
+        eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
         eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
         self.eta1 = eta1
         self.eta2 = eta2
@@ -421,7 +422,7 @@ class qC(VariationalDistribution):
 
             # init tree-specific update
             tree_eta1, tree_eta2 = self._exp_eta(obs, tree, q_eps, q_z, q_psi, batch)
-            for u in range(self.config.n_nodes):
+            for u in range(1, self.config.n_nodes):
                 # for each node, get the children
                 children = [w for w in tree.successors(u)]
                 # sum on each node's update all children alphas
@@ -567,18 +568,19 @@ class qC(VariationalDistribution):
         else:
             return m * (self.config.n_states ** 2) + i[0] * self.config.n_states + i[1]
 
-    def compute_filtering_probs(self):
+    def compute_filtering_probs(self, k=None):
         small_eps = 1e-8
+        k = list(range(self.config.n_nodes)) if k is None else k
         # shape K x S (K is batch size / clones)
-        initial_log_probs = self.eta1
+        initial_log_probs = self.eta1[k]
         # shape K x M x S x S
-        transition_log_probs = self.eta2
+        transition_log_probs = self.eta2[k]
         if self.config.debug:
             assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
             assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
 
-        log_single = torch.empty_like(self.single_filtering_probs)
-        log_couple = torch.empty_like(self.couple_filtering_probs)
+        log_single = torch.empty_like(self.single_filtering_probs[k])
+        log_couple = torch.empty_like(self.couple_filtering_probs[k])
         log_single[:, 0, :] = initial_log_probs
         for m in range(self.config.chain_length - 1):
             # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
@@ -592,14 +594,14 @@ class qC(VariationalDistribution):
                 assert np.allclose(log_single[:, m + 1, :].exp().sum(dim=1), 1.)
                 assert np.allclose(log_couple[:, m, ...].exp().sum(dim=(1, 2)), 1.)
 
-        self.single_filtering_probs = torch.exp(log_single).clamp(min=small_eps, max=1. - small_eps)
-        self.couple_filtering_probs = torch.exp(log_couple).clamp(min=small_eps, max=1. - small_eps)
+        self.single_filtering_probs[k] = torch.exp(log_single).clamp(min=small_eps, max=1. - small_eps)
+        self.couple_filtering_probs[k] = torch.exp(log_couple).clamp(min=small_eps, max=1. - small_eps)
 
         if self.config.debug:
-            assert np.allclose(self.single_filtering_probs.sum(dim=2), 1.)
-            assert np.allclose(self.couple_filtering_probs.sum(dim=(2, 3)), 1.)
+            assert np.allclose(self.single_filtering_probs[k].sum(dim=2), 1.)
+            assert np.allclose(self.couple_filtering_probs[k].sum(dim=(2, 3)), 1.)
 
-        return self.single_filtering_probs, self.couple_filtering_probs
+        return self.single_filtering_probs[k], self.couple_filtering_probs[k]
 
     def get_viterbi(self) -> torch.Tensor:
         """

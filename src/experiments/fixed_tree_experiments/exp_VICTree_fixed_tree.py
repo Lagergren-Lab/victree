@@ -196,10 +196,10 @@ class VICTreeFixedTreeExperiment():
 
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
-        seeds = list(range(0, 1))
-        K = 7
+        seeds = list(range(0, 3))
+        K = 8
         A = 7
-        step_size = 0.5
+        step_size = 0.05
 
         # Prior parameters
         dir_alpha0 = 10.
@@ -218,6 +218,7 @@ class VICTreeFixedTreeExperiment():
         tree.add_edge(1, 4)
         tree.add_edge(3, 5)
         tree.add_edge(3, 6)
+        tree.add_edge(3, 7)
 
         # Load data
         file_path = './../../../data/x_data/P01-066_cn_data.h5ad'
@@ -243,9 +244,9 @@ class VICTreeFixedTreeExperiment():
                 test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
 
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size,
-                            save_progress_every_niter=1000, chromosome_indexes=data_handler.get_chr_idx(),
-                            out_dir=test_dir_name, split=True, SVI=True, batch_size=30, step_size_scheme='inverse',
-                            diagnostics=True)
+                            save_progress_every_niter=100, chromosome_indexes=data_handler.get_chr_idx(),
+                            out_dir=test_dir_name, split=True, SVI=True, batch_size=50, step_size_scheme='inverse',
+                            diagnostics=True, debug=True)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
             qpi = qPi(config, delta_prior=dir_alpha0)
@@ -265,7 +266,7 @@ class VICTreeFixedTreeExperiment():
 
             elbo_seed = victree.elbo
             elbo.append(elbo_seed)
-            print(f"ARI for M {M} and seed {seed}: {elbo_seed}")
+            print(f"ARI for K {K} and seed {seed}: {elbo_seed}")
             if save_plot:
                 analysis_utils.write_inference_output_no_ground_truth(victree, y, test_dir_name, f'seed{seed}_',
                                                                       tree=tree)
@@ -280,7 +281,7 @@ class VICTreeFixedTreeExperiment():
 
 
 if __name__ == '__main__':
-    n_iter = 20
+    n_iter = 40
     experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
