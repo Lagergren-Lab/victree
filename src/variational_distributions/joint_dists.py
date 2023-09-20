@@ -112,7 +112,6 @@ class VarTreeJointDist(JointDist):
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
 
-
         super().update()
 
     def update_shuffle(self, n_updates: int = 5):

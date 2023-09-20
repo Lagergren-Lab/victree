@@ -138,6 +138,7 @@ class VICTree:
         # ---
         logging.info("Start VI updates")
         pbar = tqdm(range(1, n_iter + 1))
+        old_elbo = self.elbo
         for it in pbar:
             # KEY inference algorithm iteration step
             if self.config.debug:
@@ -152,10 +153,8 @@ class VICTree:
                 # FIXME: currently this temperature does not change any setting
                 self.set_temperature(it, n_iter)
 
-            old_elbo = self.elbo
-            self.compute_elbo()
-
             # progress bar showing elbo
+            # elbo is already computed in JointDist.update()
             pbar.set_postfix({'elbo': self.elbo})
 
             # early-stopping
@@ -170,6 +169,8 @@ class VICTree:
                 logging.warning("Elbo is decreasing")
             else:
                 close_runs = 0
+            # keep record of previous state
+            old_elbo = self.elbo
 
             if it % self.config.save_progress_every_niter == 0 and self.config.diagnostics:
                 self.write()
