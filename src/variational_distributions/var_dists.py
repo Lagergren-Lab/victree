@@ -281,14 +281,19 @@ class qC(VariationalDistribution):
         # Estimate marginals from data
         obs_removed_nans = torch.nan_to_num(obs, 2.)
         scaled_obs_mean = torch.mean(obs_removed_nans, dim=1).reshape(obs.shape[0], 1)
+
+        K = self.config.n_nodes
+        M = self.config.chain_length
+        A = self.config.n_states
+
         pseudo_config = Config(n_cells=1, n_nodes=self.config.n_nodes, chain_length=self.config.chain_length,
                                n_states=self.config.n_states)
         q_eps = qEpsilonMulti(pseudo_config)
         q_eps.initialize(method='non-mutation')
         q_z = qZ(pseudo_config)
-        q_z.initialize(method='uniform')
-        q_psi = qMuTau(pseudo_config)
-        q_psi.initialize(method='fixed', loc=1., precision_factor=1000., shape=500., rate=50.)
+        q_z.initialize(z_init='uniform')
+        q_psi = qMuTau(pseudo_config, nu_prior=1., lambda_prior=100., alpha_prior=500., beta_prior=50.)
+        q_psi.initialize(method='prior')
         star_tree = nx.DiGraph()
         for k in range(1, self.config.n_nodes):
             star_tree.add_edge(0, k)
@@ -304,9 +309,8 @@ class qC(VariationalDistribution):
         self.compute_filtering_probs(k=[root])
 
         eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
-        eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
-        self.eta1 = eta1
-        self.eta2 = eta2
+        self.eta1[1:K] = eta1[1:K]
+        self.eta2[1:K] = eta2[1:K]
         self.compute_filtering_probs()
 
     def get_entropy(self):
