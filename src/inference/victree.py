@@ -140,6 +140,8 @@ class VICTree:
         pbar = tqdm(range(1, n_iter + 1))
         for it in pbar:
             # KEY inference algorithm iteration step
+            if self.config.debug:
+                print(f"Average qZ: {torch.mean(self.q.z.exp_assignment(), dim=0)}")
             if self.config.split != 'None':
                 self.split()
             self.step()

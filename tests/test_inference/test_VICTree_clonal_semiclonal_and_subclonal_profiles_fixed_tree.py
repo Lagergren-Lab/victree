@@ -107,7 +107,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                 diagnostics=False, annealing=1.)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_general, self.id().replace(".", "/"),
-                                                                       base_dir='./../test_output')
+                                                                       base_dir='./test_output')
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_general)
         q2 = FixedTreeJointDist(y_tot, config_general, qc2, qz2, qeps2, qmt2, qpi2, tree)
@@ -193,7 +193,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
-                                                                       base_dir='./../test_output')
+                                                                       base_dir='./test_output')
         torch.set_printoptions(precision=2)
         out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                  true_mu=mu,
@@ -269,7 +269,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
-                                                                       base_dir='./../test_output')
+                                                                       base_dir='./test_output')
         torch.set_printoptions(precision=2)
         out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                  true_mu=mu,
@@ -321,7 +321,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                               diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init1, self.id().replace(".", "/"),
-                                                                       base_dir='./../test_output')
+                                                                       base_dir='./test_output')
         orig_stdout = sys.stdout
         f = open(test_dir_name + '/out.txt', 'w')
         sys.stdout = f
@@ -443,7 +443,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 # Assert
                 test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/")
                                                                                + f'/SVI/data_seed_{data_seed}',
-                                                                               base_dir='./../test_output')
+                                                                               base_dir='./test_output')
                 torch.set_printoptions(precision=2)
                 out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                          true_mu=mu,
@@ -475,10 +475,10 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         print(f'SPLIT - ARI mean over inference seed: {np.mean(ari_list_list, axis=-1)} ({np.std(ari_list_list, axis=-1)})')
         print(f'NO SPLIT - ARI mean over inference seed: {np.mean(ari2_list_list, axis=-1)} ({np.std(ari2_list_list, axis=-1)})')
 
-    @unittest.skip('long exec test')
+    #@unittest.skip('long exec test')
     def test_SVI_split_and_clonal_init(self):
         utils.config.set_seed(0)
-        seeds = list(range(0, 5))
+        seeds = list(range(10, 11))
         data_seeds = list(range(0, 2))
         n_iter = 30
         K = 6
@@ -487,7 +487,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         M_subclonal = 300
         M_clonal = 1700
         A = 7
-        dir_delta0 = 10.
+        dir_delta0 = 3.
         nu_0 = 1.
         lambda_0 = 10.
         alpha0 = 500.
@@ -513,8 +513,12 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
             for i in range(len(seeds)):
                 # Run VICTree using SVI, split and init to clonal structure
                 config_init = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.05,
-                                     step_size_scheme='inverse', batch_size=50,
-                                     diagnostics=False, annealing=1., split=True, SVI=True)
+                                     step_size_scheme='inverse', batch_size=100,
+                                     diagnostics=True, annealing=1., split=True, SVI=True)
+                test_dir_name = tests.utils_testing.create_test_output_catalog(config_init, self.id().replace(".", "/")
+                                                                               + f'/data_seed_{data_seed}',
+                                                                               base_dir='./test_output')
+                config_init.out_dir = test_dir_name
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init)
                 q = FixedTreeJointDist(y_tot, config_init, qc, qz, qeps, qmt, qpi, tree)
@@ -524,9 +528,6 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 victree.run(n_iter=n_iter)
 
                 # Assert
-                test_dir_name = tests.utils_testing.create_test_output_catalog(config_init, self.id().replace(".", "/")
-                                                                               + f'/data_seed_{data_seed}',
-                                                                               base_dir='./../test_output')
                 torch.set_printoptions(precision=2)
                 out = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                         true_mu=mu,

@@ -296,7 +296,11 @@ class FixedTreeJointDist(JointDist):
 
         # Call track progress only once per step
         if self.config.diagnostics:
-            self.c.track_progress()
+            if type(self.c) == qCMultiChrom:
+                for qc in self.c.qC_list:
+                    qc.track_progress()
+            else:
+                self.c.track_progress()
             self.z.track_progress()
             self.mt.track_progress()
             self.eps.track_progress()

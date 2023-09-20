@@ -136,6 +136,10 @@ class Config:
     def out_dir(self):
         return self._out_dir
 
+    @out_dir.setter
+    def out_dir(self, out_dir_str):
+        self._out_dir = out_dir_str
+
     @property
     def save_progress_every_niter(self):
         return self._save_progress_every_niter
