@@ -393,14 +393,18 @@ class qC(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights,
-               batch=None):
+               batch=None,
+               smoothing: bool = False):
         new_eta1_norm, new_eta2_norm = self.update_CAVI(obs, q_eps, q_z, q_psi, trees, tree_weights, batch)
 
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
 
+        if smoothing:
+            logging.debug("smoothing qC")
+            self.smooth_etas()
+
         self.compute_filtering_probs()
-        # logging.debug("- copy number updated")
         super().update()
 
     def update_CAVI(self, obs: torch.Tensor, q_eps: Union['qEpsilon', 'qEpsilonMulti'], q_z: 'qZ', q_psi: 'qPsi',
@@ -704,12 +708,15 @@ class qCMultiChrom(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights,
-               batch=None) -> Tuple[torch.Tensor, torch.Tensor]:
+               batch=None,
+               smoothing: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
 
         for i, qc in enumerate(self.qC_list):
             chr_i_start = self.chr_start_points[i]
             chr_i_end = self.chr_start_points[i + 1]
-            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights, batch)
+            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights,
+                      batch=batch,
+                      smoothing=smoothing)
 
     def update_CAVI(self, obs: torch.Tensor,
                     q_eps: Union['qEpsilon', 'qEpsilonMulti'],
