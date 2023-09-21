@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from typing import List, Tuple
 
+from Bio import Phylo
 from dendropy import Tree
 from dendropy.calculate.treecompare import symmetric_difference
 # from Espalier import MAF
@@ -269,3 +270,15 @@ def star_tree(k: int) -> nx.DiGraph:
     t = nx.DiGraph()
     t.add_edges_from([(0, u) for u in range(1, k)])
     return t
+
+
+def parse_newick(tree_file, config=None):
+    tree = Phylo.read(tree_file, 'newick')
+    und_tree_nx = Phylo.to_networkx(tree)
+    und_tree_nx = nx.convert_node_labels_to_integers(und_tree_nx)
+    tree_nx = nx.DiGraph()
+    tree_nx.add_edges_from(und_tree_nx.edges())
+    if config is not None:
+        # validate config
+        assert tree_nx.number_of_nodes() == config.n_nodes, "newick tree does not match the number of nodes K"
+    return tree_nx

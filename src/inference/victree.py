@@ -4,10 +4,12 @@ import logging
 import math
 import os
 import random
+from io import StringIO
 from typing import Union, List
 
 import anndata
 import h5py
+import networkx as nx
 import numpy as np
 import pandas as pd
 import torch
@@ -17,8 +19,9 @@ from tqdm import tqdm
 from inference.split_and_merge_operations import SplitAndMergeOperations
 from utils.config import Config
 from utils.data_handling import write_output, DataHandler
-from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
-from variational_distributions.var_dists import qCMultiChrom
+from utils.tree_utils import parse_newick, star_tree
+from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist, JointDist
+from variational_distributions.var_dists import qCMultiChrom, qMuTau, qEpsilonMulti, qPi, qT, qZ
 
 
 class VICTree:
