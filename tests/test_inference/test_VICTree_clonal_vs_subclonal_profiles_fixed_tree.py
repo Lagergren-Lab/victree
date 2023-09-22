@@ -42,7 +42,7 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
     return M_tot, c_tot, eps_tot, y_tot, c_clonal
 
 
-#@unittest.skip('long exec test')
+@unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
@@ -373,7 +373,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         sys.stdout = orig_stdout
         f.close()
 
-    #@unittest.skip('long exec test')
+    @unittest.skip('long exec test')
     def test_clonal_profile_init_and_split_vs_no_split(self):
         utils.config.set_seed(0)
         seeds = list(range(0, 3))
