@@ -163,7 +163,7 @@ class qC(VariationalDistribution):
         elif method == 'fixed':
             self._fixed_init(**kwargs)
         elif method == 'diploid':
-            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=3.)
+            self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=5.)
         else:
             raise ValueError(f'method `{method}` for qC initialization is not implemented')
 
@@ -398,14 +398,18 @@ class qC(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights,
-               batch=None):
+               batch=None,
+               smoothing: bool = False):
         new_eta1_norm, new_eta2_norm = self.update_CAVI(obs, q_eps, q_z, q_psi, trees, tree_weights, batch)
 
         # update the filtering probs
         self.update_params(new_eta1_norm, new_eta2_norm)
 
+        if smoothing:
+            logging.debug("smoothing qC")
+            self.smooth_etas()
+
         self.compute_filtering_probs()
-        # logging.debug("- copy number updated")
         super().update()
 
     def update_CAVI(self, obs: torch.Tensor, q_eps: Union['qEpsilon', 'qEpsilonMulti'], q_z: 'qZ', q_psi: 'qPsi',
@@ -516,7 +520,6 @@ class qC(VariationalDistribution):
                                          e_eta1_m[edges_mask[1], 1:, None, :]
 
         # natural parameters for root node are fixed to healthy state
-        # FIXME: cells shouldn't be assigned to this node
         e_eta1[root, 2] = 0.  # exp(eta1_2) = pi_2 = 1.
         e_eta2[root, :, :, 2] = 0.  # exp(eta2_i2) = 1.
 
@@ -711,12 +714,15 @@ class qCMultiChrom(VariationalDistribution):
                q_psi: 'qPsi',
                trees,
                tree_weights,
-               batch=None) -> Tuple[torch.Tensor, torch.Tensor]:
+               batch=None,
+               smoothing: bool = False) -> Tuple[torch.Tensor, torch.Tensor]:
 
         for i, qc in enumerate(self.qC_list):
             chr_i_start = self.chr_start_points[i]
             chr_i_end = self.chr_start_points[i + 1]
-            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights, batch)
+            qc.update(obs[chr_i_start:chr_i_end, :], q_eps, q_z, q_psi, trees, tree_weights,
+                      batch=batch,
+                      smoothing=smoothing)
 
     def update_CAVI(self, obs: torch.Tensor,
                     q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -888,22 +894,19 @@ class qZ(VariationalDistribution):
         # initialize to uniform probs among nodes
         self.pi[...] = torch.ones_like(self.pi) / self.config.n_nodes
 
-    def _kmeans_init(self, obs, **kwargs):
-        # TODO: find a soft k-means version
-        # https://github.com/omadson/fuzzy-c-means
+    def _kmeans_init(self, data: torch.Tensor,
+                     skewness=5, **kwargs):
         logging.debug("Running k-means for z init")
-        eps = 1e-4
         N = self.config.n_cells
         M = self.config.chain_length
-        obs = obs.T if obs.shape == (N, M) else obs
-        m_obs = obs.mean(dim=0, keepdim=True)
-        sd_obs = obs.std(dim=0, keepdim=True)
-        # standardize to keep pattern
-        scaled_obs = (obs - m_obs) / sd_obs.clamp(min=eps)
-        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(scaled_obs.T)
+        data = data.T if data.shape == (N, M) else data
+        kmeans = KMeans(n_clusters=self.config.n_nodes, random_state=0).fit(data.T)
         m_labels = kmeans.labels_
+        pi_init = torch.ones_like(self.pi)
+        pi_init[torch.arange(self.config.n_cells), m_labels] = skewness
+        pi_init = pi_init / pi_init.sum(dim=1, keepdim=True)
         self.kmeans_labels[...] = torch.tensor(m_labels).long()
-        self.pi[...] = torch.nn.functional.one_hot(self.kmeans_labels, num_classes=self.config.n_nodes)
+        self.pi[...] = pi_init
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape
@@ -1558,6 +1561,8 @@ class qEpsilonMulti(VariationalDistribution):
             self._non_mutation_init()
         elif method == 'prior':
             self._initialize_to_prior_parameters()
+        elif method == 'data':
+            self._data_init(**kwargs)
         else:
             raise ValueError(f'method `{method}` for qEpsilonMulti initialization is not implemented')
         return super().initialize(**kwargs)
@@ -1573,6 +1578,23 @@ class qEpsilonMulti(VariationalDistribution):
 
     def _non_mutation_init(self):
         self._set_equal_params(1., 10.)
+
+    def _data_init(self, obs: torch.Tensor, change_ratio=0.02):
+        """
+        Sets eps params to values in the same scale as the one will be inferred
+        with CAVI updates, that is in the same scale as the total number of bins.
+        Parameters
+        ----------
+        obs: shape (n_bins, n_cells) counts matrix
+        change_ratio: float, proportion of copy number changes over the total number
+            of bins
+
+        Returns
+        -------
+
+        """
+        M = obs.shape[0]
+        self._set_equal_params(eps_alpha=change_ratio * M, eps_beta=(1-change_ratio) * M)
 
     def _random_init(self, gamma_shape=2., gamma_rate=2., **kwargs):
         for e in self.alpha_dict.keys():
@@ -1724,8 +1746,8 @@ class qEpsilonMulti(VariationalDistribution):
 class qMuTau(qPsi):
 
     def __init__(self, config: Config, true_params=None,
-                 nu_prior: float = 1., lambda_prior: float = .1,
-                 alpha_prior: float = .5, beta_prior: float = .5):
+                 nu_prior: float = 1., lambda_prior: float = 10.,
+                 alpha_prior: float = 1., beta_prior: float = 1.):
         super().__init__(config, true_params is not None)
 
         # params for each cell
@@ -1884,6 +1906,10 @@ class qMuTau(qPsi):
             self._init_from_raw_data(**kwargs)
         elif method == 'prior':
             self._init_from_prior()
+        elif method == 'data-size':
+            chain_length = kwargs['obs'].shape[0]
+            self._initialize_with_values(loc=1., precision_factor=2 * chain_length,
+                                         shape=chain_length, rate=chain_length)
         else:
             raise ValueError(f'method `{method}` for qMuTau initialization is not implemented')
 
@@ -1914,7 +1940,6 @@ Initialize the mu and tau params given observations
         Args:
             obs: data, tensor (chain_length, n_cells)
         """
-        # FIXME: test does not work
         clean_obs = obs[~torch.any(torch.isnan(obs), dim=1), :]
 
         self.nu = torch.mean(clean_obs / 2, dim=0)

@@ -28,8 +28,10 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         qt = qT(config)
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
-        qpi = qPi(config)
-        qmt = qMuTau(config)
+        qpi = qPi(config, delta_prior=.8 * config.n_cells / config.n_nodes)
+        qmt = qMuTau(config,
+                     nu_prior=1., lambda_prior=config.chain_length * 2,
+                     alpha_prior=1., beta_prior=1.)
         return qc, qt, qeps, qz, qpi, qmt
 
     def test_one_edge_tree(self):
@@ -104,11 +106,9 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         # initialize all var dists
         q.initialize()
-        qmt.update_params(nu=mu, lmbda=torch.ones(n_cells) * 10,
-                          alpha=torch.ones(n_cells) * 10,
-                          beta=torch.ones(n_cells) * 10)
-        copy_tree = VICTree(config, q, y, draft=True)
+        q.mt.initialize(method='data-size', obs=y)
 
+        copy_tree = VICTree(config, q, y, draft=True)
         copy_tree.run(n_iter=50)
 
         # Assert

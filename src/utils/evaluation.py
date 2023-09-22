@@ -67,7 +67,7 @@ def best_mapping(gt_z, vi_z, with_score=False):
     vi_z (N, K)
     """
     K = vi_z.shape[1]
-    assert np.unique(gt_z).size == K
+    assert np.unique(gt_z).size == K, f"{np.unique(gt_z).size} != {K}"
     perms = [list((0,) + p) for p in itertools.permutations(range(1, K))]
     if len(perms) > 10e7:
         print(f"warn: num of permutations is {len(perms)}")

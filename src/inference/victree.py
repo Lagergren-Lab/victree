@@ -4,10 +4,12 @@ import logging
 import math
 import os
 import random
+from io import StringIO
 from typing import Union, List
 
 import anndata
 import h5py
+import networkx as nx
 import numpy as np
 import pandas as pd
 import torch
@@ -17,16 +19,17 @@ from tqdm import tqdm
 from inference.split_and_merge_operations import SplitAndMergeOperations
 from utils.config import Config
 from utils.data_handling import write_output, DataHandler
-from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
-from variational_distributions.var_dists import qCMultiChrom
+from utils.tree_utils import parse_newick, star_tree
+from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist, JointDist
+from variational_distributions.var_dists import qCMultiChrom, qMuTau, qEpsilonMulti, qPi, qT, qZ
 
 
 class VICTree:
 
     def __init__(self, config: Config,
                  q: Union[VarTreeJointDist, FixedTreeJointDist],
-                 obs: torch.Tensor, data_handler: DataHandler | None = None,
-                 draft=False):
+                 obs: torch.Tensor | None = None, data_handler: DataHandler | None = None,
+                 draft=False, elbo_rtol=None):
         """
         Inference class, to set up, run and store results of inference.
         Parameters
@@ -36,6 +39,12 @@ class VICTree:
         obs: torch.Tensor of shape (n_sites, n_cells) observation matrix
         """
 
+        if obs is None:
+            if data_handler is None:
+                raise ValueError("Provide either obs or a data handler")
+            else:
+                obs = data_handler.norm_reads
+
         self.config = config
         self.q = q
         self.obs = obs
@@ -43,7 +52,8 @@ class VICTree:
 
         # counts the number of steps performed
         self.it_counter = 0
-        self._elbo: float = -np.infty
+        self._elbo: float = q.elbo
+        self.elbo_rtol = elbo_rtol if elbo_rtol is not None else config.elbo_rtol
         self.sieve_models: List[Union[VarTreeJointDist, FixedTreeJointDist]] = []
 
         if data_handler is None:
@@ -122,26 +132,28 @@ class VICTree:
         if self.config.sieving_size > 1:
             logging.info(f"Sieving {self.config.sieving_size} runs with "
                          f"{self.config.n_sieving_iter} iterations")
-            logging.info(f"ELBO before sieving: {self.compute_elbo():.2f}")
+            logging.info(f"ELBO before sieving: {self.elbo:.2f}")
 
             # run inference on separate initialization of copytree and select the best one
             # TODO: add initialization parameters
             # self.sieve(ktop=3)
             self.halve_sieve(z_init=z_init, obs=self.obs)
-            logging.info(f"ELBO after sieving: {self.compute_elbo():.2f}")
+            logging.info(f"ELBO after sieving: {self.elbo:.2f}")
 
         else:
-            logging.info(f"ELBO after init: {self.compute_elbo():.2f}")
+            logging.info(f"ELBO after init: {self.elbo:.2f}")
 
         # ---
         # Main run
         # ---
         logging.info("Start VI updates")
         pbar = tqdm(range(1, n_iter + 1))
+        old_elbo = self.elbo
+        convergence = False
         for it in pbar:
             # KEY inference algorithm iteration step
-            if self.config.debug:
-                print(f"Average qZ: {torch.mean(self.q.z.exp_assignment(), dim=0)}")
+            # if self.config.debug:
+            #     logging.debug(f"Average qZ: {torch.mean(self.q.z.exp_assignment(), dim=0)}")
             if self.config.split != 'None':
                 self.split()
             self.step()
@@ -152,28 +164,36 @@ class VICTree:
                 # FIXME: currently this temperature does not change any setting
                 self.set_temperature(it, n_iter)
 
-            old_elbo = self.elbo
-            self.compute_elbo()
+            rel_change = np.abs((self.elbo - old_elbo) / self.elbo)
 
             # progress bar showing elbo
-            pbar.set_postfix({'elbo': self.elbo})
+            # elbo is already computed in JointDist.update()
+            pbar.set_postfix({
+                'elbo': self.elbo,
+                'diff': f"{rel_change * 100:.3f}%"
+            })
 
             # early-stopping
-            if np.abs((self.elbo - old_elbo) / self.elbo) < self.config.elbo_rtol * self.config.step_size:
+            if rel_change < self.elbo_rtol * self.config.step_size:
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
-                    logging.debug(f"run converged after {it}/{n_iter} iterations")
+                    convergence = True
+                    logging.info(f"run converged after {it}/{n_iter} iterations")
                     break
             elif self.elbo < old_elbo:
                 # elbo should only increase
                 close_runs += 1
-                logging.warning("Elbo is decreasing")
+                logging.warning(f"ELBO is decreasing (-{rel_change * 100:.2f}%)")
             else:
                 close_runs = 0
+            # keep record of previous state
+            old_elbo = self.elbo
 
             if it % self.config.save_progress_every_niter == 0 and self.config.diagnostics:
                 self.write()
 
+        if not convergence:
+            logging.warning(f"run did not converge, increase max iterations")
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
@@ -240,6 +260,7 @@ class VICTree:
         #   -> each time runs for 100 // 3 = 33 iterations
         # start recursion
         self.q = self.halve_sieve_r(models, elbos)
+        self.elbo = self.q.elbo
 
     def halve_sieve_r(self, models, elbos, start_iter: int = 1):
         # recursive function
@@ -343,6 +364,7 @@ class VICTree:
         if self.config.diagnostics and self.it_counter % self.config.save_progress_every_niter == 0:
             self.write_checkpoint_h5(path=diagnostics_path)
         self.config.curr_it += 1
+        self.elbo = self.q.elbo
 
     def set_temperature(self, it, n_iter):
         # linear scheme: from annealing to 1 with equal steps between iterations
@@ -443,3 +465,79 @@ class VICTree:
             self.config.step_size = rho(self.it_counter)
         else:
             self.config.step_size = self.config.step_size
+
+
+def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
+               fix_tree: str | nx.DiGraph | int | None = None,
+               debug: bool = False) -> (Config, JointDist, DataHandler):
+
+    # read tree input if present
+    if fix_tree is not None:
+        if isinstance(fix_tree, str):
+            fix_tree = parse_newick(StringIO(fix_tree))
+        elif isinstance(fix_tree, int):
+            # create a star tree
+            fix_tree = star_tree(fix_tree)
+        elif not isinstance(fix_tree, nx.DiGraph):
+            raise ValueError("Provided tree format is not recognized.")
+
+    if isinstance(data, anndata.AnnData):
+        dh = DataHandler(adata=data, layer=cc_layer)
+    elif os.path.exists(data):
+        # or read from file
+        dh = DataHandler(file_path=data, layer=cc_layer)
+    else:
+        raise ValueError("Data is not available. Make sure you provide the AnnData object or its file path as str.")
+    obs = dh.norm_reads
+
+    # default params
+    tree_nodes = 6 if fix_tree is None else fix_tree.number_of_nodes()
+    obs_bins, obs_cells = obs.shape
+
+    config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
+                    chromosome_indexes=dh.get_chr_idx(), debug=debug)
+
+    # create distribution and initialize them on healthy cn profile
+    qc = qCMultiChrom(config)
+    qc.initialize(method='random')
+
+    # strong prior with high lambda prior (double of chain length)
+    # and uninformative alpha/beta
+    qmt = qMuTau(config,
+                 nu_prior=1., lambda_prior=config.chain_length * 2.,
+                 alpha_prior=1., beta_prior=1.)
+    qmt.initialize(method='data-size', obs=obs)
+
+    # uninformative prior, but still skewed towards 0.01 mean epsilon
+    # since most of the sequence will have stable copy number (few changes)
+    qeps = qEpsilonMulti(config,
+                         alpha_prior=1., beta_prior=100.)
+    qeps.initialize(method='data', obs=obs)
+
+    # use kmeans on obs or, if available, on previously estimated cn profile
+    # e.g. hmmcopy layer
+    kmeans_data = obs
+    if 'state' in data.layers:
+        kmeans_data = data.layers['state']
+
+    qz = qZ(config)
+    qz.initialize(method='kmeans', data=kmeans_data)
+
+    # a strong prior has to be in the scale of n_cells / n_nodes
+    # cause for each update, pi_k = prior_pi_k + \sum_n q(z_n = k)
+    balance_factor = .8  # the higher, the more balanced the cell assignment
+    qpi = qPi(config, delta_prior=balance_factor * config.n_cells / config.n_nodes)
+    qpi.initialize(concentration_param_init=config.n_cells / config.n_nodes)
+    # TODO: test this
+
+    if fix_tree is None:
+        qt = qT(config)
+        # TODO: init this
+        qt.initialize()
+
+        q = VarTreeJointDist(config, obs, qc=qc, qz=qz, qt=qt, qeps=qeps, qmt=qmt, qpi=qpi)
+    else:
+        q = FixedTreeJointDist(obs, config, qc=qc, qz=qz, qeps=qeps, qpsi=qmt, qpi=qpi, T=fix_tree)
+    q.compute_elbo()
+
+    return config, q, dh

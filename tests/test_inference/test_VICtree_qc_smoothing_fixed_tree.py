@@ -1,3 +1,5 @@
+import logging
+import sys
 import unittest
 
 import torch
@@ -11,10 +13,23 @@ from utils.config import Config, set_seed
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
 
 
-@unittest.skip("Manual inspection tests/experiments")
 class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
 
+    def setUp(self) -> None:
+        set_seed(101)
+        # setup logging debug in tests
+        stream_handler = logging.StreamHandler(sys.stdout)
+        logger = logging.getLogger()
+        logger.level = logging.INFO
+        logger.addHandler(stream_handler)
+        self.logger = logger
+        self.stream_handler = stream_handler
+
+    def tearDown(self) -> None:
+        self.logger.removeHandler(self.stream_handler)
+
     def set_up_q(self, config):
+        logging.getLogger().debug("setting up joint q for tests")
         qc = qC(config)
         qt = qT(config)
         qeps = qEpsilonMulti(config)  # ), alpha_prior=1., beta_prior=10.)
@@ -45,11 +60,11 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         print(f"pi: {pi}")
         print(f"mu: [{mu.min()}, {mu.max()}]")
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
-                        step_size=0.3,
-                        qc_smoothing=True)
+                        step_size=0.3, n_run_iter=40,
+                        qc_smoothing=True, debug=True)
         config2 = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites,
-                         step_size=0.3,
-                         qc_smoothing=False)
+                         step_size=0.3, n_run_iter=40,
+                         qc_smoothing=False, debug=True)
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
@@ -64,17 +79,19 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         copy_tree = VICTree(config, q, y)
         copy_tree2 = VICTree(config2, q2, y)
 
-        copy_tree.run(n_iter=40)
-        copy_tree2.run(n_iter=40)
+        copy_tree.run()
+        copy_tree2.run()
 
         # Assert
         torch.set_printoptions(precision=2)
+        print("Results with qc smoothing")
         out1 = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                                  true_tau=tau, true_epsilon=eps, q_c=copy_tree.q.c,
                                                                  q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                                  q_mt=copy_tree.q.mt,
                                                                  q_eps=copy_tree.q.eps)
 
+        print("Results without qc smoothing")
         out2 = model_variational_comparisons.fixed_T_comparisons(obs=y, true_C=C, true_Z=z, true_pi=pi, true_mu=mu,
                                                                  true_tau=tau, true_epsilon=eps, q_c=copy_tree2.q.c,
                                                                  q_z=copy_tree2.q.z, qpi=copy_tree2.q.pi,

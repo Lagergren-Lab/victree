@@ -58,14 +58,14 @@ def visualize_copy_number_profiles(C: torch.Tensor, save_path=None, pyplot_backe
         raise Exception('Simulated C rejected by user.')
 
 
-def plot_cn_matrix(c, z):
+def plot_cn_matrix(c, z, axs=None):
     """
 
     Parameters
     ----------
     c: copy number matrix (n_nodes, chain_length)
     z: cells assignment (n_cells,)
-    ax: plt.Axes
+    ax: list of two plt.Axes (one for image, one for legend)
 
     Returns
     -------
@@ -74,19 +74,23 @@ def plot_cn_matrix(c, z):
 
     c_colors = pl.cn_colors.map_cn_colors(c)
 
-    fig, ax = plt.subplots(1, 2, width_ratios=(10, 1), squeeze=True)
+    if axs is not None:
+        assert len(axs) == 2, "you must provide two axes"
+        fig, _ = plt.subplots(1, 2, width_ratios=(10, 1), squeeze=True)
+    else:
+        fig, axs = plt.subplots(1, 2, width_ratios=(10, 1), squeeze=True)
 
-    ax[0].imshow(c_colors[np.sort(z)], aspect='auto', interpolation='none')
+    axs[0].imshow(c_colors[np.sort(z)], aspect='auto', interpolation='none')
+
+    axs[0].set_xlabel('bins', fontsize=8)
+    axs[0].set_ylabel('cells', fontsize=8)
+
     # legend axis
-    ax[1].set_axis_off()
-
-    ax[0].set_xlabel('bins', fontsize=8)
-    ax[0].set_ylabel('cells', fontsize=8)
-
-    pl.cn_colors.cn_legend(ax[1], title='cn')
+    axs[1].set_axis_off()
+    pl.cn_colors.cn_legend(axs[1], title='cn')
 
     return {
-        'ax': ax,
+        'ax': axs,
         'fig': fig
     }
 

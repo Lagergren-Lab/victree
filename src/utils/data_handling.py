@@ -14,7 +14,7 @@ from utils.tree_utils import newick_from_eps_arr, tree_to_newick
 
 class DataHandler:
 
-    def __init__(self, file_path: str | None = None, adata: anndata.AnnData | None = None):
+    def __init__(self, file_path: str | None = None, adata: anndata.AnnData | None = None, layer: str | None = 'copy'):
         """
         Reads the file in the specified path and allows for multiple data formats.
         The supported formats are:
@@ -28,7 +28,11 @@ class DataHandler:
         self.chr_df = None
         if adata is not None:
             self._adata = adata
-            self._obs = torch.tensor(adata.layers['copy']).T
+            self.chr_df = adata.var[['chr', 'start', 'end']].reset_index()
+            if layer is None:
+                self._obs = torch.tensor(adata.X).T.float()
+            else:
+                self._obs = torch.tensor(adata.layers[layer]).T.float()
         elif file_path is not None:
             self._adata, self._obs = self._read_multiple_sources(file_path)
         else:

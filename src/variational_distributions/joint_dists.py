@@ -107,13 +107,10 @@ class VarTreeJointDist(JointDist):
         trees, weights = self.t.get_trees_sample()
         self.mt.update(self.c, self.z, self.obs)
         self.z.update(self.mt, self.c, self.pi, self.obs)
-        self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights)
-        if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
-            self.c.smooth_etas()
-            self.c.compute_filtering_probs()  #FIXME: calculated twice (here and in qC.update)
+        smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
+        self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights, smoothing=smoothing)
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
-
 
         super().update()
 
@@ -169,7 +166,8 @@ class VarTreeJointDist(JointDist):
                       self.eps.compute_elbo(t_list, w_list) + \
                       self.t.compute_elbo(t_list, w_list) + \
                       self.elbo_observations()
-        return elbo_tensor.item()
+        self.elbo = elbo_tensor.item()
+        return self.elbo
 
     def elbo_observations(self):
         """
@@ -251,10 +249,8 @@ class FixedTreeJointDist(JointDist):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
-        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
-        if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
-            self.c.smooth_etas()
-            self.c.compute_filtering_probs()
+        smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
+        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T, smoothing=smoothing)
         self.eps.update([self.T], self.w_T, self.c)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)
@@ -289,11 +285,10 @@ class FixedTreeJointDist(JointDist):
             new_eta1_norm, new_eta2_norm = self.c.update_CAVI(self.obs[:, batch], self.eps, self.z, self.mt, [self.T],
                                                               self.w_T, batch)
             self.c.update_params(new_eta1_norm, new_eta2_norm)
-            self.c.compute_filtering_probs()
 
             if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
                 self.c.smooth_etas()
-                self.c.compute_filtering_probs()
+            self.c.compute_filtering_probs()
             alpha, beta = self.eps.update_CAVI([self.T], self.w_T, self.c)
             self.eps.update_params(alpha, beta)
             delta = self.pi.update_CAVI(self.z)
@@ -358,7 +353,8 @@ class FixedTreeJointDist(JointDist):
         q_eps_elbo = self.eps.compute_elbo([self.T], self.w_T)
         elbo_obs = self.elbo_observations()
         elbo_tensor = elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
-        return elbo_tensor.item()
+        self.elbo = elbo_tensor.item()
+        return self.elbo
 
     def elbo_observations(self):
         """
@@ -435,10 +431,8 @@ class QuadrupletJointDist(JointDist):
         Joint distribution update: update every variational unit in a predefined order.
         """
         self.mt.update(self.c, self.z, self.obs)
-        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
-        if self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6):
-            self.c.smooth_etas()
-        self.c.compute_filtering_probs()
+        smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
+        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T, smoothing=smoothing)
         self.eps.update([self.T], self.w_T, self.c)
 
         super().update()

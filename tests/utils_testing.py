@@ -1,7 +1,9 @@
 import itertools
+import logging
 import os.path
 import pathlib
 import pickle
+import sys
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -179,7 +181,7 @@ def generate_test_dataset_fixed_tree() -> FixedTreeJointDist:
     })
 
     fix_qpi = qPi(cfg, true_params={
-        "pi": torch.ones(cfg.n_nodes) / 3.
+        "pi": torch.ones(cfg.n_nodes)
     })
 
     fix_tree = nx.DiGraph()
@@ -343,3 +345,10 @@ def remap_tensor(tensor, permutation_list):
     Remaps a tensor along dimension 0 according to :param permutation_list:.
     """
     return tensor[permutation_list]
+
+
+def print_logs(level='INFO'):
+    stream_handler = logging.StreamHandler(sys.stdout)
+    logger = logging.getLogger()
+    logger.setLevel(level)
+    logger.addHandler(stream_handler)
