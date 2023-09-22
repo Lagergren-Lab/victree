@@ -419,6 +419,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 victree = VICTree(config_init1, q, y_tot, draft=True)
                 victree.run(n_iter=n_iter)
 
+                print("CONFIG 1 (WITH SPLIT) COMPARISONS")
                 out = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                         true_mu=mu,
                                                                         true_tau=tau, true_epsilon=eps,
@@ -441,6 +442,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                                + f'/SVI/data_seed_{data_seed}',
                                                                                base_dir='./test_output')
                 torch.set_printoptions(precision=2)
+                print("CONFIG 2 (WITHOUT SPLIT) COMPARISONS")
                 out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                          true_mu=mu,
                                                                          true_tau=tau, true_epsilon=eps_tot,

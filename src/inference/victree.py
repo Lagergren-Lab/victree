@@ -426,7 +426,8 @@ class VICTree:
             logging.debug(f"diagnostics saved in {path}")
 
     def split(self):
-        split = self.split_operation.split('categorical', self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi)
+        split = self.split_operation.split('inlier', self.obs, self.q.c, self.q.z, self.q.mt, self.q.pi,
+                                           self.q.eps, [self.q.T], self.q.w_T)
         if split:
             mu, lmbda, alpha, beta = self.q.mt.update_CAVI(self.q.obs, self.q.c, self.q.z)
             #self.q.mt.nu = mu

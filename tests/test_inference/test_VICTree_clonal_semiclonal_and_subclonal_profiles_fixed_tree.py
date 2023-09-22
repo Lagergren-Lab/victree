@@ -475,7 +475,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
         print(f'SPLIT - ARI mean over inference seed: {np.mean(ari_list_list, axis=-1)} ({np.std(ari_list_list, axis=-1)})')
         print(f'NO SPLIT - ARI mean over inference seed: {np.mean(ari2_list_list, axis=-1)} ({np.std(ari2_list_list, axis=-1)})')
 
-    #@unittest.skip('long exec test')
+    @unittest.skip('long exec test')
     def test_SVI_split_and_clonal_init(self):
         utils.config.set_seed(0)
         seeds = list(range(10, 11))
