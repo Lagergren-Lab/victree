@@ -45,6 +45,9 @@ def generate_clonal_profile_data(A, C, K, M_clonal, M_subclonal, N, eps, mu, tau
 @unittest.skip('long exec test')
 class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
+    def setUp(self) -> None:
+        self.base_dir = '../test_output'
+
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
@@ -107,7 +110,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                 diagnostics=False, annealing=1.)
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_general, self.id().replace(".", "/"),
-                                                                       base_dir='./test_output')
+                                                                       base_dir=self.base_dir)
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_general)
         q2 = FixedTreeJointDist(y_tot, config_general, qc2, qz2, qeps2, qmt2, qpi2, tree)
@@ -193,7 +196,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
-                                                                       base_dir='./test_output')
+                                                                       base_dir=self.base_dir)
         torch.set_printoptions(precision=2)
         out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                  true_mu=mu,
@@ -269,7 +272,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Assert
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/"),
-                                                                       base_dir='./test_output')
+                                                                       base_dir=self.base_dir)
         torch.set_printoptions(precision=2)
         out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                  true_mu=mu,
@@ -321,7 +324,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                               diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init1, self.id().replace(".", "/"),
-                                                                       base_dir='./test_output')
+                                                                       base_dir=self.base_dir)
         orig_stdout = sys.stdout
         f = open(test_dir_name + '/out.txt', 'w')
         sys.stdout = f
@@ -443,7 +446,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 # Assert
                 test_dir_name = tests.utils_testing.create_test_output_catalog(config_init2, self.id().replace(".", "/")
                                                                                + f'/SVI/data_seed_{data_seed}',
-                                                                               base_dir='./test_output')
+                                                                               base_dir=self.base_dir)
                 torch.set_printoptions(precision=2)
                 out2 = model_variational_comparisons.fixed_T_comparisons(obs=y_tot, true_C=c_tot, true_Z=z, true_pi=pi,
                                                                          true_mu=mu,
@@ -517,7 +520,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                      diagnostics=True, annealing=1., split=True, SVI=True)
                 test_dir_name = tests.utils_testing.create_test_output_catalog(config_init, self.id().replace(".", "/")
                                                                                + f'/data_seed_{data_seed}',
-                                                                               base_dir='./test_output')
+                                                                               base_dir=self.base_dir)
                 config_init.out_dir = test_dir_name
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init)

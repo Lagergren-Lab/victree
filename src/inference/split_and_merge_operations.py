@@ -60,12 +60,13 @@ class SplitAndMergeOperations:
         qpi.concentration_param[k_merge_cluster] = qpi.concentration_param[k_split_cluster] / 2
         qpi.concentration_param[k_split_cluster] = qpi.concentration_param[k_split_cluster] / 2
 
-    def update_cluster_profiles(self, qc: qCMultiChrom | qC, k_to_cluster, k_split_cluster):
+    def update_cluster_profiles(self, qc: qCMultiChrom | qC, k_to_cluster, k_split_cluster, obs=None):
         if type(qc) == qC:
             qc.eta1[k_to_cluster] = qc.eta1[k_split_cluster] + 0.05 * torch.randn(qc.config.n_states)
             qc.eta1[k_to_cluster] = qc.eta1[k_to_cluster] - torch.logsumexp(qc.eta1[k_to_cluster], dim=-1)
-            qc.eta2[k_to_cluster] = qc.eta2[k_split_cluster] + \
-                                    0.05 * torch.randn((qc.config.chain_length - 1, qc.config.n_states,
+            qc.eta2[k_to_cluster] = qc.eta2[k_split_cluster]
+            qc.eta2[k_to_cluster, :, :] = qc.eta2[k_split_cluster] + \
+                                                0.05 * torch.randn((qc.config.n_states,
                                                            qc.config.n_states))
             qc.eta2[k_to_cluster] = qc.eta2[k_to_cluster] - torch.logsumexp(qc.eta2[k_to_cluster], dim=-1, keepdim=True)
         else:
@@ -120,6 +121,9 @@ class SplitAndMergeOperations:
         into_cluster, from_cluster = self.select_clusters_to_split_categorical(
             cluster_assignments_avg, empty_clusters)
 
+        # Find clonal bins
+        #self.find_clonal_bins(from_cluster, into_cluster, qc, qz, qpsi, obs)
+
         # perturbate copy number profile
         self.update_cluster_profiles(qc, into_cluster, from_cluster)
 
@@ -135,9 +139,9 @@ class SplitAndMergeOperations:
         return True
 
     def get_cell_likelihoods(self, y, qc, qz, qmt, k):
-        #import matplotlib
-        #matplotlib.use('module://backend_interagg')
-        #import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.use('module://backend_interagg')
+        import matplotlib.pyplot as plt
         N, K = qz.pi.shape
         K, M_not_nan, A = qc.single_filtering_probs.shape
         not_nan_idx = ~torch.any(y.isnan(), dim=1)
@@ -147,18 +151,23 @@ class SplitAndMergeOperations:
         emission_means = torch.einsum('n, km -> kmn', qmt.nu, qc.single_filtering_probs.argmax(dim=-1)[:, not_nan_idx])
         Y_given_Z = torch.distributions.Normal(emission_means[k], qmt.exp_tau().expand(M_not_nan, N))
         log_p_y_mn_given_Z = Y_given_Z.log_prob(y[not_nan_idx, :])
+        log_p_y_mn_given_Z_k = log_p_y_mn_given_Z[:, qz_k_idx]
         log_p_y_n_given_Z = log_p_y_mn_given_Z.sum(dim=0)
         log_p_y_n_qz_k = log_p_y_n_given_Z[qz_k_idx]
-        #plt.plot(log_p_y_n_given_Z.sort()[0])
-        #plt.title('All cells')
-        #plt.plot(log_p_y_n_qz_k.sort()[0])
-        #plt.title('Cells of clone k')
+        plt.plot(log_p_y_n_given_Z.sort()[0])
+        plt.title('All cells')
+        plt.show()
+        plt.plot(log_p_y_n_qz_k.sort()[0])
+        plt.title('Cells of clone k')
+        plt.show()
+        plt.plot(torch.std(log_p_y_mn_given_Z_k, dim=1))
+        plt.show()
         return log_p_y_n_qz_k, qz_k_idx
 
     def update_on_outliers(self, from_cluster, to_cluster, obs, qc, qz, qpsi, qpi, qeps, tree_list, tree_weights_list):
         log_probs, selected_cells_idx = self.get_cell_likelihoods(obs, qc, qz, qpsi, from_cluster)
-        clusters = KMeans(n_clusters=3, random_state=0).fit(log_probs.reshape(log_probs.shape[0], 1))
-        inlier_cluster = torch.argmin(torch.tensor(clusters.cluster_centers_))
+        clusters = KMeans(n_clusters=2, random_state=0).fit(log_probs.reshape(log_probs.shape[0], 1))
+        inlier_cluster = torch.argmax(torch.tensor(clusters.cluster_centers_))
         inlier_cells_idx = torch.tensor([1 if i == inlier_cluster else 0 for i in clusters.labels_], dtype=torch.long)
 
         inlier_cells_idx_2 = torch.zeros_like(selected_cells_idx)
@@ -227,3 +236,14 @@ class SplitAndMergeOperations:
         self.update_on_outliers(from_cluster, into_cluster, obs, qc, qz, qpsi, qpi, qeps, tree_list, tree_weights_list)
 
         return True
+
+    def find_clonal_bins(self, from_cluster, into_cluster, qc, qz, qmt, obs):
+        raise Exception("Under Development.")
+        import matplotlib
+        matplotlib.use('module://backend_interagg')
+        import matplotlib.pyplot as plt
+        plt.plot(torch.std(obs, dim=1))
+        plt.title("Std observations")
+        plt.show()
+
+        self.get_cell_likelihoods(obs, qc, qz, qmt, from_cluster)
