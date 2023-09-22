@@ -87,7 +87,8 @@ class VICtreeTreePostOptimizationTestCase(unittest.TestCase):
         print(f"Epsilon: {eps}")
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
                         debug=False, diagnostics=False)
-        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName)
+        test_dir_name = tests.utils_testing.create_test_output_catalog(config, self._testMethodName,
+                                                                       base_dir="./../test_output")
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = VarTreeJointDist(config, y, qc, qz, qt, qeps, qmt, qpi)

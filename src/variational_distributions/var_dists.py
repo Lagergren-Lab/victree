@@ -1746,8 +1746,8 @@ class qEpsilonMulti(VariationalDistribution):
 class qMuTau(qPsi):
 
     def __init__(self, config: Config, true_params=None,
-                 nu_prior: float = 1., lambda_prior: float = .1,
-                 alpha_prior: float = .5, beta_prior: float = .5):
+                 nu_prior: float = 1., lambda_prior: float = 10.,
+                 alpha_prior: float = 1., beta_prior: float = 1.):
         super().__init__(config, true_params is not None)
 
         # params for each cell
@@ -1906,6 +1906,10 @@ class qMuTau(qPsi):
             self._init_from_raw_data(**kwargs)
         elif method == 'prior':
             self._init_from_prior()
+        elif method == 'data-size':
+            chain_length = kwargs['obs'].shape[0]
+            self._initialize_with_values(loc=1., precision_factor=2 * chain_length,
+                                         shape=chain_length, rate=chain_length)
         else:
             raise ValueError(f'method `{method}` for qMuTau initialization is not implemented')
 

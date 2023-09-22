@@ -113,7 +113,8 @@ Generate full simulated dataset.
             If None, a real-data like 24 chr binning of the genome is used
         cne_length_factor: int, the higher, the longer the copy number events will be on average.
          if set to 0, no correction is performed and copy number transition is only
-         determined by the markov model
+         determined by the markov model. A copy number event, once started, will be terminated
+         with probability 1 / cne_length_factor along the chain.
 
     Returns:
         dictionary with keys: ['obs', 'raw', 'c', 'z', 'pi', 'mu', 'tau', 'eps', 'eps0', 'tree', 'chr_idx', 'adata']

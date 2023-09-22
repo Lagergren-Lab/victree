@@ -166,7 +166,8 @@ class VarTreeJointDist(JointDist):
                       self.eps.compute_elbo(t_list, w_list) + \
                       self.t.compute_elbo(t_list, w_list) + \
                       self.elbo_observations()
-        return elbo_tensor.item()
+        self.elbo = elbo_tensor.item()
+        return self.elbo
 
     def elbo_observations(self):
         """
@@ -352,7 +353,8 @@ class FixedTreeJointDist(JointDist):
         q_eps_elbo = self.eps.compute_elbo([self.T], self.w_T)
         elbo_obs = self.elbo_observations()
         elbo_tensor = elbo_obs + q_C_elbo + q_Z_elbo + q_MuTau_elbo + q_pi_elbo + q_eps_elbo
-        return elbo_tensor.item()
+        self.elbo = elbo_tensor.item()
+        return self.elbo
 
     def elbo_observations(self):
         """
