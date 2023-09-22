@@ -37,7 +37,7 @@ class VICtreeQuadrupletTestCase(unittest.TestCase):
         out = simul.simulate_quadruplet_data(n_sites, n_copy_states, tree, a0, b0, eps_0=0.1)
         y, c, mu, tau, eps, eps0 = out['obs'], out['c'], out['mu'], out['tau'], out['eps'], out['eps0']
 
-        out_dir = "./test_output/" + self._testMethodName
+        out_dir = "../test_output/" + self._testMethodName
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
 

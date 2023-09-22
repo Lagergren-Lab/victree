@@ -11,6 +11,7 @@ notes.md
 # output dirs
 *_out
 /tests/test_output/
+/test_output/
 /output/
 /src/output/
 /data/

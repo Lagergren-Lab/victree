@@ -18,7 +18,7 @@ class dataHandlingTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
 
-        self.output_dir = "../test_output"
+        self.output_dir = "./test_output"
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
