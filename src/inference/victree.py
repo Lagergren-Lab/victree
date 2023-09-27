@@ -182,9 +182,14 @@ class VICTree:
                     logging.info(f"run converged after {it}/{n_iter} iterations")
                     break
             elif self.elbo < old_elbo:
-                # elbo should only increase
-                close_runs += 1
-                logging.warning(f"ELBO is decreasing (-{rel_change * 100:.2f}%)")
+
+                if rel_change > 5e-2:
+                    # elbo should only increase
+                    close_runs = 0
+                    logging.warning(f"ELBO is decreasing (-{rel_change * 100:.2f}%)")
+                else:
+                    # increase is negligible
+                    close_runs += 1
             else:
                 close_runs = 0
             # keep record of previous state
