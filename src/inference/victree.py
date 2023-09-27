@@ -170,7 +170,8 @@ class VICTree:
             # elbo is already computed in JointDist.update()
             pbar.set_postfix({
                 'elbo': self.elbo,
-                'diff': f"{rel_change * 100:.3f}%"
+                'diff': f"{rel_change * 100:.3f}%",
+                'll': f"{self.q.log_likelihood:.3f}"
             })
 
             # early-stopping

@@ -167,7 +167,18 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                 q_z=copy_tree.q.z, qpi=copy_tree.q.pi,
                                                                 q_mt=copy_tree.q.mt, q_eps=qeps)
         ari, perm, acc = (out['ari'], out['perm'], out['acc'])
+        true_q = FixedTreeJointDist(
+            y, config,
+            qC(config, true_params={'c': C}),
+            qZ(config, true_params={'z': z}),
+            qEpsilonMulti(config, true_params={'eps': eps}),
+            qMuTau(config, true_params={'mu': mu, 'tau': tau}),
+            qPi(config, true_params={'pi': pi}),
+            T=tree
+        )
 
+        print(f"Var Log-likelihood: {q.log_likelihood}")
+        print(f"True Log-likelihood: {true_q.log_likelihood}")
         self.assertGreater(ari, 0.7, msg='ari less than 0.7.')
 
     def test_large_tree_fixed_qMuTau_same_data_different_optimizations(self):

@@ -619,28 +619,30 @@ class qC(VariationalDistribution):
 
         Returns tensor of shape (n_nodes, chain_length) dtype=long
         """
-
         M = self.config.chain_length
-
-        init_probs_qu = torch.exp(self.eta1 - torch.logsumexp(self.eta1, dim=1, keepdim=True))
-        transition_probs = torch.exp(self.eta2 -
-                                     torch.logsumexp(self.eta2, dim=3, keepdim=True))
-        t1 = torch.empty((self.config.n_nodes, self.config.n_states, M))
-        t2 = torch.empty((self.config.n_nodes, self.config.n_states, M))
-        # init first site
-        t1[:, :, 0] = init_probs_qu
-        t2[:, :, 0] = 0.
-        # forward
-        for m in range(1, M):
-            t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m - 1, None] * transition_probs[:, m - 1, ...], dim=1)
-
-        # init backtrack
         zm = torch.empty((self.config.n_nodes, M), dtype=torch.long)
-        zm[:, M - 1] = t1[:, :, M - 1].max(dim=1)[1]
-        # backward
-        for m in reversed(range(1, M)):
-            nodes_range = torch.arange(self.config.n_nodes)
-            zm[:, m - 1] = t2[nodes_range, zm[nodes_range, m], m]
+        if self.fixed:
+            zm[...] = self.true_params['c']
+        else:
+
+            init_probs_qu = torch.exp(self.eta1 - torch.logsumexp(self.eta1, dim=1, keepdim=True))
+            transition_probs = torch.exp(self.eta2 -
+                                         torch.logsumexp(self.eta2, dim=3, keepdim=True))
+            t1 = torch.empty((self.config.n_nodes, self.config.n_states, M))
+            t2 = torch.empty((self.config.n_nodes, self.config.n_states, M))
+            # init first site
+            t1[:, :, 0] = init_probs_qu
+            t2[:, :, 0] = 0.
+            # forward
+            for m in range(1, M):
+                t1[:, :, m], t2[:, :, m] = torch.max(t1[:, :, m - 1, None] * transition_probs[:, m - 1, ...], dim=1)
+
+            # init backtrack
+            zm[:, M - 1] = t1[:, :, M - 1].max(dim=1)[1]
+            # backward
+            for m in reversed(range(1, M)):
+                nodes_range = torch.arange(self.config.n_nodes)
+                zm[:, m - 1] = t2[nodes_range, zm[nodes_range, m], m]
 
         return zm
 
@@ -969,6 +971,12 @@ class qZ(VariationalDistribution):
             # simply the pi probabilities
             out_qz[...] = self.pi if batch is None else self.pi[batch]
         return out_qz
+
+    def best_assignment(self):
+        if self.fixed:
+            return self.true_params['z']
+        else:
+            return self.pi.argmax(dim=1)
 
     def neg_cross_entropy(self, qpi: 'qPi') -> float:
         e_logpi = qpi.exp_log_pi()
@@ -1776,7 +1784,10 @@ class qMuTau(qPsi):
     # the class' update method
     @property
     def nu(self):
-        return self._nu
+        if self.fixed:
+            return self.true_params['mu']
+        else:
+            return self._nu
 
     @property
     def lmbda(self):
@@ -2037,16 +2048,28 @@ Initialize the mu and tau params given observations
         return out_arr
 
     def exp_tau(self):
-        return self.alpha / self.beta
+        if self.fixed:
+            return self.true_params['tau']
+        else:
+            return self.alpha / self.beta
 
     def exp_log_tau(self):
-        return torch.digamma(self.alpha) - torch.log(self.beta)
+        if self.fixed:
+            return self.true_params['tau'].log()
+        else:
+            return torch.digamma(self.alpha) - torch.log(self.beta)
 
     def exp_mu_tau(self):
-        return self.nu * self.alpha / self.beta
+        if self.fixed:
+            return self.true_params['mu'] * self.true_params['tau']
+        else:
+            return self.nu * self.alpha / self.beta
 
     def exp_mu2_tau(self):
-        return 1. / self.lmbda + torch.pow(self.nu, 2) * self.alpha / self.beta
+        if self.fixed:
+            return self.true_params['mu'] ** 2 * self.true_params['tau']
+        else:
+            return 1. / self.lmbda + torch.pow(self.nu, 2) * self.alpha / self.beta
 
     def exp_mu2_tau_c(self):
         A = self.config.n_states
