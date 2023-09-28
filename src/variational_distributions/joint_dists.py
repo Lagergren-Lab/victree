@@ -12,7 +12,7 @@ from numpy import infty
 
 from utils import math_utils
 from utils.config import Config
-from utils.tree_utils import star_tree
+from utils.tree_utils import star_tree, tree_to_newick
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qPhi, qCMultiChrom
 from variational_distributions.variational_distribution import VariationalDistribution
@@ -37,7 +37,7 @@ class JointDist(VariationalDistribution):
         self.mt: qMuTau = qMuTau(config)
 
         self._elbo: float = -infty
-        self._log_likelihood = -infty
+        self._log_likelihood = torch.full((config.n_cells,), -infty)
 
         self.params_history["elbo"] = []
 
@@ -50,10 +50,14 @@ class JointDist(VariationalDistribution):
         self._elbo = e
 
     @property
-    def log_likelihood(self):
+    def log_likelihood(self) -> torch.Tensor:
         return self._log_likelihood
 
-    def _compute_log_likelihood(self) -> float:
+    @property
+    def total_log_likelihood(self) -> float:
+        return self._log_likelihood.sum().item()
+
+    def _compute_log_likelihood(self) -> torch.Tensor:
         """
         Uses:
          - viterbi for C estimation
@@ -68,7 +72,7 @@ class JointDist(VariationalDistribution):
         valid_counts = ~ torch.isnan(self.obs)
 
         return torch.distributions.Normal(loc_tensor, scale_tensor,
-                                          validate_args=True).log_prob(self.obs.T)[valid_counts.T].sum().item()
+                                          validate_args=True).log_prob(self.obs.T)[valid_counts.T]
 
     def get_params_as_dict(self) -> dict[str, np.ndarray]:
         return {
@@ -442,6 +446,17 @@ class FixedTreeJointDist(JointDist):
                 elbo = torch.einsum("vmj, nv, jvnm ->", qC, qZ, log_p)
 
         return elbo
+
+    def __str__(self):
+        # summary for joint dist
+        tot_str = "+++ Joint summary +++"
+        tot_str += f"\n ELBO: {self.elbo}"
+        tot_str += f"fix tree: {tree_to_newick(self.T)}"
+        for q in self.get_units():
+            tot_str += str(q)
+            tot_str += "\n --- \n"
+        tot_str += "+++ end of summary +++"
+        return tot_str
 
 
 class QuadrupletJointDist(JointDist):
