@@ -17,23 +17,25 @@ class VICTreeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(0)
-        # print_logs()
+        print_logs("DEBUG")
 
     def test_fixed_tree_run(self):
         # simulate data
         joint_q_true, adata = generate_dataset_var_tree(config=Config(
             n_nodes=4, n_cells=100, chain_length=300, wis_sample_size=50,
         ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=25., eps_b=10000.)
-        print(f"true dist log-likelihood {joint_q_true.log_likelihood}")
+        print(f"true dist log-likelihood {joint_q_true.total_log_likelihood}")
         # make default input
         config, q, dh = make_input(adata, fix_tree=joint_q_true.t.true_params['tree'], debug=True)
-        config.step_size = .6
+        config.step_size = .4
+        config.split = 'categorical'
+
         # check victree convergence
         init_elbo = q.elbo
+        print(f"init elbo: {init_elbo}")
         victree = VICTree(config, q, data_handler=dh, elbo_rtol=1e-4)
         victree.run(n_iter=40)
-        print(f"init elbo: {init_elbo}, final elbo: {victree.elbo}")
-        self.assertGreater(victree.elbo, init_elbo)
+        self.assertGreater(victree.elbo, init_elbo, f"elbo diff: {victree.elbo - init_elbo}")
 
         true_lab = joint_q_true.z.true_params['z']
         pred_lab = q.z.pi.argmax(dim=1)
