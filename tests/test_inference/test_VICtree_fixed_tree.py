@@ -23,6 +23,9 @@ from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuT
 
 class VICtreeFixedTreeTestCase(unittest.TestCase):
 
+    def setUp(self) -> None:
+        utils.config.set_seed(0)
+
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
@@ -177,8 +180,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
             T=tree
         )
 
-        print(f"Var Log-likelihood: {q.log_likelihood}")
-        print(f"True Log-likelihood: {true_q.log_likelihood}")
+        print(f"Var Log-likelihood: {q.total_log_likelihood}")
+        print(f"True Log-likelihood: {true_q.total_log_likelihood}")
         self.assertGreater(ari, 0.7, msg='ari less than 0.7.')
 
     def test_large_tree_fixed_qMuTau_same_data_different_optimizations(self):
