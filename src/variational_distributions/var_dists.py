@@ -878,6 +878,7 @@ class qZ(VariationalDistribution):
         elif z_init == 'fixed':
             self._init_with_values(**kwargs)
         elif z_init == 'kmeans':
+            # params: data, skewness
             self._kmeans_init(**kwargs)
         else:
             raise ValueError(f'method `{z_init}` for qZ initialization is not implemented')

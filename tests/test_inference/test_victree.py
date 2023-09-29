@@ -26,15 +26,15 @@ class VICTreeTestCase(unittest.TestCase):
         ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=25., eps_b=10000.)
         print(f"true dist log-likelihood {joint_q_true.total_log_likelihood}")
         # make default input
-        config, q, dh = make_input(adata, fix_tree=joint_q_true.t.true_params['tree'], debug=True)
-        config.step_size = .4
-        config.split = 'categorical'
+        config, q, dh = make_input(adata, fix_tree=joint_q_true.t.true_params['tree'], debug=True,
+                                   step_size=.4, mt_prior_strength=5., delta_prior_strength=2.,
+                                   eps_prior_strength=2., c_init='diploid')
 
         # check victree convergence
         init_elbo = q.elbo
         print(f"init elbo: {init_elbo}")
         victree = VICTree(config, q, data_handler=dh, elbo_rtol=1e-4)
-        victree.run(n_iter=40)
+        victree.run(n_iter=60)
         self.assertGreater(victree.elbo, init_elbo, f"elbo diff: {victree.elbo - init_elbo}")
 
         true_lab = joint_q_true.z.true_params['z']

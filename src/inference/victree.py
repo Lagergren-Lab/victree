@@ -477,11 +477,11 @@ class VICTree:
 
 def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                fix_tree: str | nx.DiGraph | int | None = None,
-               mt_prior: str | None = 'strong1',
-               nu_prior=1., lambda_prior=1., alpha_prior=1., beta_prior=1.,
-               a_prior=1., b_prior=10., delta_prior=None, mt_init='data-size',
-               z_init='kmeans', c_init='random', balance_factor=0.3,
-               eps_init='data', step_size=0.3,
+               mt_prior_strength: float = 1., eps_prior_strength: float = 1.,
+               mt_prior: tuple | None = None,
+               eps_prior: tuple | None = None, delta_prior=None,
+               mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
+               eps_init='data', step_size=0.4, kmeans_skewness=5, sieving=(1., 1),
                debug: bool = False) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
@@ -508,25 +508,21 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     obs_bins, obs_cells = obs.shape
 
     config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
-                    chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size)
+                    chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
+                    sieving_size=sieving[0], n_sieving_iter=sieving[1])
 
     # create distribution and initialize them on healthy cn profile
     qc = qCMultiChrom(config)
     qc.initialize(method=c_init)
 
-    # strong prior with high lambda prior (double of chain length)
-    # and uninformative alpha/beta
-    if mt_prior is not None:
-        if mt_prior == 'strong1':
-            nu_prior = 1.
-            lambda_prior = config.chain_length * 2
-            alpha_prior = config.chain_length  # ensure high precision
-            beta_prior = config.chain_length / 10.
-        elif mt_prior == 'weak1':
-            nu_prior = 1.
-            lambda_prior = config.chain_length / 2
-            alpha_prior = config.chain_length / 4
-            beta_prior = config.chain_length / 40.
+    # strong prior with high lambda prior (e.g. strength = 2)
+    if mt_prior is None:
+        nu_prior = 1.
+        lambda_prior = config.chain_length * mt_prior_strength
+        alpha_prior = config.chain_length * mt_prior_strength
+        beta_prior = config.chain_length * mt_prior_strength / 10.
+    else:
+        nu_prior, lambda_prior, alpha_prior, beta_prior = mt_prior
 
     qmt = qMuTau(config,
                  nu_prior=nu_prior, lambda_prior=lambda_prior,
@@ -535,6 +531,11 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
 
     # uninformative prior, but still skewed towards 0.01 mean epsilon
     # since most of the sequence will have stable copy number (few changes)
+    if eps_prior is None:
+        a_prior = config.chain_length * eps_prior_strength * 2e-3
+        b_prior = config.chain_length * eps_prior_strength
+    else:
+        a_prior, b_prior = eps_prior
     qeps = qEpsilonMulti(config,
                          alpha_prior=a_prior, beta_prior=b_prior)
     qeps.initialize(method=eps_init, obs=obs)
@@ -546,20 +547,18 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
         kmeans_data = data.layers['state']
 
     qz = qZ(config)
-    qz.initialize(method=z_init, data=kmeans_data)
+    qz.initialize(method=z_init, data=kmeans_data, skeweness=kmeans_skewness)
 
     # a strong prior has to be in the scale of n_cells / n_nodes
     # cause for each update, pi_k = prior_pi_k + \sum_n q(z_n = k)
     # the higher the balance factor, the more balanced the cell assignment
     if delta_prior is None:
-        delta_prior = balance_factor * config.n_cells / config.n_nodes
+        delta_prior = delta_prior_strength * config.n_cells / config.n_nodes
     qpi = qPi(config, delta_prior=delta_prior)
     qpi.initialize(concentration_param_init=config.n_cells / config.n_nodes)
-    # TODO: test this
 
     if fix_tree is None:
         qt = qT(config)
-        # TODO: init this
         qt.initialize()
 
         q = VarTreeJointDist(config, obs, qc=qc, qz=qz, qt=qt, qeps=qeps, qmt=qmt, qpi=qpi)
