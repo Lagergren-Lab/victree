@@ -72,7 +72,7 @@ class JointDist(VariationalDistribution):
         valid_counts = ~ torch.isnan(self.obs)
 
         return torch.distributions.Normal(loc_tensor, scale_tensor,
-                                          validate_args=True).log_prob(self.obs.T)[valid_counts.T]
+                                          validate_args=False).log_prob(self.obs.T)[valid_counts.T]
 
     def get_params_as_dict(self) -> dict[str, np.ndarray]:
         return {

@@ -477,18 +477,18 @@ class qC(VariationalDistribution):
         q_eps : qEpsilon
             Variational distribution object of epsilon parameter
         q_z : VariationalDistribution
-            Variational distribution object of cell assignment 
+            Variational distribution object of cell assignment
         q_psi : qMuTau
             Variational distribution object of emission dist gaussian
             parameter (mu and tau)
 
         Returns
         -------
-        tuple[torch.Tensor, torch.Tensor], concatenation of 3D array 
+        tuple[torch.Tensor, torch.Tensor], concatenation of 3D array
         eta1 and 4D array eta2 (expectation)
         """
 
-        # get root node and make a mask 
+        # get root node and make a mask
         sorted_nodes = [u for u in nx.topological_sort(tree)]
         root = sorted_nodes[0]
         inner_nodes = sorted_nodes[1:]
@@ -944,7 +944,9 @@ class qZ(VariationalDistribution):
         d_nmj = qpsi.exp_log_emission(obs, batch)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
-        gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
+        #sigma = torch.std(obs, dim=1) / torch.mean(obs, dim=1)
+        #sigma = torch.nan_to_num(sigma, 0.01)
+        gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)#, sigma)
         T = self.config.annealing
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
