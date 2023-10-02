@@ -250,7 +250,7 @@ class FixedTreeJointDist(JointDist):
         Joint distribution update: update every variational unit in a predefined order.
         """
         smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
-        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T, smoothing=smoothing)
+        self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T)
         self.eps.update([self.T], self.w_T, self.c)
         self.pi.update(self.z)
         self.z.update(self.mt, self.c, self.pi, self.obs)

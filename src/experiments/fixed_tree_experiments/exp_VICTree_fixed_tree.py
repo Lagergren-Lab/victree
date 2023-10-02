@@ -14,7 +14,7 @@ from sklearn.metrics import adjusted_rand_score
 import simul
 import tests.utils_testing
 import utils.config
-from inference.victree import VICTree
+from inference.victree import VICTree, make_input
 from utils.data_handling import DataHandler
 from variational_distributions.joint_dists import FixedTreeJointDist
 from tests import model_variational_comparisons
@@ -75,14 +75,14 @@ class VICTreeFixedTreeExperiment():
             for seed in seeds:
                 utils.config.set_seed(seed)
                 config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.05,
-                                save_progress_every_niter=n_iter + 1)
+                                save_progress_every_niter=n_iter + 1, n_run_iter=n_iter)
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
                 dh = DataHandler(adata=adata)
                 copy_tree = VICTree(config, q, y, dh)
 
-                copy_tree.run(n_iter=n_iter)
+                copy_tree.run()
 
                 ari_seed = adjusted_rand_score(z, copy_tree.q.z.pi.argmax(dim=-1))
                 ari.append(ari_seed)
@@ -152,14 +152,14 @@ class VICTreeFixedTreeExperiment():
             for seed in seeds:
                 utils.config.set_seed(seed)
                 config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.1,
-                                save_progress_every_niter=n_iter + 1)
+                                save_progress_every_niter=n_iter + 1, n_run_iter=n_iter)
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
                 dh = DataHandler(adata=adata)
                 copy_tree = VICTree(config, q, y, dh)
 
-                copy_tree.run(n_iter=n_iter)
+                copy_tree.run()
 
                 ari_seed = adjusted_rand_score(z, copy_tree.q.z.pi.argmax(dim=-1))
                 ari.append(ari_seed)
@@ -196,24 +196,25 @@ class VICTreeFixedTreeExperiment():
 
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
-        seeds = list(range(0, 3))
-        K = 7
+        seeds = list(range(0, 2))
+        K = 10
         A = 7
-        step_size = 0.3
+        step_size = 0.1
         SVI = False
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
         logging.getLogger().setLevel(logging.DEBUG)
 
         # Prior parameters
-        dir_alpha0 = 10.
+        dir_delta0 = 3.
         nu_0 = 1.
-        lambda_0 = 100.
-        alpha0 = 5000.
-        beta0 = 500.
+        lambda_0 = 5*10.**4
+        alpha0 = 500.
+        beta0 = 50.
         a0 = 1.0
-        b0 = 200.0
+        b0 = 300.0
 
         # Fixed tree
+        # SBN Clone tree
         tree = nx.DiGraph()
         tree.add_edge(0, 1)
         tree.add_edge(0, 2)
@@ -221,7 +222,10 @@ class VICTreeFixedTreeExperiment():
         tree.add_edge(1, 4)
         tree.add_edge(3, 5)
         tree.add_edge(3, 6)
-        #tree.add_edge(3, 7)
+        # manually added edges
+        tree.add_edge(3, 7)
+        tree.add_edge(0, 9)
+        tree.add_edge(2, 8)
 
         # Load data
         file_path = './../../../data/x_data/P01-066_cn_data.h5ad'
@@ -242,30 +246,36 @@ class VICTreeFixedTreeExperiment():
                 dir_top_idx = dirs.index('experiments')
                 dir_path = dirs[dir_top_idx:]
                 path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}/seed_{seed}')
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}'
+                                          f'/lambda0{lambda_0}_alpha{alpha0}_beta{beta0}_delta{dir_delta0}'
+                                          f'/seed_{seed}')
                 base_dir = '../../../tests/test_output'
                 test_dir_name = tests.utils_testing.create_experiment_output_catalog(path, base_dir)
 
-            config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size,
-                            save_progress_every_niter=10, chromosome_indexes=data_handler.get_chr_idx(),
+            config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size, n_run_iter=n_iter,
+                            save_progress_every_niter=100, chromosome_indexes=data_handler.get_chr_idx(),
                             out_dir=test_dir_name, split=True, SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
-                            diagnostics=True, debug=True)
+                            diagnostics=False, debug=False, step_size_delay=1., step_size_forgetting_rate=0.5)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
-            qpi = qPi(config, delta_prior=dir_alpha0)
+            qpi = qPi(config, delta_prior=dir_delta0)
             qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
             qc = qCMultiChrom(config)
             q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
-            qpi.initialize()
+            qpi.initialize('prior')
             qz.initialize()
-            qeps.initialize()
+            qeps.initialize('prior')
             qmt.initialize(method='data', obs=y)
-            qc.initialize(method='random')#, obs=y)
+            config, q, dh = make_input(data_handler.get_anndata(), fix_tree=tree, cc_layer=None)
+
+            #qmt.nu = torch.tensor([1.0 if nu_n > 1.5 else nu_n for nu_n in qmt.nu])
+            qc.initialize(method='clonal', obs=y)
             qz_param = qz.update_CAVI(qmt, qc, qpi, y)
             qz.pi = qz_param
             victree = VICTree(config, q, y, data_handler)
 
-            victree.run(n_iter=n_iter)
+            victree.run()
+            victree.write()
 
             elbo_seed = victree.elbo
             elbo.append(elbo_seed)
@@ -275,6 +285,7 @@ class VICTreeFixedTreeExperiment():
                                                                       tree=tree)
 
         np_elbo = np.array(elbo)
+        print(f"Elbos: {np_elbo}")
 
         if save_plot:
             df = pd.DataFrame({
@@ -284,7 +295,7 @@ class VICTreeFixedTreeExperiment():
 
 
 if __name__ == '__main__':
-    n_iter = 30
+    n_iter = 100
     experiment_class = VICTreeFixedTreeExperiment()
     experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
