@@ -1,6 +1,8 @@
 """
 Interface class for Variational distributions
 """
+from abc import abstractmethod
+
 import torch
 
 from utils.config import Config
@@ -21,3 +23,13 @@ class qPsi(VariationalDistribution):
                                 dtype=torch.bool)
         _nan_mask[torch.isnan(obs.T), ...] = True
         return _nan_mask
+
+    @property
+    @abstractmethod
+    def nu(self):
+        pass
+
+    @abstractmethod
+    def exp_tau(self):
+        pass
+

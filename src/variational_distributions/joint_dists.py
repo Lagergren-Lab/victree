@@ -12,13 +12,14 @@ from numpy import infty
 
 from utils import math_utils
 from utils.config import Config
-from utils.tree_utils import star_tree
+from utils.tree_utils import star_tree, tree_to_newick
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qT, qEpsilon, qEpsilonMulti, qMuTau, qPi, qPhi, qCMultiChrom
 from variational_distributions.variational_distribution import VariationalDistribution
 
 
 class JointDist(VariationalDistribution):
+
     def __init__(self, config: Config, fixed: bool = False):
         """
         Abstract class for collection of distributions which together give the joint.
@@ -28,7 +29,15 @@ class JointDist(VariationalDistribution):
         fixed: bool, True if parameters are fixed to true values and updates should not be performed
         """
         super().__init__(config, fixed)
+        # set to nan
+        self.obs = torch.full((self.config.chain_length, self.config.n_cells), torch.nan)
+        # set to defaults
+        self.c: qC | qCMultiChrom = qC(config)
+        self.z: qZ = qZ(config)
+        self.mt: qMuTau = qMuTau(config)
+
         self._elbo: float = -infty
+        self._log_likelihood = torch.full((config.n_cells,), -infty)
 
         self.params_history["elbo"] = []
 
@@ -40,6 +49,31 @@ class JointDist(VariationalDistribution):
     def elbo(self, e):
         self._elbo = e
 
+    @property
+    def log_likelihood(self) -> torch.Tensor:
+        return self._log_likelihood
+
+    @property
+    def total_log_likelihood(self) -> float:
+        return self._log_likelihood.sum().item()
+
+    def _compute_log_likelihood(self) -> torch.Tensor:
+        """
+        Uses:
+         - viterbi for C estimation
+         - argmax for Z estimation
+        In case of true dist, ground truth values are used instead
+        """
+        loc_tensor = self.mt.nu[:, None] * self.c.get_viterbi()[self.z.best_assignment()]
+        scale_tensor = torch.sqrt(1 / self.mt.exp_tau())[:, None].expand(-1, self.config.chain_length)
+        assert loc_tensor.shape == scale_tensor.shape == (self.config.n_cells, self.config.chain_length)
+
+        # in case of nan values in obs
+        valid_counts = ~ torch.isnan(self.obs)
+
+        return torch.distributions.Normal(loc_tensor, scale_tensor,
+                                          validate_args=True).log_prob(self.obs.T)[valid_counts.T]
+
     def get_params_as_dict(self) -> dict[str, np.ndarray]:
         return {
             'elbo': np.array(self.elbo)
@@ -48,11 +82,14 @@ class JointDist(VariationalDistribution):
     def initialize(self, **kwargs):
         for q in self.get_units():
             q.initialize(**kwargs)
+
+        self._log_likelihood = self._compute_log_likelihood()
         return super().initialize(**kwargs)
 
     def update(self):
         # save elbo
         self.elbo = self.compute_elbo()
+        self._log_likelihood = self._compute_log_likelihood()
         super().update()
 
     def compute_elbo(self) -> float:
@@ -81,6 +118,8 @@ class VarTreeJointDist(JointDist):
         self.mt: qMuTau = qMuTau(config) if qmt is None else qmt
         self.pi: qPi = qPi(config) if qpi is None else qpi
         self.obs = obs
+        if self.fixed:
+            self._log_likelihood = self._compute_log_likelihood()
 
     @property
     def fixed(self):
@@ -244,6 +283,8 @@ class FixedTreeJointDist(JointDist):
         # init to star tree if no tree is provided
         self.T = T if T is not None else star_tree(config.n_nodes)
         self.w_T = [1.0]
+        if self.fixed:
+            self._log_likelihood = self._compute_log_likelihood()
 
     def update(self, it=0):
         """
@@ -405,6 +446,17 @@ class FixedTreeJointDist(JointDist):
                 elbo = torch.einsum("vmj, nv, jvnm ->", qC, qZ, log_p)
 
         return elbo
+
+    def __str__(self):
+        # summary for joint dist
+        tot_str = "+++ Joint summary +++"
+        tot_str += f"\n ELBO: {self.elbo}"
+        tot_str += f"fix tree: {tree_to_newick(self.T)}"
+        for q in self.get_units():
+            tot_str += str(q)
+            tot_str += "\n --- \n"
+        tot_str += "+++ end of summary +++"
+        return tot_str
 
 
 class QuadrupletJointDist(JointDist):

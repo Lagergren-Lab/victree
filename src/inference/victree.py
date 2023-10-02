@@ -170,7 +170,8 @@ class VICTree:
             # elbo is already computed in JointDist.update()
             pbar.set_postfix({
                 'elbo': self.elbo,
-                'diff': f"{rel_change * 100:.3f}%"
+                'diff': f"{rel_change * 100:.3f}%",
+                'll': f"{self.q.total_log_likelihood:.3f}"
             })
 
             # early-stopping
@@ -181,9 +182,14 @@ class VICTree:
                     logging.info(f"run converged after {it}/{n_iter} iterations")
                     break
             elif self.elbo < old_elbo:
-                # elbo should only increase
-                close_runs += 1
-                logging.warning(f"ELBO is decreasing (-{rel_change * 100:.2f}%)")
+
+                if rel_change > 5e-2:
+                    # elbo should only increase
+                    close_runs = 0
+                    logging.warning(f"ELBO is decreasing (-{rel_change * 100:.2f}%)")
+                else:
+                    # increase is negligible
+                    close_runs += 1
             else:
                 close_runs = 0
             # keep record of previous state
@@ -191,6 +197,8 @@ class VICTree:
 
             if it % self.config.save_progress_every_niter == 0 and self.config.diagnostics:
                 self.write()
+            if it % 10 == 0:
+                logging.debug(self.q.__str__())
 
         if not convergence:
             logging.warning(f"run did not converge, increase max iterations")
@@ -469,6 +477,11 @@ class VICTree:
 
 def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                fix_tree: str | nx.DiGraph | int | None = None,
+               mt_prior_strength: float = 1., eps_prior_strength: float = 1.,
+               mt_prior: tuple | None = None,
+               eps_prior: tuple | None = None, delta_prior=None,
+               mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
+               eps_init='data', step_size=0.4, kmeans_skewness=5, sieving=(1., 1),
                debug: bool = False) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
@@ -495,24 +508,37 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     obs_bins, obs_cells = obs.shape
 
     config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
-                    chromosome_indexes=dh.get_chr_idx(), debug=debug)
+                    chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
+                    sieving_size=sieving[0], n_sieving_iter=sieving[1])
 
     # create distribution and initialize them on healthy cn profile
     qc = qCMultiChrom(config)
-    qc.initialize(method='random')
+    qc.initialize(method=c_init)
 
-    # strong prior with high lambda prior (double of chain length)
-    # and uninformative alpha/beta
+    # strong prior with high lambda prior (e.g. strength = 2)
+    if mt_prior is None:
+        nu_prior = 1.
+        lambda_prior = config.chain_length * mt_prior_strength
+        alpha_prior = config.chain_length * mt_prior_strength
+        beta_prior = config.chain_length * mt_prior_strength / 10.
+    else:
+        nu_prior, lambda_prior, alpha_prior, beta_prior = mt_prior
+
     qmt = qMuTau(config,
-                 nu_prior=1., lambda_prior=config.chain_length * 2.,
-                 alpha_prior=1., beta_prior=1.)
-    qmt.initialize(method='data-size', obs=obs)
+                 nu_prior=nu_prior, lambda_prior=lambda_prior,
+                 alpha_prior=alpha_prior, beta_prior=beta_prior)
+    qmt.initialize(method=mt_init, obs=obs)
 
     # uninformative prior, but still skewed towards 0.01 mean epsilon
     # since most of the sequence will have stable copy number (few changes)
+    if eps_prior is None:
+        a_prior = config.chain_length * eps_prior_strength * 2e-3
+        b_prior = config.chain_length * eps_prior_strength
+    else:
+        a_prior, b_prior = eps_prior
     qeps = qEpsilonMulti(config,
-                         alpha_prior=1., beta_prior=100.)
-    qeps.initialize(method='data', obs=obs)
+                         alpha_prior=a_prior, beta_prior=b_prior)
+    qeps.initialize(method=eps_init, obs=obs)
 
     # use kmeans on obs or, if available, on previously estimated cn profile
     # e.g. hmmcopy layer
@@ -521,18 +547,18 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
         kmeans_data = data.layers['state']
 
     qz = qZ(config)
-    qz.initialize(method='kmeans', data=kmeans_data)
+    qz.initialize(method=z_init, data=kmeans_data, skeweness=kmeans_skewness)
 
     # a strong prior has to be in the scale of n_cells / n_nodes
     # cause for each update, pi_k = prior_pi_k + \sum_n q(z_n = k)
-    balance_factor = .8  # the higher, the more balanced the cell assignment
-    qpi = qPi(config, delta_prior=balance_factor * config.n_cells / config.n_nodes)
+    # the higher the balance factor, the more balanced the cell assignment
+    if delta_prior is None:
+        delta_prior = delta_prior_strength * config.n_cells / config.n_nodes
+    qpi = qPi(config, delta_prior=delta_prior)
     qpi.initialize(concentration_param_init=config.n_cells / config.n_nodes)
-    # TODO: test this
 
     if fix_tree is None:
         qt = qT(config)
-        # TODO: init this
         qt.initialize()
 
         q = VarTreeJointDist(config, obs, qc=qc, qz=qz, qt=qt, qeps=qeps, qmt=qmt, qpi=qpi)

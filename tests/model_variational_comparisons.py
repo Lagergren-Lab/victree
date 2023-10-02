@@ -147,23 +147,24 @@ def compare_obs_likelihood_under_true_vs_var_model(obs, true_C, true_Z, true_mu,
     K, M, A = qC_marginals.shape
     N = true_mu.shape
 
-    max_prob_cat = torch.argmax(qC_marginals, dim=-1)
+    max_prob_cat = q_c.get_viterbi()
+    # max_prob_cat = torch.argmax(qC_marginals, dim=-1)
     exp_var_mu = q_mt.nu
     exp_var_tau = q_mt.exp_tau() if type(q_mt) is qMuTau else q_mt.exp_tau().expand(N)
-    log_L_true_model = 0
-    log_L_var_model = 0
+    log_L_true_model = torch.tensor(0.)
+    log_L_var_model = torch.tensor(0.)
     for n in range(N[0]):
         y_n = obs[:, n]
         u_true = true_Z[n]
         u_var = torch.argmax(q_z.pi[n])
-        obs_model_true = dist.Normal(true_C[u_true] * true_mu[n], true_tau[n])
-        obs_model_var = dist.Normal(max_prob_cat[u_var] * exp_var_mu[n], exp_var_tau[n])
+        obs_model_true = dist.Normal(true_C[u_true] * true_mu[n], torch.sqrt(1 / true_tau[n]))
+        obs_model_var = dist.Normal(max_prob_cat[u_var] * exp_var_mu[n], torch.sqrt(1 / exp_var_tau[n]))
 
         log_L_true_model += obs_model_true.log_prob(y_n).sum()
         log_L_var_model += obs_model_var.log_prob(y_n).sum()
 
-    print(f"tot log_L_true_model: {log_L_true_model.sum():,}")
-    print(f"tot log_L_var_model: {log_L_var_model.sum():,}")
+    print(f"tot log_L_true_model: {log_L_true_model.item():,}")
+    print(f"tot log_L_var_model: {log_L_var_model.item():,}")
     return log_L_true_model, log_L_var_model
 
 
