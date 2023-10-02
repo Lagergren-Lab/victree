@@ -481,8 +481,8 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                mt_prior: tuple | None = None,
                eps_prior: tuple | None = None, delta_prior=None,
                mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
-               eps_init='data', step_size=0.4, kmeans_skewness=5, sieving=(1., 1),
-               debug: bool = False) -> (Config, JointDist, DataHandler):
+               eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
+               sieving=(1., 1), debug: bool = False) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
     if fix_tree is not None:
@@ -543,7 +543,9 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     # use kmeans on obs or, if available, on previously estimated cn profile
     # e.g. hmmcopy layer
     kmeans_data = obs
-    if 'state' in data.layers:
+    if kmeans_layer is not None:
+        kmeans_data = data.layers[kmeans_layer]
+    elif 'state' in data.layers:
         kmeans_data = data.layers['state']
 
     qz = qZ(config)
