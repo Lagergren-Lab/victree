@@ -482,7 +482,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                eps_prior: tuple | None = None, delta_prior=None,
                mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
                eps_init='data', step_size=0.4, kmeans_skewness=5, sieving=(1., 1),
-               debug: bool = False) -> (Config, JointDist, DataHandler):
+               debug: bool = False, config=None) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
     if fix_tree is not None:
@@ -507,9 +507,10 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     tree_nodes = 6 if fix_tree is None else fix_tree.number_of_nodes()
     obs_bins, obs_cells = obs.shape
 
-    config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
-                    chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
-                    sieving_size=sieving[0], n_sieving_iter=sieving[1])
+    if config is None:
+        config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
+                        chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
+                        sieving_size=sieving[0], n_sieving_iter=sieving[1])
 
     # create distribution and initialize them on healthy cn profile
     qc = qCMultiChrom(config)

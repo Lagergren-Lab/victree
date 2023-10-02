@@ -207,7 +207,7 @@ class VICTreeFixedTreeExperiment():
         # Prior parameters
         dir_delta0 = 3.
         nu_0 = 1.
-        lambda_0 = 5*10.**4
+        lambda_0 = 5*10**4
         alpha0 = 500.
         beta0 = 50.
         a0 = 1.0
@@ -246,7 +246,7 @@ class VICTreeFixedTreeExperiment():
                 dir_top_idx = dirs.index('experiments')
                 dir_path = dirs[dir_top_idx:]
                 path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}'
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_initNEW'
                                           f'/lambda0{lambda_0}_alpha{alpha0}_beta{beta0}_delta{dir_delta0}'
                                           f'/seed_{seed}')
                 base_dir = '../../../tests/test_output'
@@ -263,13 +263,14 @@ class VICTreeFixedTreeExperiment():
             qc = qCMultiChrom(config)
             q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             qpi.initialize('prior')
-            qz.initialize()
+            #qz.initialize(method='kmeans', data=y)
             qeps.initialize('prior')
             qmt.initialize(method='data', obs=y)
-            config, q, dh = make_input(data_handler.get_anndata(), fix_tree=tree, cc_layer=None)
+            #config, q, dh = make_input(data_handler.get_anndata(), fix_tree=tree, cc_layer=None,
+            #                           mt_prior_strength=10., delta_prior_strength=0.1, config=config)
 
-            #qmt.nu = torch.tensor([1.0 if nu_n > 1.5 else nu_n for nu_n in qmt.nu])
-            qc.initialize(method='clonal', obs=y)
+            qmt.nu = torch.tensor([1.0 if nu_n > 1.5 else nu_n for nu_n in qmt.nu])
+            qc.initialize(method='clonal', obs=y)  # Clonal init in practice not useful, degenerates to healthy clone after few iterations
             qz_param = qz.update_CAVI(qmt, qc, qpi, y)
             qz.pi = qz_param
             victree = VICTree(config, q, y, data_handler)
