@@ -41,7 +41,7 @@ class InitTestCase(unittest.TestCase):
             "c": data['c']
         })
 
-    @unittest.skip("clonal init not working")
+    #@unittest.skip("clonal init not working")
     def test_eps_init_from_data(self):
         config = Config(n_nodes=5, n_cells=300, chain_length=1000, step_size=.2, debug=True)
         data = simulate_full_dataset(config,
@@ -92,6 +92,16 @@ class InitTestCase(unittest.TestCase):
         print(f"data init change: {data_init_change}")
         self.assertLess(fix_init_change, data_init_change, "data (mean and var) init distribution "
                                                            "was closer to first update than data init distr")
+
+
+    def test_binwise_clustering_qC_initialization(self):
+        """
+
+        """
+        config = Config(n_nodes=4, n_states=5, n_cells=100, chain_length=200, wis_sample_size=100, debug=True)
+        joint_q = generate_dataset_var_tree(config, chrom='real')
+        assert False
+
 
 
 if __name__ == '__main__':
