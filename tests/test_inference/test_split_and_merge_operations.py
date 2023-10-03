@@ -71,3 +71,8 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         cluster_assignments_avg, empty_clusters = self.split_and_merge_op.find_empty_clusters(qz=qz)
         for e in empty_clusters:
             self.assertTrue(e in [k_empty_1, k_empty_2], msg=f'{e} found but expeted {[k_empty_1, k_empty_2]}')
+
+    def test_max_ELBO_split(self):
+        # Check all available clones.
+        # Assign cells
+        

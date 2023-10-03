@@ -199,8 +199,8 @@ class VICTreeFixedTreeExperiment():
         seeds = list(range(0, 2))
         K = 10
         A = 7
-        step_size = 0.1
-        SVI = False
+        step_size = 0.05
+        SVI = True
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
         logging.getLogger().setLevel(logging.DEBUG)
 
