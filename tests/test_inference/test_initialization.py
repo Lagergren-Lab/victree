@@ -96,15 +96,16 @@ class InitTestCase(unittest.TestCase):
         self.assertLess(fix_init_change, data_init_change, "data (mean and var) init distribution "
                                                            "was closer to first update than data size init distr")
 
-    @unittest.skip("to be implemented")
+
     def test_binwise_clustering_qC_initialization(self):
         """
 
         """
         config = Config(n_nodes=4, n_states=5, n_cells=100, chain_length=200, wis_sample_size=100, debug=True)
         joint_q = generate_dataset_var_tree(config, chrom='real')
-        joint_q.c.initialize()
-        # TODO: implement
+        joint_q.c.initialize('binwise')
+
+
 
 
 if __name__ == '__main__':

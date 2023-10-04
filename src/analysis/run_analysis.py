@@ -30,6 +30,7 @@ def run_analysis(args):
     # ---
     # Create configuration object and load checkpoint
     # ---
+    factory_utils.load_config_from_json_file(args.checkpoint_path)
     checkpoint_data = data_handling.read_checkpoint(args.checkpoint_path)
     config = factory_utils.construct_config_from_checkpoint_data(checkpoint_data)
 
@@ -46,7 +47,7 @@ def run_analysis(args):
         raise NotImplementedError
     if args.qC:
         victree = factory_utils.construct_victree_object_from_model_output_and_data(checkpoint_data, obs, config)
-        #victree_fixed_tree = qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
+        victree_fixed_tree = qC_analysis.train_on_fixed_tree(victree=victree, n_iter=50)
         qC_marginals_argmax = torch.argmax(victree.q.c.single_filtering_probs, dim=-1)
         visualization_utils.visualize_copy_number_profiles(qC_marginals_argmax)
 
@@ -57,9 +58,9 @@ if __name__ == '__main__':
         description="VIC-Tree analysis")
     parser.add_argument("-i", "--input_data", dest="data_path",
                         type=validate_path, default='../../data/x_data/signals_SPECTRUM-OV-014.h5',
-                        help="output model file", metavar="FILE")
-    parser.add_argument("-m", "--input_checkpoint", dest="checkpoint_path",
-                        type=validate_path, default='../../output/checkpoint_k6a7n1105m6206.h5',
+                        help="input data file", metavar="FILE")
+    parser.add_argument("-m", "--input_folder", dest="checkpoint_path",
+                        type=validate_path, default='../../output/P01-066/K10L5i200step0p1split',
                         help="output model file", metavar="FILE")
     parser.add_argument("-o", "--output", dest="out_dir",
                         help="output dir", metavar="DIR", default="./output")
