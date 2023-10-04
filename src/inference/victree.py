@@ -520,6 +520,8 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
         config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
                         chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
                         sieving_size=sieving[0], n_sieving_iter=sieving[1])
+    else:
+        config.chromosome_indexes = dh.get_chr_idx()
 
     # create distribution and initialize them on healthy cn profile
     qc = qCMultiChrom(config)
@@ -527,16 +529,15 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
 
     # strong prior with high lambda prior (e.g. strength = 2)
     if mt_prior is None:
-        nu_prior = 1.
-        lambda_prior = config.chain_length * mt_prior_strength
-        alpha_prior = config.chain_length * mt_prior_strength
-        beta_prior = config.chain_length * mt_prior_strength / 10.
+        from_obs = (obs, mt_prior_strength)
+        nu_prior = lambda_prior = alpha_prior = beta_prior = None
     else:
         nu_prior, lambda_prior, alpha_prior, beta_prior = mt_prior
+        from_obs = None
 
     qmt = qMuTau(config,
                  nu_prior=nu_prior, lambda_prior=lambda_prior,
-                 alpha_prior=alpha_prior, beta_prior=beta_prior)
+                 alpha_prior=alpha_prior, beta_prior=beta_prior, from_obs=from_obs)
     qmt.initialize(method=mt_init, obs=obs)
 
     # uninformative prior, but still skewed towards 0.01 mean epsilon
