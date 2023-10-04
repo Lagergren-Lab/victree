@@ -100,7 +100,7 @@ class InitTestCase(unittest.TestCase):
         """
         config = Config(n_nodes=4, n_states=5, n_cells=100, chain_length=200, wis_sample_size=100, debug=True)
         joint_q = generate_dataset_var_tree(config, chrom='real')
-        assert False
+        joint_q.c.initialize()
 
 
 
