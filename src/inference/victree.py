@@ -482,7 +482,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                eps_prior: tuple | None = None, delta_prior=None,
                mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
-               sieving=(1., 1), debug: bool = False, config=None) -> (Config, JointDist, DataHandler):
+               sieving=(1, 1), debug: bool = False, config=None) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
     if fix_tree is not None:
