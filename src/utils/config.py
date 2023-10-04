@@ -14,7 +14,7 @@ class Config:
                  chromosome_indexes=None,
                  wis_sample_size: int = 10,
                  elbo_rtol: float = 1e-4,
-                 max_close_runs: int = 2,
+                 max_close_runs: int = 4,
                  sieving_size: int = 1,
                  n_sieving_iter: int = 3,
                  step_size=1.,
