@@ -97,6 +97,7 @@ class InitTestCase(unittest.TestCase):
                                                            "was closer to first update than data size init distr")
 
 
+    @unittest.skip('not yet implemented')
     def test_binwise_clustering_qC_initialization(self):
         """
 

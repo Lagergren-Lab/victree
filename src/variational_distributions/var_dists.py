@@ -323,7 +323,7 @@ class qC(VariationalDistribution):
         K, A = (self.config.n_nodes, self.config.n_states)
         for m in range(M):
             clusters = KMeans(K).fit(obs[m, :])
-
+        # TODO:
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
