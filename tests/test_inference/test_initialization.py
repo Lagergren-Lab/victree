@@ -41,7 +41,7 @@ class InitTestCase(unittest.TestCase):
             "c": data['c']
         })
 
-    #@unittest.skip("clonal init not working")
+    # @unittest.skip("clonal init not working")
     def test_eps_init_from_data(self):
         config = Config(n_nodes=5, n_cells=300, chain_length=1000, step_size=.2, debug=True)
         data = simulate_full_dataset(config,
@@ -55,8 +55,8 @@ class InitTestCase(unittest.TestCase):
         qc.initialize(method='clonal', obs=data['obs'])
 
         default_elbo = qeps_data_init.compute_elbo([data['tree']], [1.]) + \
-                    qc.compute_elbo([data['tree']], [1.], qeps_default_init)
-        data_elbo = qeps_data_init.compute_elbo([data['tree']], [1.]) +\
+                       qc.compute_elbo([data['tree']], [1.], qeps_default_init)
+        data_elbo = qeps_data_init.compute_elbo([data['tree']], [1.]) + \
                     qc.compute_elbo([data['tree']], [1.], qeps_data_init)
 
         self.assertGreater(data_elbo, default_elbo)
@@ -72,28 +72,31 @@ class InitTestCase(unittest.TestCase):
         joint_q = generate_dataset_var_tree(config)
 
         # fix to data size dependent factors
-        qmt_fixed_init = qMuTau(config).initialize(method='fixed', loc=1., precision_factor=2 * config.chain_length,
-                                                   shape=config.chain_length, rate=config.chain_length)
+        qmt_size_init = qMuTau(config, nu_prior=1., lambda_prior=config.chain_length,
+                               alpha_prior=config.chain_length, beta_prior=config.chain_length / 10.)
+        qmt_size_init.initialize(method='data-size', obs=joint_q.obs)
 
         # save init partial elbo and perform one full update using the true complementary distributions
-        fixed_init_elbo = qmt_fixed_init.compute_elbo()
-        qmt_fixed_init.update(joint_q.c, joint_q.z, joint_q.obs)
-        new_elbo = qmt_fixed_init.compute_elbo()
-        fix_init_change = - torch.abs(new_elbo - fixed_init_elbo) / new_elbo
+        fixed_init_elbo = qmt_size_init.compute_elbo()
+        qmt_size_init.update(joint_q.c, joint_q.z, joint_q.obs)
+        new_elbo = qmt_size_init.compute_elbo()
+        fix_init_change = - torch.abs(torch.tensor(new_elbo - fixed_init_elbo)) / new_elbo
 
-        qmt_data_init = qMuTau(config).initialize(method='data', obs=joint_q.obs)
+        qmt_data_init = qMuTau(config, nu_prior=1., lambda_prior=config.chain_length,
+                               alpha_prior=config.chain_length, beta_prior=config.chain_length / 10.)
+        qmt_data_init.initialize(method='data', obs=joint_q.obs)
         data_init_elbo = qmt_data_init.compute_elbo()
         qmt_data_init.update(joint_q.c, joint_q.z, joint_q.obs)
         new_elbo = qmt_data_init.compute_elbo()
-        data_init_change = - torch.abs(new_elbo - data_init_elbo) / new_elbo
+        data_init_change = - torch.abs(torch.tensor(new_elbo - data_init_elbo)) / new_elbo
 
         # larger elbo change after one update means that the distribution was further away from an optimum
         print(f"fixed init change: {fix_init_change}")
         print(f"data init change: {data_init_change}")
         self.assertLess(fix_init_change, data_init_change, "data (mean and var) init distribution "
-                                                           "was closer to first update than data init distr")
+                                                           "was closer to first update than data size init distr")
 
-
+    @unittest.skip("to be implemented")
     def test_binwise_clustering_qC_initialization(self):
         """
 
@@ -101,7 +104,7 @@ class InitTestCase(unittest.TestCase):
         config = Config(n_nodes=4, n_states=5, n_cells=100, chain_length=200, wis_sample_size=100, debug=True)
         joint_q = generate_dataset_var_tree(config, chrom='real')
         joint_q.c.initialize()
-
+        # TODO: implement
 
 
 if __name__ == '__main__':

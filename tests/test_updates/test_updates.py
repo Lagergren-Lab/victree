@@ -8,6 +8,7 @@ from sklearn.metrics.cluster import adjusted_rand_score
 
 import tests.model_variational_comparisons
 import utils.visualization_utils
+from experiments.fixed_tree_experiments.k4_prior_gridsearch import sample_dataset_generation
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from simul import generate_dataset_var_tree
 from tests import model_variational_comparisons
@@ -55,7 +56,8 @@ class updatesTestCase(unittest.TestCase):
 
         # mean and precision
         nu, lmbda = torch.tensor([1, 10])  # randomize mu for each cell with these hyperparameters
-        true_mu = torch.randn(cfg.n_cells) / torch.sqrt(lmbda) + nu
+        tau = 10
+        true_mu = torch.randn(cfg.n_cells) / torch.sqrt(lmbda * tau) + nu
         obs = (cell_cn_profile * true_mu[:, None]).T.clamp(min=0)
         self.assertEqual(obs.shape, (cfg.chain_length, cfg.n_cells))
 
@@ -218,24 +220,28 @@ class updatesTestCase(unittest.TestCase):
 
     def test_qmt(self):
 
-        joint_q = self.generate_test_dataset_fixed_tree()
+        joint_q, adata = sample_dataset_generation(seed=0)
         cfg = joint_q.config
         obs = joint_q.obs
         fix_qc = joint_q.c
         fix_qz = joint_q.z
 
-        qmt = qMuTau(cfg)
-        # uninformative initialization of mu0, tau0, alpha0, beta0
-        # qmt.initialize(loc=0, precision_factor=.1, rate=.5, shape=.5)  # also works
-        qmt.initialize(method='data', obs=obs)
-        # qmt.initialize(method='data', obs=obs)
-        for i in range(10):
+        qmt = qMuTau(cfg, from_obs=(obs, 1.))
+        # initialization of mu0, tau0, alpha0, beta0 which scales with data size
+        qmt.initialize(method='data-size', obs=obs)
+        for i in range(20):
             qmt.update(fix_qc, fix_qz, obs)
 
-        print(qmt.exp_tau())
-        print(joint_q.mt.true_params['tau'])
-        self.assertTrue(torch.allclose(qmt.nu, joint_q.mt.true_params['mu'], rtol=1e-2))
-        self.assertTrue(torch.allclose(qmt.exp_tau(), joint_q.mt.true_params['tau'], rtol=.2))
+        # print(qmt.exp_tau())
+        # print(joint_q.mt.true_params['tau'])
+        mu_mse = torch.mean(torch.pow(qmt.nu - joint_q.mt.true_params['mu'], torch.tensor(2))).item()
+        self.assertAlmostEqual(mu_mse, 0., places=3)
+        # compute the mean of the pdf computed in each tau value under the estimated alpha/gamma params
+        # as one way of evaluating tau correctness
+        tau_log_p = torch.distributions.Gamma(qmt.alpha, qmt.beta,
+                                              validate_args=True).log_prob(joint_q.mt.true_params['tau'])
+        mean_tau_pdf = torch.exp(tau_log_p).mean().item()
+        self.assertGreater(mean_tau_pdf, 0.7, msg="tau is not properly estimated")
 
     def test_update_qeps(self):
 
@@ -470,10 +476,10 @@ class updatesTestCase(unittest.TestCase):
         fix_qpi = joint_q.pi
         fix_qeps = joint_q.eps
 
-        qmt = qMuTau(cfg, nu_prior=1., lambda_prior=.1, alpha_prior=1.5, beta_prior=1.5)
+        qmt = qMuTau(cfg, from_obs=(obs, 1.))
         qz = qZ(cfg)
         qc = qC(cfg)
-        qmt.initialize(loc=1., precision_factor=.1, rate=5., shape=5.)
+        qmt.initialize(method='data-size', obs=obs)
         almost_true_z_init = joint_q.z.exp_assignment() + .2
         almost_true_z_init /= almost_true_z_init.sum(dim=1, keepdim=True)
         qz.initialize(z_init='fixed', pi_init=almost_true_z_init)
@@ -485,45 +491,16 @@ class updatesTestCase(unittest.TestCase):
 
         # change step_size
         cfg.step_size = .3
-        # print(obs)
-
-        # commented because it requires user input
-        # --- uncomment next line to visualize copy numbers
-        # utils.visualization_utils.visualize_copy_number_profiles(joint_q.c.true_params['c'],
-        #                                                          save_path="../test_output/update_qcqzqmt_true_cn.png",
-        #                                                          title_suff="- true values")
 
         for i in range(20):
-            if i % 5 == 0:
-                # print(f"Iter {i} qZ: {qz.exp_assignment()}")
-                # print(f"iter {i} qmt mean for each cell: {qmt.nu}")
-                # print(f"iter {i} qmt tau for each cell: {qmt.exp_tau()}")
-                partial_elbo = qc.compute_elbo([fix_tree], [1.], fix_qeps) + qz.compute_elbo(fix_qpi) + qmt.elbo_old()
-                # --- uncomment to visualize
-                # utils.visualization_utils.visualize_copy_number_profiles(
-                #     torch.argmax(qc.single_filtering_probs, dim=-1),
-                #     save_path=f"./test_output/update_qcqzqmt_it{i}_var_cn.png", title_suff=f"- VI iter {i},"
-                #                                                                            f" elbo: {partial_elbo}")
-
             qz.update(qmt, qc, fix_qpi, obs)
             qmt.update(qc, qz, obs)
             qc.update(obs, fix_qeps, qz, qmt, trees=trees, tree_weights=wis_weights)
 
-        # print(qmt.exp_tau())
-        # print(joint_q.mt.true_params['tau'])
-        # print(joint_q.z.true_params["z"])
-        # print(torch.argmax(qz.exp_assignment(), dim=-1))
-        # self.assertTrue(torch.allclose(joint_q.z.true_params["z"],
-        #                                torch.argmax(qz.exp_assignment(), dim=-1)))
-        var_cellassignment = torch.max(qz.pi, dim=-1)[1]
-        ari = adjusted_rand_score(joint_q.z.true_params['z'], var_cellassignment)
-        self.assertGreater(ari, .85)
-        self.assertTrue(torch.all(joint_q.c.true_params["c"] == torch.argmax(qc.single_filtering_probs, dim=-1)))
-        tests.model_variational_comparisons.fixed_T_comparisons(obs, true_C=joint_q.c.true_params["c"],
-                                                                true_Z=joint_q.z.true_params["z"], true_pi=None,
-                                                                true_mu=joint_q.mt.true_params["mu"],
-                                                                true_tau=joint_q.mt.true_params["tau"],
-                                                                true_epsilon=None, q_c=qc, q_z=qz, qpi=None, q_mt=qmt)
+        ari = adjusted_rand_score(joint_q.z.true_params['z'], qz.best_assignment())
+        self.assertGreater(ari, .9)
+        cn_mad = torch.mean(torch.abs(joint_q.c.true_params['c'] - qc.get_viterbi()).float())
+        self.assertLess(cn_mad, 0.01)
 
     def test_label_switching(self):
         # define 3 clones besides root
