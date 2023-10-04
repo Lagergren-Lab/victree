@@ -69,10 +69,10 @@ class JointDist(VariationalDistribution):
         assert loc_tensor.shape == scale_tensor.shape == (self.config.n_cells, self.config.chain_length)
 
         # in case of nan values in obs
-        valid_counts = ~ torch.isnan(self.obs)
+        valid_sites = ~torch.any(torch.isnan(self.obs), dim=1)
 
-        return torch.distributions.Normal(loc_tensor, scale_tensor,
-                                          validate_args=False).log_prob(self.obs.T)[valid_counts.T]
+        return torch.distributions.Normal(loc_tensor[:, valid_sites], scale_tensor[:, valid_sites],
+                                          validate_args=True).log_prob(self.obs[valid_sites, :].T)
 
     def get_params_as_dict(self) -> dict[str, np.ndarray]:
         return {

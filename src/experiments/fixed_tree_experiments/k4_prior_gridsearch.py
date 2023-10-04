@@ -60,7 +60,8 @@ if __name__ == "__main__":
         "elbo": [],
         "cn-mad": [],
         "ari": [],
-        "v-meas": []
+        "v-meas": [],
+        "step_size": []
     }
     for d in range(n_datasets):
         joint_q_true, adata = sample_dataset_generation(seed=d)
@@ -82,6 +83,7 @@ if __name__ == "__main__":
             # save run
             out_data['true_ll'].append(joint_q_true.total_log_likelihood)
             out_data['dat'].append(d)
+            out_data['step_size'].append(step_size)
             out_data['mt_ps'].append(mt_ps)
             out_data['eps_ps'].append(eps_ps)
             out_data['delta_ps'].append(delta_ps)
@@ -102,6 +104,6 @@ if __name__ == "__main__":
             print("\tEND: {", *[f"{k}: {v[-1]}" for k, v in out_data.items()], "}")
 
     df = pd.DataFrame(out_data)
-    df.to_csv(out_path)
+    df.to_csv(out_path, index=False)
 
 

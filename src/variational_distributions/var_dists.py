@@ -162,6 +162,8 @@ class qC(VariationalDistribution):
             self._clonal_init(**kwargs)
         elif method == 'fixed':
             self._fixed_init(**kwargs)
+        elif method == 'binwise':
+            self._binwise_clustering_init(**kwargs)
         elif method == 'diploid':
             self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=5.)
         else:
@@ -312,6 +314,16 @@ class qC(VariationalDistribution):
         self.eta1[1:K] = eta1[1:K]
         self.eta2[1:K] = eta2[1:K]
         self.compute_filtering_probs()
+
+    def _binwise_clustering_init(self, obs):
+        """
+        Check with Hosein how this is supposed to work.
+        """
+        M, N = obs.shape
+        K, A = (self.config.n_nodes, self.config.n_states)
+        for m in range(M):
+            clusters = KMeans(K).fit(obs[m, :])
+
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
