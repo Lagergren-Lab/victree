@@ -1,3 +1,4 @@
+import json
 import os.path
 
 import numpy as np
@@ -171,3 +172,17 @@ if __name__ == '__main__':
     qT = construct_qT_from_checkpoint_data(checkpoint_data)
     print(qT.weight_matrix)
     # victree = construct_victree_object_from_checkpoint_file(file_path, data_path)
+
+
+def load_config_json_file_as_dict(path):
+    if "victree.config.json" not in path:
+        path = os.path.join(path, "victree.config.json")
+    raise Exception("Loading config file using json not working.")
+    config_dict = json.loads(path.read())
+    return config_dict
+
+
+def load_config_from_json_file(path):
+    config_dict = load_config_json_file_as_dict(path)
+
+
