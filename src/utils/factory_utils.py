@@ -51,10 +51,10 @@ def construct_q_from_checkpoint_data(model_output_h5_file, obs, config=None):
 def construct_qT_from_checkpoint_data(checkpoint_data, config=None):
     config = construct_config_from_checkpoint_data(checkpoint_data) if config is None else config
     qT_params = checkpoint_data['qT']
-    qT_weight_matrix = torch.tensor(qT_params['weight_matrix'][-1])
+    qT_weight_matrix = qT_params['weight_matrix']
     qT = var_dists.qT(config)
-    qT.initialize()
-    qT._weight_matrix = qT_weight_matrix
+    qT.initialize(method='matrix', matrix=qT_weight_matrix)
+    #qT._weight_matrix = qT_weight_matrix
     return qT
 
 
