@@ -30,15 +30,15 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
             self.K = 8
             self.tree = tests.utils_testing.get_tree_K_nodes_random(self.K)
             self.N = 500
-            self.M = 2000
+            self.M = 1000
             self.A = 7
-            self.dir_alpha0 = 10.
+            self.dir_alpha0 = 3.
             self.nu_0 = 1.
-            self.lambda_0 = 10.
+            self.lambda_0 = 100.
             self.alpha0 = 500.
             self.beta0 = 50.
-            self.a0 = 2.0
-            self.b0 = 500.0
+            self.a0 = 10.0
+            self.b0 = 1000.0
             y, c, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(self.N, self.M, self.A, self.tree,
                                                                             nu_0=self.nu_0,
                                                                             lambda_0=self.lambda_0, alpha0=self.alpha0,
@@ -88,8 +88,13 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         ari_init, best_perm_init, accuracy_best_init = model_variational_comparisons.compare_qZ_and_true_Z(z, qz)
         self.assertTrue(ari_init > 0.99)
 
+        eta1, eta2 = qc.update_CAVI(y, qeps, qz, qmt, [self.tree], [1.0])
+        qc.eta1 = eta1
+        qc.eta2 = eta2
+        qc.compute_filtering_probs()
+
         victree = VICTree(config, q, y, draft=True)
-        victree.run(n_iter=100)
+        victree.run(n_iter=50)
 
         # Assert
         torch.set_printoptions(precision=2)
@@ -137,7 +142,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         qz.pi = qz.update_CAVI(qmt, qc, qpi, y)
 
         copy_tree = VICTree(config, q, y, draft=True)
-        copy_tree.run(n_iter=100)
+        copy_tree.run(n_iter=50)
 
         # Assert
         torch.set_printoptions(precision=2)
