@@ -43,6 +43,7 @@ class DataHandler:
             raise ValueError("provide either file path or anndata object")
         if config is not None:
             config.chain_length = self._obs.shape[0]
+            config.chromosome_indexes = self.get_chr_idx()
         elif self.initial_n_vars != self._obs.shape[0]:
             logging.warning("Found inconsistency in number of bins. Pass Config obj to"
                             "DataHandler so that it can correct for it")
