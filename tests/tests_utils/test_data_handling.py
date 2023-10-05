@@ -1,7 +1,6 @@
 import unittest
 
 import anndata
-from matplotlib.pyplot import logging
 from networkx.lazy_imports import os
 
 import simul
@@ -22,8 +21,18 @@ class dataHandlingTestCase(unittest.TestCase):
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
 
-    def test_datahandler(self):
-        pass
+    def test_datahandler_impute_nans(self):
+        chain_length_with_nans = 200
+        # method remove nans
+        cfg = Config(chain_length=chain_length_with_nans, n_cells=100)
+        chr_df = simul.generate_chromosome_binning(cfg.chain_length, method='uniform', n_chr=5)
+        data = simul.simulate_full_dataset(cfg, chr_df=chr_df,
+                                           nans=True, cne_length_factor=10)
+        dh = DataHandler(adata=data['adata'], impute_nans='remove', config=cfg)
+        # check that some bins have been correctly removed
+        self.assertLess(dh.get_anndata().n_vars, chain_length_with_nans)
+        # check that config is consistent with new number of bins
+        self.assertEqual(dh.get_anndata().n_vars, cfg.chain_length)
 
     def test_write_output(self):
         out_file = os.path.join(self.output_dir, 'out_test.h5')

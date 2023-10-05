@@ -323,7 +323,7 @@ class qC(VariationalDistribution):
         K, A = (self.config.n_nodes, self.config.n_states)
         for m in range(M):
             clusters = KMeans(K).fit(obs[m, :])
-
+        # TODO:
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
@@ -1771,7 +1771,15 @@ class qMuTau(qPsi):
 
     def __init__(self, config: Config, true_params=None,
                  nu_prior: float = 1., lambda_prior: float = 10.,
-                 alpha_prior: float = 1., beta_prior: float = 1.):
+                 alpha_prior: float = 1., beta_prior: float = 1.,
+                 from_obs: tuple[torch.Tensor, float] | None = None):
+        """
+
+        Parameters
+        ----------
+        from_obs: (obs: tensor, strength: float), enforces a mu_tau with mean 1. and precision 10. with confidence
+        given by the strength parameter
+        """
         super().__init__(config, true_params is not None)
 
         # params for each cell
@@ -1780,6 +1788,13 @@ class qMuTau(qPsi):
         self._alpha = torch.empty(config.n_cells)
         self._beta = torch.empty(config.n_cells)
         # prior / generative model
+        if from_obs is not None:
+            obs, strength = from_obs
+            nu_prior = 1.
+            lambda_prior = config.chain_length * strength
+            alpha_prior = config.chain_length * strength
+            beta_prior = config.chain_length * strength / 10.
+
         self.nu_0 = torch.tensor(nu_prior)
         self.lmbda_0 = torch.tensor(lambda_prior)
         self.alpha_0 = torch.tensor(alpha_prior)

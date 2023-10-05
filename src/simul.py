@@ -89,8 +89,10 @@ def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu):
     adata.obs['clone'] = adata.obs['clone'].astype('category')
     adata.obs['baseline'] = mu.numpy()
 
-    if chr_dataframe is not None:
-        adata.var = chr_dataframe
+    if chr_dataframe is None:
+        chr_dataframe = generate_chromosome_binning(adata.n_vars, method='uniform', n_chr=1)
+        chr_dataframe = chr_dataframe[:adata.n_vars]
+    adata.var = chr_dataframe
 
     return adata
 

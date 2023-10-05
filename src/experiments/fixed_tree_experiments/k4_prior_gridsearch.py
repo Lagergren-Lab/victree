@@ -2,9 +2,11 @@ import calendar
 import itertools
 import math
 import os.path
+import random
 import time
 
 import anndata
+import matplotlib
 import pandas as pd
 import numpy as np
 from sklearn.metrics import adjusted_rand_score, v_measure_score
@@ -22,26 +24,28 @@ def sample_dataset_generation(seed=0) -> (JointDist, anndata.AnnData):
 
     # simulate data
     joint_q_true, adata = generate_dataset_var_tree(config=Config(
-        n_nodes=4, n_cells=100, chain_length=300, wis_sample_size=50,
-    ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=25., eps_b=10000.)
+        n_nodes=4, n_cells=200, chain_length=500, wis_sample_size=50,
+    ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=50., eps_b=10000.)
 
     return joint_q_true, adata
 
 
 if __name__ == "__main__":
+
+    matplotlib.use('module://backend_interagg')
+
     out_path = f"./{calendar.timegm(time.gmtime())}_k4_prior_gridsearch.csv"
-    n_datasets = 10
+    n_datasets = 15
     # n_datasets = 2
-    max_iter = 100
-    # max_iter = 3
-    prior_strength = [0.05, 1., 5.]
-    # prior_strength = [1., 5.]
+    max_iter = 200
+    # max_iter = 2
+    elbo_rtol = 5e-5
     with_sieving = False
     param_search = {
-        'mt_prior': prior_strength,
-        'eps_prior': prior_strength,
-        'delta_prior': prior_strength,
-        'step_size': [0.3, 0.6, 0.1]
+        'mt_ps': [5.],
+        'eps_ps': [0.5, 0.05],
+        'delta_ps': [0.5, 0.05],
+        'step_size': [0.3, 0.1]
     }
     grid_search_list = list(itertools.product(*param_search.values()))
     print(f"executing {len(grid_search_list)} x {n_datasets} runs (configs x n_datasets)")
@@ -63,10 +67,38 @@ if __name__ == "__main__":
         "v-meas": [],
         "step_size": []
     }
-    for d in range(n_datasets):
-        joint_q_true, adata = sample_dataset_generation(seed=d)
+    # init to default datasets seeds if already available
+    dataset_seeds = [11, 140, 168, 224, 262, 273, 312,
+                342, 462, 551, 572, 603, 742, 836,
+                848, 887, 938]
+
+    datasets = []
+    # if n_datasets is less, just sample those that are asked
+    if len(dataset_seeds) > n_datasets:
+        dataset_seeds = [i for i in random.sample(dataset_seeds, n_datasets)]
+
+    # generate those datasets
+    for ds in dataset_seeds:
+        set_seed(ds)
+        datasets.append((ds, sample_dataset_generation(seed=ds)))
+
+    # otherwise, fill up datasets with new ones (input required in initial phase)
+    while len(datasets) < n_datasets:
+        rnd_seed = random.randint(0, 1000)
+        set_seed(rnd_seed)
+        joint_q_true, adata = sample_dataset_generation(seed=rnd_seed)
         pl = plot_cn_matrix(joint_q_true.c.get_viterbi(), joint_q_true.z.best_assignment())
-        pl['fig'].savefig(os.path.join(datasets_path, f"{d}.png"))
+        pl['fig'].show()
+
+        ans = ''
+        while ans not in ['y', 'n']:
+            ans = input(f"save dataset #{rnd_seed}? ({len(datasets)}/{n_datasets}) y/n: ")
+        if ans == 'y':
+            pl['fig'].savefig(os.path.join(datasets_path, f"{rnd_seed}.png"))
+            datasets.append((rnd_seed, (joint_q_true, adata)))
+
+    # run grid search over multiple datasets
+    for d, (joint_q_true, adata) in datasets:
 
         for i, params in enumerate(grid_search_list):
             print(f"[{i}/{len(grid_search_list)}] dat {d} with {param_search.keys()} = {params}")
@@ -75,9 +107,10 @@ if __name__ == "__main__":
                                        mt_prior_strength=mt_ps, eps_prior_strength=eps_ps,
                                        delta_prior_strength=delta_ps,
                                        step_size=step_size,
+                                       z_init='random', c_init='diploid',
                                        sieving=(3, math.floor(3 / step_size)) if with_sieving else (1, 1))
 
-            victree = VICTree(config, q, data_handler=dh)
+            victree = VICTree(config, q, data_handler=dh, elbo_rtol=elbo_rtol)
             victree.run(n_iter=max_iter)
 
             # save run
@@ -105,5 +138,15 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(out_data)
     df.to_csv(out_path, index=False)
+
+    # printout brief summary
+    # find top three config based on likelihood difference
+
+    df['ll_rel_diff'] = - np.abs(df['true_ll'] - df['final_ll']) / df['true_ll'] * 100
+    print(f"See average of log-lik relative difference in % over {n_datasets}"
+          f" different datasets")
+    print(df.groupby(list(param_search.keys()))['ll_rel_diff'].mean())
+
+
 
 
