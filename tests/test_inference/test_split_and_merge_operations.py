@@ -4,8 +4,11 @@ import numpy as np
 import torch
 
 from inference.split_and_merge_operations import SplitAndMergeOperations
+from inference.victree import VICTree
+from tests import utils_testing
 from utils.config import Config
-from variational_distributions.var_dists import qZ
+from variational_distributions.joint_dists import FixedTreeJointDist
+from variational_distributions.var_dists import qZ, qCMultiChrom, qEpsilonMulti, qPi, qMuTau
 
 
 class SplitAndMergeOperationsTestCase(unittest.TestCase):
@@ -74,5 +77,30 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
 
     def test_max_ELBO_split(self):
         # Check all available clones.
+
+        # Simulate K clusters
+        # Assign q
         # Assign cells
-        
+        K = 5
+        tree = utils_testing.get_tree_K_nodes_random(K)
+        M = 100
+        N = 50
+        A = 7
+        y, c, z, pi, mu, tau, eps, eps0 = utils_testing.simulate_full_dataset_no_pyro(N, M, A, tree, return_anndata=False, cne_length_factor=5)
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3, split='categorical')
+        qc = qCMultiChrom(config)
+        qeps = qEpsilonMulti(config)
+        qz = qZ(config)
+        qpi = qPi(config)
+        qmt = qMuTau(config)
+
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
+        q.initialize()
+        utils_testing.initialize_qc_to_true_values(c, A, qc)
+        eta1_1 = qc.eta1[1]
+        eta2_1 = qc.eta2[1]
+        qc.eta1[2] = eta1_1
+        qc.eta2[2] = eta2_1
+
+        victree = VICTree(config, q, y, draft=True)
+        victree.split()

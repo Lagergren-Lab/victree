@@ -956,9 +956,10 @@ class qZ(VariationalDistribution):
         d_nmj = qpsi.exp_log_emission(obs, batch)
 
         # op shapes: k + S_mS_j mkj nmj -> nk
-        #sigma = torch.std(obs, dim=1) / torch.mean(obs, dim=1)
-        #sigma = torch.nan_to_num(sigma, 0.01)
-        gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)#, sigma)
+        sigma = torch.std(obs, dim=1) / torch.mean(obs, dim=1)
+        sigma = torch.nan_to_num(sigma, 0.01)
+        #gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
+        gamma = e_logpi + torch.einsum('kmj,nmkj,m->nk', qc_kmj, d_nmj, sigma)
         T = self.config.annealing
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
