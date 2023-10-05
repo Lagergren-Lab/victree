@@ -14,7 +14,8 @@ from utils.tree_utils import newick_from_eps_arr, tree_to_newick
 
 class DataHandler:
 
-    def __init__(self, file_path: str | None = None, adata: anndata.AnnData | None = None, layer: str | None = 'copy'):
+    def __init__(self, file_path: str | None = None, adata: anndata.AnnData | None = None, layer: str | None = 'copy',
+                 impute_nans='ignore', config=None):
         """
         Reads the file in the specified path and allows for multiple data formats.
         The supported formats are:
@@ -25,8 +26,11 @@ class DataHandler:
         ----------
         file_path: str, absolute path of the file
         """
+        self._impute_nans_method = impute_nans
         self.chr_df = None
         if adata is not None:
+            self.initial_n_vars = adata.n_vars
+            adata = _impute_nans(adata, method=self._impute_nans_method)
             self._adata = adata
             self.chr_df = adata.var[['chr', 'start', 'end']].reset_index()
             if layer is None:
@@ -37,6 +41,11 @@ class DataHandler:
             self._adata, self._obs = self._read_multiple_sources(file_path)
         else:
             raise ValueError("provide either file path or anndata object")
+        if config is not None:
+            config.chain_length = self._obs.shape[0]
+        elif self.initial_n_vars != self._obs.shape[0]:
+            logging.warning("Found inconsistency in number of bins. Pass Config obj to"
+                            "DataHandler so that it can correct for it")
 
     def _read_multiple_sources(self, file_path: str) -> (anndata.AnnData, torch.Tensor):
         adata = anndata.AnnData()
@@ -49,9 +58,10 @@ class DataHandler:
                 # actual AnnData format
                 logging.debug("reading anndata file")
                 ann_dataset = anndata.read_h5ad(file_path)
+                self.initial_n_vars = ann_dataset.n_vars
 
                 ann_dataset = _sort_anndata(ann_dataset)
-                ann_dataset = _impute_nans(ann_dataset, method='ignore')
+                ann_dataset = _impute_nans(ann_dataset, method=self._impute_nans_method)
                 obs = torch.tensor(ann_dataset.layers['copy'].T, dtype=torch.float)
 
                 # pandas categorical for chromosomes
@@ -74,6 +84,7 @@ class DataHandler:
 
                 obs = torch.tensor(np.array(full_data['layers']['copy']), dtype=torch.float).T
                 adata.X = obs.T.numpy()
+                self.initial_n_vars = adata.n_vars
         else:
             raise FileNotFoundError(f"file extension not recognized: {fext}")
 
@@ -119,9 +130,9 @@ def _impute_nans(ann_dataset: anndata.AnnData, method: str = 'ignore') -> anndat
         logging.debug(f"found {nan_sites_count} sites with nan values. proceeding with method `{method}`")
 
         if method == 'remove':
-            ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)]
+            ann_dataset = ann_dataset[:, ~ np.isnan(ann_dataset.layers['copy']).any(axis=0)].copy()
             # drop chromosomes with just one site
-            filter_df = ann_dataset.var['chr'].value_counts() < 2
+            filter_df = ann_dataset.var['chr'].value_counts() > 2
             unit_chr_list = filter_df[filter_df].index.to_list()
             ann_dataset = ann_dataset[:, ann_dataset.var['chr'].isin(unit_chr_list)].copy()
             logging.debug(f"removed chromosome(s): {unit_chr_list}")
