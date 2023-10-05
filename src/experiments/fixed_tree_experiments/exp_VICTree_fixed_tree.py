@@ -199,8 +199,8 @@ class VICTreeFixedTreeExperiment():
         seeds = list(range(0, 2))
         K = 10
         A = 7
-        step_size = 0.05
-        SVI = True
+        step_size = 0.1
+        SVI = False
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
         logging.getLogger().setLevel(logging.DEBUG)
 
@@ -254,7 +254,7 @@ class VICTreeFixedTreeExperiment():
 
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size, n_run_iter=n_iter,
                             save_progress_every_niter=100, chromosome_indexes=data_handler.get_chr_idx(),
-                            out_dir=test_dir_name, split=True, SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
+                            out_dir=test_dir_name, split='categorical', SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
                             diagnostics=False, debug=False, step_size_delay=1., step_size_forgetting_rate=0.5)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
