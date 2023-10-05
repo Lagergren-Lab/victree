@@ -116,6 +116,15 @@ if __name__ == '__main__':
     parser.add_argument("--z-init", default="random", type=str, metavar="TYPE_STR",
                         help="initialization of clustering variable qZ, can be [`random`, `uniform`, `kmeans`], "
                              "default to `random`")
+    parser.add_argument("--eps-init", default="random", type=str, metavar="TYPE_STR",
+                        help="initialization of alpha/beta params in qEpsilon, can be [`random`, `uniform`,"
+                             " `non-mutation`, `prior`, `data`], default to `random`")
+    parser.add_argument("--mt-init", default="data", type=str, metavar="TYPE_STR",
+                        help="initialization of (nu, lambda, alpha, beta) params qMuTau, can be [`data`, `data-size`,"
+                             " `prior`], default to `data`")
+    parser.add_argument("--c-init", default="random", type=str, metavar="TYPE_STR",
+                        help="initialization of copy number variable qC, can be [`clonal`, `uniform`, `binwise`,"
+                             " `diploid`, `random`], default to `random`")
     # Meta algorithms
     parser.add_argument("--split", default="categorical", type=str, metavar="TYPE_STR",
                         help="specify which split algorithm to run [`naive`, `categorical`, `inlier`]")

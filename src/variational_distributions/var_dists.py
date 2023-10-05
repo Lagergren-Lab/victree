@@ -173,7 +173,7 @@ class qC(VariationalDistribution):
 
         return super().initialize(**kwargs)
 
-    def _fixed_init(self, eta1: torch.Tensor, eta2: torch.Tensor) -> None:
+    def _fixed_init(self, eta1: torch.Tensor, eta2: torch.Tensor, **kwargs) -> None:
         self.eta1 = eta1
         self.eta2 = eta2
 
@@ -279,7 +279,7 @@ class qC(VariationalDistribution):
         self.eta2 = torch.ones(self.eta2.shape)
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
-    def _clonal_init(self, obs, mu=1.0):
+    def _clonal_init(self, obs, mu=1.0, **kwargs):
         # Estimate marginals from data
         obs_removed_nans = torch.nan_to_num(obs, 2.)
         scaled_obs_mean = torch.mean(obs_removed_nans, dim=1).reshape(obs.shape[0], 1)
@@ -315,7 +315,7 @@ class qC(VariationalDistribution):
         self.eta2[1:K] = eta2[1:K]
         self.compute_filtering_probs()
 
-    def _binwise_clustering_init(self, obs):
+    def _binwise_clustering_init(self, obs, **kwargs):
         """
         Check with Hosein how this is supposed to work.
         """

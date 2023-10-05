@@ -148,6 +148,9 @@ class Config:
     def save_progress_every_niter(self, save_progress_every_niter: int):
         self._save_progress_every_niter = save_progress_every_niter
 
+    def reshape(self, obs):
+        self._chain_length, self._n_cells = obs.shape
+
     def __str__(self) -> str:
         s = f"config: K={self.n_nodes}," + \
             f"N={self.n_cells}," + \
