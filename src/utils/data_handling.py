@@ -191,6 +191,7 @@ def write_output_anndata(victree, out_path):
     adata.obs['victree-mt-beta'] = victree.q.mt.beta.numpy()
     adata.obs['victree-tau'] = victree.q.mt.exp_tau().numpy()
     adata.obs['victree-clone'] = top_z.numpy()
+    adata.obs['victree-clone'] = adata.obs['victree-clone'].astype('category')
 
     # obsm - clone probs (n_cells, ...)
     adata.obsm['victree-clone-probs'] = victree.q.z.pi.numpy()
