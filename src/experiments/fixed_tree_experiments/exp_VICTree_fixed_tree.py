@@ -229,7 +229,7 @@ class VICTreeFixedTreeExperiment():
 
         # Load data
         file_path = './../../../data/x_data/P01-066_cn_data.h5ad'
-        data_handler = DataHandler(file_path)
+        data_handler = DataHandler(file_path, impute_nans='remove')
         y = data_handler.norm_reads
         M, N = y.shape
 
@@ -246,7 +246,7 @@ class VICTreeFixedTreeExperiment():
                 dir_top_idx = dirs.index('experiments')
                 dir_path = dirs[dir_top_idx:]
                 path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_initNEW'
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_noNans'
                                           f'/lambda0{lambda_0}_alpha{alpha0}_beta{beta0}_delta{dir_delta0}'
                                           f'/seed_{seed}')
                 base_dir = '../../../tests/test_output'
