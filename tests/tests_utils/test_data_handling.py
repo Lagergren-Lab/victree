@@ -1,6 +1,7 @@
 import unittest
 
 import anndata
+import numpy as np
 from networkx.lazy_imports import os
 
 import simul
@@ -56,7 +57,7 @@ class dataHandlingTestCase(unittest.TestCase):
         # check fields
         for l in ['victree-cn-viterbi', 'victree-cn-marginal']:
             self.assertTrue(l in out_adata.layers)
-        for l in ['victree-mu', 'victree-tau', 'victree-clone']:
+        for l in ['victree-mu', 'victree-tau', 'victree-clone', 'victree-loglik']:
             self.assertTrue(l in out_adata.obs)
         for l in ['victree-clone-probs']:
             self.assertTrue(l in out_adata.obsm)
@@ -67,6 +68,9 @@ class dataHandlingTestCase(unittest.TestCase):
 
         # assert sizes
         self.assertEqual(out_adata.layers['victree-cn-viterbi'].shape, (config.n_cells, config.chain_length))
+
+        # assert values
+        self.assertTrue(np.all(out_adata.obs['victree-loglik'] < 0))
 
 
 

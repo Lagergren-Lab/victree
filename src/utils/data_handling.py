@@ -193,6 +193,7 @@ def write_output_anndata(victree, out_path):
     adata.obs['victree-tau'] = victree.q.mt.exp_tau().numpy()
     adata.obs['victree-clone'] = top_z.numpy()
     adata.obs['victree-clone'] = adata.obs['victree-clone'].astype('category')
+    adata.obs['victree-loglik'] = victree.q.log_likelihood.numpy()
 
     # obsm - clone probs (n_cells, ...)
     adata.obsm['victree-clone-probs'] = victree.q.z.pi.numpy()
