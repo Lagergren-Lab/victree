@@ -164,5 +164,13 @@ class simulTestCase(unittest.TestCase):
         self.assertTrue(isinstance(joint_q_1chr.c, qC))
         self.assertEqual(config.n_chromosomes, 1)
 
+    def test_adata_simul(self):
+        N = 233
+        config = Config(n_cells=N)
+        data = simulate_full_dataset(config)
+        adata = data['adata']
+        self.assertTrue('c232' in adata.obs_names)
+        self.assertTrue('c033' in adata.obs_names)
+
 
 

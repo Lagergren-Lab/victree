@@ -77,7 +77,7 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
     return splits_df
 
 
-def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu):
+def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, obs_names: list | None = None):
 
     adata = anndata.AnnData(raw_counts.T.numpy())
     adata.layers['copy'] = obs.T.numpy()
@@ -93,6 +93,11 @@ def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu):
         chr_dataframe = generate_chromosome_binning(adata.n_vars, method='uniform', n_chr=1)
         chr_dataframe = chr_dataframe[:adata.n_vars]
     adata.var = chr_dataframe
+
+    if obs_names is None:
+        pad_width = math.ceil(math.log10(adata.n_obs))
+        obs_names = ['c' + str(i).zfill(pad_width) for i in range(adata.n_obs)]
+    adata.obs_names = pd.Series(obs_names)
 
     return adata
 
