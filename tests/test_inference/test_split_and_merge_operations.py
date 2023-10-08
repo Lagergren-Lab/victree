@@ -8,7 +8,7 @@ from inference.victree import VICTree
 from tests import utils_testing
 from utils.config import Config
 from variational_distributions.joint_dists import FixedTreeJointDist
-from variational_distributions.var_dists import qZ, qCMultiChrom, qEpsilonMulti, qPi, qMuTau
+from variational_distributions.var_dists import qZ, qCMultiChrom, qEpsilonMulti, qPi, qMuTau, qC
 
 
 class SplitAndMergeOperationsTestCase(unittest.TestCase):
@@ -49,7 +49,7 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         for i in range(n_iter):
             into_cluster, from_cluster = \
                 self.split_and_merge_op.select_clusters_to_split_categorical(
-                cluster_assignments_avg, empty_clusters)
+                    cluster_assignments_avg, empty_clusters)
             into_cluster_list[i] = into_cluster
             from_cluster_list[i] = from_cluster
 
@@ -86,9 +86,11 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         M = 100
         N = 50
         A = 7
-        y, c, z, pi, mu, tau, eps, eps0 = utils_testing.simulate_full_dataset_no_pyro(N, M, A, tree, return_anndata=False, cne_length_factor=5)
-        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3, split='categorical')
-        qc = qCMultiChrom(config)
+        delta0 = 3.
+        y, c, z, pi, mu, tau, eps, eps0 = utils_testing.simulate_full_dataset_no_pyro(N, M, A, tree, dir_alpha0=delta0,
+                                                                                      cne_length_factor=5)
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=1.0, split='ELBO')
+        qc = qC(config)
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
         qpi = qPi(config)
@@ -96,11 +98,21 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
 
         q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
         q.initialize()
+        qmt.initialize(method='prior')
         utils_testing.initialize_qc_to_true_values(c, A, qc)
-        eta1_1 = qc.eta1[1]
-        eta2_1 = qc.eta2[1]
-        qc.eta1[2] = eta1_1
-        qc.eta2[2] = eta2_1
+        qz.update(qmt, qc, qpi, y)
+        # Simulate degeneracy of clones 1 and '
+        empty_clone_idx = 2
+        absorbing_clone_idx = 1
+        qz.pi[:, empty_clone_idx] = 0.
+        qz.pi[:, absorbing_clone_idx] = 1.
+        qz.pi = qz.pi / torch.sum(qz.pi, dim=1, keepdim=True)
 
         victree = VICTree(config, q, y, draft=True)
+
+        elbo_pre_split = victree.compute_elbo()
         victree.split()
+
+        elbo_after_split = victree.compute_elbo()
+
+        self.assertGreater(elbo_after_split, elbo_pre_split, msg="ELBO decreased after split.")

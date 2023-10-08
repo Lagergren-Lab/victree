@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import networkx as nx
@@ -5,6 +6,7 @@ import sklearn.cluster
 import torch
 from sklearn.cluster import KMeans
 
+from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qPi, qCMultiChrom, qEpsilonMulti, qMuTau
 
@@ -14,22 +16,27 @@ class SplitAndMergeOperations:
     def __init__(self, cluster_split_threshold=0.01):
         self.cluster_split_threshold = cluster_split_threshold
 
-    def split(self, method, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi, qeps:qEpsilonMulti=None,
-              tree_list=None, tree_weights_list=None):
+    def split(self, method, obs, q: VarTreeJointDist | FixedTreeJointDist, tree_list=None, tree_weights_list=None):
         if method == 'naive':
-            self.naive_split(obs, qc, qz, qpsi, qpi)
+            self.naive_split(obs, q)
         elif method == 'categorical':
-            self.categorical_split(obs, qc, qz, qpsi, qpi)
+            self.categorical_split(obs, q)
+        elif method == 'ELBO':
+            self.max_ELBO_split(obs, q, tree_list, tree_weights_list)
         elif method == 'inlier':
-            self.inlier_split(obs, qc, qz, qpsi, qpi, qeps, tree_list, tree_weights_list)
+            self.inlier_split(obs, q, tree_list, tree_weights_list)
 
-    def naive_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+    def naive_split(self, obs, q: VarTreeJointDist | FixedTreeJointDist):
         """
         Implements the split part of the split-and-merge algorithm commonly used in Expectation Maximization.
         Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
         copy number profile of k1 to k2 with some added noise, redistributing the concentration parameters equally and
         cluster assignment for cells assigned to k1 by the qZ CAVI update.
         """
+        qz = q.z
+        qc = q.c
+        qpi = q.pi
+        qpsi = q.mt
         # Select clusters to reassign
         cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
         if empty_clusters.shape[0] == 0:
@@ -56,9 +63,9 @@ class SplitAndMergeOperations:
         assignments = qz.update_CAVI(qpsi, qc, qpi, obs)
         qz.pi[selected_cells, :] = assignments[selected_cells, :]
 
-    def update_cluster_concentration_parameters(self, qpi: qPi, k_merge_cluster, k_split_cluster):
-        qpi.concentration_param[k_merge_cluster] = qpi.concentration_param[k_split_cluster] / 2
-        qpi.concentration_param[k_split_cluster] = qpi.concentration_param[k_split_cluster] / 2
+    def update_cluster_concentration_parameters(self, qpi: qPi, split_into_cluster_idx, split_from_cluster_idx):
+        qpi.concentration_param[split_into_cluster_idx] = qpi.concentration_param[split_from_cluster_idx] / 2
+        qpi.concentration_param[split_from_cluster_idx] = qpi.concentration_param[split_from_cluster_idx] / 2
 
     def update_cluster_profiles(self, qc: qCMultiChrom | qC, k_to_cluster, k_split_cluster, obs=None):
         if type(qc) == qC:
@@ -105,13 +112,18 @@ class SplitAndMergeOperations:
             empty_clusters = empty_clusters[empty_clusters != 0]
         return cluster_assignments_avg, empty_clusters
 
-    def categorical_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+    def categorical_split(self, obs, q: VarTreeJointDist | FixedTreeJointDist):
         """
         Implements the split part of the split algorithm commonly used in Expectation Maximization.
         Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
         copy number profile of k1 to k2 with some added noise, redistributing the concentration parameters equally and
         cluster assignment for cells assigned to k1 by the qZ CAVI update.
         """
+        qz = q.z
+        qc = q.c
+        qpi = q.pi
+        qpsi = q.mt
+
         # Select clusters to reassign
         cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
         if empty_clusters.shape[0] == 0:
@@ -214,13 +226,19 @@ class SplitAndMergeOperations:
         qc.eta1[to_cluster] = eta1
         qc.eta2[to_cluster] = eta2
 
-    def inlier_split(self, obs, qc, qz, qpsi, qpi, qeps, tree_list, tree_weights_list):
+    def inlier_split(self, obs, q, tree_list, tree_weights_list):
         """
        Implements the split part of the split algorithm commonly used in Expectation Maximization.
        Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by finding the set of
        cells assigned to k1 with highest likelihood (inlier cells), then updating k1 only on this set of cells and
        updating k2 only on the remaining cells.
        """
+        qz = q.z
+        qc = q.c
+        qeps = q.eps
+        qpsi = q.mt
+        qpi = q.pi
+
         # Select clusters to reassign
         cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
         if empty_clusters.shape[0] == 0:
@@ -245,33 +263,161 @@ class SplitAndMergeOperations:
 
         self.get_cell_likelihoods(obs, qc, qz, qmt, from_cluster)
 
-    def max_ELBO_split(self, obs, qc: qCMultiChrom | qC, qz: qZ, qpsi: qPsi, qpi: qPi):
+    def max_ELBO_split(self, obs, q: VarTreeJointDist | FixedTreeJointDist, tree_list, tree_weights_list):
         """
         Implements the split part of the split algorithm commonly used in Expectation Maximization.
         Splits a cluster k1, selected using split-from-selection-strategy, to an empty cluster, k2, by copying over the
         copy number profile of k1 to k2 with some added noise, redistributing the concentration parameters equally and
         cluster assignment for cells assigned to k1 by the qZ CAVI update.
         """
+        qz = q.z
+        qc = q.c
+        qeps = q.eps
+        qpsi = q.mt
+        qpi = q.pi
         # Select clusters to reassign
         cluster_assignments_avg, empty_clusters = self.find_empty_clusters(qz)
         if empty_clusters.shape[0] == 0:
             logging.debug(f'No empty clusters found')
             return False
 
-        from_cluster = 1
+        # for each candidate cluster, split cells in cluster and assign to new cluster. Update qC based on those cells
+        # and calculate ELBO. Select split which maximizes the ELBO
+
+        candidates_idxs = self.select_candidates_clusters_to_split_by_threshold(cluster_assignments_avg)
+        elbos = []
+        elbo_pre_split = q.compute_elbo() if type(q) is FixedTreeJointDist else q.compute_elbo(tree_list, tree_weights_list)
+        logging.debug(f"ELBO before split: {elbo_pre_split}")
+        N, M, K, A = (q.config.n_cells, q.config.chain_length, q.config.n_nodes, q.config.n_states)
+        idx_empty_cluster = empty_clusters[0]
+
+        eta_1_pre_split = copy.deepcopy(qc.eta1)
+        eta_2_pre_split = copy.deepcopy(qc.eta2)
+        best_elbo = -torch.inf
+        for k in candidates_idxs:
+            # Split cells of candidate cluster k into clusters i and j
+            cells_in_k = torch.where(qz.pi.argmax(dim=1) == k)[0]
+            N_k = len(cells_in_k)
+            if N_k < 2:
+                continue
+
+            cells_in_i, cells_in_j = self.split_cells_by_observations(obs, cells_in_k)
+            batch_i = torch.tensor(cells_in_i)
+            batch_j = torch.tensor(cells_in_j)
+
+            # Update qC on batches
+            eta1_1, eta2_1 = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
+            eta1_2, eta2_2 = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_j)
+
+            qc.eta1[idx_empty_cluster] = eta1_1[idx_empty_cluster]
+            qc.eta2[idx_empty_cluster] = eta2_1[idx_empty_cluster]
+            qc.compute_filtering_probs(idx_empty_cluster)
+
+            qc.eta1[k] = eta1_2[k]
+            qc.eta2[k] = eta2_2[k]
+            qc.compute_filtering_probs(k)
+
+            # Measure quality of split in terms of ELBO
+            elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(q) is VarTreeJointDist else q.compute_elbo()
+            elbos.append(elbo_split)
+
+            logging.debug(f"ELBO of split candidate {k}: {elbo_split} ")
+
+            if elbo_split > best_elbo:
+                best_elbo = elbo_split
+                best_eta1_1, best_eta2_1 = (eta1_1, eta2_1)
+                best_eta1_2, best_eta2_2 = (eta1_2, eta2_2)
+                best_cluster_idx = k
+                best_batch_i = batch_i
+                best_batch_j = batch_j
+
+            # reset qc.eta1
+            qc.eta1[k] = eta_1_pre_split[k]
+            qc.eta2[k] = eta_2_pre_split[k]
+            qc.compute_filtering_probs(k)
+
+        # select highest elbo
+        qc.eta1[best_cluster_idx] = best_eta1_1[best_cluster_idx]
+        qc.eta2[best_cluster_idx] = best_eta2_1[best_cluster_idx]
+        qc.eta1[idx_empty_cluster] = best_eta1_2[best_cluster_idx]
+        qc.eta2[idx_empty_cluster] = best_eta2_2[best_cluster_idx]
+        qc.compute_filtering_probs()
+
+        #if elbos[selected_split_cluster_idx] < elbo_pre_split:
+        #    logging.debug(f"No split found.")
 
 
-        # perturbate copy number profile
-        #self.update_cluster_profiles(qc, into_cluster, from_cluster)
-
-        into_cluster = 1  # selected
         # Set concentration parameters equal
-        self.update_cluster_concentration_parameters(qpi, into_cluster, from_cluster)
-
-        # Manually update assignments i.e. reassign cells from the large cluster to the empty
-        # Select cells to update
-        #selected_cells = qz.pi.argmax(dim=-1) == from_cluster
+        self.update_cluster_concentration_parameters(qpi, idx_empty_cluster, best_cluster_idx)
 
         # Calculate new assignment probability of selected cells using CAVI update
-        self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, selected_cells)
+        self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, torch.arange(0, N))
         return True
+
+    def split_by_cell_qC_gradient(self, A, M, N_k, cells_in_k, k, obs, qc, qeps, qpsi, qz, tree_list,
+                                  tree_weights_list):
+        eta1_k = torch.zeros(N_k, A)
+        eta2_k = torch.zeros(N_k, M - 1, A, A)
+        n_batch_cells = 1
+        for i in range(N_k):
+            batch = cells_in_k[i:i + n_batch_cells]
+            eta1_i, eta2_i = qc.update_CAVI(obs[:, batch], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch)
+            eta1_k[i, :] = eta1_i[k, :]
+            eta2_k[i, :, :, :] = eta2_i[k, :, :]
+        eta_dist_matrix = self.calculate_euclidean_distances(eta2_k.exp())
+        return eta_dist_matrix
+
+    def select_candidates_clusters_to_split_from_bulk(self, cluster_assignments_avg):
+        """
+        Identifies the clones accounting for the bulk_fraction amount of cell to clone probability assignment and
+        returns the indexes of these clones.
+        """
+        split_candidate_idxs = []
+        bulk_fraction = 0.98
+        K = cluster_assignments_avg.shape[0]
+        cluster_assignments_avg_sorted, idxs = torch.sort(cluster_assignments_avg)
+        cum_sum = cluster_assignments_avg_sorted[0]
+        split_candidate_idxs.append(idxs[0])
+        for k in range(1, K):
+            if cum_sum > bulk_fraction:
+                break
+            cum_sum += cluster_assignments_avg_sorted[k]
+            split_candidate_idxs.append(idxs[k])
+
+        logging.debug(f'Candidate clusters to split: {split_candidate_idxs} based on avg assignments: '
+                      f'{cluster_assignments_avg} accounting for {bulk_fraction} of assignment')
+        return split_candidate_idxs
+
+    def select_candidates_clusters_to_split_by_threshold(self, cluster_assignments_avg):
+        """
+        Returns the indexes of all clones with cell to clone assignment above 'threshold'.
+        """
+        threshold = 0.03
+        split_candidate_idxs = torch.where(cluster_assignments_avg > threshold)[0]
+
+        logging.debug(f'Candidate clusters to split: {split_candidate_idxs} based on avg assignments: '
+                      f'{cluster_assignments_avg} with assignment threshold {threshold}')
+        return split_candidate_idxs
+
+    def calculate_euclidean_distances(self, eta2):
+        n_vectors = eta2.shape[0]
+        matrix = torch.zeros(n_vectors, n_vectors)
+        for i in range(0, n_vectors):
+            for j in range(i+1, n_vectors):
+                matrix[i, j] = (eta2[i] - eta2[j]).pow(2).sum().sqrt()
+
+        return matrix
+
+    def split_cells_by_observations(self, obs, idxs):
+        kmeans = KMeans(n_clusters=2, random_state=0).fit(obs[:, idxs].T)
+        labels = kmeans.labels_
+        cells_in_cluster_0 = []
+        cells_in_cluster_1 = []
+        assert len(labels) == idxs.shape[0]
+        for i in range(len(labels)):
+            if labels[i] == 0:
+                cells_in_cluster_0.append(idxs[i].item())
+            else:
+                cells_in_cluster_1.append(idxs[i].item())
+        return cells_in_cluster_0, cells_in_cluster_1
+

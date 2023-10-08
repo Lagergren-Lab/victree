@@ -589,17 +589,17 @@ class qC(VariationalDistribution):
 
     def compute_filtering_probs(self, k=None):
         small_eps = 1e-8
-        k = list(range(self.config.n_nodes)) if k is None else k
+        k = list(range(self.config.n_nodes)) if k is None else [k]
         # shape K x S (K is batch size / clones)
-        initial_log_probs = self.eta1[k]
+        initial_log_probs = self.eta1[k, ...]
         # shape K x M x S x S
-        transition_log_probs = self.eta2[k]
+        transition_log_probs = self.eta2[k, ...]
         if self.config.debug:
             assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
             assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
 
-        log_single = torch.empty_like(self.single_filtering_probs[k])
-        log_couple = torch.empty_like(self.couple_filtering_probs[k])
+        log_single = torch.zeros(len(k), self.config.chain_length, self.config.n_states)
+        log_couple = torch.zeros(len(k), self.config.chain_length-1, self.config.n_states, self.config.n_states)
         log_single[:, 0, :] = initial_log_probs
         for m in range(self.config.chain_length - 1):
             # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
@@ -976,8 +976,13 @@ class qZ(VariationalDistribution):
             self.pi[batch] = new_pi
         return new_pi
 
-    def exp_assignment(self, batch=None) -> torch.Tensor:
-        N = self.config.n_cells if batch is None else batch.shape[0]
+    def exp_assignment(self, batch: torch.Tensor=None) -> torch.Tensor:
+        if batch is None:
+            N = self.config.n_cells
+        elif batch.shape == torch.Size([]):
+            N = 1
+        else:
+            N = batch.shape[0]
         out_qz = torch.zeros((N, self.config.n_nodes))
         if self.fixed:
             true_z = self.true_params["z"]
