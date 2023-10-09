@@ -60,11 +60,11 @@ def sample_dataset_generator(size: int, K: list[int]):
 
 
 if __name__ == '__main__':
-    # n_datasets = 20
-    n_datasets = 2
-    # K_list = [4, 6, 8, 10, 12]
-    K_list = [4, 6]
-    sys.argv.append('v')
+    n_datasets = 20
+    # n_datasets = 2
+    K_list = [4, 6, 8]
+    # K_list = [4, 6]
+    # sys.argv.append('v')
 
     if len(sys.argv) > 1:
         if sys.argv[1] == 'v':
@@ -73,8 +73,8 @@ if __name__ == '__main__':
 
     # init csv out file
     results_df = None
-    # out_csv = f"./{calendar.timegm(time.gmtime())}_performance.csv"
-    out_csv = f"./tmp_{calendar.timegm(time.gmtime())}_performance.csv"
+    out_csv = f"./{calendar.timegm(time.gmtime())}_performance.csv"
+    # out_csv = f"./tmp_{calendar.timegm(time.gmtime())}_performance.csv"
     dat_counter = 0
     n_nodes = K_list[0]
     # load datasets
@@ -86,14 +86,17 @@ if __name__ == '__main__':
         print(f"K {n_nodes} - {dat_counter} / {n_datasets}")
 
         # run victree
-        config, jq, dh = make_input(ad, mt_prior_strength=10., eps_prior_strength=0.5, delta_prior_strength=0.01,
+        config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior_strength=10.,
+                                    eps_prior_strength=10., delta_prior_strength=0.08,
                                     z_init='kmeans', c_init='diploid', mt_init='data-size',
-                                    step_size=0.4, wis_sample_size=5,
+                                    step_size=0.3, wis_sample_size=n_nodes,
                                     # sieving=(3, 3),
+                                    split='categorical',
                                     debug=True)
         victree = VICTree(config, jq, data_handler=dh, draft=True)
-        victree.run(300)
+        victree.run(100)
 
         # save results
         results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=dataset_id, df=results_df)
         results_df.to_csv(out_csv, index=False)
+        dat_counter += 1

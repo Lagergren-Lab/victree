@@ -1791,8 +1791,8 @@ class qMuTau(qPsi):
             obs, strength = from_obs
             nu_prior = 1.
             lambda_prior = config.chain_length * strength
-            alpha_prior = config.chain_length * strength
-            beta_prior = config.chain_length * strength / 10.
+            alpha_prior = config.chain_length * strength / 50.
+            beta_prior = config.chain_length * strength / 500.
 
         self.nu_0 = torch.tensor(nu_prior)
         self.lmbda_0 = torch.tensor(lambda_prior)
