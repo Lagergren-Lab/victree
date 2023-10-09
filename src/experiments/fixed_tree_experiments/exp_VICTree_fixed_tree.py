@@ -197,10 +197,11 @@ class VICTreeFixedTreeExperiment():
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
         seeds = list(range(0, 2))
-        K = 8
+        K = 12
         A = 7
         step_size = 0.1
         SVI = False
+        split = 'ELBO'
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
         logging.getLogger().setLevel(logging.DEBUG)
 
@@ -224,14 +225,14 @@ class VICTreeFixedTreeExperiment():
         tree.add_edge(4, 6)
         tree.add_edge(4, 7)
         # manually added edges
-        # tree.add_edge(4, 8)
-        # tree.add_edge(1, 9)
-        # tree.add_edge(2, 10)
-        # tree.add_edge(4, 11)
+        tree.add_edge(4, 8)
+        tree.add_edge(1, 9)
+        tree.add_edge(2, 10)
+        tree.add_edge(4, 11)
 
         # Load data
         file_path = './../../../data/x_data/P01-066_cn_data.h5ad'
-        data_handler = DataHandler(file_path, impute_nans='remove')
+        data_handler = DataHandler(file_path)
         y = data_handler.norm_reads
         M, N = y.shape
 
@@ -248,7 +249,7 @@ class VICTreeFixedTreeExperiment():
                 dir_top_idx = dirs.index('experiments')
                 dir_path = dirs[dir_top_idx:]
                 path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_noNans'
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_{split}_split2'
                                           f'/lambda0{lambda_0}_alpha{alpha0}_beta{beta0}_delta{dir_delta0}'
                                           f'/seed_{seed}')
                 base_dir = '../../../tests/test_output'
@@ -256,13 +257,13 @@ class VICTreeFixedTreeExperiment():
 
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size, n_run_iter=n_iter,
                             save_progress_every_niter=100, chromosome_indexes=data_handler.get_chr_idx(),
-                            out_dir=test_dir_name, split='categorical', SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
+                            out_dir=test_dir_name, split=split, SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
                             diagnostics=False, debug=False, step_size_delay=1., step_size_forgetting_rate=0.5)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
             qpi = qPi(config, delta_prior=dir_delta0)
             qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
-            qc = qCMultiChrom(config)
+            qc = qC(config)
             q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             qpi.initialize('prior')
             #qz.initialize(method='kmeans', data=y)

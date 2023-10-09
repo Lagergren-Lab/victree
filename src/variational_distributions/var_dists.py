@@ -308,7 +308,7 @@ class qC(VariationalDistribution):
         all_but_2 = torch.arange(self.config.n_states) != 2
         self.eta1[root, all_but_2] = -torch.inf
         self.eta2[root, :, :, all_but_2] = -torch.inf
-        self.compute_filtering_probs(k=[root])
+        self.compute_filtering_probs(k=root)
 
         eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
         self.eta1[1:K] = eta1[1:K]

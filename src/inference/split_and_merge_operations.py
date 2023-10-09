@@ -408,16 +408,18 @@ class SplitAndMergeOperations:
 
         return matrix
 
-    def split_cells_by_observations(self, obs, idxs):
-        kmeans = KMeans(n_clusters=2, random_state=0).fit(obs[:, idxs].T)
+    def split_cells_by_observations(self, obs, cell_idxs):
+        not_nan_idx = ~torch.any(obs.isnan(), dim=1)
+        obs_not_nan = obs[not_nan_idx, :]
+        kmeans = KMeans(n_clusters=2, random_state=0).fit(obs_not_nan[:, cell_idxs].T)
         labels = kmeans.labels_
         cells_in_cluster_0 = []
         cells_in_cluster_1 = []
-        assert len(labels) == idxs.shape[0]
+        assert len(labels) == cell_idxs.shape[0]
         for i in range(len(labels)):
             if labels[i] == 0:
-                cells_in_cluster_0.append(idxs[i].item())
+                cells_in_cluster_0.append(cell_idxs[i].item())
             else:
-                cells_in_cluster_1.append(idxs[i].item())
+                cells_in_cluster_1.append(cell_idxs[i].item())
         return cells_in_cluster_0, cells_in_cluster_1
 
