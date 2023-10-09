@@ -4,12 +4,11 @@ import numpy as np
 from sklearn.metrics import v_measure_score
 import matplotlib.pyplot as plt
 
-from experiments.fixed_tree_experiments.k4_prior_gridsearch import sample_dataset_generation
 from inference.victree import make_input, VICTree
 from simul import generate_dataset_var_tree
 from tests.utils_testing import print_logs
 from utils.config import Config, set_seed
-from utils.evaluation import best_mapping, evaluate_victree_to_df
+from utils.evaluation import best_mapping, evaluate_victree_to_df, sample_dataset_generation
 from utils.visualization_utils import plot_cn_matrix
 
 

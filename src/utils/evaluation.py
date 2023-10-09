@@ -1,5 +1,6 @@
 import itertools
 
+import anndata
 import networkx as nx
 import pandas as pd
 
@@ -9,8 +10,11 @@ import math
 
 from sklearn.metrics import adjusted_rand_score, v_measure_score
 
+from simul import generate_dataset_var_tree
 from utils import tree_utils
+from utils.config import set_seed, Config
 from utils.tree_utils import tree_to_newick
+from variational_distributions.joint_dists import JointDist
 
 
 # FROM CopyMix
@@ -147,3 +151,24 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None):
         df = pd.DataFrame()
     df = pd.concat([df, pd.DataFrame([out_data])], ignore_index=True)
     return df
+
+
+def check_clone_uniqueness(cn_mat):
+    norm_mat = np.linalg.norm(cn_mat[:, np.newaxis] - cn_mat, axis=-1)
+    non_diagonal = ~np.eye(cn_mat.shape[0], dtype=bool)
+    return np.all(norm_mat[non_diagonal] > 0)
+
+
+def sample_dataset_generation(K=4, seed=0) -> (JointDist, anndata.AnnData):
+    set_seed(seed)
+
+    # simulate data such that every clone is different
+    is_unique = False
+    while not is_unique:
+        joint_q_true, adata = generate_dataset_var_tree(config=Config(
+            n_nodes=K, n_cells=200, chain_length=500, wis_sample_size=50,
+        ), ret_anndata=True, chrom=3, dir_alpha=3., eps_a=50., eps_b=10000.,
+            cne_length_factor=0)
+        is_unique = check_clone_uniqueness(joint_q_true.c.true_params['c'])
+
+    return joint_q_true, adata

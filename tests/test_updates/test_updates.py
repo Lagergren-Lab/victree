@@ -8,7 +8,7 @@ from sklearn.metrics.cluster import adjusted_rand_score
 
 import tests.model_variational_comparisons
 import utils.visualization_utils
-from experiments.fixed_tree_experiments.k4_prior_gridsearch import sample_dataset_generation
+from utils.evaluation import sample_dataset_generation
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from simul import generate_dataset_var_tree
 from tests import model_variational_comparisons
