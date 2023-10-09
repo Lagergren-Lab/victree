@@ -30,17 +30,19 @@ def main(args):
     logging.info(f"main is over. Total exec time: {tot_time // 60}m {math.ceil(tot_time % 60)}s")
 
 
-def set_logger(debug: bool, out_dir: str):
+def set_logger(debug: bool, out_dir: str | None = None):
     level = logging.DEBUG if debug else logging.INFO
-    f_handler = logging.FileHandler(os.path.join(out_dir, "victree.log"))
     c_handler = logging.StreamHandler(sys.stdout)
 
-    f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
     c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
     logger = logging.root
     logger.setLevel(level)
-    logger.addHandler(f_handler)
     logger.addHandler(c_handler)
+
+    if out_dir is not None:
+        f_handler = logging.FileHandler(os.path.join(out_dir, "victree.log"))
+        f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
+        logger.addHandler(f_handler)
 
 
 def validate_path(f):

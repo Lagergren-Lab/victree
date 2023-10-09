@@ -59,6 +59,7 @@ class JointDist(VariationalDistribution):
 
     def _compute_log_likelihood(self) -> torch.Tensor:
         """
+        Computes cell log-likelihood as tensor of shape (n_cells,)
         Uses:
          - viterbi for C estimation
          - argmax for Z estimation
@@ -72,7 +73,7 @@ class JointDist(VariationalDistribution):
         valid_sites = ~torch.any(torch.isnan(self.obs), dim=1)
 
         return torch.distributions.Normal(loc_tensor[:, valid_sites], scale_tensor[:, valid_sites],
-                                          validate_args=True).log_prob(self.obs[valid_sites, :].T)
+                                          validate_args=True).log_prob(self.obs[valid_sites, :].T).sum(dim=1)
 
     def get_params_as_dict(self) -> dict[str, np.ndarray]:
         return {

@@ -43,6 +43,7 @@ class DataHandler:
             raise ValueError("provide either file path or anndata object")
         if config is not None:
             config.chain_length = self._obs.shape[0]
+            config.chromosome_indexes = self.get_chr_idx()
         elif self.initial_n_vars != self._obs.shape[0]:
             logging.warning("Found inconsistency in number of bins. Pass Config obj to"
                             "DataHandler so that it can correct for it")
@@ -192,6 +193,7 @@ def write_output_anndata(victree, out_path):
     adata.obs['victree-tau'] = victree.q.mt.exp_tau().numpy()
     adata.obs['victree-clone'] = top_z.numpy()
     adata.obs['victree-clone'] = adata.obs['victree-clone'].astype('category')
+    adata.obs['victree-loglik'] = victree.q.log_likelihood.numpy()
 
     # obsm - clone probs (n_cells, ...)
     adata.obsm['victree-clone-probs'] = victree.q.z.pi.numpy()
