@@ -70,7 +70,7 @@ class VICTreeTestCase(unittest.TestCase):
         joint_q_true, adata = sample_dataset_generation(K=K, seed=seed)
         config, jq, dh = make_input(adata, n_nodes=K, mt_prior_strength=5.,
                                     delta_prior_strength=0.01, eps_prior_strength=0.01,
-                                    step_size=0.4)
+                                    step_size=0.4, split='categorical')
         # config.decay = 0.001
         config.update_type = 'less-t'
         victree = VICTree(config, jq, data_handler=dh, draft=True)
@@ -85,7 +85,6 @@ class VICTreeTestCase(unittest.TestCase):
         self.assertGreater(eval_dict['q-true'], 0.)
         self.assertGreater(eval_dict['q-mst'], 0.)
 
-
     def test_victree_ss_decay(self):
         """
         Uses time-based decay for step-size scheduling.
@@ -96,7 +95,7 @@ class VICTreeTestCase(unittest.TestCase):
         joint_q_true, adata = sample_dataset_generation(K=K, seed=seed)
         config, jq, dh = make_input(adata, n_nodes=K, mt_prior_strength=5.,
                                     delta_prior_strength=0.01, eps_prior_strength=0.01,
-                                    step_size=1.)
+                                    step_size=1., split='categorical')
         config.decay = 0.001
         # config.update_type = 'less-t'
         victree = VICTree(config, jq, data_handler=dh, draft=True)

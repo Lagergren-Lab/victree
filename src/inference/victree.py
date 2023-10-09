@@ -497,7 +497,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
                sieving=(1, 1), debug: bool = False, wis_sample_size=10,
-               config=None) -> (Config, JointDist, DataHandler):
+               config=None, split=None) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
     if fix_tree is not None:
@@ -525,7 +525,8 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     if config is None:
         config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
                         chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
-                        sieving_size=sieving[0], n_sieving_iter=sieving[1], wis_sample_size=wis_sample_size)
+                        sieving_size=sieving[0], n_sieving_iter=sieving[1], wis_sample_size=wis_sample_size,
+                        split=split)
     else:
         config.chromosome_indexes = dh.get_chr_idx()
 
