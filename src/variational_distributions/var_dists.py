@@ -475,6 +475,15 @@ class qC(VariationalDistribution):
             assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
         return self.eta1, self.eta2
 
+    def set_params(self, eta1, eta2, k: List[int] = None, j: List[int] = None):
+        """
+        Sets the eta1 and eta2 parameters without using the step size.
+        """
+        k = list(range(0, self.config.n_nodes)) if k is None else k
+        j = k if j is None else j
+        self.eta1[j] = eta1[k]
+        self.eta2[j] = eta2[k]
+
     def _exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                  q_eps: Union['qEpsilon', 'qEpsilonMulti'],
                  q_z: 'qZ',
@@ -762,9 +771,16 @@ class qCMultiChrom(VariationalDistribution):
         for i, qc in enumerate(self.qC_list):
             qc.update_params(eta1_list[i], eta2_list[i])
 
-    def compute_filtering_probs(self):
+    def set_params(self, eta1_list, eta2_list, k: List[int] = None, j: List[int] = None):
+        """
+        Sets the parameters without using the step size.
+        """
         for i, qc in enumerate(self.qC_list):
-            qc.compute_filtering_probs()
+            qc.set_params(eta1_list[i], eta2_list[i], k, j)
+
+    def compute_filtering_probs(self, k=None):
+        for i, qc in enumerate(self.qC_list):
+            qc.compute_filtering_probs(k)
 
     @property
     def true_params(self):

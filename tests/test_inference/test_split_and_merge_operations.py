@@ -83,14 +83,17 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         # Assign cells
         K = 5
         tree = utils_testing.get_tree_K_nodes_random(K)
-        M = 100
+        M = 1000
         N = 50
         A = 7
         delta0 = 3.
-        y, c, z, pi, mu, tau, eps, eps0 = utils_testing.simulate_full_dataset_no_pyro(N, M, A, tree, dir_alpha0=delta0,
-                                                                                      cne_length_factor=5)
-        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=1.0, split='ELBO')
-        qc = qC(config)
+        y, c, z, pi, mu, tau, eps, eps0, chr_idx = utils_testing.simulate_full_dataset_no_pyro(N, M, A, tree,
+                                                                                               dir_alpha0=delta0,
+                                                                                               cne_length_factor=5,
+                                                                                               return_chr_idx=True)
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=1.0, split='ELBO',
+                        chromosome_indexes=chr_idx)
+        qc = qCMultiChrom(config)
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
         qpi = qPi(config)

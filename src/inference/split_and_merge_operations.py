@@ -309,12 +309,14 @@ class SplitAndMergeOperations:
             eta1_1, eta2_1 = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
             eta1_2, eta2_2 = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_j)
 
-            qc.eta1[idx_empty_cluster] = eta1_1[idx_empty_cluster]
-            qc.eta2[idx_empty_cluster] = eta2_1[idx_empty_cluster]
+            qc.set_params(eta1_1, eta2_1, idx_empty_cluster)
+            #qc.eta1[idx_empty_cluster] = eta1_1[idx_empty_cluster]
+            #qc.eta2[idx_empty_cluster] = eta2_1[idx_empty_cluster]
             qc.compute_filtering_probs(idx_empty_cluster)
 
-            qc.eta1[k] = eta1_2[k]
-            qc.eta2[k] = eta2_2[k]
+            #qc.eta1[k] = eta1_2[k]
+            #qc.eta2[k] = eta2_2[k]
+            qc.set_params(eta1_1, eta2_1, k)
             qc.compute_filtering_probs(k)
 
             # Measure quality of split in terms of ELBO
@@ -332,15 +334,14 @@ class SplitAndMergeOperations:
                 best_batch_j = batch_j
 
             # reset qc.eta1
-            qc.eta1[k] = eta_1_pre_split[k]
-            qc.eta2[k] = eta_2_pre_split[k]
+            #qc.eta1[k] = eta_1_pre_split[k]
+            #qc.eta2[k] = eta_2_pre_split[k]
+            qc.set_params(eta_1_pre_split, eta_2_pre_split, [k])
             qc.compute_filtering_probs(k)
 
         # select highest elbo
-        qc.eta1[best_cluster_idx] = best_eta1_1[best_cluster_idx]
-        qc.eta2[best_cluster_idx] = best_eta2_1[best_cluster_idx]
-        qc.eta1[idx_empty_cluster] = best_eta1_2[best_cluster_idx]
-        qc.eta2[idx_empty_cluster] = best_eta2_2[best_cluster_idx]
+        qc.set_params(best_eta1_1, best_eta2_1, best_cluster_idx)
+        qc.set_params(best_eta1_2, best_eta2_2, best_cluster_idx, idx_empty_cluster)
         qc.compute_filtering_probs()
 
         #if elbos[selected_split_cluster_idx] < elbo_pre_split:

@@ -461,10 +461,14 @@ class VICTree:
             tree_weights = self.q.w_T
         else:
             trees, tree_weights = self.q.t.get_trees_sample(sample_size=self.config.wis_sample_size)
-        if self.it_counter > 20 and self.it_counter % 5 == 0:
-            split = self.split_operation.split(self.config.split, self.obs, self.q, trees, tree_weights)
+
+        if self.config.split == 'mixed':
+            if self.it_counter >= 20 and self.it_counter % 5 == 0:
+                split = self.split_operation.split('ELBO', self.obs, self.q, trees, tree_weights)
+            else:
+                split = self.split_operation.split('categorical', self.obs, self.q, trees, tree_weights)
         else:
-            split = self.split_operation.split('categorical', self.obs, self.q, trees, tree_weights)
+            splt = self.split_operation.split(self.config.split, self.obs, self.q, trees, tree_weights)
         if split:
             mu, lmbda, alpha, beta = self.q.mt.update_CAVI(self.q.obs, self.q.c, self.q.z)
             #self.q.mt.nu = mu
