@@ -291,8 +291,8 @@ class SplitAndMergeOperations:
         N, M, K, A = (q.config.n_cells, q.config.chain_length, q.config.n_nodes, q.config.n_states)
         idx_empty_cluster = empty_clusters[0]
 
-        eta_1_pre_split = copy.deepcopy(qc.eta1)
-        eta_2_pre_split = copy.deepcopy(qc.eta2)
+        eta_1_pre_split = copy.deepcopy(qc.eta1) if type(qc) is qC else [copy.deepcopy(qc_chr.eta1) for qc_chr in qc.qC_list]
+        eta_2_pre_split = copy.deepcopy(qc.eta2) if type(qc) is qC else [copy.deepcopy(qc_chr.eta2) for qc_chr in qc.qC_list]
         best_elbo = -torch.inf
         for k in candidates_idxs:
             # Split cells of candidate cluster k into clusters i and j
@@ -336,7 +336,7 @@ class SplitAndMergeOperations:
             # reset qc.eta1
             #qc.eta1[k] = eta_1_pre_split[k]
             #qc.eta2[k] = eta_2_pre_split[k]
-            qc.set_params(eta_1_pre_split, eta_2_pre_split, [k])
+            qc.set_params(eta_1_pre_split, eta_2_pre_split, k)
             qc.compute_filtering_probs(k)
 
         # select highest elbo

@@ -197,9 +197,9 @@ class VICTreeFixedTreeExperiment():
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
         seeds = list(range(0, 2))
-        K = 12
+        K = 8
         A = 7
-        step_size = 0.1
+        step_size = 0.3
         SVI = False
         split = 'ELBO'
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
@@ -225,10 +225,10 @@ class VICTreeFixedTreeExperiment():
         tree.add_edge(4, 6)
         tree.add_edge(4, 7)
         # manually added edges
-        tree.add_edge(4, 8)
-        tree.add_edge(1, 9)
-        tree.add_edge(2, 10)
-        tree.add_edge(4, 11)
+        #tree.add_edge(4, 8)
+        #tree.add_edge(1, 9)
+        #tree.add_edge(2, 10)
+        #tree.add_edge(4, 11)
 
         # Load data
         file_path = './../../../data/x_data/P01-066_cn_data.h5ad'

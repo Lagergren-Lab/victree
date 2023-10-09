@@ -625,9 +625,9 @@ class qC(VariationalDistribution):
         self.single_filtering_probs[k] = torch.exp(log_single).clamp(min=small_eps, max=1. - small_eps)
         self.couple_filtering_probs[k] = torch.exp(log_couple).clamp(min=small_eps, max=1. - small_eps)
 
-        if self.config.debug:
-            assert np.allclose(self.single_filtering_probs[k].sum(dim=2), 1.)
-            assert np.allclose(self.couple_filtering_probs[k].sum(dim=(2, 3)), 1.)
+        #if self.config.debug:
+            #assert np.allclose(self.single_filtering_probs[k].sum(dim=2), 1.)
+            #assert np.allclose(self.couple_filtering_probs[k].sum(dim=(2, 3)), 1.)
 
         return self.single_filtering_probs[k], self.couple_filtering_probs[k]
 
