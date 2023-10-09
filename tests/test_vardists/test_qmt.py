@@ -4,9 +4,8 @@ import torch
 
 from simul import generate_dataset_var_tree
 from utils.config import Config
-from utils.evaluation import pm_uni
-from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC
-from variational_distributions.var_dists import qEpsilonMulti, qT, qEpsilon, qZ, qMuTau, qC, qMuAndTauCellIndependent
+from utils import pm_uni
+from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qMuTau, qC, qMuAndTauCellIndependent
 
 
 class qmtTestCase(unittest.TestCase):

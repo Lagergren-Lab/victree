@@ -139,10 +139,21 @@ class VarTreeJointDist(JointDist):
         # TODO: if needed, specify an ordering
         return [self.t, self.c, self.eps, self.pi, self.z, self.mt]
 
-    def update(self, it=0):
+    def update(self, it=0, update_type='std'):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
+        if self.config.decay is not None:
+            self.config.step_size *= 1 / (1. + self.config.decay * it)
+
+        if update_type == 'std':
+            self.std_update(it=it)
+        elif update_type == 'less-t':
+            self.fast_update(it=it)
+
+        super().update()
+
+    def std_update(self, it):
         self.t.update(self.c, self.eps)
         trees, weights = self.t.get_trees_sample()
         self.mt.update(self.c, self.z, self.obs)
@@ -152,7 +163,18 @@ class VarTreeJointDist(JointDist):
         self.eps.update(trees, weights, self.c)
         self.pi.update(self.z)
 
-        super().update()
+    def fast_update(self, it):
+        # update t and sample every 5 iterations
+        if it % 5 == 0:
+            self.t.update(self.c, self.eps)
+            self.t.get_trees_sample()
+        trees, weights = self.t.nx_trees_sample, self.t.log_w_t.exp()
+        self.mt.update(self.c, self.z, self.obs)
+        self.z.update(self.mt, self.c, self.pi, self.obs)
+        smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
+        self.c.update(self.obs, self.eps, self.z, self.mt, trees, weights, smoothing=smoothing)
+        self.eps.update(trees, weights, self.c)
+        self.pi.update(self.z)
 
     def update_shuffle(self, n_updates: int = 5):
         """
@@ -287,10 +309,13 @@ class FixedTreeJointDist(JointDist):
         if self.fixed:
             self._log_likelihood = self._compute_log_likelihood()
 
-    def update(self, it=0):
+    def update(self, it=0, update_type=None):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
+        if self.config.decay is not None:
+            self.config.step_size *= 1 / (1. + self.config.decay * it)
+
         smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
         self.c.update(self.obs, self.eps, self.z, self.mt, [self.T], self.w_T, smoothing=smoothing)
         self.eps.update([self.T], self.w_T, self.c)

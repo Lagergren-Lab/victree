@@ -1,10 +1,17 @@
 import itertools
 
-from scipy.stats import dirichlet, multinomial, gamma, poisson
+import networkx as nx
+import pandas as pd
+
+from scipy.stats import poisson
 import numpy as np
 import math
 
-pm_uni = u"\u00B1"
+from sklearn.metrics import adjusted_rand_score, v_measure_score
+
+from utils import tree_utils
+from utils.tree_utils import tree_to_newick
+
 
 # FROM CopyMix
 # TODO: DIC (see formula on wiki, this function implements that)
@@ -85,4 +92,58 @@ def best_mapping(gt_z, vi_z, with_score=False):
         return perms[best_perm_idx]
 
 
+def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None):
+    """
+    Appends evaluation info
+    Parameters
+    ----------
+    true_joint
+    victree
+    dataset_id
+    df: pandas.DataFrame, existing dataframe on which to append scores row
 
+    Returns
+    -------
+
+    """
+    out_data = {}
+    out_data['dataset_id'] = dataset_id
+    out_data['true_ll'] = true_joint.total_log_likelihood
+    out_data['vi_ll'] = victree.q.total_log_likelihood
+    out_data['vi_diff'] = out_data['true_ll'] - out_data['vi_ll']
+    out_data['elbo'] = victree.elbo
+    out_data['iters'] = victree.it_counter
+    out_data['time'] = victree.exec_time_
+
+    # clustering eval
+    true_lab = true_joint.z.true_params['z']
+    out_data['ari'] = adjusted_rand_score(true_lab, victree.q.z.best_assignment())
+    out_data['v-meas'] = v_measure_score(true_lab, victree.q.z.best_assignment())
+    best_map = best_mapping(true_lab, victree.q.z.pi.numpy())
+
+    # copy number calling eval
+    true_c = true_joint.c.true_params['c'][best_map].numpy()
+    pred_c = victree.q.c.get_viterbi().numpy()
+    cn_mad = np.abs(pred_c - true_c).mean()
+    out_data['cn-mad'] = cn_mad
+
+    # tree eval
+    true_tree = tree_utils.relabel_nodes(true_joint.t.true_params['tree'], best_map)
+    mst = nx.maximum_spanning_arborescence(victree.q.t.weighted_graph)
+    intersect_edges = nx.intersection(true_tree, mst).edges
+    out_data['edge-sensitivity'] = len(intersect_edges) / len(mst.edges)
+    out_data['edge-precision'] = len(intersect_edges) / len(true_tree.edges)
+
+    qt_pmf = victree.q.t.get_pmf_estimate(True, n=50)
+    true_tree_newick = tree_to_newick(true_tree)
+    mst_newick = tree_to_newick(mst)
+    out_data['qt-true'] = qt_pmf[true_tree_newick] if true_tree_newick in qt_pmf.keys() else 0.
+    out_data['qt-mst'] = qt_pmf[mst_newick] if mst_newick in qt_pmf.keys() else 0.
+    pmf_arr = np.array(list(qt_pmf.values()))
+    # normalized entropy
+    out_data['qt_entropy'] = - np.sum(pmf_arr * np.log(pmf_arr)) / np.log(pmf_arr.size)
+
+    if df is None:
+        df = pd.DataFrame()
+    df = pd.concat([df, pd.DataFrame([out_data])], ignore_index=True)
+    return df

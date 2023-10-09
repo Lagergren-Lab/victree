@@ -15,7 +15,7 @@ import numpy as np
 from typing import List, Tuple, Union, Optional
 
 from utils.data_handling import dict_to_tensor, edge_dict_to_matrix
-from utils.evaluation import pm_uni
+from utils import pm_uni
 
 from sklearn.cluster import KMeans
 

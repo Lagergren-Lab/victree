@@ -1,15 +1,15 @@
 import unittest
 
 import numpy as np
-import torch
 from sklearn.metrics import v_measure_score
 import matplotlib.pyplot as plt
 
+from experiments.fixed_tree_experiments.k4_prior_gridsearch import sample_dataset_generation
 from inference.victree import make_input, VICTree
 from simul import generate_dataset_var_tree
 from tests.utils_testing import print_logs
 from utils.config import Config, set_seed
-from utils.evaluation import best_mapping
+from utils.evaluation import best_mapping, evaluate_victree_to_df
 from utils.visualization_utils import plot_cn_matrix
 
 
@@ -58,6 +58,58 @@ class VICTreeTestCase(unittest.TestCase):
         fig.savefig("./../test_output/test_fixed_tree_run_cn.png")
         # print(f"cn matrix mean abs deviation: {cn_mad:.3f}")
         self.assertLess(cn_mad, 0.1)
+
+    def test_victree_update_less_t(self):
+        """
+        Uses the update schema by which a tree sample is taken only
+        every 5 iterations
+        """
+        seed = 101
+        K = 4
+        print("sampling dataset")
+        joint_q_true, adata = sample_dataset_generation(K=K, seed=seed)
+        config, jq, dh = make_input(adata, n_nodes=K, mt_prior_strength=5.,
+                                    delta_prior_strength=0.01, eps_prior_strength=0.01,
+                                    step_size=0.4)
+        # config.decay = 0.001
+        config.update_type = 'less-t'
+        victree = VICTree(config, jq, data_handler=dh, draft=True)
+        victree.run(100)
+
+        eval_df = evaluate_victree_to_df(joint_q_true, victree, 0)
+        eval_dict = eval_df.iloc[0].to_dict()
+        print(eval_dict)
+        self.assertGreater(eval_dict['ari'], 0.7)
+        self.assertGreater(eval_dict['v-meas'], 0.7)
+        self.assertLess(eval_dict['cn-mad'], 0.1)
+        self.assertGreater(eval_dict['q-true'], 0.)
+        self.assertGreater(eval_dict['q-mst'], 0.)
+
+
+    def test_victree_ss_decay(self):
+        """
+        Uses time-based decay for step-size scheduling.
+        """
+        seed = 101
+        K = 4
+        print("sampling dataset")
+        joint_q_true, adata = sample_dataset_generation(K=K, seed=seed)
+        config, jq, dh = make_input(adata, n_nodes=K, mt_prior_strength=5.,
+                                    delta_prior_strength=0.01, eps_prior_strength=0.01,
+                                    step_size=1.)
+        config.decay = 0.001
+        # config.update_type = 'less-t'
+        victree = VICTree(config, jq, data_handler=dh, draft=True)
+        victree.run(100)
+
+        eval_df = evaluate_victree_to_df(joint_q_true, victree, 0)
+        eval_dict = eval_df.iloc[0].to_dict()
+        print(eval_dict)
+        self.assertGreater(eval_dict['ari'], 0.7)
+        self.assertGreater(eval_dict['v-meas'], 0.7)
+        self.assertLess(eval_dict['cn-mad'], 0.1)
+        self.assertGreater(eval_dict['q-true'], 0.)
+        self.assertGreater(eval_dict['q-mst'], 0.)
 
 
 if __name__ == '__main__':
