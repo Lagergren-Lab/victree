@@ -14,18 +14,27 @@ from variational_distributions.var_dists import qC, qZ, qPi, qCMultiChrom, qEpsi
 class SplitAndMergeOperations:
 
     def __init__(self, cluster_split_threshold=0.01):
+        self.n_categorical_splits = 0
         self.cluster_split_threshold = cluster_split_threshold
 
     def split(self, method, obs, q: VarTreeJointDist | FixedTreeJointDist, tree_list=None, tree_weights_list=None):
         if method == 'naive':
-            self.naive_split(obs, q)
+            split = self.naive_split(obs, q)
         elif method == 'categorical':
-            self.categorical_split(obs, q)
+            split = self.categorical_split(obs, q)
         elif method == 'ELBO':
-            self.max_ELBO_split(obs, q, tree_list, tree_weights_list)
+            split = self.max_ELBO_split(obs, q, tree_list, tree_weights_list)
         elif method == 'inlier':
-            self.inlier_split(obs, q, tree_list, tree_weights_list)
+            split = self.inlier_split(obs, q, tree_list, tree_weights_list)
+        elif method == 'mixed':
+            if self.n_categorical_splits <= int(q.config.n_nodes / 3):
+                split = self.categorical_split(obs, q)
+                if split:
+                    self.n_categorical_splits += 1
+            else:
+                split = self.max_ELBO_split(obs, q, tree_list, tree_weights_list)
 
+        return split
     def naive_split(self, obs, q: VarTreeJointDist | FixedTreeJointDist):
         """
         Implements the split part of the split-and-merge algorithm commonly used in Expectation Maximization.
@@ -321,6 +330,7 @@ class SplitAndMergeOperations:
 
             # Measure quality of split in terms of ELBO
             elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(q) is VarTreeJointDist else q.compute_elbo()
+            log_likelihood_split = q._compute_log_likelihood()
             elbos.append(elbo_split)
 
             logging.debug(f"ELBO of split candidate {k}: {elbo_split} ")
@@ -340,6 +350,8 @@ class SplitAndMergeOperations:
             qc.compute_filtering_probs(k)
 
         # select highest elbo
+        logging.debug(f"Split cluster {best_cluster_idx} with cells {batch_j} into {idx_empty_cluster} with cells"
+                      f" {batch_i}.")
         qc.set_params(best_eta1_1, best_eta2_1, best_cluster_idx)
         qc.set_params(best_eta1_2, best_eta2_2, best_cluster_idx, idx_empty_cluster)
         qc.compute_filtering_probs()
@@ -396,6 +408,7 @@ class SplitAndMergeOperations:
         threshold = 0.03
         split_candidate_idxs = torch.where(cluster_assignments_avg > threshold)[0]
 
+        torch.set_printoptions(precision=3)
         logging.debug(f'Candidate clusters to split: {split_candidate_idxs} based on avg assignments: '
                       f'{cluster_assignments_avg} with assignment threshold {threshold}')
         return split_candidate_idxs

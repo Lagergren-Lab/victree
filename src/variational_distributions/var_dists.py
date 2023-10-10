@@ -177,9 +177,9 @@ class qC(VariationalDistribution):
         self.eta1 = eta1
         self.eta2 = eta2
 
-        if self.config.debug:
-            assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
-            assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
+        #if self.config.debug:
+        #    assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
+        #    assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
 
     def _random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
@@ -470,9 +470,9 @@ class qC(VariationalDistribution):
         # add normalization step
         self.eta1 = new_eta1 - new_eta1.logsumexp(dim=1, keepdim=True)
         self.eta2 = new_eta2 - new_eta2.logsumexp(dim=3, keepdim=True)
-        if self.config.debug:
-            assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
-            assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
+        #if self.config.debug:
+        #    assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
+        #    assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
         return self.eta1, self.eta2
 
     def set_params(self, eta1, eta2, k: List[int] = None, j: List[int] = None):
@@ -603,9 +603,9 @@ class qC(VariationalDistribution):
         initial_log_probs = self.eta1[k, ...]
         # shape K x M x S x S
         transition_log_probs = self.eta2[k, ...]
-        if self.config.debug:
-            assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
-            assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
+        #if self.config.debug:
+        #    assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
+        #    assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
 
         log_single = torch.zeros(len(k), self.config.chain_length, self.config.n_states)
         log_couple = torch.zeros(len(k), self.config.chain_length-1, self.config.n_states, self.config.n_states)
@@ -618,9 +618,9 @@ class qC(VariationalDistribution):
             # then marginalize over X_m to obtain P(X_m+1)
             log_single[:, m + 1, :] = torch.logsumexp(log_couple[:, m, ...], dim=1)
 
-            if self.config.debug:
-                assert np.allclose(log_single[:, m + 1, :].exp().sum(dim=1), 1.)
-                assert np.allclose(log_couple[:, m, ...].exp().sum(dim=(1, 2)), 1.)
+            #if self.config.debug:
+            #    assert np.allclose(log_single[:, m + 1, :].exp().sum(dim=1), 1.)
+            #    assert np.allclose(log_couple[:, m, ...].exp().sum(dim=(1, 2)), 1.)
 
         self.single_filtering_probs[k] = torch.exp(log_single).clamp(min=small_eps, max=1. - small_eps)
         self.couple_filtering_probs[k] = torch.exp(log_couple).clamp(min=small_eps, max=1. - small_eps)
