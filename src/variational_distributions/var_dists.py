@@ -1144,7 +1144,7 @@ other elbos such as qC.
         # while they should be length invariant
         # FIXME: avoid this hack
         # TODO: implement tempering (check tempered/annealing in VI)
-        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
+        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length * 10
         self.update_params(w_tensor)
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
