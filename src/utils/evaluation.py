@@ -1,4 +1,5 @@
 import itertools
+import traceback
 
 import anndata
 import networkx as nx
@@ -96,7 +97,7 @@ def best_mapping(gt_z, vi_z, with_score=False):
         return perms[best_perm_idx]
 
 
-def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None):
+def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumeration=False):
     """
     Appends evaluation info
     Parameters
@@ -111,10 +112,10 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None):
 
     """
     out_data = {}
-    out_data['dataset_id'] = dataset_id
-    out_data['true_ll'] = true_joint.total_log_likelihood
-    out_data['vi_ll'] = victree.q.total_log_likelihood
-    out_data['vi_diff'] = out_data['true_ll'] - out_data['vi_ll']
+    out_data['dataset-id'] = dataset_id
+    out_data['true-ll'] = true_joint.total_log_likelihood
+    out_data['vi-ll'] = victree.q.total_log_likelihood
+    out_data['vi-diff'] = out_data['true_ll'] - out_data['vi_ll']
     out_data['elbo'] = victree.elbo
     out_data['iters'] = victree.it_counter
     out_data['time'] = victree.exec_time_
@@ -141,11 +142,22 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None):
     qt_pmf = victree.q.t.get_pmf_estimate(True, n=50)
     true_tree_newick = tree_to_newick(true_tree)
     mst_newick = tree_to_newick(mst)
-    out_data['qt-true'] = qt_pmf[true_tree_newick] if true_tree_newick in qt_pmf.keys() else 0.
-    out_data['qt-mst'] = qt_pmf[mst_newick] if mst_newick in qt_pmf.keys() else 0.
+    out_data['qt-true'] = qt_pmf[true_tree_newick].item() if true_tree_newick in qt_pmf.keys() else 0.
+    out_data['qt-mst'] = qt_pmf[mst_newick].item() if mst_newick in qt_pmf.keys() else 0.
     pmf_arr = np.array(list(qt_pmf.values()))
+    out_data['pt-true'] = np.nan
+    out_data['pt-mst'] = np.nan
+    if tree_enumeration:
+        try:
+            pt = victree.q.t.enumerate_trees()
+            pt_dict = {nwk: math.exp(logp) for nwk, logp in zip(pt[0], pt[1].tolist())}
+            out_data['pt-true'] = pt_dict[true_tree_newick]
+            out_data['pt-mst'] = pt_dict[mst]
+        except BaseException:
+            print(traceback.format_exc())
+
     # normalized entropy
-    out_data['qt_entropy'] = - np.sum(pmf_arr * np.log(pmf_arr)) / np.log(pmf_arr.size)
+    out_data['qt-entropy'] = - np.sum(pmf_arr * np.log(pmf_arr)) / np.log(pmf_arr.size)
 
     if df is None:
         df = pd.DataFrame()

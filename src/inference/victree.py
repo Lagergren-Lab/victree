@@ -40,7 +40,7 @@ class VICTree:
         obs: torch.Tensor of shape (n_sites, n_cells) observation matrix
         """
 
-        self.exec_time_ = None
+        self.exec_time_ = 0
         if obs is None:
             if data_handler is None:
                 raise ValueError("Provide either obs or a data handler")
@@ -210,7 +210,7 @@ class VICTree:
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
             self.write_checkpoint_h5(path=checkpoint_path)
-        self.exec_time_ = time.time() - time_start
+        self.exec_time_ += time.time() - time_start
 
     def topk_sieve(self, ktop: int = 1, **kwargs):
         """
@@ -550,7 +550,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     # uninformative prior, but still skewed towards 0.01 mean epsilon
     # since most of the sequence will have stable copy number (few changes)
     if eps_prior is None:
-        a_prior = config.chain_length * eps_prior_strength * 2e-3
+        a_prior = config.chain_length * eps_prior_strength * 5e-3
         b_prior = config.chain_length * eps_prior_strength
     else:
         a_prior, b_prior = eps_prior

@@ -61,7 +61,7 @@ def sample_dataset_generator(size: int, K: list[int]):
 if __name__ == '__main__':
     n_datasets = 20
     # n_datasets = 2
-    K_list = [4, 6, 8]
+    K_list = [6]
     # K_list = [4, 6]
     # sys.argv.append('v')
 
@@ -85,17 +85,24 @@ if __name__ == '__main__':
         print(f"K {n_nodes} - {dat_counter} / {n_datasets}")
 
         # run victree
-        config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior_strength=10.,
-                                    eps_prior_strength=10., delta_prior_strength=0.08,
+        # with the following params, comes out as:
+        # - mt = 1 10000 1000 100
+        # - eps = 5 1000
+        # - delta = 3.
+        config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior_strength=20.,
+                                    eps_prior_strength=2., delta_prior_strength=0.09,
                                     z_init='kmeans', c_init='diploid', mt_init='data-size',
-                                    step_size=0.3, wis_sample_size=n_nodes,
+                                    kmeans_skewness=3,
+                                    step_size=0.5, wis_sample_size=10,
                                     # sieving=(3, 3),
                                     split='categorical',
                                     debug=True)
-        victree = VICTree(config, jq, data_handler=dh, draft=True)
-        victree.run(100)
+        victree = VICTree(config, jq, data_handler=dh, draft=True, elbo_rtol=1e-4)
+        victree.run(20)
+        config.step_size = 0.2
+        victree.run(80)
 
         # save results
-        results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=dataset_id, df=results_df)
+        results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=dataset_id, df=results_df, tree_enumeration=True)
         results_df.to_csv(out_csv, index=False)
         dat_counter += 1
