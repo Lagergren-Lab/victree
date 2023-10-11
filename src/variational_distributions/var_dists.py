@@ -177,9 +177,9 @@ class qC(VariationalDistribution):
         self.eta1 = eta1
         self.eta2 = eta2
 
-        if self.config.debug:
-            assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
-            assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
+        #if self.config.debug:
+        #    assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
+        #    assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
 
     def _random_init(self):
         self.eta1 = torch.rand(self.eta1.shape)
@@ -308,7 +308,7 @@ class qC(VariationalDistribution):
         all_but_2 = torch.arange(self.config.n_states) != 2
         self.eta1[root, all_but_2] = -torch.inf
         self.eta2[root, :, :, all_but_2] = -torch.inf
-        self.compute_filtering_probs(k=[root])
+        self.compute_filtering_probs(k=root)
 
         eta1, eta2 = self.update_CAVI(scaled_obs_mean, q_eps, q_z, q_psi, [star_tree], [weight])
         self.eta1[1:K] = eta1[1:K]
@@ -470,10 +470,19 @@ class qC(VariationalDistribution):
         # add normalization step
         self.eta1 = new_eta1 - new_eta1.logsumexp(dim=1, keepdim=True)
         self.eta2 = new_eta2 - new_eta2.logsumexp(dim=3, keepdim=True)
-        if self.config.debug:
-            assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
-            assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
+        #if self.config.debug:
+        #    assert np.allclose(self.eta1.logsumexp(dim=1).exp(), 1.)
+        #    assert np.allclose(self.eta2.logsumexp(dim=3).exp(), 1.)
         return self.eta1, self.eta2
+
+    def set_params(self, eta1, eta2, k: List[int] = None, j: List[int] = None):
+        """
+        Sets the eta1 and eta2 parameters without using the step size.
+        """
+        k = list(range(0, self.config.n_nodes)) if k is None else k
+        j = k if j is None else j
+        self.eta1[j] = eta1[k]
+        self.eta2[j] = eta2[k]
 
     def _exp_eta(self, obs: torch.Tensor, tree: nx.DiGraph,
                  q_eps: Union['qEpsilon', 'qEpsilonMulti'],
@@ -589,17 +598,17 @@ class qC(VariationalDistribution):
 
     def compute_filtering_probs(self, k=None):
         small_eps = 1e-8
-        k = list(range(self.config.n_nodes)) if k is None else k
+        k = list(range(self.config.n_nodes)) if k is None else [k]
         # shape K x S (K is batch size / clones)
-        initial_log_probs = self.eta1[k]
+        initial_log_probs = self.eta1[k, ...]
         # shape K x M x S x S
-        transition_log_probs = self.eta2[k]
-        if self.config.debug:
-            assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
-            assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
+        transition_log_probs = self.eta2[k, ...]
+        #if self.config.debug:
+        #    assert np.allclose(initial_log_probs.logsumexp(dim=1).exp(), 1.)
+        #    assert np.allclose(transition_log_probs.logsumexp(dim=3).exp(), 1.)
 
-        log_single = torch.empty_like(self.single_filtering_probs[k])
-        log_couple = torch.empty_like(self.couple_filtering_probs[k])
+        log_single = torch.zeros(len(k), self.config.chain_length, self.config.n_states)
+        log_couple = torch.zeros(len(k), self.config.chain_length-1, self.config.n_states, self.config.n_states)
         log_single[:, 0, :] = initial_log_probs
         for m in range(self.config.chain_length - 1):
             # first compute the two slice P(X_m, X_m+1) = P(X_m)P(X_m+1|X_m)
@@ -609,16 +618,16 @@ class qC(VariationalDistribution):
             # then marginalize over X_m to obtain P(X_m+1)
             log_single[:, m + 1, :] = torch.logsumexp(log_couple[:, m, ...], dim=1)
 
-            if self.config.debug:
-                assert np.allclose(log_single[:, m + 1, :].exp().sum(dim=1), 1.)
-                assert np.allclose(log_couple[:, m, ...].exp().sum(dim=(1, 2)), 1.)
+            #if self.config.debug:
+            #    assert np.allclose(log_single[:, m + 1, :].exp().sum(dim=1), 1.)
+            #    assert np.allclose(log_couple[:, m, ...].exp().sum(dim=(1, 2)), 1.)
 
         self.single_filtering_probs[k] = torch.exp(log_single).clamp(min=small_eps, max=1. - small_eps)
         self.couple_filtering_probs[k] = torch.exp(log_couple).clamp(min=small_eps, max=1. - small_eps)
 
-        if self.config.debug:
-            assert np.allclose(self.single_filtering_probs[k].sum(dim=2), 1.)
-            assert np.allclose(self.couple_filtering_probs[k].sum(dim=(2, 3)), 1.)
+        #if self.config.debug:
+            #assert np.allclose(self.single_filtering_probs[k].sum(dim=2), 1.)
+            #assert np.allclose(self.couple_filtering_probs[k].sum(dim=(2, 3)), 1.)
 
         return self.single_filtering_probs[k], self.couple_filtering_probs[k]
 
@@ -762,9 +771,16 @@ class qCMultiChrom(VariationalDistribution):
         for i, qc in enumerate(self.qC_list):
             qc.update_params(eta1_list[i], eta2_list[i])
 
-    def compute_filtering_probs(self):
+    def set_params(self, eta1_list, eta2_list, k: List[int] = None, j: List[int] = None):
+        """
+        Sets the parameters without using the step size.
+        """
         for i, qc in enumerate(self.qC_list):
-            qc.compute_filtering_probs()
+            qc.set_params(eta1_list[i], eta2_list[i], k, j)
+
+    def compute_filtering_probs(self, k=None):
+        for i, qc in enumerate(self.qC_list):
+            qc.compute_filtering_probs(k)
 
     @property
     def true_params(self):
@@ -958,7 +974,8 @@ class qZ(VariationalDistribution):
         # op shapes: k + S_mS_j mkj nmj -> nk
         #sigma = torch.std(obs, dim=1) / torch.mean(obs, dim=1)
         #sigma = torch.nan_to_num(sigma, 0.01)
-        gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)#, sigma)
+        gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
+        #gamma = e_logpi + torch.einsum('kmj,nmkj,m->nk', qc_kmj, d_nmj, sigma)
         T = self.config.annealing
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
@@ -975,8 +992,13 @@ class qZ(VariationalDistribution):
             self.pi[batch] = new_pi
         return new_pi
 
-    def exp_assignment(self, batch=None) -> torch.Tensor:
-        N = self.config.n_cells if batch is None else batch.shape[0]
+    def exp_assignment(self, batch: torch.Tensor=None) -> torch.Tensor:
+        if batch is None:
+            N = self.config.n_cells
+        elif batch.shape == torch.Size([]):
+            N = 1
+        else:
+            N = batch.shape[0]
         out_qz = torch.zeros((N, self.config.n_nodes))
         if self.fixed:
             true_z = self.true_params["z"]

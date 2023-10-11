@@ -56,6 +56,7 @@ def run(args):
     joint_q.z.initialize(z_init=args.z_init, data=obs)
     joint_q.mt.initialize(method='data', obs=obs)
     joint_q.eps.initialize(method='uniform')
+    joint_q.c.initialize(method='clonal', obs=obs)
 
     # ---
     # Create copytree object and run inference
