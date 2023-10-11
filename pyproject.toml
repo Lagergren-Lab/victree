@@ -3,12 +3,12 @@
 
 [tool.poetry]
 # see https://python-poetry.org/docs/pyproject/
-name = "CoPyTree"
+name = "VICTree"
 version = "0.1"
 description = "VI method for copy-number aware tumor phylogenetics clonal tree reconstruction"
 authors = ["Harald Melin <haraldme@kth.se>", "Vittorio Zampinetti <vz@kth.se>"]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 
 [tool.pytest.ini_options]
