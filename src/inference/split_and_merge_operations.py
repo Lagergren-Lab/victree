@@ -2,6 +2,7 @@ import copy
 import logging
 
 import networkx as nx
+import numpy as np
 import sklearn.cluster
 import torch
 from sklearn.cluster import KMeans
@@ -27,7 +28,7 @@ class SplitAndMergeOperations:
         elif method == 'inlier':
             split = self.inlier_split(obs, q, tree_list, tree_weights_list)
         elif method == 'mixed':
-            if self.n_categorical_splits <= int(q.config.n_nodes / 3):
+            if self.n_categorical_splits <= -1: # int(q.config.n_nodes / 3):
                 split = self.categorical_split(obs, q)
                 if split:
                     self.n_categorical_splits += 1
@@ -307,33 +308,35 @@ class SplitAndMergeOperations:
             # Split cells of candidate cluster k into clusters i and j
             cells_in_k = torch.where(qz.pi.argmax(dim=1) == k)[0]
             N_k = len(cells_in_k)
-            if N_k < 2:
+            if N_k < 10:
                 continue
 
             cells_in_i, cells_in_j = self.split_cells_by_observations(obs, cells_in_k)
             batch_i = torch.tensor(cells_in_i)
             batch_j = torch.tensor(cells_in_j)
+            n_batch_i = len(cells_in_i)
+            n_batch_j = len(cells_in_j)
+            if n_batch_i < 5 or n_batch_j < 5:
+                logging.debug(f"Skip candidate {k} as one of batches contained too few cells ({n_batch_i} and {n_batch_j})")
+                continue
 
             # Update qC on batches
             eta1_1, eta2_1 = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
             eta1_2, eta2_2 = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_j)
 
             qc.set_params(eta1_1, eta2_1, idx_empty_cluster)
-            #qc.eta1[idx_empty_cluster] = eta1_1[idx_empty_cluster]
-            #qc.eta2[idx_empty_cluster] = eta2_1[idx_empty_cluster]
             qc.compute_filtering_probs(idx_empty_cluster)
 
-            #qc.eta1[k] = eta1_2[k]
-            #qc.eta2[k] = eta2_2[k]
             qc.set_params(eta1_1, eta2_1, k)
             qc.compute_filtering_probs(k)
 
             # Measure quality of split in terms of ELBO
             elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(q) is VarTreeJointDist else q.compute_elbo()
-            log_likelihood_split = q._compute_log_likelihood()
+            log_likelihood_split = q._compute_log_likelihood().sum().item()
             elbos.append(elbo_split)
 
             logging.debug(f"ELBO of split candidate {k}: {elbo_split} ")
+            logging.debug(f"Likelihood of split candidate {k}: {log_likelihood_split} ")
 
             if elbo_split > best_elbo:
                 best_elbo = elbo_split
@@ -350,6 +353,10 @@ class SplitAndMergeOperations:
             qc.compute_filtering_probs(k)
 
         # select highest elbo
+        if elbo_pre_split > best_elbo:
+            logging.debug(f"No split due to ELBO higher with no split than best candidate split.")
+            return False
+
         logging.debug(f"Split cluster {best_cluster_idx} with cells {batch_j} into {idx_empty_cluster} with cells"
                       f" {batch_i}.")
         qc.set_params(best_eta1_1, best_eta2_1, best_cluster_idx)
@@ -425,15 +432,84 @@ class SplitAndMergeOperations:
     def split_cells_by_observations(self, obs, cell_idxs):
         not_nan_idx = ~torch.any(obs.isnan(), dim=1)
         obs_not_nan = obs[not_nan_idx, :]
-        kmeans = KMeans(n_clusters=2, random_state=0).fit(obs_not_nan[:, cell_idxs].T)
+        n_clusters = 3  # Assume cells divides best into one outlier cluster and two desired clusters
+        kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(obs_not_nan[:, cell_idxs].T)
         labels = kmeans.labels_
-        cells_in_cluster_0 = []
-        cells_in_cluster_1 = []
+        clusters_cell_idx = []
+        n_cells = []
         assert len(labels) == cell_idxs.shape[0]
-        for i in range(len(labels)):
-            if labels[i] == 0:
-                cells_in_cluster_0.append(cell_idxs[i].item())
-            else:
-                cells_in_cluster_1.append(cell_idxs[i].item())
-        return cells_in_cluster_0, cells_in_cluster_1
+        for i in range(n_clusters):
+            clusters_cell_idx.append(np.where(labels == i)[0])
+            n_cells.append(clusters_cell_idx[i].shape[0])
 
+        idx0, idx1 = np.argsort(n_cells)[-2:]
+        non_outlier_clusters_0 = clusters_cell_idx[idx0]
+        non_outlier_clusters_1 = clusters_cell_idx[idx1]
+        return non_outlier_clusters_0, non_outlier_clusters_1
+
+    def merge(self, obs, q, trees, tree_weights):
+        # Merge by identical qC viterbi's:
+        qc = q.c
+        qz = q.z
+        qpi = q.pi
+        N, M, K, A = (q.config.n_cells, q.config.chain_length, q.config.n_nodes, q.config.n_states)
+        viterbi_paths = qc.get_viterbi()
+
+        viterbi_distances = torch.zeros(K, K)
+
+        for i in range(0, K):
+            for j in range(i+1, K):
+                viterbi_distances[i, j] = torch.abs(viterbi_paths[i] - viterbi_paths[j]).sum()
+        
+        merge_candidate = None
+        for i in range(0, K):
+            for j in range(i+1, K):
+                if viterbi_distances[i, j] < 10.:
+                    merge_candidate = (i, j)
+                    break
+        
+        # Earliest ancestor merge
+        if merge_candidate is None:
+            return False
+
+        u1, u2 = merge_candidate
+        tree = trees[0]
+        # if u1 ancestor of u2, merge u1 into u2
+        n_ancestors_u1 = len(nx.ancestors(tree, u1))
+        n_ancestors_u2 = len(nx.ancestors(tree, u2))
+        merge_from = u1 if n_ancestors_u1 > n_ancestors_u2 else u2
+        merge_into = u1 if merge_from == u2 else u2
+        # merge by setting qC of u2 to random sequence
+        if type(qc) is qC:
+            eta1_rand = torch.rand(K, A)
+            eta2_rand = torch.rand(K, M - 1, A, A)
+            qc.set_params(eta1_rand, eta2_rand, u2)
+        else:
+            eta1_rand = [torch.rand(qc_chr.eta1.shape) for qc_chr in qc.qC_list]
+            eta2_rand = [torch.rand(qc_chr.eta2.shape) for qc_chr in qc.qC_list]
+            qc.set_params(eta1_rand, eta2_rand, u2)
+
+        qc.compute_filtering_probs(u2)
+
+        logging.debug(f"Merged {merge_from} into {merge_into} "
+                      f"based on qC viterbi distance: {viterbi_distances[u1, u2]}")
+
+        # Remove cell assignment probability from merge from cluster
+        cells_in_merge_from_cluster = torch.where(qz.pi.argmax(dim=1) == merge_from)[0]
+        cells_in_merge_into_cluster = torch.where(qz.pi.argmax(dim=1) == merge_into)[0]
+        if len(cells_in_merge_from_cluster) > 0:
+            qz.pi[cells_in_merge_from_cluster, merge_into] = qz.pi[:, merge_from] * 2.
+        if len(cells_in_merge_into_cluster) > 0:
+            qz.pi[cells_in_merge_into_cluster, merge_into] = qz.pi[:, merge_into] * 2.
+        qz.pi[:, merge_from] = 0.
+
+        # Double the cell assignment probability of merge into cluster
+
+        qz.pi = qz.pi / torch.sum(qz.pi, dim=1, keepdim=True)  # Re-normalize
+
+        # Reset concentration parameter of merge from cluster to prior
+        qpi.concentration_param[merge_from] = qpi.concentration_param_prior[merge_from]
+
+        # Double concentration parameter of merge into cluster
+        qpi.concentration_param[merge_into] = 2 * qpi.concentration_param[merge_into]
+        return True

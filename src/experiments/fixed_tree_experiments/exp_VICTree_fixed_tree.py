@@ -205,7 +205,7 @@ class VICTreeFixedTreeExperiment():
         A = 7
         step_size = 0.3
         SVI = False
-        split = 'ELBO'
+        split = 'mixed'
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
         logging.getLogger().setLevel(logging.DEBUG)
 
@@ -277,7 +277,7 @@ class VICTreeFixedTreeExperiment():
             #                           mt_prior_strength=10., delta_prior_strength=0.1, config=config)
 
             qmt.nu = torch.tensor([1.0 if nu_n > 1.5 else nu_n for nu_n in qmt.nu])
-            qc.initialize(method='clonal', obs=y)  # Clonal init in practice not useful, degenerates to healthy clone after few iterations
+            qc.initialize(method='random')#, obs=y)  # Clonal init in practice not useful, degenerates to healthy clone after few iterations
             qz_param = qz.update_CAVI(qmt, qc, qpi, y)
             qz.pi = qz_param
             victree = VICTree(config, q, y, data_handler)
@@ -305,6 +305,6 @@ class VICTreeFixedTreeExperiment():
 if __name__ == '__main__':
     n_iter = 100
     experiment_class = VICTreeFixedTreeExperiment()
-    #experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
-    experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
+    experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
+    #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_M_experiment(save_plot=True, n_iter=n_iter)
