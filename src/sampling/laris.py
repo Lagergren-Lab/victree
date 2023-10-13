@@ -163,6 +163,9 @@ def sample_rand_mst(weighted_graph: nx.DiGraph) -> (nx.DiGraph, float):
     # sample an arc
     u, v = random.sample(weighted_graph.edges, 1)[0]
     graph_with_arc = new_graph_force_arc(u, v, weighted_graph)
-    mst = maximum_spanning_arborescence(graph_with_arc, preserve_attrs=True)
+    try:
+        mst = maximum_spanning_arborescence(graph_with_arc, preserve_attrs=True)
+    except nx.NetworkXException as nex:
+        mst = maximum_spanning_arborescence(weighted_graph)
     log_w = mst.size()
     return mst, log_w

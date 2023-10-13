@@ -225,7 +225,7 @@ class qTTestCase(unittest.TestCase):
                                                 beta0=50., dir_delta=10., tree=true_tree)
         c = out_simul["c"]
         eps = out_simul["eps"]
-        q_T = qT(config=config)
+        q_T = qT(config=config, norm_method='exp-M', sampling_method='laris')
         q_C = qC(config=config)
         q_C_pairwise_marginals = utils_testing.get_two_sliced_marginals_from_one_slice_marginals(c, A)
         q_C.couple_filtering_probs = q_C_pairwise_marginals
@@ -289,21 +289,4 @@ class qTTestCase(unittest.TestCase):
                     converged = True
 
             print(qt)
-            # sample many trees and get the mode
-            # n = 100
-            # k = 10
-            # trees_sample = qt.get_trees_sample(sample_size=n)
-            # top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k, nx_graph=False)
-            # self.assertEqual(top_k_trees[0][0], true_tree_newick,
-            #                  msg="true tree is different than top sampled tree by weight\n"
-            #                      f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
-            # # print("Sorted trees (by weight sum)")
-            # # print(top_k_trees)
-            # top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k,
-            #                                                        by_weight=False, nx_graph=False)
-            # self.assertEqual(top_k_trees[0][0], true_tree_newick,
-            #                  msg="true tree is different than top sampled tree by number of occurrences\n"
-            #                      f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
-            # print("Sorted trees (by occurrence)")
-            # print(top_k_trees)
 

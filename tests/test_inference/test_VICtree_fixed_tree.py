@@ -139,20 +139,21 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         n_cells = 500
         n_sites = 500
         n_copy_states = 7
-        dir_alpha0 = 10.
+        dir_alpha0 = 3.
         nu_0 = 1.
         lambda_0 = 10.
         alpha0 = 500.
         beta0 = 50.
         a0 = 10.0
-        b0 = 200.0
+        b0 = 500.0
         y, C, z, pi, mu, tau, eps, eps0 = simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree,
                                                                         nu_0=nu_0,
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
-                                                                        a0=a0, b0=b0, dir_alpha0=dir_alpha0)
+                                                                        a0=a0, b0=b0, dir_alpha0=dir_alpha0
+                                                                        )
 
         config = Config(n_nodes=K, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=0.3,
-                        diagnostics=False, annealing=1.)
+                        diagnostics=False, annealing=1., split='mixed')
 
         qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
         q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
@@ -182,7 +183,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
 
         print(f"Var Log-likelihood: {q.total_log_likelihood}")
         print(f"True Log-likelihood: {true_q.total_log_likelihood}")
-        self.assertGreater(ari, 0.7, msg='ari less than 0.7.')
+        self.assertGreater(ari, 0.9, msg='ari less than 0.9. for K = 5')
 
     def test_large_tree_fixed_qMuTau_same_data_different_optimizations(self):
         logger = logging.getLogger()

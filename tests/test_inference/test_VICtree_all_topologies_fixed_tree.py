@@ -49,7 +49,7 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                         lambda_0=lambda_0, alpha0=alpha0, beta0=beta0,
                                                                         a0=a0, b0=b0, dir_alpha0=dir_alpha)
         config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites, step_size=1.0,
-                        debug=False, diagnostics=False, split=True)
+                        debug=False, diagnostics=False, split='categorical')
         test_dir_name = tests.utils_testing.create_test_output_catalog(config, self.id().replace(".", "/"),
                                                                        base_dir='../test_output')
 

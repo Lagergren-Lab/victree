@@ -321,7 +321,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Run VICTree using normal initialization
         config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
-                              diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
+                              diagnostics=False, annealing=1., split='categorical', chromosome_indexes=data_handler.get_chr_idx())
 
         test_dir_name = tests.utils_testing.create_test_output_catalog(config_init1, self.id().replace(".", "/"),
                                                                        base_dir=self.base_dir)
@@ -340,7 +340,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
 
         # Run VICTree using init to clonal structure
         config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
-                              diagnostics=False, annealing=1., split=True, chromosome_indexes=data_handler.get_chr_idx())
+                              diagnostics=False, annealing=1., split='categorical', chromosome_indexes=data_handler.get_chr_idx())
 
         qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
         qc2 = qCMultiChrom(config_init2)
@@ -418,7 +418,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 # Run VICTree using normal initialization
                 utils.config.set_seed(seeds[i])
                 config_init1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
-                                      diagnostics=False, annealing=1., split=True)
+                                      diagnostics=False, annealing=1., split='categorical')
 
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config_init1)
                 q = FixedTreeJointDist(y_tot, config_init1, qc, qz, qeps, qmt, qpi, tree)
@@ -434,7 +434,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                                                                         q_mt=victree.q.mt, q_eps=qeps)
                 # Run VICTree using init to clonal structure
                 config_init2 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.3,
-                                      diagnostics=False, annealing=1., split=False)
+                                      diagnostics=False, annealing=1., split='None')
 
                 qc2, qt2, qeps2, qz2, qpi2, qmt2 = self.set_up_q(config_init2)
                 q2 = FixedTreeJointDist(y_tot, config_init2, qc2, qz2, qeps2, qmt2, qpi2, tree)
@@ -517,7 +517,7 @@ class VICtreeClonalVsSubclonalProfilesFixedTreeTestCase(unittest.TestCase):
                 # Run VICTree using SVI, split and init to clonal structure
                 config_init = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M_tot, step_size=0.05,
                                      step_size_scheme='inverse', batch_size=100,
-                                     diagnostics=True, annealing=1., split=True, SVI=True)
+                                     diagnostics=True, annealing=1., split='categorical', SVI=True)
                 test_dir_name = tests.utils_testing.create_test_output_catalog(config_init, self.id().replace(".", "/")
                                                                                + f'/data_seed_{data_seed}',
                                                                                base_dir=self.base_dir)
