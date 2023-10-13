@@ -4,11 +4,15 @@ import unittest
 import networkx as nx
 import numpy as np
 import torch
+from sklearn.metrics import v_measure_score
 from sklearn.metrics.cluster import adjusted_rand_score
 
-import tests.model_variational_comparisons
+import matplotlib
 import utils.visualization_utils
 from experiments.fixed_tree_experiments.k4_prior_gridsearch import sample_dataset_generation
+from inference.victree import make_input, VICTree
+from utils import tree_utils
+from utils.evaluation import evaluate_victree_to_df, best_mapping
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
 from simul import generate_dataset_var_tree
 from tests import model_variational_comparisons
@@ -305,7 +309,6 @@ class updatesTestCase(unittest.TestCase):
         self.assertTrue(torch.allclose(vi_pi,
                                        target_pi, rtol=0.1))
 
-
     def test_update_large_qt(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=.3,
                         debug=True)
@@ -313,7 +316,7 @@ class updatesTestCase(unittest.TestCase):
         # print(f'obs: {joint_q.obs}')
         # print(f"true c: {joint_q.c.true_params['c']}")
         true_tree_newick = tree_to_newick(joint_q.t.true_params['tree'])
-        # print(f"true tree: {true_tree_newick}")
+        print(f"true tree: {true_tree_newick}")
         # print(f"true eps: {joint_q.eps.true_params['eps']}")
 
         qt = qT(config)
@@ -341,6 +344,19 @@ class updatesTestCase(unittest.TestCase):
                              f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
         # print("Sorted trees (by occurrence)")
         # print(top_k_trees)
+
+    @unittest.skip('long exec time')
+    def test_full_updates(self):
+        k = 6
+        seed = 101
+        true_jq, adata = sample_dataset_generation(K=k, seed=seed)
+        config, jq, dh = make_input(adata, n_nodes=k, mt_prior_strength=10., eps_prior_strength=2.,
+                                    delta_prior_strength=0.09, step_size=0.3, debug=True, wis_sample_size=10)
+        config.split = 'categorical'
+        victree = VICTree(config, jq, data_handler=dh)
+        victree.run(100)
+        result = evaluate_victree_to_df(true_jq, victree, dataset_id=seed, tree_enumeration=True)
+        print(result)
 
     def test_update_qc_qz(self):
 
@@ -398,36 +414,54 @@ class updatesTestCase(unittest.TestCase):
         model_variational_comparisons.compare_qZ_and_true_Z(true_Z=joint_q.z.true_params["z"], q_z=qz)
 
     def test_update_all(self):
-
-        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=50, wis_sample_size=30, step_size=.1,
+        config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
+                        wis_sample_size=50, step_size=.1,
                         debug=True)
-        true_joint_q = generate_dataset_var_tree(config)
-        joint_q = VarTreeJointDist(config, obs=true_joint_q.obs)
+        true_joint_q = generate_dataset_var_tree(config, eps_a=200., eps_b=20000., dir_alpha=3.,
+                                                 lambda_prior=1000., alpha_prior=500., beta_prior=50.,
+                                                 # cne_length_factor=50
+                                                 )
+
+        matplotlib.use('module://backend_interagg')
+        utils.visualization_utils.plot_dataset(true_joint_q)['fig'].show()
+        print("--- TRUE JOINT - NOT RE-LABELED ---")
+        print(true_joint_q)
+        qt = qT(config, sampling_method='mst')
+        qmt = qMuTau(config, from_obs=(true_joint_q.obs, 20.))
+        qeps = qEpsilonMulti(config, alpha_prior=20., beta_prior=2000.)
+        joint_q = VarTreeJointDist(config, obs=true_joint_q.obs, qmt=qmt, qeps=qeps, qt=qt)
         joint_q.initialize()
+        # joint_q.z.initialize(method='kmeans', data=true_joint_q.obs, skewness=2)
+        joint_q.z.initialize(method='gmm', data=joint_q.obs)
+        joint_q.mt.initialize(method='data-size', obs=true_joint_q.obs)
+        joint_q.c.initialize(method='diploid')
+        joint_q.eps.initialize(method='data', obs=true_joint_q.obs)
         for i in range(50):
             joint_q.update(i)
 
-        print(f'true c at node 1: {true_joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
-        print(f'var c at node 1: {joint_q.c.single_filtering_probs[1].max(dim=-1)[1]}')
+        gt_z = true_joint_q.z.true_params['z'].numpy()
+        vi_z = joint_q.z.pi.numpy()
+        best_mapp = best_mapping(gt_z, vi_z)
+        print(best_mapp)
+        true_tree = tree_utils.relabel_nodes(true_joint_q.t.true_params['tree'], best_mapp)
+        print(f'\n\n--- TRUE TREE (after remap): {tree_to_newick(true_tree)}')
 
-        print(f'true tree: {tree_to_newick(true_joint_q.t.true_params["tree"])}')
-        print(f'var tree graph: '
-              f'{sorted(joint_q.t.weighted_graph.edges.data("weight"), key=lambda e: e[2], reverse=True)}')
+        print("\n\n--- VAR JOINT ---")
+        print(joint_q)
+
+        # compare with quality measures
+        victree = VICTree(config, joint_q, joint_q.obs, draft=True)
+        res_df = evaluate_victree_to_df(true_joint_q, victree, 0, tree_enumeration=True)
+        print("--- EVALUATION --- ")
+        for k, v in res_df.to_dict().items():
+            print(f"{k}: {v}")
+
         sample_size = 100
-        s_trees, s_weights = joint_q.t.get_trees_sample(sample_size=sample_size)
-        accum = {}
-        for t, w in zip(s_trees, s_weights):
-            tnwk = tree_to_newick(t)
-            if tnwk in accum:
-                accum[tnwk] += w
-            else:
-                accum[tnwk] = w
-
-        print(sorted(accum.items(), key=lambda x: x[1], reverse=True))
+        t_pmf: dict = joint_q.t.get_pmf_estimate(normalized=True, n=sample_size, desc_sorted=True)
+        print(t_pmf)
         # NOTE: copy number is not very accurate and tree sampling is not exact, but still some
         #   of the true edges obtain high probability of being sampled.
         #   also, the weights don't explode to very large or very small values, causing the algorithm to crash
-        print(joint_q)
 
     def test_update_qz_qmt(self):
         joint_q = self.generate_test_dataset_fixed_tree()
@@ -562,6 +596,79 @@ class updatesTestCase(unittest.TestCase):
 
         # same but with z at current pos
 
+    def test_update_qz_qeps_qt(self):
+        # fix qc, qpi and qmt
+        config = Config(n_nodes=7, n_states=7, n_cells=200, chain_length=500,
+                        wis_sample_size=20, step_size=.3,
+                        debug=True)
+        joint_q = generate_dataset_var_tree(config)
+        qt = qT(config, norm_method='stochastic', sampling_method='rand-mst')
+        qt.initialize()
+        qz = qZ(config)
+        qz.initialize()
+        qeps = qEpsilonMulti(config, alpha_prior=50., beta_prior=4000.)
+        qeps.initialize(method='data', obs=joint_q.obs)
+        for i in range(40):
+            qt.update(joint_q.c, qeps)
+            trees, log_w = qt.get_trees_sample()
+            qeps.update(trees, log_w, joint_q.c)
+            qz.update(joint_q.mt, joint_q.c, joint_q.pi, joint_q.obs)
+
+        print("\n\n --- TRUE DIST ---\n")
+        print(joint_q)
+
+        print("\n\n --- VAR DIST ---\n")
+        print(qt)
+        print(qeps)
+        print(qz)
+        # assert that the first tree among the sampled ones is the true one
+        self.assertEqual(list(qt.get_pmf_estimate(desc_sorted=True).keys())[0],
+                         tree_to_newick(joint_q.t.true_params['tree']))
+
+    def test_update_qz_qeps_qt_qc(self):
+        # fix qmt
+        config = Config(n_nodes=7, n_states=7, n_cells=200, chain_length=500,
+                        wis_sample_size=20, step_size=.3,
+                        debug=True)
+        joint_q = generate_dataset_var_tree(config, eps_a=50., eps_b=4000.)
+        qt = qT(config, norm_method='stochastic')
+        qt.initialize()
+        qz = qZ(config)
+        qz.initialize()
+        qeps = qEpsilonMulti(config, alpha_prior=50., beta_prior=4000.)
+        qeps.initialize(method='data', obs=joint_q.obs)
+        qc = qC(config)
+        qc.initialize(method='diploid')
+
+        for i in range(50):
+            qt.update(qc, qeps)
+            trees, weights = qt.get_trees_sample(alg='rand-mst')
+            qeps.update(trees, weights, qc)
+            qz.update(joint_q.mt, qc, joint_q.pi, joint_q.obs)
+            qc.update(joint_q.obs, qeps, qz, joint_q.mt, trees, weights)
+        print(qt)
+
+        for i in range(10):
+            # refine
+            mst_list, _ = qt.get_trees_sample(alg='mst', sample_size=1)
+            unit_weights = [1.]
+            qeps.update(mst_list, unit_weights, joint_q.c)
+            qz.update(joint_q.mt, joint_q.c, joint_q.pi, joint_q.obs)
+            qc.update(joint_q.obs, qeps, qz, joint_q.mt, mst_list, unit_weights)
+
+        print("\n\n --- TRUE DIST ---\n")
+        print(joint_q)
+        mapp = best_mapping(joint_q.z.true_params['z'].numpy(), qz.pi.numpy())
+        remapped_true_tree = nx.relabel_nodes(joint_q.t.true_params['tree'],
+                                              {i: mapp[i] for i in range(config.n_nodes)})
+        print(f" REMAPPED TRUE TREE: {tree_to_newick(remapped_true_tree)}")
+        print(f"v-measure: {v_measure_score(joint_q.z.true_params['z'], qz.best_assignment())}")
+
+        print("\n\n --- VAR DIST ---\n")
+        print(qt)
+        print(qeps)
+        print(qz)
+        print(qc)
 
 if __name__ == '__main__':
     unittest.main()

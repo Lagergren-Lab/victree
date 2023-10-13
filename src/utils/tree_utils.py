@@ -1,5 +1,5 @@
 import itertools
-import random
+from io import StringIO
 
 import networkx as nx
 import numpy as np
@@ -9,8 +9,6 @@ from typing import List, Tuple
 from Bio import Phylo
 from dendropy import Tree
 from dendropy.calculate.treecompare import symmetric_difference
-# from Espalier import MAF
-# from pylabeledrf.computeLRF import *
 from networkx import is_arborescence
 
 from utils import math_utils
@@ -243,6 +241,11 @@ def remap_node_labels(T_list, perm):
     return T_list_remapped
 
 
+def reorder_newick(nwk: str) -> str:
+    nxtree = parse_newick(StringIO(nwk))
+    return tree_to_newick(nxtree)
+
+
 def get_all_tree_topologies(K):
     """
     Enumerate all labeled trees (rooted in 0) with their probability
@@ -273,6 +276,17 @@ def star_tree(k: int) -> nx.DiGraph:
 
 
 def parse_newick(tree_file, config=None):
+    """
+    Parameters
+    ----------
+    tree_file: filepath. if newick string is desired, it's enough to
+        pass StringIO(newick_string) instead
+    config: config file for validation purposes on the number of nodes
+
+    Returns
+    -------
+    nx.DiGraph tree
+    """
     tree = Phylo.read(tree_file, 'newick')
     und_tree_nx = Phylo.to_networkx(tree)
     und_tree_nx = nx.convert_node_labels_to_integers(und_tree_nx)

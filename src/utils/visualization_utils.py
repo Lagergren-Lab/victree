@@ -95,10 +95,13 @@ def plot_cn_matrix(c, z, axs=None):
     }
 
 
-def plot_obs(y, z):
+def plot_obs(y, z, ax=None):
 
     cmap = matplotlib.cm.get_cmap('viridis')
-    fig, ax = plt.subplots(1, 1)
+    if ax is None:
+        fig, ax = plt.subplots(1, 1)
+    else:
+        fig, _ = plt.subplots(1, 1)
     im = ax.imshow(y[:, np.argsort(z)].T, cmap=cmap, aspect='auto', interpolation='none')
 
     ax.set_xlabel('bins', fontsize=8)
@@ -107,6 +110,22 @@ def plot_obs(y, z):
 
     return {
         'ax': ax,
+        'fig': fig,
+        'im': im
+    }
+
+
+def plot_dataset(true_joint) -> dict:
+    fig, axs = plt.subplots(2, 2)
+    cn_pl = plot_cn_matrix(true_joint.c.get_viterbi(), true_joint.z.best_assignment(),
+                           axs=axs[0, :])
+    obs_pl = plot_obs(true_joint.obs, true_joint.z.best_assignment(), ax=axs[1, 0])
+    tree = true_joint.t.true_params['tree']
+    pos = graphviz_layout(tree, prog="dot")
+    nx.draw(tree, with_labels=True, ax=axs[1, 1], pos=pos)
+
+    return {
+        'ax': axs,
         'fig': fig
     }
 

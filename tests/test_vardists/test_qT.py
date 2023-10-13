@@ -3,12 +3,14 @@ import unittest
 
 import numpy as np
 import torch
+import matplotlib
 
 import simul
 from tests import utils_testing
 from utils import tree_utils, visualization_utils
 from utils.config import Config, set_seed
 from utils.tree_utils import tree_to_newick
+from utils.visualization_utils import plot_dataset
 from variational_distributions.var_dists import qEpsilonMulti, qT, qC
 
 
@@ -73,17 +75,17 @@ class qTTestCase(unittest.TestCase):
         config = Config(4, n_states=7, eps0=1e-2, chain_length=c.shape[1],
                         wis_sample_size=100, step_size=.2, debug=True)
 
-        qt = qT(config).initialize()
+        qt = qT(config, sampling_method='rand-mst').initialize()
         qeps = qEpsilonMulti(config).initialize()
         qc = qC(config, true_params={'c': c})
 
-        for i in range(10):
+        for i in range(20):
             qt.update(qc, qeps)
             t, w = qt.get_trees_sample()
             qeps.update(t, w, qc)
 
-        # print(qc)
-        # print(qt)
+        print(qc)
+        print(qt)
         # print(qeps)
         gt_tree_newick = "((2)1,3)0"
         tol = 3
@@ -262,4 +264,46 @@ class qTTestCase(unittest.TestCase):
         print(f"Tree distance 0: {tree_utils.tree_to_newick(tree_of_distance_0, 0)}")
         print(f"Tree distance 2: {tree_utils.tree_to_newick(tree_of_distance_2, 0)}")
         print(f"Tree distance 4: {tree_utils.tree_to_newick(tree_of_distance_4, 0)}")
+
+    def test_qt_normalization(self):
+        config = Config(n_nodes=7, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=.5,
+                        debug=True)
+        joint_q = simul.generate_dataset_var_tree(config, eps_a=50, eps_b=4000)
+        # true_tree_newick = tree_to_newick(joint_q.t.true_params['tree'])
+        print(joint_q)
+        matplotlib.use('module://backend_interagg')
+        plot_dataset(joint_q)['fig'].show()
+
+        for norm_method in ['M', 'max', 'max-row', 'min-max', 'min-max-row', 'stochastic', 'stochastic-row']:
+            print(f"Running '{norm_method}' norm method")
+
+            qt = qT(config, norm_method=norm_method)
+            qt.initialize()
+
+            converged = False
+            for i in range(20):
+                qt.update(joint_q.c, joint_q.eps)
+                trees, log_weights = qt.get_trees_sample()
+                if not converged and len(set(trees)) == 1:
+                    print(f"converged to one tree after {i} iterations")
+                    converged = True
+
+            print(qt)
+            # sample many trees and get the mode
+            # n = 100
+            # k = 10
+            # trees_sample = qt.get_trees_sample(sample_size=n)
+            # top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k, nx_graph=False)
+            # self.assertEqual(top_k_trees[0][0], true_tree_newick,
+            #                  msg="true tree is different than top sampled tree by weight\n"
+            #                      f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
+            # # print("Sorted trees (by weight sum)")
+            # # print(top_k_trees)
+            # top_k_trees = utils.tree_utils.top_k_trees_from_sample(*trees_sample, k=k,
+            #                                                        by_weight=False, nx_graph=False)
+            # self.assertEqual(top_k_trees[0][0], true_tree_newick,
+            #                  msg="true tree is different than top sampled tree by number of occurrences\n"
+            #                      f"\t{true_tree_newick} != {top_k_trees[0][0]}:{top_k_trees[0][1]}")
+            # print("Sorted trees (by occurrence)")
+            # print(top_k_trees)
 

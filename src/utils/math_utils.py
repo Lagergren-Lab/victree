@@ -1,8 +1,24 @@
 import torch
 import math
-import numpy as np
-import scipy.special as sp_spec
-import scipy.stats as sp_stats
+
+
+def nanmax(tensor, dim=None, keepdim=False):
+    min_value = torch.finfo(tensor.dtype).min
+    output = tensor.nan_to_num(min_value).amax(dim=dim, keepdim=keepdim)
+    return output
+
+
+def nanmin(tensor, dim=None, keepdim=False):
+    max_value = torch.finfo(tensor.dtype).max
+    output = tensor.nan_to_num(max_value).amin(dim=dim, keepdim=keepdim)
+    return output
+
+
+def nanlogsumexp(tensor, dim=None, keepdim=False):
+    if dim is None:
+        dim = tuple(range(tensor.ndim))
+    output = tensor.nan_to_num(-torch.inf).logsumexp(dim=dim, keepdim=keepdim)
+    return output
 
 
 def log_beta_function(x: torch.Tensor) -> torch.float:

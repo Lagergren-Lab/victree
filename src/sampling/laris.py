@@ -5,7 +5,6 @@ Code related to the Labeled Arborescence Importance Sampling (LArIS).
 import copy
 import logging
 import random
-from typing import Tuple, List
 
 import networkx as nx
 import numpy as np
@@ -16,8 +15,8 @@ from networkx import maximum_spanning_arborescence
 
 import matplotlib.pyplot as plt
 
-from networkx.algorithms.tree import Edmonds
 from networkx.drawing.nx_pydot import graphviz_layout
+
 matplotlib.use("Agg")  # to avoid interactive plots
 
 
@@ -47,7 +46,7 @@ def new_graph_without_arc(u, v, graph: nx.DiGraph) -> nx.DiGraph:
 def draw_graph(G: nx.DiGraph, to_file=None):
     pos = graphviz_layout(G, prog="dot")
 
-    f: plt.figure.Figure = plt.figure(figsize=(5,5))
+    f: plt.figure.Figure = plt.figure(figsize=(5, 5))
     nx.draw(G, pos=pos, with_labels=True, ax=f.add_subplot(111))
     if to_file is not None:
         f.savefig(to_file, format="png")
@@ -55,7 +54,7 @@ def draw_graph(G: nx.DiGraph, to_file=None):
 
 
 def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
-                                   root: int = 0, debug: bool = False, order_method='random'):
+                                            root: int = 0, debug: bool = False, order_method='random'):
     # FIXME: something wrong with LArIS
     # TODO: rename to laris
     # start with empty graph (only root)
@@ -107,7 +106,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
                 logging.debug("No more candidates in LArIS tree reconstruction. Restarting algorithm.")
                 s = nx.DiGraph()
                 s.add_node(root)
-                #skimmed_graph = copy.deepcopy(graph)
+                # skimmed_graph = copy.deepcopy(graph)
                 break
             else:
                 if t_w.number_of_nodes() == 0 or t_wo.number_of_nodes() == 0:
@@ -121,8 +120,8 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
             if torch.rand(1) < theta:
                 s.add_edge(u, v, weight=graph.edges[u, v]['weight'])
                 # remove all incoming arcs to v (including u,v)
-                #skimmed_graph.remove_edges_from(graph.in_edges(v))
-                #skimmed_graph.remove_edges_from([(v, u)])
+                # skimmed_graph.remove_edges_from(graph.in_edges(v))
+                # skimmed_graph.remove_edges_from([(v, u)])
                 candidates_to_remove = list(graph.in_edges(v))
                 candidates_to_remove.append((v, u))
                 candidate_arcs = [a for a in candidate_arcs if a not in candidates_to_remove]
@@ -158,3 +157,12 @@ def get_ordered_arcs(graph: nx.DiGraph, method='random'):
         raise ValueError(f'Method {method} is not available.')
 
     return ordered_edges
+
+
+def sample_rand_mst(weighted_graph: nx.DiGraph) -> (nx.DiGraph, float):
+    # sample an arc
+    u, v = random.sample(weighted_graph.edges, 1)[0]
+    graph_with_arc = new_graph_force_arc(u, v, weighted_graph)
+    mst = maximum_spanning_arborescence(graph_with_arc, preserve_attrs=True)
+    log_w = mst.size()
+    return mst, log_w

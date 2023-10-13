@@ -464,7 +464,7 @@ def write_simulated_dataset_h5(data, out_dir, filename, gt_mode='h5'):
 def generate_dataset_var_tree(config: Config,
                               nu_prior=1., lambda_prior=100.,
                               alpha_prior=500., beta_prior=50.,
-                              dir_alpha=1., eps_a=5., eps_b=50., chrom: str | int = 1,
+                              dir_alpha=1., eps_a=150., eps_b=4500., chrom: str | int = 1,
                               ret_anndata=False, cne_length_factor: int = 0):
     # set up default with one chromosome
     chr_df = None

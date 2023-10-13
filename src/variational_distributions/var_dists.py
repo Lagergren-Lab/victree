@@ -3,7 +3,6 @@ Variational distribution classes with several initialization methods, update for
 """
 import copy
 import logging
-import math
 import os
 
 import hmmlearn.hmm
@@ -14,16 +13,17 @@ import itertools
 import numpy as np
 from typing import List, Tuple, Union, Optional
 
-from utils.data_handling import dict_to_tensor, edge_dict_to_matrix
-from utils.evaluation import pm_uni
+from utils.data_handling import edge_dict_to_matrix
+from utils import pm_uni
 
 from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture
 
 from utils import math_utils
 from utils.eps_utils import get_zipping_mask, get_zipping_mask0, h_eps, normalizing_zipping_constant
 
 import utils.tree_utils as tree_utils
-from sampling.laris import sample_arborescence_from_weighted_graph
+from sampling.laris import sample_arborescence_from_weighted_graph, sample_rand_mst
 from utils.config import Config
 from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.variational_distribution import VariationalDistribution
@@ -798,7 +798,7 @@ class qCMultiChrom(VariationalDistribution):
         assert idx == self.config.chain_length + 1
         return padded_cfp
 
-    def initialize(self, method='random', **kwargs):
+    def initialize(self, method='diploid', **kwargs):
         if method not in {'random', 'uniform', 'clonal', 'diploid'}:
             raise ValueError("Multi-chromosome qC init only accept `random`, `uniform` or 'clonal' method")
 
@@ -892,6 +892,8 @@ class qZ(VariationalDistribution):
         elif z_init == 'kmeans':
             # params: data, skewness
             self._kmeans_init(**kwargs)
+        elif z_init == 'gmm':
+            self._gmm_init(**kwargs)
         else:
             raise ValueError(f'method `{z_init}` for qZ initialization is not implemented')
         return super().initialize(**kwargs)
@@ -922,6 +924,14 @@ class qZ(VariationalDistribution):
         pi_init = pi_init / pi_init.sum(dim=1, keepdim=True)
         self.kmeans_labels[...] = torch.tensor(m_labels).long()
         self.pi[...] = pi_init
+
+    def _gmm_init(self, data):
+        gmm = GaussianMixture(n_components=self.config.n_nodes, covariance_type='diag')
+        gmm.fit(data)
+        soft_assignment = gmm.predict_proba(data)
+        # find healthy cluster and move it to clone 0
+        healthy_idx = np.sum(gmm.means_ != np.ones((1, self.config.chain_length)) * 2., axis=1).argmin()
+        self.pi[...] = torch.tensor(np.roll(soft_assignment, shift=-healthy_idx, axis=1))
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):
         M, N = obs.shape
@@ -1009,8 +1019,8 @@ class qZ(VariationalDistribution):
         summary = ["[qZ summary]"]
         if self.fixed:
             summary[0] += " - True Dist"
-            k = max(20, self.config.n_cells)  # first k cells
-            summary.append("-cell assignment\t" + self.true_params['z'][:k])
+            k = min(20, self.config.n_cells)  # first k cells
+            summary.append(f"-cell assignment\t{self.true_params['z'][:k].tolist()}")
         else:
             max_entropy = torch.special.entr(torch.ones(self.config.n_nodes) / self.config.n_nodes).sum()
             # print first k cells assignments and their uncertainties - entropy normalized by max value
@@ -1024,10 +1034,11 @@ class qZ(VariationalDistribution):
         return os.linesep.join(summary)
 
 
+
 # topology
 class qT(VariationalDistribution):
 
-    def __init__(self, config: Config, true_params=None):
+    def __init__(self, config: Config, true_params=None, norm_method='stochastic', sampling_method='rand-mst'):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
@@ -1038,6 +1049,8 @@ class qT(VariationalDistribution):
         self._weighted_graph.add_edges_from([(u, v)
                                              for u, v in itertools.permutations(range(config.n_nodes), 2)
                                              if u != v and v != 0])
+        self._norm_method = norm_method
+        self._sampling_method = sampling_method
 
         if true_params is not None:
             assert 'tree' in true_params
@@ -1125,27 +1138,64 @@ other elbos such as qC.
         # logging.debug("- tree updated")
         super().update()
 
-    def update_params(self, new_weights: torch.Tensor):
-        rho = self.config.step_size  # TODO: step size not applicable here?
-        prev_weights = torch.tensor([w for u, v, w in self._weighted_graph.edges.data('weight')])
-        stepped_weights = (1 - rho) * prev_weights + rho * new_weights
+    def update_params(self, new_weight_mat: torch.Tensor):
+        rho = self.config.step_size
+        prev_weights = torch.tensor(self.weight_matrix)
+        stepped_weights = (1 - rho) * prev_weights + rho * new_weight_mat
 
-        for i, (u, v, weight) in enumerate(self._weighted_graph.edges.data('weight')):
-            self._weighted_graph.edges[u, v]['weight'] = stepped_weights[i]
+        for u, v in self._weighted_graph.edges:
+            self._weighted_graph.edges[u, v]['weight'] = stepped_weights[u, v]
         return self._weighted_graph.edges.data('weight')
 
     def update_graph_weights(self, qc: qC | qCMultiChrom, qeps: Union['qEpsilon', 'qEpsilonMulti']):
+        new_log_weight_matrix = torch.full((self.config.n_nodes, self.config.n_nodes), torch.nan)
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
-        new_log_weights = {}
         for u, v in all_edges:
-            new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
+            new_log_weight_matrix[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
         # chain length determines how large log-weights are
-        # while they should be length invariant
-        # FIXME: avoid this hack
-        # TODO: implement tempering (check tempered/annealing in VI)
-        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
+        # while values should not be too low for numerical stability
+        w_tensor = self._normalize_graph_weights(new_log_weight_matrix)
         self.update_params(w_tensor)
+
+    def _normalize_graph_weights(self, w_matrix):
+        norm_w_matrix = torch.full_like(w_matrix, torch.nan)
+        if self._norm_method == 'exp-M':
+            # divides log term by M
+            norm_w_matrix[...] = w_matrix / self.config.chain_length
+        elif self._norm_method == 'M':
+            # subtract M (num-bins)
+            norm_w_matrix[...] = w_matrix - self.config.chain_length
+        elif self._norm_method == 'max':
+            # subtract max over all elements
+            norm_w_matrix[...] = w_matrix - math_utils.nanmax(w_matrix)
+        elif self._norm_method == 'max-row':
+            # subtract row-wise max (outgoing edges)
+            norm_w_matrix[...] = w_matrix - math_utils.nanmax(w_matrix, dim=1, keepdim=True)
+        elif self._norm_method == 'min-max':
+            # numerically stable min-max
+            # assumes all values are negative (which is the case in this setting)
+            w_max = math_utils.nanmax(w_matrix)
+            w_min = math_utils.nanmin(w_matrix)
+            log_diff = w_min - w_max
+            log_range = w_max + torch.log(1 - torch.exp(log_diff))
+            log_diff_mat = w_matrix - w_max
+            norm_w_matrix[...] = w_max + torch.log(1 - torch.exp(log_diff_mat)) - log_range
+        elif self._norm_method == 'min-max-row':
+            w_max = math_utils.nanmax(w_matrix, dim=1)
+            w_min = math_utils.nanmin(w_matrix, dim=1)
+            log_diff = w_min - w_max
+            log_range = w_max + torch.log(1 - torch.exp(log_diff))
+            log_diff_mat = w_matrix - w_max[:, None]
+            norm_w_matrix[...] = w_max[:, None] + torch.log(1 - torch.exp(log_diff_mat)) - log_range[:, None]
+        elif self._norm_method == 'stochastic':
+            norm_w_matrix[...] = w_matrix - math_utils.nanlogsumexp(w_matrix)
+        elif self._norm_method == 'stochastic-row':
+            norm_w_matrix[...] = w_matrix - math_utils.nanlogsumexp(w_matrix, dim=1, keepdim=True)
+        else:
+            raise ValueError(f"normalization method {self._norm_method} not recognized")
+
+        return norm_w_matrix
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
         """
@@ -1191,7 +1241,7 @@ other elbos such as qC.
         # run sampling to store first sampled tree list and weights
         self.get_trees_sample()
 
-    def get_trees_sample(self, alg: str = 'laris', sample_size: int = None,
+    def get_trees_sample(self, alg: str | None = None, sample_size: int = None,
                          torch_tensor: bool = False, log_scale: bool = False,
                          add_log_g=False) -> (list, list | torch.Tensor):
         """
@@ -1211,6 +1261,8 @@ Sample trees from q(T) with importance sampling.
         ----------
         torch_tensor: bool, if true, weights are returned as torch.Tensor
         """
+        if alg is None:
+            alg = self._sampling_method
         # e.g.:
         # trees = edmonds_tree_gen(self.config.is_sample_size)
         # trees = csmc_tree_gen(self.config.is_sample_size)
@@ -1245,6 +1297,18 @@ Sample trees from q(T) with importance sampling.
             # the weights are normalized
             # TODO: aggregate equal trees and adjust their weights accordingly
             log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
+        elif alg == 'mst':
+            mst = nx.maximum_spanning_arborescence(self.weighted_graph)
+            log_weights[...] = torch.ones(l)
+            for i in range(l):
+                trees.append(mst)
+        elif alg == 'rand-mst':
+            for i in range(l):
+                t, log_w = sample_rand_mst(self.weighted_graph)
+                trees.append(t)
+                log_weights[i] = log_w
+            log_weights[...] = log_weights - torch.logsumexp(log_weights, dim=-1)
+
         else:
             raise ValueError(f"alg '{alg}' is not implemented, check the documentation")
 
@@ -1524,12 +1588,12 @@ class qEpsilonMulti(VariationalDistribution):
             self._beta_dict[e] = (1 - rho) * self.beta_dict[e] + rho * beta[e]
         return self.alpha_dict, self.beta_dict
 
-    def update(self, tree_list: list, tree_weights: torch.Tensor, qc: qC | qCMultiChrom):
+    def update(self, tree_list: list, tree_weights: list[float], qc: qC | qCMultiChrom):
         new_alpha, new_beta = self.update_CAVI(tree_list, tree_weights, qc)
         self.update_params(new_alpha, new_beta)
         super().update()
 
-    def update_CAVI(self, tree_list: list, tree_weights: torch.Tensor, qc: qC | qCMultiChrom):
+    def update_CAVI(self, tree_list: list, tree_weights: list[float], qc: qC | qCMultiChrom):
         sfp = qc.single_filtering_probs
         K, M, A = sfp.shape
         new_alpha = {(u, v): self.alpha_prior.detach().clone() for u, v in self._alpha_dict.keys()}

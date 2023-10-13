@@ -1,7 +1,6 @@
 import unittest
 
 import numpy as np
-import torch
 from sklearn.metrics import v_measure_score
 import matplotlib.pyplot as plt
 
