@@ -89,6 +89,7 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
                                   dir_alpha0=1.0,
                                   simulate_raw_reads=True,
                                   return_anndata=False,
+                                  return_chr_idx=False,
                                   cne_length_factor=5):
     n_nodes = len(tree.nodes)
     config = Config(n_nodes=n_nodes, n_states=n_copy_states, n_cells=n_cells, chain_length=n_sites)
@@ -106,6 +107,8 @@ def simulate_full_dataset_no_pyro(n_cells, n_sites, n_copy_states, tree: nx.DiGr
 
     if return_anndata:
         return y, C, z, pi, mu, tau, eps, eps0, output_sim['adata']
+    elif return_chr_idx:
+        return y, C, z, pi, mu, tau, eps, eps0, output_sim['chr_idx']
     else:
         return y, C, z, pi, mu, tau, eps, eps0
 

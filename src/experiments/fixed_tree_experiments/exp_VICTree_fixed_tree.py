@@ -34,39 +34,40 @@ class VICTreeFixedTreeExperiment():
     def set_up_q(self, config):
         qc = qC(config)
         qt = qT(config)
-        qeps = qEpsilonMulti(config)
+        qeps = qEpsilonMulti(config, alpha_prior=1., beta_prior=100.)
         qz = qZ(config)
-        qpi = qPi(config)
-        qmt = qMuTau(config)
+        qpi = qPi(config, delta_prior=3.)
+        qmt = qMuTau(config, nu_prior=1., lambda_prior=10000., alpha_prior=500., beta_prior=50.)
         return qc, qt, qeps, qz, qpi, qmt
 
     def ari_as_function_of_K_experiment(self, save_plot=False, n_iter=500):
         utils.config.set_seed(0)
 
-        K_list = list(range(3, 16))
+        K_list = list(range(3, 8))
         ari_list = []
         seeds = list(range(0, 5))
 
         N = 500
-        M = 3000
+        M = 500
         A = 7
-        dir_alpha0 = 10.
-        nu_0 = torch.tensor(1.)
-        lambda_0 = torch.tensor(10.)
-        alpha0 = torch.tensor(500.)
-        beta0 = torch.tensor(50.)
+        dir_alpha0 = 3.
+        nu0 = 1.
+        lambda0 = 10.
+        alpha0 = 200
+        beta0 = 20
 
         for K in K_list:
             tree = tests.utils_testing.get_tree_K_nodes_random(K)
 
             a0 = torch.tensor(5.0)
-            b0 = torch.tensor(200.0)
+            b0 = torch.tensor(500.0)
             y, C, z, pi, mu, tau, eps, eps0, adata = simulate_full_dataset_no_pyro(N, M, A, tree,
-                                                                                   nu_0=nu_0,
-                                                                                   lambda_0=lambda_0, alpha0=alpha0,
+                                                                                   nu_0=nu0,
+                                                                                   lambda_0=lambda0, alpha0=alpha0,
                                                                                    beta0=beta0,
                                                                                    a0=a0, b0=b0, dir_alpha0=dir_alpha0,
-                                                                                   return_anndata=True)
+                                                                                   return_anndata=True,
+                                                                                   cne_length_factor=10)
             print(f"------------ Data set sanity check ------------")
             print(f"C: {C}")
             print(f"pi: {pi}")
@@ -74,11 +75,14 @@ class VICTreeFixedTreeExperiment():
             ari = []
             for seed in seeds:
                 utils.config.set_seed(seed)
-                config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.05,
-                                save_progress_every_niter=n_iter + 1, n_run_iter=n_iter)
+                config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=0.3,
+                                save_progress_every_niter=n_iter + 1, n_run_iter=n_iter, split='mixed')
                 qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
                 q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
                 q.initialize()
+                q.mt.initialize(method='prior')
+                q.eps.initialize(method='prior')
+                q.pi.initialize(method='prior')
                 dh = DataHandler(adata=adata)
                 copy_tree = VICTree(config, q, y, dh)
 
@@ -197,10 +201,11 @@ class VICTreeFixedTreeExperiment():
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
         seeds = list(range(0, 2))
-        K = 10
+        K = 8
         A = 7
-        step_size = 0.1
+        step_size = 0.3
         SVI = False
+        split = 'ELBO'
         step_size_scheme = 'None'  # set to 'None' if SVI off, 'inverse' if on
         logging.getLogger().setLevel(logging.DEBUG)
 
@@ -214,18 +219,20 @@ class VICTreeFixedTreeExperiment():
         b0 = 300.0
 
         # Fixed tree
-        # SBN Clone tree
+        # SBN Clone tree - K = 8 not 7 since we have healthy clone?
         tree = nx.DiGraph()
         tree.add_edge(0, 1)
-        tree.add_edge(0, 2)
+        tree.add_edge(1, 2)
         tree.add_edge(1, 3)
-        tree.add_edge(1, 4)
-        tree.add_edge(3, 5)
-        tree.add_edge(3, 6)
+        tree.add_edge(2, 4)
+        tree.add_edge(2, 5)
+        tree.add_edge(4, 6)
+        tree.add_edge(4, 7)
         # manually added edges
-        tree.add_edge(3, 7)
-        tree.add_edge(0, 9)
-        tree.add_edge(2, 8)
+        #tree.add_edge(4, 8)
+        #tree.add_edge(1, 9)
+        #tree.add_edge(2, 10)
+        #tree.add_edge(4, 11)
 
         # Load data
         file_path = './../../../data/x_data/P01-066_cn_data.h5ad'
@@ -246,7 +253,7 @@ class VICTreeFixedTreeExperiment():
                 dir_top_idx = dirs.index('experiments')
                 dir_path = dirs[dir_top_idx:]
                 path = os.path.join(*dir_path, self.__class__.__name__, sys._getframe().f_code.co_name)
-                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_initNEW'
+                path = os.path.join(path, f'K{K}_A{A}_rho{step_size}_niter{n_iter}_SVI{int(SVI)}_{split}_split2'
                                           f'/lambda0{lambda_0}_alpha{alpha0}_beta{beta0}_delta{dir_delta0}'
                                           f'/seed_{seed}')
                 base_dir = '../../../tests/test_output'
@@ -254,13 +261,13 @@ class VICTreeFixedTreeExperiment():
 
             config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size, n_run_iter=n_iter,
                             save_progress_every_niter=100, chromosome_indexes=data_handler.get_chr_idx(),
-                            out_dir=test_dir_name, split=True, SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
+                            out_dir=test_dir_name, split=split, SVI=SVI, batch_size=50, step_size_scheme=step_size_scheme,
                             diagnostics=False, debug=False, step_size_delay=1., step_size_forgetting_rate=0.5)
             qc, qt, qeps, qz, qpi, qmt = self.set_up_q(config)
             qeps = qEpsilonMulti(config, alpha_prior=a0, beta_prior=b0)
             qpi = qPi(config, delta_prior=dir_delta0)
             qmt = qMuTau(config, nu_prior=nu_0, lambda_prior=lambda_0, alpha_prior=alpha0, beta_prior=beta0)
-            qc = qCMultiChrom(config)
+            qc = qC(config)
             q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
             qpi.initialize('prior')
             #qz.initialize(method='kmeans', data=y)
@@ -298,6 +305,6 @@ class VICTreeFixedTreeExperiment():
 if __name__ == '__main__':
     n_iter = 100
     experiment_class = VICTreeFixedTreeExperiment()
-    experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
-    #experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
+    #experiment_class.fixed_tree_real_data_experiment(save_plot=True, n_iter=n_iter)
+    experiment_class.ari_as_function_of_K_experiment(save_plot=True, n_iter=n_iter)
     #experiment_class.ari_as_function_of_M_experiment(save_plot=True, n_iter=n_iter)

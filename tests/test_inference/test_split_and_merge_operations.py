@@ -4,8 +4,11 @@ import numpy as np
 import torch
 
 from inference.split_and_merge_operations import SplitAndMergeOperations
+from inference.victree import VICTree
+from tests import utils_testing
 from utils.config import Config
-from variational_distributions.var_dists import qZ
+from variational_distributions.joint_dists import FixedTreeJointDist
+from variational_distributions.var_dists import qZ, qCMultiChrom, qEpsilonMulti, qPi, qMuTau, qC
 
 
 class SplitAndMergeOperationsTestCase(unittest.TestCase):
@@ -46,7 +49,7 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         for i in range(n_iter):
             into_cluster, from_cluster = \
                 self.split_and_merge_op.select_clusters_to_split_categorical(
-                cluster_assignments_avg, empty_clusters)
+                    cluster_assignments_avg, empty_clusters)
             into_cluster_list[i] = into_cluster
             from_cluster_list[i] = from_cluster
 
@@ -71,3 +74,48 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         cluster_assignments_avg, empty_clusters = self.split_and_merge_op.find_empty_clusters(qz=qz)
         for e in empty_clusters:
             self.assertTrue(e in [k_empty_1, k_empty_2], msg=f'{e} found but expeted {[k_empty_1, k_empty_2]}')
+
+    def test_max_ELBO_split(self):
+        # Check all available clones.
+
+        # Simulate K clusters
+        # Assign q
+        # Assign cells
+        K = 5
+        tree = utils_testing.get_tree_K_nodes_random(K)
+        M = 1000
+        N = 50
+        A = 7
+        delta0 = 3.
+        y, c, z, pi, mu, tau, eps, eps0, chr_idx = utils_testing.simulate_full_dataset_no_pyro(N, M, A, tree,
+                                                                                               dir_alpha0=delta0,
+                                                                                               cne_length_factor=5,
+                                                                                               return_chr_idx=True)
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=1.0, split='ELBO',
+                        chromosome_indexes=chr_idx)
+        qc = qCMultiChrom(config)
+        qeps = qEpsilonMulti(config)
+        qz = qZ(config)
+        qpi = qPi(config)
+        qmt = qMuTau(config)
+
+        q = FixedTreeJointDist(y, config, qc, qz, qeps, qmt, qpi, tree)
+        q.initialize()
+        qmt.initialize(method='prior')
+        utils_testing.initialize_qc_to_true_values(c, A, qc)
+        qz.update(qmt, qc, qpi, y)
+        # Simulate degeneracy of clones 1 and '
+        empty_clone_idx = 2
+        absorbing_clone_idx = 1
+        qz.pi[:, empty_clone_idx] = 0.
+        qz.pi[:, absorbing_clone_idx] = 1.
+        qz.pi = qz.pi / torch.sum(qz.pi, dim=1, keepdim=True)
+
+        victree = VICTree(config, q, y, draft=True)
+
+        elbo_pre_split = victree.compute_elbo()
+        victree.split()
+
+        elbo_after_split = victree.compute_elbo()
+
+        self.assertGreater(elbo_after_split, elbo_pre_split, msg="ELBO decreased after split.")
