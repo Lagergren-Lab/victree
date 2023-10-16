@@ -116,8 +116,16 @@ class DataHandler:
 
 def _sort_anndata(ann_dataset):
     if not ann_dataset.var.chr.cat.ordered:
-        ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
+        if 'chr1' in ann_dataset.var.chr.cat.categories:
+            ord_chr = ["chr" + str(c) for c in range(1, 23)] + ['chrX', 'chrY']
+
+        else:
+            ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
+
+        scgenome_chr_category_names = [str(c) for c in range(1, 23)] + ['X', 'Y']
         ann_dataset.var.chr = ann_dataset.var.chr.cat.reorder_categories(ord_chr, ordered=True)
+        ann_dataset.var.chr = ann_dataset.var.chr.cat.rename_categories(scgenome_chr_category_names)
+
     return ann_dataset[:, ann_dataset.var.sort_values(['chr', 'start']).index].copy()
 
 

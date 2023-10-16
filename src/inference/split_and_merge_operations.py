@@ -15,6 +15,7 @@ from variational_distributions.var_dists import qC, qZ, qPi, qCMultiChrom, qEpsi
 class SplitAndMergeOperations:
 
     def __init__(self, cluster_split_threshold=0.01):
+        self.n_iter_since_last_merge = 100
         self.n_categorical_splits = 0
         self.cluster_split_threshold = cluster_split_threshold
 
@@ -28,7 +29,7 @@ class SplitAndMergeOperations:
         elif method == 'inlier':
             split = self.inlier_split(obs, q, tree_list, tree_weights_list)
         elif method == 'mixed':
-            if self.n_categorical_splits <= -1: # int(q.config.n_nodes / 3):
+            if self.n_categorical_splits <= int(q.config.n_nodes / 3):
                 split = self.categorical_split(obs, q)
                 if split:
                     self.n_categorical_splits += 1
@@ -296,14 +297,23 @@ class SplitAndMergeOperations:
 
         candidates_idxs = self.select_candidates_clusters_to_split_by_threshold(cluster_assignments_avg)
         elbos = []
+        log_lls = []
         elbo_pre_split = q.compute_elbo() if type(q) is FixedTreeJointDist else q.compute_elbo(tree_list, tree_weights_list)
+        log_ll_pre_split = q.total_log_likelihood
         logging.debug(f"ELBO before split: {elbo_pre_split}")
+        logging.debug(f"Likelihood before split: {q._compute_log_likelihood().sum().item()}")
         N, M, K, A = (q.config.n_cells, q.config.chain_length, q.config.n_nodes, q.config.n_states)
         idx_empty_cluster = empty_clusters[0]
 
         eta_1_pre_split = copy.deepcopy(qc.eta1) if type(qc) is qC else [copy.deepcopy(qc_chr.eta1) for qc_chr in qc.qC_list]
         eta_2_pre_split = copy.deepcopy(qc.eta2) if type(qc) is qC else [copy.deepcopy(qc_chr.eta2) for qc_chr in qc.qC_list]
+        qz_param_pre_split = copy.deepcopy(qz.pi)
+        qmt_nu_pre_split = copy.deepcopy(qpsi.nu)
+        qmt_lambdba_pre_split = copy.deepcopy(qpsi.lmbda)
+        qmt_alpha_pre_split = copy.deepcopy(qpsi.alpha)
+        qmt_beta_pre_split = copy.deepcopy(qpsi.beta)
         best_elbo = -torch.inf
+        best_log_ll = -torch.inf
         for k in candidates_idxs:
             # Split cells of candidate cluster k into clusters i and j
             cells_in_k = torch.where(qz.pi.argmax(dim=1) == k)[0]
@@ -330,35 +340,59 @@ class SplitAndMergeOperations:
             qc.set_params(eta1_1, eta2_1, k)
             qc.compute_filtering_probs(k)
 
+            # Hard assign cells
+            qz.pi[batch_i] = torch.zeros(K)
+            qz.pi[batch_i, idx_empty_cluster] = 1.
+            qz.pi[batch_j] = torch.zeros(K)
+            qz.pi[batch_j, k] = 1.
+
+            # Update qMutau
+            nu_1, lmbda_1, alpha_1, beta_1 = qpsi.update_CAVI(obs, qc, qz, batch_i)
+            qpsi.nu[batch_i] = nu_1
+            qpsi.lmbda[batch_i] = lmbda_1
+            qpsi.alpha[batch_i] = alpha_1
+            qpsi.beta[batch_i] = beta_1
+
+            nu_2, lmbda_2, alpha_2, beta_2 = qpsi.update_CAVI(obs, qc, qz, batch_j)
+            qpsi.nu[batch_j] = nu_2
+            qpsi.lmbda[batch_j] = lmbda_2
+            qpsi.alpha[batch_j] = alpha_2
+            qpsi.beta[batch_j] = beta_2
+
             # Measure quality of split in terms of ELBO
             elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(q) is VarTreeJointDist else q.compute_elbo()
             log_likelihood_split = q._compute_log_likelihood().sum().item()
             elbos.append(elbo_split)
+            log_lls.append(log_likelihood_split)
 
             logging.debug(f"ELBO of split candidate {k}: {elbo_split} ")
             logging.debug(f"Likelihood of split candidate {k}: {log_likelihood_split} ")
 
-            if elbo_split > best_elbo:
+            if log_likelihood_split > best_log_ll:
                 best_elbo = elbo_split
+                best_log_ll = log_likelihood_split
                 best_eta1_1, best_eta2_1 = (eta1_1, eta2_1)
                 best_eta1_2, best_eta2_2 = (eta1_2, eta2_2)
                 best_cluster_idx = k
                 best_batch_i = batch_i
                 best_batch_j = batch_j
 
-            # reset qc.eta1
-            #qc.eta1[k] = eta_1_pre_split[k]
-            #qc.eta2[k] = eta_2_pre_split[k]
+            # reset parameters to pre split
             qc.set_params(eta_1_pre_split, eta_2_pre_split, k)
             qc.compute_filtering_probs(k)
+            qz.pi = qz_param_pre_split
+            qpsi.nu = qmt_nu_pre_split
+            qpsi.lmbda = qmt_lambdba_pre_split
+            qpsi.alpha = qmt_alpha_pre_split
+            qpsi.beta = qmt_beta_pre_split
 
         # select highest elbo
         if elbo_pre_split > best_elbo:
             logging.debug(f"No split due to ELBO higher with no split than best candidate split.")
             return False
 
-        logging.debug(f"Split cluster {best_cluster_idx} with cells {batch_j} into {idx_empty_cluster} with cells"
-                      f" {batch_i}.")
+        logging.debug(f"Split {best_batch_i.shape[0]} cells from cluster {best_cluster_idx} into {best_cluster_idx} "
+                      f"and {best_batch_j.shape[0]} cells from cluster {best_cluster_idx} into {idx_empty_cluster}")
         qc.set_params(best_eta1_1, best_eta2_1, best_cluster_idx)
         qc.set_params(best_eta1_2, best_eta2_2, best_cluster_idx, idx_empty_cluster)
         qc.compute_filtering_probs()
@@ -448,6 +482,10 @@ class SplitAndMergeOperations:
         return non_outlier_clusters_0, non_outlier_clusters_1
 
     def merge(self, obs, q, trees, tree_weights):
+        if self.n_iter_since_last_merge < 5:
+            self.n_iter_since_last_merge += 1
+            logging.debug(f"Skip merge since only {self.n_iter_since_last_merge} has passed since last merge")
+            return False
         # Merge by identical qC viterbi's:
         qc = q.c
         qz = q.z
@@ -498,9 +536,9 @@ class SplitAndMergeOperations:
         cells_in_merge_from_cluster = torch.where(qz.pi.argmax(dim=1) == merge_from)[0]
         cells_in_merge_into_cluster = torch.where(qz.pi.argmax(dim=1) == merge_into)[0]
         if len(cells_in_merge_from_cluster) > 0:
-            qz.pi[cells_in_merge_from_cluster, merge_into] = qz.pi[:, merge_from] * 2.
+            qz.pi[cells_in_merge_from_cluster, merge_into] = qz.pi[cells_in_merge_from_cluster, merge_from] * 2.
         if len(cells_in_merge_into_cluster) > 0:
-            qz.pi[cells_in_merge_into_cluster, merge_into] = qz.pi[:, merge_into] * 2.
+            qz.pi[cells_in_merge_into_cluster, merge_into] = qz.pi[cells_in_merge_into_cluster, merge_into] * 2.
         qz.pi[:, merge_from] = 0.
 
         # Double the cell assignment probability of merge into cluster
@@ -512,4 +550,5 @@ class SplitAndMergeOperations:
 
         # Double concentration parameter of merge into cluster
         qpi.concentration_param[merge_into] = 2 * qpi.concentration_param[merge_into]
+        self.n_iter_since_last_merge = 1
         return True

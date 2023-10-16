@@ -1162,7 +1162,7 @@ other elbos such as qC.
 
     def update_graph_weights(self, qc: qC | qCMultiChrom, qeps: Union['qEpsilon', 'qEpsilonMulti']):
         all_edges = [(u, v) for u, v in self._weighted_graph.edges]
-        new_log_weights = {}
+        new_log_weights = torch.ones(self.config.n_nodes, self.config.n_nodes) * -torch.inf
         for u, v in all_edges:
             new_log_weights[u, v] = torch.einsum('mij,mkl,jilk->', qc.couple_filtering_probs[u],
                                                  qc.couple_filtering_probs[v], qeps.exp_log_zipping((u, v)))
@@ -1170,7 +1170,9 @@ other elbos such as qC.
         # while they should be length invariant
         # FIXME: avoid this hack
         # TODO: implement tempering (check tempered/annealing in VI)
-        w_tensor = torch.tensor(list(new_log_weights.values())) / self.config.chain_length
+        new_log_weights = new_log_weights - torch.logsumexp(new_log_weights, dim=1, keepdim=True)
+        #w_tensor = torch.tensor(list(new_log_weights.values())) #/ self.config.chain_length
+        w_tensor = torch.tensor([new_log_weights[u, v] for u, v in self._weighted_graph.edges])
         self.update_params(w_tensor)
 
     def update_CAVI(self, T_list: list, q_C: qC, q_epsilon: Union['qEpsilon', 'qEpsilonMulti']):
@@ -1900,7 +1902,7 @@ class qMuTau(qPsi):
 
     def update_CAVI(self, obs, qc, qz, batch=None):
         """
-            Updates mu_n, tau_n for each cell n \in {1,...,N}.
+            Updates q(mu_n, tau_n) for each cell n \in {1,...,N}.
             :param qc:
             :param qz:
             :param obs: tensor of shape (M, N)
@@ -1922,12 +1924,12 @@ class qMuTau(qPsi):
         sum_M_y2 = torch.pow(y, 2).sum(dim=0)  # sum over M
         alpha = self.alpha_0 + M_notnan * .5  # Never updated
         lmbda = self.lmbda_0 + sum_MCZ_c2
-        mu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
-        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * mu ** 2)
+        nu = (self.nu_0 * self.lmbda_0 + sum_MCZ_cy) / lmbda
+        beta = self.beta_0 + .5 * (self.nu_0 ** 2 * self.lmbda_0 + sum_M_y2 - lmbda * nu ** 2)
         if self.config.debug:
             assert not torch.any(beta < 0), "Negative beta(s) found"
-            #assert not torch.isnan(beta).any(), "NaN beta(s) found"
-        return mu, lmbda, alpha, beta
+            assert not torch.isnan(beta).any(), "NaN beta(s) found"
+        return nu, lmbda, alpha, beta
 
     def update_params(self, nu, lmbda, alpha, beta, batch=None):
         rho = self.config.step_size

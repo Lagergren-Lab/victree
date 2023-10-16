@@ -201,7 +201,7 @@ class VICTreeFixedTreeExperiment():
     def fixed_tree_real_data_experiment(self, save_plot=False, n_iter=500):
         # Hyper parameters
         seeds = list(range(0, 2))
-        K = 8
+        K = 12
         A = 7
         step_size = 0.3
         SVI = False
