@@ -376,7 +376,7 @@ class SplitAndMergeOperations:
             logging.debug(f"ELBO of split candidate {k}: {elbo_split} ")
             logging.debug(f"Likelihood of split candidate {k}: {log_likelihood_split} ")
 
-            if log_likelihood_split > best_log_ll:
+            if elbo_split > best_elbo:
                 best_elbo = elbo_split
                 best_log_ll = log_likelihood_split
                 best_eta1_1, best_eta2_1 = (eta1_1, eta2_1)
@@ -401,6 +401,9 @@ class SplitAndMergeOperations:
 
         logging.debug(f"Split {best_batch_i.shape[0]} cells from cluster {best_cluster_idx} into {best_cluster_idx} "
                       f"and {best_batch_j.shape[0]} cells from cluster {best_cluster_idx} into {idx_empty_cluster}")
+        logging.debug(f"ELBO of split: {best_elbo}")
+        logging.debug(f"Likelihood under split parameters: {best_log_ll}")
+
         qc.set_params(best_eta1_1, best_eta2_1, best_cluster_idx)
         qc.set_params(best_eta1_2, best_eta2_2, best_cluster_idx, idx_empty_cluster)
         qc.compute_filtering_probs()
