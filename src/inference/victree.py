@@ -69,7 +69,7 @@ class VICTree:
             data_handler = DataHandler(adata=adata)
         self._data_handler: DataHandler = data_handler
         if self.config.split != 'None':
-            self.split_operation = SplitAndMergeOperations()
+            self.split_and_merge_operation = SplitAndMergeOperations()
 
     def __str__(self):
         return f"k{self.config.n_nodes}" \
@@ -158,6 +158,7 @@ class VICTree:
             # if self.config.debug:
             #     logging.debug(f"Average qZ: {torch.mean(self.q.z.exp_assignment(), dim=0)}")
             if self.config.split != 'None':
+                self.merge()
                 self.split()
             self.step()
 
@@ -467,13 +468,24 @@ class VICTree:
         else:
             trees, tree_weights = self.q.t.get_trees_sample(sample_size=self.config.wis_sample_size)
 
-        split = self.split_operation.split(self.config.split, self.obs, self.q, trees, tree_weights)
+        split = self.split_and_merge_operation.split(self.config.split, self.obs, self.q, trees, tree_weights)
         if split:
             mu, lmbda, alpha, beta = self.q.mt.update_CAVI(self.q.obs, self.q.c, self.q.z)
             #self.q.mt.nu = mu
             #self.q.mt.lmbda = lmbda
             #self.q.mt.alpha = alpha
             #self.q.mt.beta = beta
+
+    def merge(self):
+        if self.it_counter < 20:  # Don't merge too early
+            return
+        if type(self.q) == FixedTreeJointDist:
+            trees = [self.q.T]
+            tree_weights = self.q.w_T
+        else:
+            trees, tree_weights = self.q.t.get_trees_sample(sample_size=self.config.wis_sample_size)
+
+        merge = self.split_and_merge_operation.merge(self.obs, self.q, trees, tree_weights)
 
     def set_step_size(self):
         if self.config.step_size_scheme == "inverse":

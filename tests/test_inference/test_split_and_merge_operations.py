@@ -1,5 +1,7 @@
+import copy
 import unittest
 
+import networkx as nx
 import numpy as np
 import torch
 
@@ -17,8 +19,37 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         self.cluster_split_threshold = 0.01
         self.split_and_merge_op = SplitAndMergeOperations(cluster_split_threshold=self.cluster_split_threshold)
 
-    def test_split(self):
-        pass
+    def test_merge(self):
+        N = 10
+        M = 20
+        K = 4
+        A = 7
+
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, chromosome_indexes=[5, 10])
+        qc = qC(config)
+        qeps = qEpsilonMulti(config)
+        qz = qZ(config)
+        qpi = qPi(config)
+        qmt = qMuTau(config)
+        obs = torch.ones(M, N)
+        T = nx.DiGraph()
+        T.add_edge(0, 1)
+        T.add_edge(1, 2)
+        T.add_edge(0, 3)
+        q = FixedTreeJointDist(obs, config, qc, qz, qeps, qmt, qpi, T)
+        qc.initialize(method='clonal', obs=obs)
+        qc.eta1[3, :] = torch.rand(A)
+        qc.eta2[3, :, :, :] = torch.rand(M-1, A, A)
+        qc.compute_filtering_probs(3)
+        q.pi.initialize(method='uniform')
+        q.mt.initialize(method='prior')
+        q.z.update(qpsi=qmt, qc=qc, qpi=qpi, obs=obs)
+        pre_merge_probs = copy.deepcopy(q.z.pi[:, 1])
+        self.assertTrue(torch.all(q.z.pi[:, 1] == q.z.pi[:, 2]))
+        self.split_and_merge_op.merge(obs=obs, q=q, trees=[T], tree_weights=[1.0])
+
+        self.assertTrue(torch.all(q.z.pi[:, 1] > pre_merge_probs))
+        self.assertTrue(torch.all(q.z.pi[:, 2] == 0.))
 
     def test_update_assignment_probabilities(self):
         pass
