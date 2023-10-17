@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import random
+import time
 from io import StringIO
 from typing import Union, List
 
@@ -39,6 +40,7 @@ class VICTree:
         obs: torch.Tensor of shape (n_sites, n_cells) observation matrix
         """
 
+        self.exec_time_ = 0
         if obs is None:
             if data_handler is None:
                 raise ValueError("Provide either obs or a data handler")
@@ -106,6 +108,7 @@ class VICTree:
         args: dict, parsed execution arguments
         """
 
+        time_start = time.time()
         # TODO: clean if-case and use just config param
         if n_iter == -1:
             n_iter = self.config.n_run_iter
@@ -172,11 +175,12 @@ class VICTree:
             pbar.set_postfix({
                 'elbo': self.elbo,
                 'diff': f"{rel_change * 100:.3f}%",
-                'll': f"{self.q.total_log_likelihood:.3f}"
+                'll': f"{self.q.total_log_likelihood:.3f}",
+                'ss': self.config.step_size
             })
 
             # early-stopping
-            if rel_change < self.elbo_rtol * self.config.step_size:
+            if rel_change < max(self.elbo_rtol * self.config.step_size, 1e-5):
                 close_runs += 1
                 if close_runs > self.config.max_close_runs:
                     convergence = True
@@ -207,6 +211,7 @@ class VICTree:
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
             self.write_checkpoint_h5(path=checkpoint_path)
+        self.exec_time_ += time.time() - time_start
 
     def topk_sieve(self, ktop: int = 1, **kwargs):
         """
@@ -493,13 +498,14 @@ class VICTree:
 
 
 def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
-               fix_tree: str | nx.DiGraph | int | None = None,
+               fix_tree: str | nx.DiGraph | int | None = None, n_nodes=6,
                mt_prior_strength: float = 1., eps_prior_strength: float = 1.,
                mt_prior: tuple | None = None,
                eps_prior: tuple | None = None, delta_prior=None,
                mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
-               sieving=(1, 1), debug: bool = False, config=None) -> (Config, JointDist, DataHandler):
+               sieving=(1, 1), debug: bool = False, wis_sample_size=10,
+               config=None, split=None) -> (Config, JointDist, DataHandler):
 
     # read tree input if present
     if fix_tree is not None:
@@ -521,13 +527,14 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     obs = dh.norm_reads
 
     # default params
-    tree_nodes = 6 if fix_tree is None else fix_tree.number_of_nodes()
+    tree_nodes = n_nodes if fix_tree is None else fix_tree.number_of_nodes()
     obs_bins, obs_cells = obs.shape
 
     if config is None:
         config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
                         chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
-                        sieving_size=sieving[0], n_sieving_iter=sieving[1])
+                        sieving_size=sieving[0], n_sieving_iter=sieving[1], wis_sample_size=wis_sample_size,
+                        split=split)
     else:
         config.chromosome_indexes = dh.get_chr_idx()
 
@@ -551,7 +558,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     # uninformative prior, but still skewed towards 0.01 mean epsilon
     # since most of the sequence will have stable copy number (few changes)
     if eps_prior is None:
-        a_prior = config.chain_length * eps_prior_strength * 2e-3
+        a_prior = config.chain_length * eps_prior_strength * 5e-3
         b_prior = config.chain_length * eps_prior_strength
     else:
         a_prior, b_prior = eps_prior

@@ -5,30 +5,15 @@ import os.path
 import random
 import time
 
-import anndata
 import matplotlib
 import pandas as pd
 import numpy as np
 from sklearn.metrics import adjusted_rand_score, v_measure_score
 
-from utils.config import set_seed, Config
-from simul import generate_dataset_var_tree
+from utils.config import set_seed
 from inference.victree import VICTree, make_input
-from utils.evaluation import best_mapping
-from utils.visualization_utils import plot_cn_matrix
-from variational_distributions.joint_dists import JointDist
-
-
-def sample_dataset_generation(seed=0) -> (JointDist, anndata.AnnData):
-    set_seed(seed)
-
-    # simulate data
-    joint_q_true, adata = generate_dataset_var_tree(config=Config(
-        n_nodes=4, n_cells=200, chain_length=500, wis_sample_size=50,
-    ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=50., eps_b=10000.)
-
-    return joint_q_true, adata
-
+from utils.evaluation import best_mapping, sample_dataset_generation
+from utils.visualization_utils import plot_dataset
 
 if __name__ == "__main__":
 
@@ -49,7 +34,7 @@ if __name__ == "__main__":
     }
     grid_search_list = list(itertools.product(*param_search.values()))
     print(f"executing {len(grid_search_list)} x {n_datasets} runs (configs x n_datasets)")
-    datasets_path = "./sample_datasets"
+    datasets_path = "../sample_datasets"
     if not os.path.exists(datasets_path):
         os.mkdir(datasets_path)
 
@@ -87,7 +72,7 @@ if __name__ == "__main__":
         rnd_seed = random.randint(0, 1000)
         set_seed(rnd_seed)
         joint_q_true, adata = sample_dataset_generation(seed=rnd_seed)
-        pl = plot_cn_matrix(joint_q_true.c.get_viterbi(), joint_q_true.z.best_assignment())
+        pl = plot_dataset(joint_q_true)
         pl['fig'].show()
 
         ans = ''
