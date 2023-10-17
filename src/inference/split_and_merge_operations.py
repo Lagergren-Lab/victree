@@ -37,6 +37,7 @@ class SplitAndMergeOperations:
                 split = self.max_ELBO_split(obs, q, tree_list, tree_weights_list)
 
         return split
+
     def naive_split(self, obs, q: VarTreeJointDist | FixedTreeJointDist):
         """
         Implements the split part of the split-and-merge algorithm commonly used in Expectation Maximization.
@@ -322,13 +323,26 @@ class SplitAndMergeOperations:
                 continue
 
             cells_in_i, cells_in_j = self.split_cells_by_observations(obs, cells_in_k)
-            batch_i = torch.tensor(cells_in_i)
-            batch_j = torch.tensor(cells_in_j)
+            batch_i = cells_in_i
+            batch_j = cells_in_j
             n_batch_i = len(cells_in_i)
             n_batch_j = len(cells_in_j)
             if n_batch_i < 5 or n_batch_j < 5:
                 logging.debug(f"Skip candidate {k} as one of batches contained too few cells ({n_batch_i} and {n_batch_j})")
                 continue
+
+            # Hard assign cells
+            qz.pi[batch_i] = torch.zeros(K)
+            qz.pi[batch_i, idx_empty_cluster] = 1.
+            qz.pi[batch_j] = torch.zeros(K)
+            qz.pi[batch_j, k] = 1.
+
+            # Set cell baseline to 1 (assume average baseline of cells for any clusters is 1.)
+            qpsi.nu[batch_i] = 1.
+            qpsi.nu[batch_j] = 1.
+
+            #qeps.beta[batch_j]
+            #qeps.beta[batch_j]
 
             # Update qC on batches
             eta1_1, eta2_1 = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
@@ -337,23 +351,17 @@ class SplitAndMergeOperations:
             qc.set_params(eta1_1, eta2_1, idx_empty_cluster)
             qc.compute_filtering_probs(idx_empty_cluster)
 
-            qc.set_params(eta1_1, eta2_1, k)
+            qc.set_params(eta1_2, eta2_2, k)
             qc.compute_filtering_probs(k)
 
-            # Hard assign cells
-            qz.pi[batch_i] = torch.zeros(K)
-            qz.pi[batch_i, idx_empty_cluster] = 1.
-            qz.pi[batch_j] = torch.zeros(K)
-            qz.pi[batch_j, k] = 1.
-
             # Update qMutau
-            nu_1, lmbda_1, alpha_1, beta_1 = qpsi.update_CAVI(obs, qc, qz, batch_i)
+            nu_1, lmbda_1, alpha_1, beta_1 = qpsi.update_CAVI(obs[:, batch_i], qc, qz, batch_i)
             qpsi.nu[batch_i] = nu_1
             qpsi.lmbda[batch_i] = lmbda_1
             qpsi.alpha[batch_i] = alpha_1
             qpsi.beta[batch_i] = beta_1
 
-            nu_2, lmbda_2, alpha_2, beta_2 = qpsi.update_CAVI(obs, qc, qz, batch_j)
+            nu_2, lmbda_2, alpha_2, beta_2 = qpsi.update_CAVI(obs[:, batch_j], qc, qz, batch_j)
             qpsi.nu[batch_j] = nu_2
             qpsi.lmbda[batch_j] = lmbda_2
             qpsi.alpha[batch_j] = alpha_2
@@ -473,7 +481,7 @@ class SplitAndMergeOperations:
         n_cells = []
         assert len(labels) == cell_idxs.shape[0]
         for i in range(n_clusters):
-            clusters_cell_idx.append(np.where(labels == i)[0])
+            clusters_cell_idx.append(cell_idxs[np.where(labels == i)[0]])
             n_cells.append(clusters_cell_idx[i].shape[0])
 
         idx0, idx1 = np.argsort(n_cells)[-2:]
