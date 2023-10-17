@@ -19,6 +19,7 @@ import torch
 import torch.distributions as dist
 from scgenome.tools import create_bins
 
+from utils.tree_utils import tree_to_newick
 from variational_distributions.joint_dists import VarTreeJointDist
 from utils import tree_utils
 from utils.config import Config, set_seed
@@ -77,7 +78,7 @@ def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None 
     return splits_df
 
 
-def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, obs_names: list | None = None):
+def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, tree, obs_names: list | None = None):
 
     adata = anndata.AnnData(raw_counts.T.numpy())
     adata.layers['copy'] = obs.T.numpy()
@@ -88,6 +89,7 @@ def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, obs_names: list | Non
     adata.obs['clone'] = z.numpy()
     adata.obs['clone'] = adata.obs['clone'].astype('category')
     adata.obs['baseline'] = mu.numpy()
+    adata.uns['tree-newick'] = np.array([tree_to_newick(tree)], dtype='S')
 
     if chr_dataframe is None:
         chr_dataframe = generate_chromosome_binning(adata.n_vars, method='uniform', n_chr=1)
@@ -211,7 +213,7 @@ Generate full simulated dataset.
     assert obs.shape == (config.chain_length, config.n_cells)
 
     # handy anndata object
-    adata = make_anndata(obs, raw_counts, chr_df, c, z, mu)
+    adata = make_anndata(obs, raw_counts, chr_df, c, z, mu, tree)
 
     out_simul = {
         'obs': obs,
