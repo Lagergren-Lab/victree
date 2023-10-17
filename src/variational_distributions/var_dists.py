@@ -1056,7 +1056,6 @@ class qZ(VariationalDistribution):
         return os.linesep.join(summary)
 
 
-
 # topology
 class qT(VariationalDistribution):
 

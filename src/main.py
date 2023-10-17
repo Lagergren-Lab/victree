@@ -124,6 +124,9 @@ if __name__ == '__main__':
     parser.add_argument("--SVI", action="store_true", help="Run Stochastic Variational inference.")
     parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))
+    parser.add_argument("--impute-nans", default="ignore", type=str, metavar="TYPE_STR",
+                        help="specify how to deal with NaNs in the data, can be [`ignore`, `remove`],"
+                             " defaults to `ignore")
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()

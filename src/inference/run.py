@@ -16,7 +16,7 @@ def run(args):
     # ---
     # Import data
     # ---
-    data_handler = DataHandler(args.file_path)
+    data_handler = DataHandler(args.file_path, impute_nans=args.impute_nans)
     obs = data_handler.norm_reads
 
     # obs n_bins x n_cells matrix
