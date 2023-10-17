@@ -345,27 +345,27 @@ class SplitAndMergeOperations:
             #qeps.beta[batch_j]
 
             # Update qC on batches
-            eta1_1, eta2_1 = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
-            eta1_2, eta2_2 = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_j)
+            eta1_i, eta2_i = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
+            eta1_j, eta2_j = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_j)
 
-            qc.set_params(eta1_1, eta2_1, idx_empty_cluster)
+            qc.set_params(eta1_i, eta2_i, idx_empty_cluster)
             qc.compute_filtering_probs(idx_empty_cluster)
 
-            qc.set_params(eta1_2, eta2_2, k)
+            qc.set_params(eta1_j, eta2_j, k)
             qc.compute_filtering_probs(k)
 
             # Update qMutau
-            nu_1, lmbda_1, alpha_1, beta_1 = qpsi.update_CAVI(obs[:, batch_i], qc, qz, batch_i)
-            qpsi.nu[batch_i] = nu_1
-            qpsi.lmbda[batch_i] = lmbda_1
-            qpsi.alpha[batch_i] = alpha_1
-            qpsi.beta[batch_i] = beta_1
+            nu_i, lmbda_i, alpha_i, beta_i = qpsi.update_CAVI(obs[:, batch_i], qc, qz, batch_i)
+            qpsi.nu[batch_i] = nu_i
+            qpsi.lmbda[batch_i] = lmbda_i
+            qpsi.alpha[batch_i] = alpha_i
+            qpsi.beta[batch_i] = beta_i
 
-            nu_2, lmbda_2, alpha_2, beta_2 = qpsi.update_CAVI(obs[:, batch_j], qc, qz, batch_j)
-            qpsi.nu[batch_j] = nu_2
-            qpsi.lmbda[batch_j] = lmbda_2
-            qpsi.alpha[batch_j] = alpha_2
-            qpsi.beta[batch_j] = beta_2
+            nu_j, lmbda_j, alpha_j, beta_j = qpsi.update_CAVI(obs[:, batch_j], qc, qz, batch_j)
+            qpsi.nu[batch_j] = nu_j
+            qpsi.lmbda[batch_j] = lmbda_j
+            qpsi.alpha[batch_j] = alpha_j
+            qpsi.beta[batch_j] = beta_j
 
             # Measure quality of split in terms of ELBO
             elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(q) is VarTreeJointDist else q.compute_elbo()
@@ -379,16 +379,28 @@ class SplitAndMergeOperations:
             if elbo_split > best_elbo:
                 best_elbo = elbo_split
                 best_log_ll = log_likelihood_split
-                best_eta1_1, best_eta2_1 = (eta1_1, eta2_1)
-                best_eta1_2, best_eta2_2 = (eta1_2, eta2_2)
+                best_eta1_i = copy.deepcopy(eta1_i)
+                best_eta2_i = copy.deepcopy(eta2_i)
+                best_eta1_j = copy.deepcopy(eta1_j)
+                best_eta2_j = copy.deepcopy(eta2_j)
                 best_cluster_idx = k
                 best_batch_i = batch_i
                 best_batch_j = batch_j
+                best_nu_i = nu_i
+                best_lmbda_i = lmbda_i
+                best_alpha_i = alpha_i
+                best_beta_i = beta_i
+                best_nu_j = nu_j
+                best_lmbda_j = lmbda_j
+                best_alpha_j = alpha_j
+                best_beta_j = beta_j
 
             # reset parameters to pre split
             qc.set_params(eta_1_pre_split, eta_2_pre_split, k)
             qc.compute_filtering_probs(k)
+
             qz.pi = qz_param_pre_split
+
             qpsi.nu = qmt_nu_pre_split
             qpsi.lmbda = qmt_lambdba_pre_split
             qpsi.alpha = qmt_alpha_pre_split
@@ -404,10 +416,18 @@ class SplitAndMergeOperations:
         logging.debug(f"ELBO of split: {best_elbo}")
         logging.debug(f"Likelihood under split parameters: {best_log_ll}")
 
-        qc.set_params(best_eta1_1, best_eta2_1, best_cluster_idx)
-        qc.set_params(best_eta1_2, best_eta2_2, best_cluster_idx, idx_empty_cluster)
+        qc.set_params(best_eta1_i, best_eta2_i, idx_empty_cluster)
+        qc.set_params(best_eta1_j, best_eta2_j, best_cluster_idx)
         qc.compute_filtering_probs()
 
+        qpsi.nu[best_batch_i] = best_nu_i
+        qpsi.lmbda[best_batch_i] = best_lmbda_i
+        qpsi.alpha[best_batch_i] = best_alpha_i
+        qpsi.beta[best_batch_i] = best_beta_i
+        qpsi.nu[best_batch_j] = best_nu_j
+        qpsi.lmbda[best_batch_j] = best_lmbda_j
+        qpsi.alpha[best_batch_j] = best_alpha_j
+        qpsi.beta[best_batch_j] = best_beta_j
         #if elbos[selected_split_cluster_idx] < elbo_pre_split:
         #    logging.debug(f"No split found.")
 
@@ -416,7 +436,8 @@ class SplitAndMergeOperations:
         self.update_cluster_concentration_parameters(qpi, idx_empty_cluster, best_cluster_idx)
 
         # Calculate new assignment probability of selected cells using CAVI update
-        self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, torch.arange(0, N))
+        self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, best_batch_i)
+        self.update_assignment_probabilities(obs, qc, qpi, qpsi, qz, best_batch_j)
         return True
 
     def split_by_cell_qC_gradient(self, A, M, N_k, cells_in_k, k, obs, qc, qeps, qpsi, qz, tree_list,

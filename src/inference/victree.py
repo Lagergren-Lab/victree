@@ -477,7 +477,7 @@ class VICTree:
             #self.q.mt.beta = beta
 
     def merge(self):
-        if self.it_counter < 20:  # Don't merge too early
+        if self.it_counter < 10:  # Don't merge too early
             return
         if type(self.q) == FixedTreeJointDist:
             trees = [self.q.T]
