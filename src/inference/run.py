@@ -54,9 +54,9 @@ def run(args):
     logging.info('initializing distributions..')
     joint_q.initialize()
     joint_q.z.initialize(z_init=args.z_init, data=obs)
-    joint_q.mt.initialize(method='data', obs=obs)
-    joint_q.eps.initialize(method='uniform')
-    joint_q.c.initialize(method='clonal', obs=obs)
+    joint_q.mt.initialize(method=args.mt_init, obs=obs)
+    joint_q.eps.initialize(method=args.eps_init, obs=obs)
+    joint_q.c.initialize(method=args.c_init, obs=obs)
 
     # ---
     # Create copytree object and run inference
