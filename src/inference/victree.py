@@ -162,10 +162,7 @@ class VICTree:
             self.step()
 
             # update all the other meta-parameters
-            if self.config.annealing != 1.0:
-                # annealing for different update step-size along iterations
-                # FIXME: currently this temperature does not change any setting
-                self.set_temperature(it, n_iter)
+            self.set_temperature(it, n_iter)
 
             rel_change = np.abs((self.elbo - old_elbo) / self.elbo)
 
