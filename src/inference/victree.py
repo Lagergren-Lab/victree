@@ -155,9 +155,8 @@ class VICTree:
         convergence = False
         for it in pbar:
             # KEY inference algorithm iteration step
-            # if self.config.debug:
-            #     logging.debug(f"Average qZ: {torch.mean(self.q.z.exp_assignment(), dim=0)}")
-            if self.config.split is not None:
+
+            if self.config.split is not None and it % self.config.merge_and_split_interval == 0:
                 self.merge()
                 self.split()
             self.step()
@@ -477,7 +476,8 @@ class VICTree:
             #self.q.mt.beta = beta
 
     def merge(self):
-        if self.it_counter < 10:  # Don't merge too early
+        if self.it_counter < 5:  # Don't merge too early
+            logging.debug(f"Merge skipped until iteration 5.")
             return
         if type(self.q) == FixedTreeJointDist:
             trees = [self.q.T]

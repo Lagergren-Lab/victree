@@ -280,6 +280,10 @@ class qC(VariationalDistribution):
         self.eta2 = self.eta2 - torch.logsumexp(self.eta2, dim=-1, keepdim=True)
 
     def _clonal_init(self, obs, mu=1.0):
+        """
+        Initializes all clones based on the observations, i.e. finding the clonal pattern in the data.
+        """
+
         # Estimate marginals from data
         obs_removed_nans = torch.nan_to_num(obs, 2.)
         scaled_obs_mean = torch.mean(obs_removed_nans, dim=1).reshape(obs.shape[0], 1)
@@ -289,7 +293,7 @@ class qC(VariationalDistribution):
         A = self.config.n_states
 
         pseudo_config = Config(n_cells=1, n_nodes=self.config.n_nodes, chain_length=self.config.chain_length,
-                               n_states=self.config.n_states)
+                               n_states=self.config.n_states, eps0=self.config.eps0)
         q_eps = qEpsilonMulti(pseudo_config)
         q_eps.initialize(method='non-mutation')
         q_z = qZ(pseudo_config)

@@ -135,8 +135,10 @@ if __name__ == '__main__':
                              " `diploid`, `random`], default to `diploid`")
     # Meta algorithms
     parser.add_argument("--split", default="mixed", type=none_or_str, metavar="TYPE_STR",
-                        help="specify which split algorithm to run [`naive`, `categorical`, `inlier`, `mixed`, `None`],"
+                        help="specify which split algorithm to run [`naive`, `categorical`, `mixed`, `inlier`, `mixed`, `None`],"
                              " defaults to `mixed`")
+    parser.add_argument("--merge_and_split_interval", default=5, type=int,
+                        help="specify the number of iterations between each call to the merge and split algorithm.")
     parser.add_argument("--SVI", action="store_true", help="Run Stochastic Variational inference.")
     parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))

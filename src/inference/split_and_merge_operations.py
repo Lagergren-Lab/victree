@@ -1,14 +1,13 @@
 import copy
+import itertools
 import logging
 
 import networkx as nx
 import numpy as np
-import sklearn.cluster
 import torch
 from sklearn.cluster import KMeans
 
 from variational_distributions.joint_dists import VarTreeJointDist, FixedTreeJointDist
-from variational_distributions.observational_variational_distribution import qPsi
 from variational_distributions.var_dists import qC, qZ, qPi, qCMultiChrom, qEpsilonMulti, qMuTau
 
 
@@ -86,8 +85,8 @@ class SplitAndMergeOperations:
             qc.eta1[k_to_cluster] = qc.eta1[k_to_cluster] - torch.logsumexp(qc.eta1[k_to_cluster], dim=-1)
             qc.eta2[k_to_cluster] = qc.eta2[k_split_cluster]
             qc.eta2[k_to_cluster, :, :] = qc.eta2[k_split_cluster] + \
-                                                0.05 * torch.randn((qc.config.n_states,
-                                                           qc.config.n_states))
+                                          0.05 * torch.randn((qc.config.n_states,
+                                                              qc.config.n_states))
             qc.eta2[k_to_cluster] = qc.eta2[k_to_cluster] - torch.logsumexp(qc.eta2[k_to_cluster], dim=-1, keepdim=True)
         else:
             for qc_i in qc.qC_list:
@@ -95,7 +94,7 @@ class SplitAndMergeOperations:
                 qc_i.eta1[k_to_cluster] = qc_i.eta1[k_to_cluster] - torch.logsumexp(qc_i.eta1[k_to_cluster], dim=-1)
                 qc_i.eta2[k_to_cluster] = qc_i.eta2[k_split_cluster] + \
                                           0.05 * torch.randn((qc_i.config.chain_length - 1, qc_i.config.n_states,
-                                                                 qc_i.config.n_states))
+                                                              qc_i.config.n_states))
                 qc_i.eta2[k_to_cluster] = qc_i.eta2[k_to_cluster] - torch.logsumexp(qc_i.eta2[k_to_cluster], dim=-1,
                                                                                     keepdim=True)
 
@@ -300,15 +299,18 @@ class SplitAndMergeOperations:
         candidates_idxs = self.select_candidates_clusters_to_split_by_threshold(cluster_assignments_avg)
         elbos = []
         log_lls = []
-        elbo_pre_split = q.compute_elbo() if type(q) is FixedTreeJointDist else q.compute_elbo(tree_list, tree_weights_list)
+        elbo_pre_split = q.compute_elbo() if type(q) is FixedTreeJointDist else q.compute_elbo(tree_list,
+                                                                                               tree_weights_list)
         log_ll_pre_split = q.total_log_likelihood
         logging.debug(f"ELBO before split: {elbo_pre_split}")
         logging.debug(f"Likelihood before split: {q._compute_log_likelihood().sum().item()}")
         N, M, K, A = (q.config.n_cells, q.config.chain_length, q.config.n_nodes, q.config.n_states)
         idx_empty_cluster = empty_clusters[0]
 
-        eta_1_pre_split = copy.deepcopy(qc.eta1) if type(qc) is qC else [copy.deepcopy(qc_chr.eta1) for qc_chr in qc.qC_list]
-        eta_2_pre_split = copy.deepcopy(qc.eta2) if type(qc) is qC else [copy.deepcopy(qc_chr.eta2) for qc_chr in qc.qC_list]
+        eta_1_pre_split = copy.deepcopy(qc.eta1) if type(qc) is qC else [copy.deepcopy(qc_chr.eta1) for qc_chr in
+                                                                         qc.qC_list]
+        eta_2_pre_split = copy.deepcopy(qc.eta2) if type(qc) is qC else [copy.deepcopy(qc_chr.eta2) for qc_chr in
+                                                                         qc.qC_list]
         qz_param_pre_split = copy.deepcopy(qz.pi)
         qmt_nu_pre_split = copy.deepcopy(qpsi.nu)
         qmt_lambdba_pre_split = copy.deepcopy(qpsi.lmbda)
@@ -329,7 +331,8 @@ class SplitAndMergeOperations:
             n_batch_i = len(cells_in_i)
             n_batch_j = len(cells_in_j)
             if n_batch_i < 5 or n_batch_j < 5:
-                logging.debug(f"Skip candidate {k} as one of batches contained too few cells ({n_batch_i} and {n_batch_j})")
+                logging.debug(
+                    f"Skip candidate {k} as one of batches contained too few cells ({n_batch_i} and {n_batch_j})")
                 continue
 
             # Hard assign cells
@@ -342,12 +345,11 @@ class SplitAndMergeOperations:
             qpsi.nu[batch_i] = 1.
             qpsi.nu[batch_j] = 1.
 
-            #qeps.beta[batch_j]
-            #qeps.beta[batch_j]
-
             # Update qC on batches
-            eta1_i, eta2_i = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_i)
-            eta1_j, eta2_j = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list, batch=batch_j)
+            eta1_i, eta2_i = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list,
+                                            batch=batch_i)
+            eta1_j, eta2_j = qc.update_CAVI(obs[:, batch_j], qeps, qz, qpsi, tree_list, tree_weights_list,
+                                            batch=batch_j)
 
             qc.set_params(eta1_i, eta2_i, idx_empty_cluster)
             qc.compute_filtering_probs(idx_empty_cluster)
@@ -369,7 +371,8 @@ class SplitAndMergeOperations:
             qpsi.beta[batch_j] = beta_j
 
             # Measure quality of split in terms of ELBO
-            elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(q) is VarTreeJointDist else q.compute_elbo()
+            elbo_split = q.compute_elbo(tree_list, tree_weights_list) if type(
+                q) is VarTreeJointDist else q.compute_elbo()
             log_likelihood_split = q._compute_log_likelihood().sum().item()
             elbos.append(elbo_split)
             log_lls.append(log_likelihood_split)
@@ -429,9 +432,8 @@ class SplitAndMergeOperations:
         qpsi.lmbda[best_batch_j] = best_lmbda_j
         qpsi.alpha[best_batch_j] = best_alpha_j
         qpsi.beta[best_batch_j] = best_beta_j
-        #if elbos[selected_split_cluster_idx] < elbo_pre_split:
+        # if elbos[selected_split_cluster_idx] < elbo_pre_split:
         #    logging.debug(f"No split found.")
-
 
         # Set concentration parameters equal
         self.update_cluster_concentration_parameters(qpi, idx_empty_cluster, best_cluster_idx)
@@ -491,7 +493,7 @@ class SplitAndMergeOperations:
         n_vectors = eta2.shape[0]
         matrix = torch.zeros(n_vectors, n_vectors)
         for i in range(0, n_vectors):
-            for j in range(i+1, n_vectors):
+            for j in range(i + 1, n_vectors):
                 matrix[i, j] = (eta2[i] - eta2[j]).pow(2).sum().sqrt()
 
         return matrix
@@ -515,7 +517,7 @@ class SplitAndMergeOperations:
         return non_outlier_clusters_0, non_outlier_clusters_1
 
     def merge(self, obs, q, trees, tree_weights):
-        if self.n_iter_since_last_merge < 5:
+        if self.n_iter_since_last_merge < 0:
             self.n_iter_since_last_merge += 1
             logging.debug(f"Skip merge since only {self.n_iter_since_last_merge} has passed since last merge")
             return False
@@ -528,17 +530,18 @@ class SplitAndMergeOperations:
 
         viterbi_distances = torch.zeros(K, K)
 
-        for i in range(0, K):
-            for j in range(i+1, K):
-                viterbi_distances[i, j] = torch.abs(viterbi_paths[i] - viterbi_paths[j]).sum()
-        
+        for i, j in itertools.combinations_with_replacement(range(K), 2):
+            viterbi_distances[i, j] = torch.abs(viterbi_paths[i] - viterbi_paths[j]).sum()
+
+        logging.debug(f"Viterbi distances: {[{(i, j) : viterbi_distances[i, j]} for i, j in itertools.combinations_with_replacement(range(K), 2)]}")
         merge_candidate = None
-        for i in range(0, K):
-            for j in range(i+1, K):
-                if viterbi_distances[i, j] < 10.:
-                    merge_candidate = (i, j)
-                    break
-        
+        for i, j in itertools.combinations_with_replacement(range(K), 2):
+            if i == j:
+                continue
+            if viterbi_distances[i, j] < 10.:
+                merge_candidate = (i, j)
+                break
+
         # Earliest ancestor merge
         if merge_candidate is None:
             return False
