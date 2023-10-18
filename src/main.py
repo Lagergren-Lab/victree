@@ -131,7 +131,7 @@ if __name__ == '__main__':
                         help="initialization of (nu, lambda, alpha, beta) params qMuTau, can be [`data`, `data-size`,"
                              " `prior`], default to `data`")
     parser.add_argument("--c-init", default="diploid", type=str, metavar="TYPE_STR",
-                        help="initialization of copy number variable qC, can be [`clonal`, `uniform`, `binwise`,"
+                        help="initialization of copy number variable qC, can be [`clonal`, `uniform`,"
                              " `diploid`, `random`], default to `diploid`")
     # Meta algorithms
     parser.add_argument("--split", default="mixed", type=none_or_str, metavar="TYPE_STR",
@@ -145,6 +145,7 @@ if __name__ == '__main__':
     parser.add_argument("--impute-nans", default="ignore", type=str, metavar="TYPE_STR",
                         help="specify how to deal with NaNs in the data, can be [`ignore`, `remove`],"
                              " defaults to `ignore`")
+    parser.add_argument("--qT-temp", default=1., type=float, help="Anneal the qT distribution from qT-temp to 1.")
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()

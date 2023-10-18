@@ -30,7 +30,7 @@ def run(args):
                     wis_sample_size=args.tree_sample_size, sieving_size=args.sieving[0], n_sieving_iter=args.sieving[1],
                     step_size=args.step_size, debug=args.debug, diagnostics=args.diagnostics, out_dir=args.out_dir,
                     n_run_iter=args.n_iter, elbo_rtol=args.r_tol, chromosome_indexes=data_handler.get_chr_idx(),
-                    split=args.split)
+                    split=args.split, merge_and_split_interval=args.merge_and_split_interval, qT_temp=args.qT_temp)
     logging.debug(str(config))
 
     # ---

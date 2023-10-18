@@ -162,8 +162,6 @@ class qC(VariationalDistribution):
             self._clonal_init(**kwargs)
         elif method == 'fixed':
             self._fixed_init(**kwargs)
-        elif method == 'binwise':
-            self._binwise_clustering_init(**kwargs)
         elif method == 'diploid':
             self._init_diploid(nodes=list(range(self.config.n_nodes)), skewness=5.)
         else:
@@ -318,16 +316,6 @@ class qC(VariationalDistribution):
         self.eta1[1:K] = eta1[1:K]
         self.eta2[1:K] = eta2[1:K]
         self.compute_filtering_probs()
-
-    def _binwise_clustering_init(self, obs):
-        """
-        Check with Hosein how this is supposed to work.
-        """
-        M, N = obs.shape
-        K, A = (self.config.n_nodes, self.config.n_states)
-        for m in range(M):
-            clusters = KMeans(K).fit(obs[m, :])
-        # TODO:
 
     def get_entropy(self):
         start_probs = torch.empty_like(self.eta1)
@@ -878,6 +866,7 @@ class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
         super().__init__(config, true_params is not None)
 
+        self.temp = 1.0
         self._pi = torch.empty((config.n_cells, config.n_nodes))
 
         self.kmeans_labels = torch.empty(config.n_cells, dtype=torch.long)
@@ -996,7 +985,7 @@ class qZ(VariationalDistribution):
         #sigma = torch.nan_to_num(sigma, 0.01)
         gamma = e_logpi + torch.einsum('kmj,nmkj->nk', qc_kmj, d_nmj)
         #gamma = e_logpi + torch.einsum('kmj,nmkj,m->nk', qc_kmj, d_nmj, sigma)
-        T = self.config.annealing
+        T = self.temp
         gamma = gamma * 1 / T
         pi = torch.softmax(gamma, dim=1)
         return pi
@@ -1082,6 +1071,8 @@ class qT(VariationalDistribution):
                                              if u != v and v != 0])
         self._norm_method = norm_method
         self._sampling_method = sampling_method
+
+        self.temp = 1.0
 
         if true_params is not None:
             assert 'tree' in true_params
@@ -1187,6 +1178,7 @@ other elbos such as qC.
         # chain length determines how large log-weights are
         # while values should not be too low for numerical stability
         w_tensor = self._normalize_graph_weights(new_log_weight_matrix)
+        w_tensor = w_tensor * 1 / self.temp
         self.update_params(w_tensor)
 
     def _normalize_graph_weights(self, w_matrix):
