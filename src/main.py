@@ -135,7 +135,7 @@ if __name__ == '__main__':
                         metavar=("N_RUNS", "N_ITER"))
     parser.add_argument("--impute-nans", default="ignore", type=str, metavar="TYPE_STR",
                         help="specify how to deal with NaNs in the data, can be [`ignore`, `remove`],"
-                             " defaults to `ignore")
+                             " defaults to `ignore`")
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()
