@@ -120,7 +120,9 @@ if __name__ == '__main__':
                              "default to `random`")
     # Meta algorithms
     parser.add_argument("--split", default="categorical", type=str, metavar="TYPE_STR",
-                        help="specify which split algorithm to run [`naive`, `categorical`, `inlier`]")
+                        help="specify which split algorithm to run [`naive`, `categorical`, `mixed`, `inlier`]")
+    parser.add_argument("--merge_and_split_interval", default=5, type=int,
+                        help="specify the number of iterations between each call to the merge and split algorithm.")
     parser.add_argument("--SVI", action="store_true", help="Run Stochastic Variational inference.")
     parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))

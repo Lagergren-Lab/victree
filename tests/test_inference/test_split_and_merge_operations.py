@@ -23,9 +23,9 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         N = 10
         M = 20
         K = 4
-        A = 7
+        A = 5
 
-        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, chromosome_indexes=[5, 10])
+        config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, chromosome_indexes=[5, 10], eps0=(A-1)/A)
         qc = qC(config)
         qeps = qEpsilonMulti(config)
         qz = qZ(config)
@@ -43,6 +43,7 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         qc.compute_filtering_probs(3)
         q.pi.initialize(method='uniform')
         q.mt.initialize(method='prior')
+        q.eps.initialize(method='uniform')
         q.z.update(qpsi=qmt, qc=qc, qpi=qpi, obs=obs)
         pre_merge_probs = copy.deepcopy(q.z.pi[:, 1])
         self.assertTrue(torch.all(q.z.pi[:, 1] == q.z.pi[:, 2]))
