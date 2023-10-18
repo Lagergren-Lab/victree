@@ -7,7 +7,7 @@ import torch
 from inference.victree import VICTree
 from utils.config import Config
 from variational_distributions import var_dists
-#import data_handling
+import data_handling
 from variational_distributions.joint_dists import VarTreeJointDist
 
 

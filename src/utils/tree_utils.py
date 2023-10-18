@@ -289,9 +289,13 @@ def parse_newick(tree_file, config=None):
     """
     tree = Phylo.read(tree_file, 'newick')
     und_tree_nx = Phylo.to_networkx(tree)
-    und_tree_nx = nx.convert_node_labels_to_integers(und_tree_nx)
+    # Phylo names add unwanted information in unstructured way
+    # find node numbers and relabel nx tree
+    names_string = ''.join(str(cl.confidence) if cl.name is None else cl.name for cl in und_tree_nx.nodes)
+    mapping = dict(zip(und_tree_nx, names_string))
+    relabeled_tree = nx.relabel_nodes(und_tree_nx, mapping)
     tree_nx = nx.DiGraph()
-    tree_nx.add_edges_from(und_tree_nx.edges())
+    tree_nx.add_edges_from(relabeled_tree.edges())
     if config is not None:
         # validate config
         assert tree_nx.number_of_nodes() == config.n_nodes, "newick tree does not match the number of nodes K"

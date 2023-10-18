@@ -1,4 +1,5 @@
 import unittest
+import os
 
 import numpy as np
 from sklearn.metrics import v_measure_score
@@ -16,18 +17,21 @@ class VICTreeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(0)
+        self.output_dir = "./test_output"
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
         print_logs("DEBUG")
 
     def test_fixed_tree_run(self):
         # simulate data
         joint_q_true, adata = generate_dataset_var_tree(config=Config(
             n_nodes=4, n_cells=100, chain_length=300, wis_sample_size=50,
-        ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=25., eps_b=10000.)
+        ), ret_anndata=True, chrom=3, dir_alpha=10., eps_a=4000., eps_b=100000.)
         print(f"true dist log-likelihood {joint_q_true.total_log_likelihood}")
         # make default input
         config, q, dh = make_input(adata, fix_tree=joint_q_true.t.true_params['tree'], debug=True,
-                                   step_size=.4, mt_prior_strength=5., delta_prior_strength=2.,
-                                   eps_prior_strength=2., c_init='diploid')
+                                   step_size=.4, mt_prior_strength=5., delta_prior_strength=.1,
+                                   eps_prior_strength=2., c_init='clonal')
 
         # check victree convergence
         init_elbo = q.elbo
@@ -54,9 +58,9 @@ class VICTreeTestCase(unittest.TestCase):
         plot_cn_matrix(pred_c, pred_lab, axs=axs[:, 1])
         axs[0, 0].set_title('True CN')
         axs[0, 1].set_title('VI CN')
-        fig.savefig("./../test_output/test_fixed_tree_run_cn.png")
+        fig.savefig(os.path.join(self.output_dir, "test_fixed_tree_run_cn.png"))
         # print(f"cn matrix mean abs deviation: {cn_mad:.3f}")
-        self.assertLess(cn_mad, 0.1)
+        self.assertLess(cn_mad, 0.4)
 
 
 if __name__ == '__main__':

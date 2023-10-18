@@ -65,9 +65,15 @@ def validate_args(args):
         raise argparse.ArgumentError(args.prior_pi, message=f"Prior for pi must be either length 1 or K. "
                                                             f"K was set to {args.n_nodes}, but pi prior "
                                                             f"has length {len(args.prior_pi)}")
-    if args.z_init not in ["random", "uniform", "kmeans"]:
+    if args.z_init not in ["random", "uniform", "kmeans", "gmm"]:
         raise argparse.ArgumentError(args.z_init, message=f"Init method {args.z_init} for"
                                                           f"qZ variational distribution is not valid. Check usage.")
+
+
+def none_or_str(value):
+    if value == 'None':
+        return None
+    return value
 
 
 def parse_args(parser):
@@ -118,9 +124,19 @@ if __name__ == '__main__':
     parser.add_argument("--z-init", default="random", type=str, metavar="TYPE_STR",
                         help="initialization of clustering variable qZ, can be [`random`, `uniform`, `kmeans`], "
                              "default to `random`")
+    parser.add_argument("--eps-init", default="random", type=str, metavar="TYPE_STR",
+                        help="initialization of alpha/beta params in qEpsilon, can be [`random`, `uniform`,"
+                             " `non-mutation`, `prior`, `data`], default to `random`")
+    parser.add_argument("--mt-init", default="data", type=str, metavar="TYPE_STR",
+                        help="initialization of (nu, lambda, alpha, beta) params qMuTau, can be [`data`, `data-size`,"
+                             " `prior`], default to `data`")
+    parser.add_argument("--c-init", default="diploid", type=str, metavar="TYPE_STR",
+                        help="initialization of copy number variable qC, can be [`clonal`, `uniform`, `binwise`,"
+                             " `diploid`, `random`], default to `diploid`")
     # Meta algorithms
-    parser.add_argument("--split", default="categorical", type=str, metavar="TYPE_STR",
-                        help="specify which split algorithm to run [`naive`, `categorical`, `mixed`, `inlier`]")
+    parser.add_argument("--split", default="mixed", type=none_or_str, metavar="TYPE_STR",
+                        help="specify which split algorithm to run [`naive`, `categorical`, `mixed`, `inlier`, `mixed`, `None`],"
+                             " defaults to `mixed`")
     parser.add_argument("--merge_and_split_interval", default=5, type=int,
                         help="specify the number of iterations between each call to the merge and split algorithm.")
     parser.add_argument("--SVI", action="store_true", help="Run Stochastic Variational inference.")
@@ -128,7 +144,7 @@ if __name__ == '__main__':
                         metavar=("N_RUNS", "N_ITER"))
     parser.add_argument("--impute-nans", default="ignore", type=str, metavar="TYPE_STR",
                         help="specify how to deal with NaNs in the data, can be [`ignore`, `remove`],"
-                             " defaults to `ignore")
+                             " defaults to `ignore`")
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)
     args = parser.parse_args()

@@ -950,11 +950,13 @@ class qZ(VariationalDistribution):
         self.pi[...] = pi_init
 
     def _gmm_init(self, data):
+        # filter out nans
+        filt_data = data[~torch.any(torch.isnan(data), dim=1), :]
         gmm = GaussianMixture(n_components=self.config.n_nodes, covariance_type='diag')
-        gmm.fit(data)
-        soft_assignment = gmm.predict_proba(data)
+        gmm.fit(filt_data.T)
+        soft_assignment = gmm.predict_proba(filt_data.T)
         # find healthy cluster and move it to clone 0
-        healthy_idx = np.sum(gmm.means_ != np.ones((1, self.config.chain_length)) * 2., axis=1).argmin()
+        healthy_idx = np.sum(gmm.means_ != np.ones((1, filt_data.shape[0])) * 2., axis=1).argmin()
         self.pi[...] = torch.tensor(np.roll(soft_assignment, shift=-healthy_idx, axis=1))
 
     def _kmeans_per_site_init(self, obs, qmt: 'qMuTau'):

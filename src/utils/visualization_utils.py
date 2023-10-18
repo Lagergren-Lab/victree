@@ -1,6 +1,4 @@
-import os.path
 import pickle
-import sys
 import argparse
 
 import matplotlib

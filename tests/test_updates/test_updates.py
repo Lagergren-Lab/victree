@@ -294,7 +294,7 @@ class updatesTestCase(unittest.TestCase):
     def test_unbalanced_qpi(self):
         config = Config(n_nodes=5, n_cells=300,
                         debug=True)
-        joint_q = generate_dataset_var_tree(config, dir_alpha=[1., 3., 10., 2., 5.])
+        joint_q = generate_dataset_var_tree(config, dir_alpha=[100., 300., 1000., 200., 500.])
         fix_qz = joint_q.z
 
         qpi = qPi(config, delta_prior=1).initialize('random')
@@ -306,8 +306,9 @@ class updatesTestCase(unittest.TestCase):
         target_pi = torch.bincount(joint_q.z.true_params['z']) / config.n_cells
         vi_pi = qpi.exp_pi()
 
+        print(vi_pi, target_pi)
         self.assertTrue(torch.allclose(vi_pi,
-                                       target_pi, rtol=0.1))
+                                       target_pi, atol=0.005))
 
     def test_update_large_qt(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500, wis_sample_size=20, step_size=.3,

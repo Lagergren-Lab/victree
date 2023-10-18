@@ -39,4 +39,4 @@ class PoissonObservationalModel():
         means = torch.einsum("man->amn", means)
         out_arr = .5 * (x.expand(A, M, N) - means) ** 2
         out_arr = torch.einsum('imn->nmi', out_arr)
-        return elbo
+        raise NotImplementedError
