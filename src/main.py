@@ -70,6 +70,12 @@ def validate_args(args):
                                                           f"qZ variational distribution is not valid. Check usage.")
 
 
+def none_or_str(value):
+    if value == 'None':
+        return None
+    return value
+
+
 def parse_args(parser):
     args = parser.parse_args()
     # if args.config_file:
@@ -128,8 +134,9 @@ if __name__ == '__main__':
                         help="initialization of copy number variable qC, can be [`clonal`, `uniform`, `binwise`,"
                              " `diploid`, `random`], default to `diploid`")
     # Meta algorithms
-    parser.add_argument("--split", default="categorical", type=str, metavar="TYPE_STR",
-                        help="specify which split algorithm to run [`naive`, `categorical`, `inlier`]")
+    parser.add_argument("--split", default="mixed", type=none_or_str, metavar="TYPE_STR",
+                        help="specify which split algorithm to run [`naive`, `categorical`, `inlier`, `mixed`, `None`],"
+                             " defaults to `mixed`")
     parser.add_argument("--SVI", action="store_true", help="Run Stochastic Variational inference.")
     parser.add_argument("--sieving", default=[1, 0], nargs=2, type=int, help="number of sieving runs prior to start",
                         metavar=("N_RUNS", "N_ITER"))

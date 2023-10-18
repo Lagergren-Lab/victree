@@ -68,7 +68,7 @@ class VICTree:
                                     }))
             data_handler = DataHandler(adata=adata)
         self._data_handler: DataHandler = data_handler
-        if self.config.split != 'None':
+        if self.config.split is not None:
             self.split_and_merge_operation = SplitAndMergeOperations()
 
     def __str__(self):
@@ -157,7 +157,7 @@ class VICTree:
             # KEY inference algorithm iteration step
             # if self.config.debug:
             #     logging.debug(f"Average qZ: {torch.mean(self.q.z.exp_assignment(), dim=0)}")
-            if self.config.split != 'None':
+            if self.config.split is not None:
                 self.merge()
                 self.split()
             self.step()
@@ -502,7 +502,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                mt_prior_strength: float = 1., eps_prior_strength: float = 1.,
                mt_prior: tuple | None = None,
                eps_prior: tuple | None = None, delta_prior=None,
-               mt_init='data-size', z_init='kmeans', c_init='diploid', delta_prior_strength=1.,
+               mt_init='data-size', z_init='gmm', c_init='diploid', delta_prior_strength=1.,
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
                sieving=(1, 1), debug: bool = False, wis_sample_size=10,
                config=None, split=None) -> (Config, JointDist, DataHandler):
@@ -540,7 +540,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
 
     # create distribution and initialize them on healthy cn profile
     qc = qCMultiChrom(config)
-    qc.initialize(method=c_init)
+    qc.initialize(method=c_init, obs=obs)
 
     # strong prior with high lambda prior (e.g. strength = 2)
     if mt_prior is None:

@@ -26,7 +26,7 @@ class Config:
                  save_progress_every_niter: int = 10,
                  qc_smoothing=False,
                  curr_it: int = 0,
-                 split='None',
+                 split=None,
                  SVI=False,
                  batch_size=20,
                  step_size_scheme='None',

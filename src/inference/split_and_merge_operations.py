@@ -20,6 +20,7 @@ class SplitAndMergeOperations:
         self.cluster_split_threshold = cluster_split_threshold
 
     def split(self, method, obs, q: VarTreeJointDist | FixedTreeJointDist, tree_list=None, tree_weights_list=None):
+        split = None
         if method == 'naive':
             split = self.naive_split(obs, q)
         elif method == 'categorical':
