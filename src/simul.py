@@ -565,7 +565,7 @@ if __name__ == '__main__':
                      default='1', help="number of chromosomes i.e. separate copy number chains")
     cli.add_argument('--nans',
                      action="store_true",
-                     help="set 1% of the total sites to nan")
+                     help="set 1%% of the total sites to nan")
     args = cli.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
