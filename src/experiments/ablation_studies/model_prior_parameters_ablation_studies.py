@@ -50,6 +50,7 @@ def create_output_catalog(ablation_study_specific_str):
 def mutau_prior_ablation_study(save=False):
     # Experiment parameters
     utils.config.set_seed(0)
+    step_size = 0.3
     inference_seeds = list(range(0, 5))
 
     # Method parameters
@@ -73,7 +74,7 @@ def mutau_prior_ablation_study(save=False):
     tree = tree_utils.generate_fixed_tree(K)
 
     # Generate data
-    config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
+    config = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M, step_size=step_size)
     out = simul.simulate_full_dataset(config=config, eps_a=a0, eps_b=b0, mu0=nu_0, lambda0=lambda_0, alpha0=alpha0,
                                       beta0=beta0, dir_delta=dir_delta0, tree=tree)
     y, c, z, pi, mu, tau, eps, eps0, chr_idx = (out['obs'], out['c'], out['z'], out['pi'], out['mu'], out['tau'],
@@ -85,7 +86,7 @@ def mutau_prior_ablation_study(save=False):
     print(f"Tau in range: [{tau.min()}, {tau.max()}] ")
 
     if save:
-        experiment_str = f'step_size/N{N}_M{M}_{K}_{A}_nIter{n_iter}'
+        experiment_str = f'mt_prior/N{N}_M{M}_{K}_{A}_nIter{n_iter}'
         save_path = create_output_catalog(ablation_study_specific_str=experiment_str)
         visualization_utils.visualize_copy_number_profiles(c, save_path=save_path)
         np.save(save_path + '/eps_simulated', np.array(eps))
@@ -103,7 +104,6 @@ def mutau_prior_ablation_study(save=False):
     for (alpha_prior, beta_prior) in mt_prior_params:
 
         config = copy.deepcopy(config)
-        config.step_size = step_size
 
         ari = []
         elbo = []
@@ -125,15 +125,15 @@ def mutau_prior_ablation_study(save=False):
             ari.append(ari_seed)
             elbo_seed = victree.elbo
             elbo.append(elbo_seed)
-            print(f"ARI for step size {step_size} and seed {seed}: {ari_seed}")
-            print(f"ELBO for step size {step_size} and seed {seed}: {elbo_seed}")
+            print(f"ARI for step size {config.step_size} and seed {seed}: {ari_seed}")
+            print(f"ELBO for step size {config.step_size} and seed {seed}: {elbo_seed}")
 
         ari_list.append(np.array(ari).mean())
         ari_std_list.append(np.array(ari).std())
         elbo_list.append(np.array(elbo).mean())
         elbo_std_list.append(np.array(elbo).std())
-        print(f"mean ARI for step size {step_size}: {np.array(ari).mean()} ({np.array(ari).std()})")
-        print(f"mean ELBO for steps size {step_size}: {np.array(elbo).mean()} ({np.array(elbo).std()})")
+        print(f"mean ARI for step size {config.step_size}: {np.array(ari).mean()} ({np.array(ari).std()})")
+        print(f"mean ELBO for steps size {config.step_size}: {np.array(elbo).mean()} ({np.array(elbo).std()})")
 
         if save:
             np.save(save_path + '/' + 'elbo_mean', ari_list)
