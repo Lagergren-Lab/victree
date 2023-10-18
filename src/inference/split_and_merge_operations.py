@@ -344,9 +344,6 @@ class SplitAndMergeOperations:
             qpsi.nu[batch_i] = 1.
             qpsi.nu[batch_j] = 1.
 
-            # qeps.beta[batch_j]
-            # qeps.beta[batch_j]
-
             # Update qC on batches
             eta1_i, eta2_i = qc.update_CAVI(obs[:, batch_i], qeps, qz, qpsi, tree_list, tree_weights_list,
                                             batch=batch_i)
