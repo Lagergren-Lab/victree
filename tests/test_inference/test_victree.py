@@ -1,4 +1,5 @@
 import unittest
+import os
 
 import numpy as np
 from sklearn.metrics import v_measure_score
@@ -16,6 +17,9 @@ class VICTreeTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         set_seed(0)
+        self.output_dir = "./test_output"
+        if not os.path.exists(self.output_dir):
+            os.mkdir(self.output_dir)
         print_logs("DEBUG")
 
     def test_fixed_tree_run(self):
@@ -54,7 +58,7 @@ class VICTreeTestCase(unittest.TestCase):
         plot_cn_matrix(pred_c, pred_lab, axs=axs[:, 1])
         axs[0, 0].set_title('True CN')
         axs[0, 1].set_title('VI CN')
-        fig.savefig("./../../test_output/test_fixed_tree_run_cn.png")
+        fig.savefig(os.path.join(self.output_dir, "test_fixed_tree_run_cn.png"))
         # print(f"cn matrix mean abs deviation: {cn_mad:.3f}")
         self.assertLess(cn_mad, 0.4)
 
