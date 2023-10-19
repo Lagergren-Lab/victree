@@ -1217,6 +1217,8 @@ other elbos such as qC.
             norm_w_matrix[...] = w_matrix - math_utils.nanlogsumexp(w_matrix, dim=1, keepdim=True)
         else:
             raise ValueError(f"normalization method {self._norm_method} not recognized")
+        # weight shouldn't be equal to 0 for stability
+        norm_w_matrix = torch.clamp(norm_w_matrix, max=-1e-8)
 
         return norm_w_matrix
 

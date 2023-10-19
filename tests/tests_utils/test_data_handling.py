@@ -6,7 +6,7 @@ from networkx.lazy_imports import os
 
 import simul
 from inference.victree import VICTree
-from utils.config import Config
+from utils.config import Config, set_seed
 from utils.data_handling import DataHandler
 from tests.data.generate_data import generate_2chr_adata
 from variational_distributions.joint_dists import VarTreeJointDist
@@ -18,6 +18,7 @@ class dataHandlingTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
 
+        set_seed(0)
         self.output_dir = "./test_output"
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
@@ -39,7 +40,7 @@ class dataHandlingTestCase(unittest.TestCase):
         out_file = os.path.join(self.output_dir, 'out_test.h5')
         # run victree
         config = Config(n_nodes=4, n_cells=20, n_states=4,
-                        n_run_iter=3, sieving_size=2, n_sieving_iter=2)
+                        n_run_iter=3)
         adata = generate_2chr_adata(config)
         data_handler = DataHandler(adata=adata)
         obs = data_handler.norm_reads
