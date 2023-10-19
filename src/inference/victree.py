@@ -382,7 +382,6 @@ class VICTree:
             self.q.t.temp = self.config.qT_temp - (it - 1) / (n_iter - 1) * (self.config.qT_temp - 1.)
         if self.config.qZ_temp != 1.:
             self.q.z.temp = self.config.annealing - (it - 1) / (n_iter - 1) * (self.config.annealing - 1.)
-        #self.q.mt.temp = self.config.annealing - (it - 1) / (n_iter - 1) * (self.config.annealing - 1.)
 
     def write_model(self, path: str):
         # save victree distributions parameters

@@ -1058,7 +1058,7 @@ class qZ(VariationalDistribution):
 # topology
 class qT(VariationalDistribution):
 
-    def __init__(self, config: Config, true_params=None, norm_method='stochastic', sampling_method='rand-mst'):
+    def __init__(self, config: Config, true_params=None, norm_method='stochastic', sampling_method='laris'):
         super().__init__(config, fixed=true_params is not None)
         # weights are in log-form
         # so that tree.size() is log_prob of tree (sum of log_weights)
