@@ -33,7 +33,9 @@ class Config:
                  step_size_forgetting_rate=0.7,
                  step_size_delay=2.,
                  merge_and_split_interval=5,
-                 qT_temp=1.) -> None:
+                 qT_temp=1.,
+                 qZ_temp=1.) -> None:
+        self.qZ_temp = qZ_temp
         self.qT_temp = qT_temp
         self.merge_and_split_interval = merge_and_split_interval
         self.step_size_delay = step_size_delay
