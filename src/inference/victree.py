@@ -378,10 +378,15 @@ class VICTree:
         self.elbo = self.q.elbo
 
     def set_temperature(self, it, n_iter):
-        # linear scheme: from annealing to 1 with equal steps between iterations
         if self.config.qT_temp != 1.:
-            self.q.t.temp = math_utils.inverse_decay_function(it, self.config.qT_temp, int(n_iter*0.2), 1.)
+            # inverse decay scheme following: f(x) = qT_temp * (x-b)**(-c)
+            b = int(n_iter * 0.2)
+            d = torch.tensor(1.)
+            c = math_utils.inverse_decay_function_calculate_c(self.config.qT_temp, b, d, torch.tensor(n_iter))
+            self.q.t.temp = math_utils.inverse_decay_function(it, self.config.qT_temp, b, c)
+
         if self.config.qZ_temp != 1.:
+            # linear scheme: from annealing to 1 with equal steps between iterations
             self.q.z.temp = self.config.annealing - (it - 1) / (n_iter - 1) * (self.config.annealing - 1.)
 
     def write_model(self, path: str):
