@@ -127,7 +127,8 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
         c_true_and_qc_viterbi = np.zeros((2, n_nodes, n_sites))
         c_true_and_qc_viterbi[0] = np.array(C)
         c_true_and_qc_viterbi[1] = np.array(copy_tree.q.c.get_viterbi())
-        visualization_utils.visualize_copy_number_profiles_of_multiple_sources(c_true_and_qc_viterbi)
+        # uncomment to visualize when running the test
+        # visualization_utils.visualize_copy_number_profiles_of_multiple_sources(c_true_and_qc_viterbi)
 
         self.assertGreater(ari, 0.9, msg='ari less than 0.9 for easy scenario.')
 
