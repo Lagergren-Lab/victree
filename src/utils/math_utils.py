@@ -68,3 +68,11 @@ https://math.berkeley.edu/~mhaiman/math172-spring10/matrixtree.pdf )
 def log_factorial(x: torch.Tensor):
     log_x_factorial = torch.lgamma(x + 1)
     return torch.tensor(log_x_factorial)
+
+
+def inverse_decay_function(x: torch.Tensor, A, b, c):
+    """
+    Returns f(x) = A * 1 / (x - b)^c
+    """
+    z = torch.max(1, x - b)
+    return A * z ** (-c)
