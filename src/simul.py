@@ -104,7 +104,7 @@ def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, tree, obs_names: list
     return adata
 
 
-def simulate_full_dataset(config: Config, eps_a=5., eps_b=50., mu0=1., lambda0=10.,
+def simulate_full_dataset(config: Config, eps_a=500., eps_b=50000., mu0=1., lambda0=1000.,
                           alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False,
                           fixed_z:torch.Tensor = None, cne_length_factor: int = 0):
