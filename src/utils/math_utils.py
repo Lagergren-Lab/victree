@@ -78,3 +78,11 @@ def inverse_decay_function(x: torch.Tensor, a, b, c):
     """
     z = torch.max(torch.tensor(1.), x - b)
     return a * z ** (-c)
+
+def inverse_decay_function_calculate_c(a, b, d, x):
+    """
+    Returns the value c which solves the equation: d = f(x) = a * 1 / (x - b)^c
+    Given by: c = (log(a) - log(d)) / log(x - b)
+    Can be used to calculate the required c for needed for f(max_iter) = 1. when tempering.
+    """
+    return (torch.log(a) - torch.log(d)) / torch.log(x - b)
