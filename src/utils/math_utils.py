@@ -70,9 +70,11 @@ def log_factorial(x: torch.Tensor):
     return torch.tensor(log_x_factorial)
 
 
-def inverse_decay_function(x: torch.Tensor, A, b, c):
+def inverse_decay_function(x: torch.Tensor, a, b, c):
     """
-    Returns f(x) = A * 1 / (x - b)^c
+    Returns f(x) = a * 1 / (x - b)^c
+    If x-b < 1. returns a
+    This function is used for tempering schemes and step size schemes.
     """
-    z = torch.max(1, x - b)
-    return A * z ** (-c)
+    z = torch.max(torch.tensor(1.), x - b)
+    return a * z ** (-c)
