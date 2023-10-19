@@ -501,17 +501,28 @@ class SplitAndMergeOperations:
     def split_cells_by_observations(self, obs, cell_idxs):
         not_nan_idx = ~torch.any(obs.isnan(), dim=1)
         obs_not_nan = obs[not_nan_idx, :]
-        n_clusters = 3  # Assume cells divides best into one outlier cluster and two desired clusters
-        kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(obs_not_nan[:, cell_idxs].T)
-        labels = kmeans.labels_
-        clusters_cell_idx = []
-        n_cells = []
-        assert len(labels) == cell_idxs.shape[0]
-        for i in range(n_clusters):
-            clusters_cell_idx.append(cell_idxs[np.where(labels == i)[0]])
-            n_cells.append(clusters_cell_idx[i].shape[0])
+        n_clusters = 2  # Assume cells divides best into one outlier cluster and two desired clusters
+        n_tries = 4
+        for i in range(n_tries):
+            kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(obs_not_nan[:, cell_idxs].T)
+            labels = kmeans.labels_
+            clusters_cell_idx = []
+            n_cells = []
+            assert len(labels) == cell_idxs.shape[0]
+            for i in range(n_clusters):
+                clusters_cell_idx.append(cell_idxs[np.where(labels == i)[0]])
+                n_cells.append(clusters_cell_idx[i].shape[0])
 
-        idx0, idx1 = np.argsort(n_cells)[-2:]
+            idx0, idx1 = np.argsort(n_cells)[-2:]
+            n_cells_0 = n_cells[idx0]
+            n_cells_1 = n_cells[idx1]
+            if n_cells_0 < int(n_cells_1 / 20):
+                for i in range(n_cells_0):  # Assume only outlier clusters found, remove outliers and try with more clusters
+                    cell_idxs = cell_idxs[cell_idxs != clusters_cell_idx[idx0][i]]
+                n_clusters += 1
+            else:
+                break
+
         non_outlier_clusters_0 = clusters_cell_idx[idx0]
         non_outlier_clusters_1 = clusters_cell_idx[idx1]
         return non_outlier_clusters_0, non_outlier_clusters_1
