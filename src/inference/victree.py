@@ -380,10 +380,11 @@ class VICTree:
     def set_temperature(self, it, n_iter):
         if self.config.qT_temp != 1.:
             # inverse decay scheme following: f(x) = qT_temp * (x-b)**(-c)
-            b = int(n_iter * 0.2)
+            b = torch.tensor(int(n_iter * 0.2))
             d = torch.tensor(1.)
-            c = math_utils.inverse_decay_function_calculate_c(self.config.qT_temp, b, d, torch.tensor(n_iter))
-            self.q.t.temp = math_utils.inverse_decay_function(it, self.config.qT_temp, b, c)
+            a = torch.tensor(self.config.qT_temp)
+            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter))
+            self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
 
         if self.config.qZ_temp != 1.:
             # linear scheme: from annealing to 1 with equal steps between iterations
