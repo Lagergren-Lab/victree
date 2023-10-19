@@ -423,7 +423,8 @@ class updatesTestCase(unittest.TestCase):
                                                  # cne_length_factor=50
                                                  )
 
-        matplotlib.use('module://backend_interagg')
+        # uncomment to plot while testing
+        # matplotlib.use('module://backend_interagg')
         utils.visualization_utils.plot_dataset(true_joint_q)['fig'].show()
         print("--- TRUE JOINT - NOT RE-LABELED ---")
         print(true_joint_q)

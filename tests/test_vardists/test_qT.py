@@ -271,7 +271,8 @@ class qTTestCase(unittest.TestCase):
         joint_q = simul.generate_dataset_var_tree(config, eps_a=50, eps_b=4000)
         # true_tree_newick = tree_to_newick(joint_q.t.true_params['tree'])
         print(joint_q)
-        matplotlib.use('module://backend_interagg')
+        # uncomment to plot while testing
+        # matplotlib.use('module://backend_interagg')
         plot_dataset(joint_q)['fig'].show()
 
         for norm_method in ['M', 'max', 'max-row', 'min-max', 'min-max-row', 'stochastic', 'stochastic-row']:
