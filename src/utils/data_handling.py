@@ -217,6 +217,7 @@ def write_output_anndata(victree, out_path):
 
     adata.uns['victree-eps-alpha'] = alpha_tensor
     adata.uns['victree-eps-beta'] = beta_tensor
+    adata.uns['victree-elbo'] = np.array(victree.elbo)
 
     if hasattr(victree.q, "T"):
         # FixedTreeJointDist

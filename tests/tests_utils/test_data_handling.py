@@ -73,6 +73,9 @@ class dataHandlingTestCase(unittest.TestCase):
         # assert values
         self.assertTrue(np.all(out_adata.obs['victree-loglik'] < 0))
 
+        # assert elbo uns
+        self.assertTrue('victree-elbo' in out_adata.uns_keys())
+
 
 
 
