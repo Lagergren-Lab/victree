@@ -113,6 +113,9 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
     """
     out_data = {}
     out_data['dataset-id'] = dataset_id
+    out_data['K'] = true_joint.config.n_nodes
+    out_data['M'] = true_joint.config.chain_length
+    out_data['N'] = true_joint.config.n_cells
     out_data['true-ll'] = true_joint.total_log_likelihood
     out_data['vi-ll'] = victree.q.total_log_likelihood
     out_data['vi-diff'] = out_data['true-ll'] - out_data['vi-ll']
@@ -171,16 +174,27 @@ def check_clone_uniqueness(cn_mat):
     return np.all(norm_mat[non_diagonal] > 0)
 
 
-def sample_dataset_generation(K=4, seed=0) -> (JointDist, anndata.AnnData):
+def sample_dataset_generation(K=4, M=500, N=200, seed=0) -> (JointDist, anndata.AnnData):
     set_seed(seed)
+    # set variance depending on size of dataset
+    # eps is going to have 5 asymmetric mutations over the whole sequence
+    # but in shorter sequences, variance must be lower
+    eps_a = 5 * 100 * 500 / M
+    eps_b = eps_a / 3 * M
+
+    dir_alpha = 2 * 1000 / N
+
+    cne_length_factor = 0
+    # cne_length_factor = M / 50
 
     # simulate data such that every clone is different
     is_unique = False
     while not is_unique:
         joint_q_true, adata = generate_dataset_var_tree(config=Config(
-            n_nodes=K, n_cells=200, chain_length=500, wis_sample_size=50,
-        ), ret_anndata=True, chrom=3, dir_alpha=3., eps_a=50., eps_b=10000.,
-            cne_length_factor=0)
+            n_nodes=K, n_cells=N, chain_length=M, eps0=.1
+        ), ret_anndata=True, chrom='real', dir_alpha=3., eps_a=eps_a, eps_b=eps_b,
+            nu_prior=1., lambda_prior=1000., alpha_prior=500., beta_prior=50.,
+            cne_length_factor=cne_length_factor)
         is_unique = check_clone_uniqueness(joint_q_true.c.true_params['c'])
 
     return joint_q_true, adata

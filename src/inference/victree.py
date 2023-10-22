@@ -512,6 +512,14 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
                sieving=(1, 1), debug: bool = False, wis_sample_size=10,
                config=None, split=None) -> (Config, JointDist, DataHandler):
+    # config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior=(1., 20. * n_bins, 500., 50),
+    #                             eps_prior=(5., 1. * n_bins), delta_prior=3.,
+    #                             z_init='gmm', c_init='diploid', mt_init='data-size',
+    #                             kmeans_skewness=3,
+    #                             step_size=0.3, wis_sample_size=10,
+    #                             # sieving=(3, 3),
+    #                             split='ELBO',
+    #                             debug=True)
 
     # read tree input if present
     if fix_tree is not None:
@@ -540,7 +548,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
         config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
                         chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
                         sieving_size=sieving[0], n_sieving_iter=sieving[1], wis_sample_size=wis_sample_size,
-                        split=split)
+                        split=split, qT_temp=obs_bins)
     else:
         config.chromosome_indexes = dh.get_chr_idx()
 
@@ -572,16 +580,16 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                          alpha_prior=a_prior, beta_prior=b_prior)
     qeps.initialize(method=eps_init, obs=obs)
 
-    # use kmeans on obs or, if available, on previously estimated cn profile
+    # use gmm/kmeans on obs or, if available, on previously estimated cn profile
     # e.g. hmmcopy layer
-    kmeans_data = obs
+    clust_data = obs
     if kmeans_layer is not None:
-        kmeans_data = data.layers[kmeans_layer]
+        clust_data = data.layers[kmeans_layer]
     elif 'state' in data.layers:
-        kmeans_data = data.layers['state']
+        clust_data = data.layers['state']
 
     qz = qZ(config)
-    qz.initialize(method=z_init, data=kmeans_data, skeweness=kmeans_skewness)
+    qz.initialize(method=z_init, data=clust_data, skeweness=kmeans_skewness)
 
     # a strong prior has to be in the scale of n_cells / n_nodes
     # cause for each update, pi_k = prior_pi_k + \sum_n q(z_n = k)
@@ -589,7 +597,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     if delta_prior is None:
         delta_prior = delta_prior_strength * config.n_cells / config.n_nodes
     qpi = qPi(config, delta_prior=delta_prior)
-    qpi.initialize(concentration_param_init=config.n_cells / config.n_nodes)
+    # qpi.initialize(concentration_param_init=config.n_cells / config.n_nodes)
 
     if fix_tree is None:
         qt = qT(config)
