@@ -114,6 +114,7 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
     out_data = {}
     out_data['dataset-id'] = dataset_id
     out_data['K'] = true_joint.config.n_nodes
+    out_data['vK'] = victree.config.n_nodes
     out_data['M'] = true_joint.config.chain_length
     out_data['N'] = true_joint.config.n_cells
     out_data['true-ll'] = true_joint.total_log_likelihood
@@ -125,42 +126,44 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
 
     # clustering eval
     true_lab = true_joint.z.true_params['z']
-    out_data['ari'] = adjusted_rand_score(true_lab, victree.q.z.best_assignment())
-    out_data['v-meas'] = v_measure_score(true_lab, victree.q.z.best_assignment())
-    best_map = best_mapping(true_lab, victree.q.z.pi.numpy())
+    vi_lab = victree.q.z.best_assignment()
+    out_data['ari'] = adjusted_rand_score(true_lab, vi_lab)
+    out_data['v-meas'] = v_measure_score(true_lab, vi_lab)
 
     # copy number calling eval
-    true_c = true_joint.c.true_params['c'][best_map].numpy()
-    pred_c = victree.q.c.get_viterbi().numpy()
+    true_c = true_joint.c.true_params['c'][true_lab].numpy()
+    pred_c = victree.q.c.get_viterbi()[vi_lab].numpy()
     cn_mad = np.abs(pred_c - true_c).mean()
     out_data['cn-mad'] = cn_mad
 
     # tree eval
-    true_tree = tree_utils.relabel_nodes(true_joint.t.true_params['tree'], best_map)
-    mst = nx.maximum_spanning_arborescence(victree.q.t.weighted_graph)
-    intersect_edges = nx.intersection(true_tree, mst).edges
-    out_data['edge-sensitivity'] = len(intersect_edges) / len(mst.edges)
-    out_data['edge-precision'] = len(intersect_edges) / len(true_tree.edges)
+    if victree.config.n_nodes == true_joint.config.n_nodes:
+        best_map = best_mapping(true_lab, victree.q.z.pi.numpy())
+        true_tree = tree_utils.relabel_nodes(true_joint.t.true_params['tree'], best_map)
+        mst = nx.maximum_spanning_arborescence(victree.q.t.weighted_graph)
+        intersect_edges = nx.intersection(true_tree, mst).edges
+        out_data['edge-sensitivity'] = len(intersect_edges) / len(mst.edges)
+        out_data['edge-precision'] = len(intersect_edges) / len(true_tree.edges)
 
-    qt_pmf = victree.q.t.get_pmf_estimate(True, n=50)
-    true_tree_newick = tree_to_newick(true_tree)
-    mst_newick = tree_to_newick(mst)
-    out_data['qt-true'] = qt_pmf[true_tree_newick].item() if true_tree_newick in qt_pmf.keys() else 0.
-    out_data['qt-mst'] = qt_pmf[mst_newick].item() if mst_newick in qt_pmf.keys() else 0.
-    pmf_arr = np.array(list(qt_pmf.values()))
-    out_data['pt-true'] = np.nan
-    out_data['pt-mst'] = np.nan
-    if tree_enumeration:
-        try:
-            pt = victree.q.t.enumerate_trees()
-            pt_dict = {tree_to_newick(nwk): math.exp(logp) for nwk, logp in zip(pt[0], pt[1].tolist())}
-            out_data['pt-true'] = pt_dict[true_tree_newick]
-            out_data['pt-mst'] = pt_dict[mst_newick]
-        except BaseException:
-            print(traceback.format_exc())
+        qt_pmf = victree.q.t.get_pmf_estimate(True, n=50)
+        true_tree_newick = tree_to_newick(true_tree)
+        mst_newick = tree_to_newick(mst)
+        out_data['qt-true'] = qt_pmf[true_tree_newick].item() if true_tree_newick in qt_pmf.keys() else 0.
+        out_data['qt-mst'] = qt_pmf[mst_newick].item() if mst_newick in qt_pmf.keys() else 0.
+        pmf_arr = np.array(list(qt_pmf.values()))
+        out_data['pt-true'] = np.nan
+        out_data['pt-mst'] = np.nan
+        if tree_enumeration:
+            try:
+                pt = victree.q.t.enumerate_trees()
+                pt_dict = {tree_to_newick(nwk): math.exp(logp) for nwk, logp in zip(pt[0], pt[1].tolist())}
+                out_data['pt-true'] = pt_dict[true_tree_newick]
+                out_data['pt-mst'] = pt_dict[mst_newick]
+            except BaseException:
+                print(traceback.format_exc())
 
-    # normalized entropy
-    out_data['qt-entropy'] = - np.sum(pmf_arr * np.log(pmf_arr)) / np.log(pmf_arr.size)
+        # normalized entropy
+        out_data['qt-entropy'] = - np.sum(pmf_arr * np.log(pmf_arr)) / np.log(pmf_arr.size)
 
     if df is None:
         df = pd.DataFrame()
