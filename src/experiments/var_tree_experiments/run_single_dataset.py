@@ -27,7 +27,7 @@ def run_dataset(K, M, N, seed):
                                 split='ELBO',
                                 debug=True)
     victree = VICTree(config, jq, data_handler=dh, draft=True, elbo_rtol=1e-4)
-    victree.run(1)
+    victree.run(100)
 
     # save results
     results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed, tree_enumeration=n_nodes < 7)
