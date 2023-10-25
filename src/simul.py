@@ -107,7 +107,7 @@ def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, tree, obs_names: list
 def simulate_full_dataset(config: Config, eps_a=500., eps_b=50000., mu0=1., lambda0=1000.,
                           alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False,
-                          fixed_z:torch.Tensor = None, cne_length_factor: int = 0):
+                          fixed_z:torch.Tensor = None, cne_length_factor: int = 0, store_anndata=True):
     """
 Generate full simulated dataset.
     Args:
@@ -213,7 +213,7 @@ Generate full simulated dataset.
     assert obs.shape == (config.chain_length, config.n_cells)
 
     # handy anndata object
-    adata = make_anndata(obs, raw_counts, chr_df, c, z, mu, tree)
+    adata = make_anndata(obs, raw_counts, chr_df, c, z, mu, tree) if store_anndata else None
 
     out_simul = {
         'obs': obs,

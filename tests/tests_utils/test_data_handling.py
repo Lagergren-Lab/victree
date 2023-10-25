@@ -28,8 +28,7 @@ class dataHandlingTestCase(unittest.TestCase):
         # method remove nans
         cfg = Config(chain_length=chain_length_with_nans, n_cells=100)
         chr_df = simul.generate_chromosome_binning(cfg.chain_length, method='uniform', n_chr=5)
-        data = simul.simulate_full_dataset(cfg, chr_df=chr_df,
-                                           nans=True, cne_length_factor=10)
+        data = simul.simulate_full_dataset(cfg, chr_df=chr_df, nans=True, cne_length_factor=10)
         dh = DataHandler(adata=data['adata'], impute_nans='remove', config=cfg)
         # check that some bins have been correctly removed
         self.assertLess(dh.get_anndata().n_vars, chain_length_with_nans)

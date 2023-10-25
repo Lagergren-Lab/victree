@@ -50,12 +50,8 @@ class CellCNExperiment():
             a0 = 1.0
             b0 = 300.0
 
-            out = simul.simulate_full_dataset(config, fixed_z=fixed_z,
-                                              tree=tree,
-                                              mu0=nu_0,
-                                              lambda0=lambda_0, alpha0=alpha0,
-                                              beta0=beta0,
-                                              eps_a=a0, eps_b=b0, dir_delta=dir_delta0)
+            out = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=nu_0, lambda0=lambda_0, alpha0=alpha0,
+                                              beta0=beta0, dir_delta=dir_delta0, tree=tree, fixed_z=fixed_z)
             y = out['obs']
             c = out['c']
             z = out['z']
@@ -117,12 +113,8 @@ class CellCNExperiment():
 
             a0 = 5.0
             b0 = 300.0
-            out = simul.simulate_full_dataset(config, fixed_z=fixed_z,
-                                              tree=tree,
-                                              mu0=nu_0,
-                                              lambda0=lambda_0, alpha0=alpha0,
-                                              beta0=beta0,
-                                              eps_a=a0, eps_b=b0, dir_delta=dir_delta0)
+            out = simul.simulate_full_dataset(config, eps_a=a0, eps_b=b0, mu0=nu_0, lambda0=lambda_0, alpha0=alpha0,
+                                              beta0=beta0, dir_delta=dir_delta0, tree=tree, fixed_z=fixed_z)
             y = out['obs']
             c = out['c']
             z = out['z']

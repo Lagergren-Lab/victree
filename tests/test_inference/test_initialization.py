@@ -44,9 +44,8 @@ class InitTestCase(unittest.TestCase):
     # @unittest.skip("clonal init not working")
     def test_eps_init_from_data(self):
         config = Config(n_nodes=5, n_cells=300, chain_length=1000, step_size=.2, debug=True)
-        data = simulate_full_dataset(config,
-                                     eps_a=10., eps_b=4000., mu0=1., lambda0=3., alpha0=2500., beta0=50.,
-                                     cne_length_factor=200, dir_delta=10.)
+        data = simulate_full_dataset(config, eps_a=10., eps_b=4000., mu0=1., lambda0=3., alpha0=2500., beta0=50.,
+                                     dir_delta=10., cne_length_factor=200)
 
         qeps_default_init = qEpsilonMulti(config).initialize()
         qeps_data_init = qEpsilonMulti(config).initialize(method='data', obs=data['obs'])
