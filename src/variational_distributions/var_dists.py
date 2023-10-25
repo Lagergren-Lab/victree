@@ -262,7 +262,7 @@ class qC(VariationalDistribution):
         root_startprob = torch.ones(self.config.n_states)
         root_startprob[2] = skewness
         root_transmat = torch.ones((self.config.n_states, self.config.n_states))
-        root_transmat[2, :] = skewness
+        root_transmat[:, 2] = skewness
         # normalize and log-transform
         self.eta1[nodes, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
         normalized_log_transmat = root_transmat - torch.logsumexp(root_transmat, dim=-1, keepdim=True)
