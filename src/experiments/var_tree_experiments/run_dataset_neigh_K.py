@@ -20,12 +20,11 @@ def run_dataset(K, M, N, seed):
         print(f"using vK = {n_nodes}")
         n_bins = jq_true.config.chain_length
         n_cells = jq_true.config.n_cells
-        wis_sample_size = math.floor(10 * K / 6)
         config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior=(1., 20. * n_bins, 500., 50),
                                     eps_prior=(5., 1. * n_bins), delta_prior=3.,
                                     z_init='gmm', c_init='diploid', mt_init='data-size',
                                     kmeans_skewness=3,
-                                    step_size=0.3, wis_sample_size=wis_sample_size,
+                                    step_size=0.3,
                                     # sieving=(3, 3),
                                     split='ELBO',
                                     debug=True)
