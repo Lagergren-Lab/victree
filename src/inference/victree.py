@@ -510,7 +510,7 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                eps_prior: tuple | None = None, delta_prior=None,
                mt_init='data-size', z_init='gmm', c_init='diploid', delta_prior_strength=1.,
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
-               sieving=(1, 1), debug: bool = False, wis_sample_size=10,
+               sieving=(1, 1), debug: bool = False, wis_sample_size=5,
                config=None, split=None) -> (Config, JointDist, DataHandler):
     # config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior=(1., 20. * n_bins, 500., 50),
     #                             eps_prior=(5., 1. * n_bins), delta_prior=3.,
