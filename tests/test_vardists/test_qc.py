@@ -91,6 +91,7 @@ class qCTestCase(unittest.TestCase):
         print(f"Entropy random eta_2: {rand_res} - uniform eta_2: {uniform_res}")
         self.assertLess(rand_res, uniform_res)
 
+    @unittest.skip("wrong code")
     def test_cross_entropy_lower_for_random_transitions_than_deterministic_transitions(self):
         K = 3
         M = 5
@@ -103,6 +104,7 @@ class qCTestCase(unittest.TestCase):
         cross_entropy_rand = qc_1.neg_cross_entropy_arc(q_eps, 0, 1)
         print(f"Random: {cross_entropy_rand}")
         qc_2 = qC(config_1).initialize()
+        # FIXME: m goes over two cycles but only used once
         for k in range(K):
             for m in range(M - 1):
                 qc_2.eta1 = torch.log(torch.zeros(K, A) + 0.001)
