@@ -512,14 +512,6 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
                eps_init='data', step_size=0.4, kmeans_skewness=5, kmeans_layer: str | None = None,
                sieving=(1, 1), debug: bool = False, wis_sample_size=5,
                config=None, split=None) -> (Config, JointDist, DataHandler):
-    # config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior=(1., 20. * n_bins, 500., 50),
-    #                             eps_prior=(5., 1. * n_bins), delta_prior=3.,
-    #                             z_init='gmm', c_init='diploid', mt_init='data-size',
-    #                             kmeans_skewness=3,
-    #                             step_size=0.3, wis_sample_size=10,
-    #                             # sieving=(3, 3),
-    #                             split='ELBO',
-    #                             debug=True)
 
     # read tree input if present
     if fix_tree is not None:
