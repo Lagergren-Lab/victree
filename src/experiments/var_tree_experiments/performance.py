@@ -21,10 +21,15 @@ from utils.evaluation import evaluate_victree_to_df, sample_dataset_generation
 from utils.visualization_utils import plot_dataset
 
 
-def complete_database(size: int, K: list[int], M: list[int], N: list[int]):
+def complete_database(size: int, K: list[int], M: list[int], N: list[int], mut_rates: list[int] | None = None):
     datasets_path = "../sample_datasets/"
-    for k, m, n in zip(K, M, N):
-        k_dat_path = os.path.join(datasets_path, f"K{k}M{m}N{n}")
+    if mut_rates is None:
+        mut_rates = [1] * len(K)
+    for k, m, n, mr in zip(K, M, N, mut_rates):
+        param_dat_dir = f"K{k}M{m}N{n}"
+        if mr != 1:
+            param_dat_dir += f"mr{mr}"
+        k_dat_path = os.path.join(datasets_path, param_dat_dir)
         if not os.path.exists(k_dat_path):
             os.mkdir(k_dat_path)
         # extract the name of <seeds>.png files
@@ -35,7 +40,7 @@ def complete_database(size: int, K: list[int], M: list[int], N: list[int]):
             if rnd_seed in seeds:
                 continue
             set_seed(rnd_seed)
-            joint_q_true, adata = sample_dataset_generation(K=k, M=m, N=n, seed=rnd_seed)
+            joint_q_true, adata = sample_dataset_generation(K=k, M=m, N=n, seed=rnd_seed, mut_rate=mr)
             pl = plot_dataset(joint_q_true)
             pl['fig'].show()
 
@@ -51,20 +56,25 @@ def complete_database(size: int, K: list[int], M: list[int], N: list[int]):
                 ans = ''
 
 
-def sample_dataset_generator(size: int, K: list[int], M: list[int], N: list[int]):
+def sample_dataset_generator(size: int, K: list[int], M: list[int], N: list[int], mut_rates: list[int] | None = None):
     datasets_path = "../sample_datasets/"
-    for k, m, n in zip(K, M, N):
+    if mut_rates is None:
+        mut_rates = [1] * len(K)
+    for k, m, n, mr in zip(K, M, N, mut_rates):
+        param_dat_dir = f"K{k}M{m}N{n}"
+        if mr != 1:
+            param_dat_dir += f"mr{mr}"
         # extract the name of <seeds>.png files
-        seeds = [int(os.path.splitext(fn)[0]) for fn in os.listdir(os.path.join(datasets_path, f"K{k}M{m}N{n}"))]
+        seeds = [int(os.path.splitext(fn)[0]) for fn in os.listdir(os.path.join(datasets_path, param_dat_dir))]
         if len(seeds) < size:
             print("ERROR: not enough datasets, run with v flag")
             exit(1)
         for s in random.sample(seeds, size):
-            yield s, sample_dataset_generation(K=k, M=m, N=n, seed=s)
+            yield s, sample_dataset_generation(K=k, M=m, N=n, seed=s, mut_rate=mr)
 
 
 if __name__ == '__main__':
-    n_datasets = 20
+    n_datasets = 5
     # n_datasets = 1
     K_list = [
         # 6,
@@ -81,13 +91,17 @@ if __name__ == '__main__':
         600,
         # 1000
     ]
+
+    mut_rates = [
+        2,
+    ]
     # K_list = [4, 6]
     sys.argv.append('v')
 
     if len(sys.argv) > 1:
         if sys.argv[1] == 'v':
             matplotlib.use('module://backend_interagg')
-            complete_database(n_datasets, K_list, M_list, N_list)
+            complete_database(n_datasets, K_list, M_list, N_list, mut_rates=mut_rates)
             print("Database complete")
             exit(0)
 
@@ -98,7 +112,8 @@ if __name__ == '__main__':
     dat_counter = 0
     n_nodes, n_bins, n_cells = list(zip(K_list, M_list, N_list))[0]
     # load datasets
-    for dataset_id, (jq_true, ad) in sample_dataset_generator(n_datasets, K=K_list, M=M_list, N=N_list):
+    for dataset_id, (jq_true, ad) in sample_dataset_generator(n_datasets, K=K_list, M=M_list, N=N_list,
+                                                              mut_rates=mut_rates):
         # track progress on std out, reset counter when type of dataset changes
         if (jq_true.config.n_nodes, jq_true.config.chain_length, jq_true.config.n_cells) != (n_nodes, n_bins, n_cells):
             dat_counter = 0

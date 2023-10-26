@@ -177,13 +177,21 @@ def check_clone_uniqueness(cn_mat):
     return np.all(norm_mat[non_diagonal] > 0)
 
 
-def sample_dataset_generation(K=4, M=500, N=200, seed=0) -> (JointDist, anndata.AnnData):
+def sample_dataset_generation(K=4, M=500, N=200, seed=0, mut_rate: int = 1) -> (JointDist, anndata.AnnData):
+    """
+    Generate simulated data with various sizes and complexity (in terms of mutations over the whole genome)
+    Parameters
+    ----------
+    K M N: int, respectively number of nodes, number of bins and number of cells
+    seed: randomizer
+    mut_rate: int, from 1 (low) to higher values
+    """
     set_seed(seed)
     # set variance depending on size of dataset
     # eps is going to have 5 asymmetric mutations over the whole sequence
     # but in shorter sequences, variance must be lower
-    eps_a = 5 * 100 * 500 / M
-    eps_b = eps_a / 3 * M
+    eps_a = 5 * 100 * 500 / M * mut_rate
+    eps_b = eps_a / mut_rate / 3 * M
 
     dir_alpha = 2 * 1000 / N
 
