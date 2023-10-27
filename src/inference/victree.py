@@ -197,7 +197,7 @@ class VICTree:
             # keep record of previous state
             old_elbo = self.elbo
 
-            if it % self.config.save_progress_every_niter == 0 and self.config.diagnostics:
+            if it % self.config.save_progress_every_niter == 0:
                 self.write()
             if it % 10 == 0:
                 logging.debug(self.q.__str__())
