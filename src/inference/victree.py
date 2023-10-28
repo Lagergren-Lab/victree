@@ -173,7 +173,8 @@ class VICTree:
                 'elbo': self.elbo,
                 'diff': f"{rel_change * 100:.3f}%",
                 'll': f"{self.q.total_log_likelihood:.3f}",
-                'ss': self.config.step_size
+                'ss': self.config.step_size,
+                'qttemp': self.q.t.temp
             })
 
             # early-stopping
@@ -383,7 +384,8 @@ class VICTree:
             b = torch.tensor(int(n_iter * 0.2))
             d = torch.tensor(1.)
             a = torch.tensor(self.config.qT_temp)
-            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter))
+            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter),
+                                                              extend=self.config.qT_temp_extend)
             self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
 
         if self.config.qZ_temp != 1.:

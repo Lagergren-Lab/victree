@@ -866,7 +866,7 @@ class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
         super().__init__(config, true_params is not None)
 
-        self.temp = 1.0
+        self._temp = 1.0
         self._pi = torch.empty((config.n_cells, config.n_nodes))
 
         self.kmeans_labels = torch.empty(config.n_cells, dtype=torch.long)
@@ -889,6 +889,16 @@ class qZ(VariationalDistribution):
         if self.fixed:
             logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._pi[...] = pi
+
+    @property
+    def temp(self):
+        return self._temp
+
+    @temp.setter
+    def temp(self, t):
+        if isinstance(t, torch.Tensor):
+            t = t.item()
+        self._temp = t
 
     def get_params_as_dict(self):
         return {
@@ -1072,7 +1082,7 @@ class qT(VariationalDistribution):
         self._norm_method = norm_method
         self._sampling_method = sampling_method
 
-        self.temp = 1.0
+        self._temp = 1.0
 
         if true_params is not None:
             assert 'tree' in true_params
@@ -1081,6 +1091,16 @@ class qT(VariationalDistribution):
         self.params_history["weight_matrix"] = []
         self.params_history["trees_sample_newick"] = []
         self.params_history["trees_sample_weights"] = []
+
+    @property
+    def temp(self):
+        return self._temp
+
+    @temp.setter
+    def temp(self, t):
+        if isinstance(t, torch.Tensor):
+            t = t.item()
+        self._temp = t
 
     @property
     def weighted_graph(self):
