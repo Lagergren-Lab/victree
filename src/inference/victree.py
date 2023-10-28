@@ -535,12 +535,13 @@ def make_input(data: anndata.AnnData | str, cc_layer: str | None = 'copy',
     # default params
     tree_nodes = n_nodes if fix_tree is None else fix_tree.number_of_nodes()
     obs_bins, obs_cells = obs.shape
+    qT_temp = 1. if fix_tree is not None else obs_bins
 
     if config is None:
         config = Config(chain_length=obs_bins, n_cells=obs_cells, n_nodes=tree_nodes,
                         chromosome_indexes=dh.get_chr_idx(), debug=debug, step_size=step_size,
                         sieving_size=sieving[0], n_sieving_iter=sieving[1], wis_sample_size=wis_sample_size,
-                        split=split, qT_temp=obs_bins)
+                        split=split, qT_temp=qT_temp)
     else:
         config.chromosome_indexes = dh.get_chr_idx()
 
