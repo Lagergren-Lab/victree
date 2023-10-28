@@ -11,13 +11,14 @@
 #
 
 dat_path="$1"
+miss="/home/x_vitza/victree/score_res/missing_score_vk_files.txt"
 
 export PYTHONPATH=/home/x_vitza/victree/src
 source /home/x_vitza/shared/envs/victree-env/bin/activate
-for file in $(ls ${dat_path}/K*/*.png | grep -v "mr[0-9]\+" | sort -r); do
+while IFS= read -r file; do
   echo "running config $file"
-  srun --exclusive --ntasks=1 --cpus-per-task 1 --mem 8G python3 /home/x_vitza/victree/src/experiments/var_tree_experiments/run_dataset_neigh_K.py "${file}"&
-done;
+  srun --exclusive --ntasks=1 --cpus-per-task 1 --mem 8G python3 /home/x_vitza/victree/src/experiments/var_tree_experiments/run_dataset_neigh_K.py "${dat_path}${file}"&
+done < "$miss";
 
 wait
 
