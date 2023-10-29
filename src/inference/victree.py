@@ -394,7 +394,7 @@ class VICTree:
             d = torch.tensor(1.)
             c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter),
                                                               extend=self.config.temp_extend)
-            self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
+            self.q.t.temp = torch.clamp(math_utils.inverse_decay_function(it, a, b, c), min=1.)
             self.q.t.g_temp = self.q.t.temp  # g(T) temp by default set to q(T) temp
 
         if self.config.gT_temp != 1.:
@@ -403,7 +403,7 @@ class VICTree:
             d2 = torch.tensor(1.)
             c2 = math_utils.inverse_decay_function_calculate_c(a2, b2, d2, torch.tensor(n_iter),
                                                                extend=self.config.temp_extend)
-            self.q.t.g_temp = math_utils.inverse_decay_function(it, a2, b2, c2)
+            self.q.t.g_temp = torch.clamp(math_utils.inverse_decay_function(it, a2, b2, c2), 1.)
 
         if self.config.qZ_temp != 1.:
             # linear scheme: from annealing to 1 with equal steps between iterations
