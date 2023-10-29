@@ -54,16 +54,19 @@ def draw_graph(G: nx.DiGraph, to_file=None):
 
 
 def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
-                                            root: int = 0, debug: bool = False, order_method='random'):
-    # FIXME: something wrong with LArIS
+                                            root: int = 0, debug: bool = False, order_method='random', temp=1.):
     # TODO: rename to laris
     # start with empty graph (only root)
     s = nx.DiGraph()
     s.add_node(root)
     # copy graph so to remove arcs which shouldn't be considered
     # while S gets constructed
+    tempered_graph = copy.deepcopy(graph)
+    if temp != 1.:
+        for e in tempered_graph.edges:
+            tempered_graph.edges[e]['weight'] = tempered_graph.edges[e]['weight'] * (1/temp)
     skimmed_graph = copy.deepcopy(graph)
-    log_W = torch.tensor(nx.to_numpy_array(skimmed_graph))
+    log_W = torch.tensor(nx.to_numpy_array(skimmed_graph)) * (1 / temp)
     # counts how many times arborescences cannot be found
     miss_counter = 0
     log_g = 0.
@@ -71,7 +74,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
 
     while s.number_of_edges() < graph.number_of_nodes() - 1:
         # new graph with all s arcs
-        g_with_s = new_graph_with_arcs(s.edges, graph)
+        g_with_s = new_graph_with_arcs(s.edges, tempered_graph)
         num_candidates_left = len(candidate_arcs)
 
         feasible_arcs = []
@@ -83,7 +86,7 @@ def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
             try:
                 t_w = maximum_spanning_arborescence(g_w, preserve_attrs=True)
                 # save max feasible arcs
-                feasible_arcs.append((u, v, graph.edges[u, v]['weight']))
+                feasible_arcs.append((u, v, tempered_graph.edges[u, v]['weight']))
                 t_wo = maximum_spanning_arborescence(g_wo, preserve_attrs=True)
             except nx.NetworkXException as nxe:
                 # go to next arc if, once some arcs are removed, no spanning arborescence exists

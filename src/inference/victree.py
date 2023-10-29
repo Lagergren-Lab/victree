@@ -160,10 +160,10 @@ class VICTree:
             if self.config.split is not None and it % self.config.merge_and_split_interval == 0:
                 self.merge()
                 self.split()
-            self.step()
 
-            # update all the other meta-parameters
             self.set_temperature(it, n_iter)
+
+            self.step()
 
             rel_change = np.abs((self.elbo - old_elbo) / self.elbo)
 
@@ -381,12 +381,20 @@ class VICTree:
     def set_temperature(self, it, n_iter):
         if self.config.qT_temp != 1.:
             # inverse decay scheme following: f(x) = qT_temp * (x-b)**(-c)
+            a = torch.tensor(self.config.qT_temp)
             b = torch.tensor(int(n_iter * 0.2))
             d = torch.tensor(1.)
-            a = torch.tensor(self.config.qT_temp)
             c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter),
                                                               extend=self.config.qT_temp_extend)
             self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
+            self.q.t.g_temp = self.q.t.temp  # g(T) temp by default set to q(T) temp
+
+        if self.config.gT_temp != 1.:
+            a2 = torch.tensor(self.config.gT_temp)
+            b2 = torch.tensor(int(n_iter * 0.2))
+            d2 = torch.tensor(1.)
+            c2 = math_utils.inverse_decay_function_calculate_c(a2, b2, d2, torch.tensor(n_iter))
+            self.q.t.g_temp = math_utils.inverse_decay_function(it, a2, b2, c2)
 
         if self.config.qZ_temp != 1.:
             # linear scheme: from annealing to 1 with equal steps between iterations
