@@ -21,8 +21,8 @@ source /home/x_vitza/shared/envs/victree-env/bin/activate
 for file in $(ls ${dat_path}/K9*/*.png | grep -v "mr[0-9]\+" | sort -r); do
   for qtempextend in ${qtempextend_list}; do
     for gtm in ${gtm_list}; do
-      echo "running config $file with qtempext $qtempext gt mul $gtm and final step"
-      srun --exclusive --ntasks=1 --mem 6G --cpus-per-task 1 python3 /home/x_vitza/victree/src/experiments/var_tree_experiments/run_single_dataset.py "${file}" $qtempext $gtm &
+      echo "running config $file with qtempext $qtempextend gt mul $gtm and final step"
+      srun --exclusive --ntasks=1 --mem 6G --cpus-per-task 1 python3 /home/x_vitza/victree/src/experiments/var_tree_experiments/run_single_dataset.py "${file}" $qtempextend $gtm &
     done;
   done;
 done;
