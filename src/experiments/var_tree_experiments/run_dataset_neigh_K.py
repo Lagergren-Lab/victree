@@ -15,7 +15,8 @@ def run_dataset(K, M, N, seed):
     jq_true, ad = sample_dataset_generation(K, M, N, seed)
     # execute with K = trueK -1 and trueK + 1
     results_df = None
-    for n_nodes in [jq_true.config.n_nodes - 1, jq_true.config.n_nodes + 1]:
+    out_csv = os.path.join(out_path, f"score_vK2.csv")
+    for n_nodes in [jq_true.config.n_nodes - 2, jq_true.config.n_nodes + 2]:
         print(f"using vK = {n_nodes}")
         n_bins = jq_true.config.chain_length
         n_cells = jq_true.config.n_cells
@@ -33,9 +34,11 @@ def run_dataset(K, M, N, seed):
         # save results
         results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed, df=results_df,
                                             tree_enumeration=n_nodes < 7)
-    out_csv = os.path.join(out_path, f"score_vK.csv")
-    print(f"results saved in: {out_csv}")
+        results_df.to_csv(out_csv, index=False)
+        print(f"(partial) results saved in: {out_csv}")
+
     results_df.to_csv(out_csv, index=False)
+    print(f"results saved in: {out_csv}")
 
 
 if __name__ == '__main__':
