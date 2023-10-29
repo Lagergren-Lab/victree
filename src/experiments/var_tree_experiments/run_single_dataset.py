@@ -9,9 +9,6 @@ from utils.evaluation import sample_dataset_generation, evaluate_victree_to_df
 
 
 def run_dataset(K, M, N, seed, extend_qt_temp=1., gt_temp_mult=1., final_step=False):
-    out_path = f"./dat{seed}_K{K}M{M}N{N}"
-    if not os.path.exists(out_path):
-        os.mkdir(out_path)
     print(f"running dat: K {K} M {M} N {N}, dataset {seed}")
     jq_true, ad = sample_dataset_generation(K, M, N, seed)
     n_nodes = jq_true.config.n_nodes
@@ -37,6 +34,7 @@ def run_dataset(K, M, N, seed, extend_qt_temp=1., gt_temp_mult=1., final_step=Fa
     out_suff += f"gtm{gt_temp_mult}" if gt_temp_mult != 1. else ""
     out_suff += f"fs" if final_step else ""
 
+    out_path = './'
     out_csv = os.path.join(out_path, "score" + out_suff + ".csv")
     results_df['extend_temp'] = extend_qt_temp
     results_df['gt_temp_mult'] = gt_temp_mult
