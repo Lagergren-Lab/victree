@@ -31,7 +31,7 @@ def run(args):
                     step_size=args.step_size, debug=args.debug, diagnostics=args.diagnostics, out_dir=args.out_dir,
                     n_run_iter=args.n_iter, elbo_rtol=args.r_tol, chromosome_indexes=data_handler.get_chr_idx(),
                     split=args.split, merge_and_split_interval=args.merge_and_split_interval, qT_temp=args.qT_temp,
-                    qZ_temp=args.qZ_temp)
+                    gT_temp=args.gT_temp, qZ_temp=args.qZ_temp)
     logging.debug(str(config))
 
     # ---

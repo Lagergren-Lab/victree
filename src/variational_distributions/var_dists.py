@@ -1073,6 +1073,7 @@ class qT(VariationalDistribution):
         self._sampling_method = sampling_method
 
         self.temp = 1.0
+        self.g_temp = 1.0
 
         if true_params is not None:
             assert 'tree' in true_params
@@ -1308,7 +1309,8 @@ Sample trees from q(T) with importance sampling.
 
         elif alg == "laris":
             for i in range(l):
-                t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph)
+                log_g_relative_temp = (self.g_temp / self.temp)
+                t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph, temp=log_g_relative_temp)
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
                 log_weights[i] = log_q - log_g
