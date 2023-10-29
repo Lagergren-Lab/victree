@@ -385,7 +385,7 @@ class VICTree:
             b = torch.tensor(int(n_iter * 0.2))
             d = torch.tensor(1.)
             c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter),
-                                                              extend=self.config.qT_temp_extend)
+                                                              extend=self.config.temp_extend)
             self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
             self.q.t.g_temp = self.q.t.temp  # g(T) temp by default set to q(T) temp
 
@@ -393,7 +393,8 @@ class VICTree:
             a2 = torch.tensor(self.config.gT_temp)
             b2 = torch.tensor(int(n_iter * 0.2))
             d2 = torch.tensor(1.)
-            c2 = math_utils.inverse_decay_function_calculate_c(a2, b2, d2, torch.tensor(n_iter))
+            c2 = math_utils.inverse_decay_function_calculate_c(a2, b2, d2, torch.tensor(n_iter),
+                                                               extend=self.config.temp_extend)
             self.q.t.g_temp = math_utils.inverse_decay_function(it, a2, b2, c2)
 
         if self.config.qZ_temp != 1.:
