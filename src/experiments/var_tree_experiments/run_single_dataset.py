@@ -9,7 +9,8 @@ from utils.evaluation import sample_dataset_generation, evaluate_victree_to_df
 
 
 def run_dataset(K, M, N, seed, extend_qt_temp=1.):
-    out_path = f"./dat{seed}_K{K}M{M}N{N}"
+    out_suff = f"temp{extend_qt_temp}" if extend_qt_temp != 1. else ""
+    out_path = f"./dat{seed}_K{K}M{M}N{N}" + out_suff
     if not os.path.exists(out_path):
         os.mkdir(out_path)
     print(f"running dat: K {K} M {M} N {N}, dataset {seed}")
@@ -32,8 +33,9 @@ def run_dataset(K, M, N, seed, extend_qt_temp=1.):
     # save results
     results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed, tree_enumeration=n_nodes < 7)
     out_csv = os.path.join(out_path, "score.csv")
-    print(f"results saved in: {out_csv}")
+    results_df['extend_temp'] = extend_qt_temp
     results_df.to_csv(out_csv, index=False)
+    print(f"results saved in: {out_csv}")
 
 
 if __name__ == '__main__':
