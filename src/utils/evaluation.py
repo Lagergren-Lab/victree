@@ -11,6 +11,7 @@ import math
 
 from sklearn.metrics import adjusted_rand_score, v_measure_score
 
+import utils.tree_utils
 from simul import generate_dataset_var_tree
 from utils import tree_utils
 from utils.config import set_seed, Config
@@ -123,6 +124,20 @@ def best_vi_map(vi_z, ref_vi_z):
     return best_perm
 
 
+def compute_edge_precision_nwk(true_tree_newick, t_nwk):
+    true_tree = utils.tree_utils.parse_newick(true_tree_newick)
+    tree = utils.tree_utils.parse_newick(t_nwk)
+    intersect_edges = nx.intersection(true_tree, tree).edges
+    return len(intersect_edges) / len(true_tree.edges)
+
+
+def compute_edge_sensitivity_nwk(true_tree_newick, t_nwk):
+    true_tree = utils.tree_utils.parse_newick(true_tree_newick)
+    tree = utils.tree_utils.parse_newick(t_nwk)
+    intersect_edges = nx.intersection(true_tree, tree).edges
+    return len(intersect_edges) / len(tree.edges)
+
+
 def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumeration=False):
     """
     Appends evaluation info
@@ -168,11 +183,19 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
         true_tree = tree_utils.relabel_nodes(true_joint.t.true_params['tree'], best_map)
         mst = nx.maximum_spanning_arborescence(victree.q.t.weighted_graph)
         intersect_edges = nx.intersection(true_tree, mst).edges
+        # MST edge precision and sensitivity
         out_data['edge_sensitivity'] = len(intersect_edges) / len(mst.edges)
         out_data['edge_precision'] = len(intersect_edges) / len(true_tree.edges)
 
         qt_pmf = victree.q.t.get_pmf_estimate(True, n=100, desc_sorted=True)
         true_tree_newick = tree_to_newick(true_tree)
+        # compute weighted edge precision
+        avg_edge_precision = 0.
+        for t_nwk, p in qt_pmf.items():
+            avg_edge_precision += p * compute_edge_precision_nwk(true_tree_newick, t_nwk)
+        out_data['avg_edge_precision'] = avg_edge_precision
+
+        # compute support and rank of qT
         mst_newick = tree_to_newick(mst)
         out_data['qt_support'] = len(qt_pmf.keys())
         out_data['qt_true_rank'] = -1

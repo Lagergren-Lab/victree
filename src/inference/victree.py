@@ -100,7 +100,7 @@ class VICTree:
     def data_handler(self):
         return self._data_handler
 
-    def run(self, n_iter=-1, args=None):
+    def run(self, n_iter=-1, args=None, final_step=False):
         """
         Set-up diagnostics, run sieving and perform VI steps, checking elbo for early-stopping.
         Parameters
@@ -205,6 +205,14 @@ class VICTree:
 
         if not convergence:
             logging.warning(f"run did not converge, increase max iterations")
+
+        # run one more full step by fixing temperature to 1
+        if final_step:
+            logging.debug(f"running final full step with no tempering")
+            self.q.t.temp = self.q.t.g_temp = self.q.z.temp = 1.
+            self.config.step_size = 1.
+            self.q.update(self.it_counter, sample_size=100)
+
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
