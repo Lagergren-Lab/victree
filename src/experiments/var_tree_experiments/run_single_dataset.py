@@ -8,7 +8,7 @@ from inference.victree import make_input, VICTree
 from utils.evaluation import sample_dataset_generation, evaluate_victree_to_df
 
 
-def run_dataset(K, M, N, seed):
+def run_dataset(K, M, N, seed, extend_qt_temp=1.):
     out_path = f"./dat{seed}_K{K}M{M}N{N}"
     if not os.path.exists(out_path):
         os.mkdir(out_path)
@@ -25,6 +25,7 @@ def run_dataset(K, M, N, seed):
                                 # sieving=(3, 3),
                                 split='ELBO',
                                 debug=True)
+    config.qT_temp_extend = extend_qt_temp
     victree = VICTree(config, jq, data_handler=dh, draft=True, elbo_rtol=1e-4)
     victree.run(100)
 
@@ -38,7 +39,11 @@ def run_dataset(K, M, N, seed):
 if __name__ == '__main__':
     # read dataset path
     dat_path = sys.argv[1]
+    qt_temp_extend = 1.
+    if len(sys.argv) > 2:
+        qt_temp_extend = float(sys.argv[2])
+        print(f"setting qt temp extend to {qt_temp_extend}")
     params_re = re.compile(r'^.*/K(?P<K>\d+)M(?P<M>\d+)N(?P<N>\d+)/(?P<seed>\d+)\.png$')
     re_match = params_re.match(dat_path)
     run_dataset(int(re_match.group('K')), int(re_match.group('M')), int(re_match.group('N')),
-                int(re_match.group('seed')))
+                int(re_match.group('seed')), extend_qt_temp=qt_temp_extend)

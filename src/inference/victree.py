@@ -165,8 +165,6 @@ class VICTree:
 
             self.step()
 
-
-
             rel_change = np.abs((self.elbo - old_elbo) / self.elbo)
 
             # progress bar showing elbo
@@ -175,7 +173,8 @@ class VICTree:
                 'elbo': self.elbo,
                 'diff': f"{rel_change * 100:.3f}%",
                 'll': f"{self.q.total_log_likelihood:.3f}",
-                'ss': self.config.step_size
+                'ss': self.config.step_size,
+                'qttemp': self.q.t.temp
             })
 
             # early-stopping
@@ -385,7 +384,8 @@ class VICTree:
             a = torch.tensor(self.config.qT_temp)
             b = torch.tensor(int(n_iter * 0.2))
             d = torch.tensor(1.)
-            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter))
+            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter),
+                                                              extend=self.config.qT_temp_extend)
             self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
             self.q.t.g_temp = self.q.t.temp  # g(T) temp by default set to q(T) temp
 
