@@ -188,13 +188,13 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
         out_data['edge_sensitivity'] = len(intersect_edges) / len(mst.edges)
         out_data['edge_precision'] = len(intersect_edges) / len(true_tree.edges)
 
-        qt_pmf = victree.q.t.get_pmf_estimate(True, n=100, desc_sorted=True)
+        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, n=100, desc_sorted=True)
         true_tree_newick = tree_to_newick(true_tree)
         # compute weighted edge precision
         avg_edge_precision = 0.
         for t_nwk, p in qt_pmf.items():
             avg_edge_precision += p * compute_edge_precision_nwk(true_tree_newick, t_nwk)
-        out_data['avg_edge_precision'] = avg_edge_precision
+        out_data['avg_edge_precision'] = avg_edge_precision.item()
 
         # compute support and rank of qT
         mst_newick = tree_to_newick(mst)
