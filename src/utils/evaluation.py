@@ -1,5 +1,6 @@
 import itertools
 import traceback
+from io import StringIO
 
 import anndata
 import networkx as nx
@@ -125,8 +126,8 @@ def best_vi_map(vi_z, ref_vi_z):
 
 
 def compute_edge_precision_nwk(true_tree_newick, t_nwk):
-    true_tree = utils.tree_utils.parse_newick(true_tree_newick)
-    tree = utils.tree_utils.parse_newick(t_nwk)
+    true_tree = utils.tree_utils.parse_newick(StringIO(true_tree_newick))
+    tree = utils.tree_utils.parse_newick(StringIO(t_nwk))
     intersect_edges = nx.intersection(true_tree, tree).edges
     return len(intersect_edges) / len(true_tree.edges)
 
