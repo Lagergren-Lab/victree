@@ -36,7 +36,7 @@ class Config:
                  qT_temp=1., qT_temp_extend = 1.,
                  gT_temp=1.,
                  qZ_temp=1.) -> None:
-        self.qT_temp_extend = qT_temp_extend
+        self.temp_extend = qT_temp_extend
         self.qZ_temp = qZ_temp
         self.qT_temp = qT_temp
         self.gT_temp = gT_temp

@@ -26,7 +26,7 @@ def run_dataset(K, M, N, seed, extend_qt_temp=1.):
                                 # sieving=(3, 3),
                                 split='ELBO',
                                 debug=True)
-    config.qT_temp_extend = extend_qt_temp
+    config.temp_extend = extend_qt_temp
     victree = VICTree(config, jq, data_handler=dh, draft=True, elbo_rtol=1e-4)
     victree.run(100)
 
