@@ -2,7 +2,7 @@
 #
 #SBATCH -J vic3gtempK9
 #SBATCH -A naiss2023-5-290
-#SBATCH -t 10:00:00
+#SBATCH -t 5:00:00
 #SBATCH --mem 240G
 #SBATCH --ntasks 40
 #SBATCH --cpus-per-task 1

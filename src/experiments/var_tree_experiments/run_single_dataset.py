@@ -33,6 +33,7 @@ def run_dataset(K, M, N, seed, extend_qt_temp=1., gt_temp_mult=1., final_step=Fa
     out_suff = f"temp{extend_qt_temp}" if extend_qt_temp != 1. else ""
     out_suff += f"gtm{gt_temp_mult}" if gt_temp_mult != 1. else ""
     out_suff += f"fs" if final_step else ""
+    out_suff += f"d{seed}"
 
     out_path = './'
     out_csv = os.path.join(out_path, "score" + out_suff + ".csv")
