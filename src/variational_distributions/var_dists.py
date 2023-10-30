@@ -1422,7 +1422,7 @@ of the variational distribution over the topology.
 
         return os.linesep.join(summary)
 
-    def get_pmf_estimate(self, normalized: bool = False, n: int = 0, desc_sorted: bool = False) -> dict:
+    def get_pmf_estimate(self, normalized: bool = False, n: int = 0, desc_sorted: bool = False, **kwargs) -> dict:
         """
         Returns
         -------
@@ -1431,7 +1431,7 @@ of the variational distribution over the topology.
         qdist = {}
         trees, log_w_t = self.nx_trees_sample, self.log_w_t
         if n > 0:
-            trees, log_w_t_list = self.get_trees_sample(sample_size=n, log_scale=True)
+            trees, log_w_t_list = self.get_trees_sample(sample_size=n, log_scale=True, **kwargs)
             log_w_t = torch.tensor(log_w_t_list)
         for t, log_w in zip(trees, log_w_t):
             # build a pmf from the sample by summing up the importance weights
