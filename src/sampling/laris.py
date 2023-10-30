@@ -54,7 +54,8 @@ def draw_graph(G: nx.DiGraph, to_file=None):
 
 
 def sample_arborescence_from_weighted_graph(graph: nx.DiGraph,
-                                            root: int = 0, debug: bool = False, order_method='random', temp=1.):
+                                            root: int = 0, debug: bool = False, order_method='random',
+                                            temp=1.):
     # TODO: rename to laris
     # start with empty graph (only root)
     s = nx.DiGraph()

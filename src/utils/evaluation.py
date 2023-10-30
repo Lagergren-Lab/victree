@@ -139,7 +139,8 @@ def compute_edge_sensitivity_nwk(true_tree_newick, t_nwk):
     return len(intersect_edges) / len(tree.edges)
 
 
-def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumeration=False):
+def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumeration=False,
+                           sampling_relative_temp=1.):
     """
     Appends evaluation info
     Parameters
@@ -188,7 +189,8 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
         out_data['edge_sensitivity'] = len(intersect_edges) / len(mst.edges)
         out_data['edge_precision'] = len(intersect_edges) / len(true_tree.edges)
 
-        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, n=100, desc_sorted=True)
+        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, n=100, desc_sorted=True,
+                                              log_g_relative_temp=sampling_relative_temp)
         true_tree_newick = tree_to_newick(true_tree)
         # compute weighted edge precision
         avg_edge_precision = 0.
