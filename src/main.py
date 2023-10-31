@@ -146,6 +146,7 @@ if __name__ == '__main__':
                         help="specify how to deal with NaNs in the data, can be [`ignore`, `remove`],"
                              " defaults to `ignore`")
     parser.add_argument("--qT-temp", default=1., type=float, help="Anneal the qT distribution from qT-temp to 1.")
+    parser.add_argument("--gT-temp", default=1., type=float, help="Anneal the gT distribution from gT-temp to 1.")
     parser.add_argument("--qZ-temp", default=1., type=float, help="Anneal the qZ distribution from qZ-temp to 1.")
 
     # parser.add_argument("--tmc-num-samples", default=10, type=int)

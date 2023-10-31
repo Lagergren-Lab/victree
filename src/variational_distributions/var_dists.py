@@ -262,7 +262,7 @@ class qC(VariationalDistribution):
         root_startprob = torch.ones(self.config.n_states)
         root_startprob[2] = skewness
         root_transmat = torch.ones((self.config.n_states, self.config.n_states))
-        root_transmat[2, :] = skewness
+        root_transmat[:, 2] = skewness
         # normalize and log-transform
         self.eta1[nodes, :] = root_startprob - torch.logsumexp(root_startprob, dim=-1, keepdim=True)
         normalized_log_transmat = root_transmat - torch.logsumexp(root_transmat, dim=-1, keepdim=True)
@@ -866,7 +866,7 @@ class qZ(VariationalDistribution):
     def __init__(self, config: Config, true_params=None):
         super().__init__(config, true_params is not None)
 
-        self.temp = 1.0
+        self._temp = 1.0
         self._pi = torch.empty((config.n_cells, config.n_nodes))
 
         self.kmeans_labels = torch.empty(config.n_cells, dtype=torch.long)
@@ -889,6 +889,16 @@ class qZ(VariationalDistribution):
         if self.fixed:
             logging.warning('Trying to re-set qc attribute when it should be fixed')
         self._pi[...] = pi
+
+    @property
+    def temp(self):
+        return self._temp
+
+    @temp.setter
+    def temp(self, t):
+        if isinstance(t, torch.Tensor):
+            t = t.item()
+        self._temp = t
 
     def get_params_as_dict(self):
         return {
@@ -1072,7 +1082,8 @@ class qT(VariationalDistribution):
         self._norm_method = norm_method
         self._sampling_method = sampling_method
 
-        self.temp = 1.0
+        self._temp = 1.0
+        self.g_temp = 1.0
 
         if true_params is not None:
             assert 'tree' in true_params
@@ -1081,6 +1092,16 @@ class qT(VariationalDistribution):
         self.params_history["weight_matrix"] = []
         self.params_history["trees_sample_newick"] = []
         self.params_history["trees_sample_weights"] = []
+
+    @property
+    def temp(self):
+        return self._temp
+
+    @temp.setter
+    def temp(self, t):
+        if isinstance(t, torch.Tensor):
+            t = t.item()
+        self._temp = t
 
     @property
     def weighted_graph(self):
@@ -1308,7 +1329,8 @@ Sample trees from q(T) with importance sampling.
 
         elif alg == "laris":
             for i in range(l):
-                t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph)
+                log_g_relative_temp = (self.g_temp / self.temp)
+                t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph, temp=log_g_relative_temp)
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)
                 log_weights[i] = log_q - log_g
@@ -1400,7 +1422,7 @@ of the variational distribution over the topology.
 
         return os.linesep.join(summary)
 
-    def get_pmf_estimate(self, normalized: bool = False, n: int = 0, desc_sorted: bool = False) -> dict:
+    def get_pmf_estimate(self, normalized: bool = False, n: int = 0, desc_sorted: bool = False, **kwargs) -> dict:
         """
         Returns
         -------
@@ -1409,7 +1431,7 @@ of the variational distribution over the topology.
         qdist = {}
         trees, log_w_t = self.nx_trees_sample, self.log_w_t
         if n > 0:
-            trees, log_w_t_list = self.get_trees_sample(sample_size=n, log_scale=True)
+            trees, log_w_t_list = self.get_trees_sample(sample_size=n, log_scale=True, **kwargs)
             log_w_t = torch.tensor(log_w_t_list)
         for t, log_w in zip(trees, log_w_t):
             # build a pmf from the sample by summing up the importance weights
