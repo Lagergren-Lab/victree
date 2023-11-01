@@ -181,6 +181,7 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
     # tree eval
     if victree.config.n_nodes == true_joint.config.n_nodes:
         best_map = best_mapping(true_lab, victree.q.z.pi.numpy())
+        print(best_map)
         true_tree = tree_utils.relabel_nodes(true_joint.t.true_params['tree'], best_map)
         mst = nx.maximum_spanning_arborescence(victree.q.t.weighted_graph)
         intersect_edges = nx.intersection(true_tree, mst).edges
