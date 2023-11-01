@@ -1,0 +1,2 @@
+dataset_id,K,vK,M,N,true_ll,vi_ll,vi_diff,elbo,iters,time,ari,v_meas,cn_mad,edge_sensitivity,edge_precision,avg_edge_precision,qt_support,qt_true_rank,qt_true,qt_mst,pt_true,pt_mst,qt_entropy,extend_temp,gt_temp_mult,final_step
+9979,6,6,1014,300,-80230.4609375,-80708.734375,478.2734375,-82006.3671875,59,163.7165756225586,1.0,1.0,0.0,0.2,0.2,0.12399999797344208,8,-1,0.0,0.17999999225139618,2.570642501229093e-84,0.1561018814120466,0.982399986189139,1.3,2.0,1
