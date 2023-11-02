@@ -198,7 +198,7 @@ class VICTree:
             # keep record of previous state
             old_elbo = self.elbo
 
-            if it % self.config.save_progress_every_niter == 0 and self.config.diagnostics:
+            if it % self.config.save_progress_every_niter == 0:
                 self.write()
             if it % 10 == 0:
                 logging.debug(self.q.__str__())
@@ -211,7 +211,7 @@ class VICTree:
             logging.debug(f"running final full step with no tempering")
             self.q.t.temp = self.q.t.g_temp = self.q.z.temp = 1.
             self.config.step_size = 1.
-            self.q.update(self.it_counter, sample_size=100)
+            self.q.update(self.it_counter)
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
