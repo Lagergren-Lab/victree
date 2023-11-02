@@ -65,7 +65,7 @@ def run(args):
     victree = VICTree(config, joint_q, obs, data_handler=data_handler)
 
     logging.info('start inference')
-    victree.run(args=args)
+    victree.run(args=args, final_step=True)
 
     # ---
     # Save output to H5

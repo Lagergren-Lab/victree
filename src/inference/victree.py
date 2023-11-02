@@ -211,7 +211,7 @@ class VICTree:
             logging.debug(f"running final full step with no tempering")
             self.q.t.temp = self.q.t.g_temp = self.q.z.temp = 1.
             self.config.step_size = 1.
-            self.q.update(self.it_counter, sample_size=100)
+            self.q.update(self.it_counter)
 
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
