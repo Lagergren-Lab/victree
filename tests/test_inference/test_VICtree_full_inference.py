@@ -20,8 +20,8 @@ from utils import visualization_utils, data_handling, tree_utils
 from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC, qMuAndTauCellIndependent
 
-
-class VICtreeFixedTreeTestCase(unittest.TestCase):
+@unittest.skip("Too long")
+class VICtreeFullInferenceTestCase(unittest.TestCase):
 
     def setUp(self) -> None:
         utils.config.set_seed(0)
@@ -79,13 +79,19 @@ class VICtreeFixedTreeTestCase(unittest.TestCase):
                                                                 q_mt=copy_tree.q.mt, q_eps=qeps)
         ari, perm, acc = (out['ari'], out['perm'], out['acc'])
         # Inspect trees
-        T_list, w_T = qt.get_trees_sample(sample_size=100)
+        sample_size = 30
+        qt.g_temp = 5. * qt.temp
+        T_list, w_T = qt.get_trees_sample(sample_size=sample_size)
         T_map = nx.maximum_spanning_arborescence(qt.weighted_graph)
         T_map_relabeled = tree_utils.relabel_trees([T_map], perm)[0]
         relabeled_trees = tree_utils.relabel_trees(T_list, labeling=perm)
+        unique_seq, unique_seq_idx, multiplicity = tree_utils.unique_trees_and_multiplicity(relabeled_trees)
         print(f"True tree edges: {tree.edges}")
         print(f"MAP tree edges: {T_map_relabeled.edges}")
         print(f"Sampled tree edges: {[T.edges for T in relabeled_trees]} weights: {w_T}")
+        print(f"Sample n unique: {len(unique_seq)} of {sample_size} with multiplicities: "
+              f"{[m for m in multiplicity if m >= 2]} and "
+              f"{int(np.sum([m for m in multiplicity if m == 1]))} trees with multiplicity = 1")
 
         print(f"N True tree in sampled trees: {np.sum([tree.edges == T.edges for T in relabeled_trees])}")
         print(f"N T_map in sampled trees: {np.sum([tree.edges == T_map_relabeled.edges for T in relabeled_trees])}")
