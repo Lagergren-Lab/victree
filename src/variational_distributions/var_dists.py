@@ -1289,7 +1289,7 @@ other elbos such as qC.
 
     def get_trees_sample(self, alg: str | None = None, sample_size: int = None,
                          torch_tensor: bool = False, log_scale: bool = False,
-                         add_log_g=False) -> (list, list | torch.Tensor):
+                         add_log_g=False, **kwargs) -> (list, list | torch.Tensor):
         """
 Sample trees from q(T) with importance sampling.
         Args:
@@ -1330,6 +1330,8 @@ Sample trees from q(T) with importance sampling.
         elif alg == "laris":
             for i in range(l):
                 log_g_relative_temp = (self.g_temp / self.temp)
+                if 'log_g_relative_temp' in kwargs.keys():
+                    log_g_relative_temp = kwargs['log_g_relative_temp']
                 t, log_g = sample_arborescence_from_weighted_graph(self.weighted_graph, temp=log_g_relative_temp)
                 trees.append(t)
                 log_q = t.size(weight='weight')  # unnormalized q(T)

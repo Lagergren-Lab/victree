@@ -28,7 +28,7 @@ def gen_data(K, M, N, seed):
     return jq_true, ad
 
 
-def run_dataset(jq_true, ad, extend_qt_temp=1., gt_temp_mult=1.):
+def run_dataset(n_iter, jq_true, ad, extend_qt_temp=1., gt_temp_mult=1.):
     n_nodes = jq_true.config.n_nodes
     n_bins = jq_true.config.chain_length
     config, jq, dh = make_input(ad, n_nodes=n_nodes, mt_prior=(1., 20. * n_bins, 500., 50),
@@ -40,7 +40,7 @@ def run_dataset(jq_true, ad, extend_qt_temp=1., gt_temp_mult=1.):
     config.gT_temp = gt_temp_mult * config.qT_temp
     config.temp_extend = extend_qt_temp
     victree = VICTree(config, jq, data_handler=dh, draft=True, elbo_rtol=1e-4)
-    victree.run(100, final_step=True)
+    victree.run(n_iter, final_step=True)
     return victree
 
 
@@ -75,9 +75,13 @@ if __name__ == '__main__':
     extend_qt_temp = 0.8
     gt_temp_mult = 1.3
     final_temps = [1.]
+    n_iter = 100
     if len(sys.argv) > 2:
         final_temps = list(map(float, sys.argv[2].split(',')))
         print(f"setting final gt/qt temp to {final_temps}")
+    if len(sys.argv) > 3:
+        n_iter = int(sys.argv[3])
+        print(f"changing max_iter to {n_iter}")
 
     params_re = re.compile(r'^.*/K(?P<K>\d+)M(?P<M>\d+)N(?P<N>\d+)/(?P<seed>\d+)\.png$')
     re_match = params_re.match(dat_path)
@@ -89,6 +93,6 @@ if __name__ == '__main__':
 
     jq_true, ad = gen_data(K, M, N, seed)
     print("inference started")
-    victree = run_dataset(jq_true, ad, extend_qt_temp=extend_qt_temp, gt_temp_mult=gt_temp_mult)
+    victree = run_dataset(n_iter, jq_true, ad, extend_qt_temp=extend_qt_temp, gt_temp_mult=gt_temp_mult)
     print("inference finished\ncomputing scores...")
     compute_scores(jq_true, victree, seed, final_temps)
