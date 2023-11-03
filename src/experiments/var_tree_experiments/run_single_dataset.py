@@ -27,7 +27,8 @@ def run_dataset(K, M, N, seed, extend_qt_temp=1., gt_temp_mult=1., final_step=Fa
     victree.run(100, final_step=final_step)
 
     # save results
-    results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed, tree_enumeration=n_nodes < 7)
+    results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed, tree_enumeration=n_nodes < 7,
+                                        sampling_relative_temp=2.0)
 
     out_suff = f"temp{extend_qt_temp}" if extend_qt_temp != 1. else ""
     out_suff += f"gtm{gt_temp_mult}" if gt_temp_mult != 1. else ""

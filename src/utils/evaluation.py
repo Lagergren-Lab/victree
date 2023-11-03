@@ -182,14 +182,19 @@ def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumer
     # tree eval
     if victree.config.n_nodes == true_joint.config.n_nodes:
         best_map = best_mapping(true_lab, victree.q.z.pi.numpy())
-        true_tree = tree_utils.relabel_nodes(true_joint.t.true_params['tree'], best_map)
+        print(f"mapping: {best_map}")
+        print(f"original true tree: {tree_to_newick(true_joint.t.true_params['tree'])}")
+        true_tree = nx.relabel_nodes(true_joint.t.true_params['tree'], {o: i for i, o in enumerate(best_map)})
+        print(f"relabeled true tree: {tree_to_newick(true_tree)}")
         mst = nx.maximum_spanning_arborescence(victree.q.t.weighted_graph)
+        print(f"mst: {tree_to_newick(mst)}")
         intersect_edges = nx.intersection(true_tree, mst).edges
         # MST edge precision and sensitivity
         out_data['edge_sensitivity'] = len(intersect_edges) / len(mst.edges)
         out_data['edge_precision'] = len(intersect_edges) / len(true_tree.edges)
+        print(f"edge precision: {out_data['edge_precision']}")
 
-        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, n=100, desc_sorted=True,
+        qt_pmf = victree.q.t.get_pmf_estimate(normalized=True, n=20, desc_sorted=True,
                                               log_g_relative_temp=sampling_relative_temp)
         true_tree_newick = tree_to_newick(true_tree)
         # compute weighted edge precision
