@@ -139,12 +139,12 @@ class VarTreeJointDist(JointDist):
         # TODO: if needed, specify an ordering
         return [self.t, self.c, self.eps, self.pi, self.z, self.mt]
 
-    def update(self, it=0):
+    def update(self, it=0, sample_size: int | None = None):
         """
         Joint distribution update: update every variational unit in a predefined order.
         """
         self.t.update(self.c, self.eps)
-        trees, weights = self.t.get_trees_sample()
+        trees, weights = self.t.get_trees_sample(sample_size=sample_size)
         self.mt.update(self.c, self.z, self.obs)
         self.z.update(self.mt, self.c, self.pi, self.obs)
         smoothing = self.config.qc_smoothing and it > int(self.config.n_run_iter / 10 * 6)
