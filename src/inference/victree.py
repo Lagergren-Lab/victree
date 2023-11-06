@@ -50,6 +50,7 @@ class VICTree:
 
         self.config = config
         self.q = q
+        self.is_var_tree = isinstance(q, VarTreeJointDist)
         self.obs = obs
         self._draft = draft  # if true, does not save output on file
 
@@ -139,7 +140,6 @@ class VICTree:
             logging.info(f"ELBO before sieving: {self.elbo:.2f}")
 
             # run inference on separate initialization of copytree and select the best one
-            # TODO: add initialization parameters
             # self.sieve(ktop=3)
             self.halve_sieve(z_init=z_init, obs=self.obs)
             logging.info(f"ELBO after sieving: {self.elbo:.2f}")
@@ -174,7 +174,7 @@ class VICTree:
                 'diff': f"{rel_change * 100:.3f}%",
                 'll': f"{self.q.total_log_likelihood:.3f}",
                 'ss': self.config.step_size,
-                'qttemp': self.q.t.temp
+                'qttemp': self.q.t.temp if self.is_var_tree else np.nan
             })
 
             # early-stopping
@@ -207,7 +207,7 @@ class VICTree:
             logging.warning(f"run did not converge, increase max iterations")
 
         # run one more full step by fixing temperature to 1
-        if final_step:
+        if final_step and self.is_var_tree:
             logging.debug(f"running final full step with no tempering")
             self.q.t.temp = self.q.t.g_temp = self.q.z.temp = 1.
             self.config.step_size = 1.
@@ -357,7 +357,7 @@ class VICTree:
         -------
         elbo, float
         """
-        if type(self.q) is VarTreeJointDist:
+        if self.is_var_tree:
             # evaluate elbo with tree samples from the tree variational distribution
             T_eval, w_T_eval = self.q.t.get_trees_sample()
             self.elbo = self.q.compute_elbo(T_eval, w_T_eval)
@@ -387,7 +387,7 @@ class VICTree:
         self.elbo = self.q.elbo
 
     def set_temperature(self, it, n_iter):
-        if self.config.qT_temp != 1.:
+        if self.is_var_tree and self.config.qT_temp != 1.:
             # inverse decay scheme following: f(x) = qT_temp * (x-b)**(-c)
             a = torch.tensor(self.config.qT_temp)
             b = torch.tensor(int(n_iter * 0.2))
@@ -397,7 +397,7 @@ class VICTree:
             self.q.t.temp = torch.clamp(math_utils.inverse_decay_function(it, a, b, c), min=1.)
             self.q.t.g_temp = self.q.t.temp  # g(T) temp by default set to q(T) temp
 
-        if self.config.gT_temp != 1.:
+        if self.is_var_tree and self.config.gT_temp != 1.:
             a2 = torch.tensor(self.config.gT_temp)
             b2 = torch.tensor(int(n_iter * 0.2))
             d2 = torch.tensor(1.)
@@ -486,7 +486,7 @@ class VICTree:
             logging.debug(f"diagnostics saved in {path}")
 
     def split(self):
-        if type(self.q) == FixedTreeJointDist:
+        if not self.is_var_tree:
             trees = [self.q.T]
             tree_weights = self.q.w_T
         else:
@@ -504,7 +504,7 @@ class VICTree:
         if self.it_counter < 5:  # Don't merge too early
             logging.debug(f"Merge skipped until iteration 5.")
             return
-        if type(self.q) == FixedTreeJointDist:
+        if not self.is_var_tree:
             trees = [self.q.T]
             tree_weights = self.q.w_T
         else:

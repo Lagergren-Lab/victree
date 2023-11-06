@@ -416,7 +416,7 @@ class updatesTestCase(unittest.TestCase):
 
     def test_update_all(self):
         config = Config(n_nodes=5, n_states=7, n_cells=200, chain_length=500,
-                        wis_sample_size=50, step_size=.1,
+                        wis_sample_size=50, step_size=.3,
                         debug=True)
         true_joint_q = generate_dataset_var_tree(config, eps_a=200., eps_b=20000., dir_alpha=3.,
                                                  lambda_prior=1000., alpha_prior=500., beta_prior=50.,
@@ -457,8 +457,10 @@ class updatesTestCase(unittest.TestCase):
         print("--- EVALUATION --- ")
         for k, v in res_df.to_dict().items():
             print(f"{k}: {v}")
+        self.assertGreater(res_df['avg_edge_precision'], 0.75, "tree inference not successfull"
+                                                               "without split-merge")
 
-        sample_size = 100
+        sample_size = 20
         t_pmf: dict = joint_q.t.get_pmf_estimate(normalized=True, n=sample_size, desc_sorted=True)
         print(t_pmf)
         # NOTE: copy number is not very accurate and tree sampling is not exact, but still some
