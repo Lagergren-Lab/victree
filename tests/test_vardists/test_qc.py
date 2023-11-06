@@ -92,7 +92,7 @@ class qCTestCase(unittest.TestCase):
         self.assertLess(rand_res, uniform_res)
 
     @unittest.skip("wrong code")
-    def test_cross_entropy_lower_for_random_transitions_than_deterministic_transitions(self):
+    def test_cross_entropy_lower_for_random_transitions_than_no_transitions_for_small_epsilon(self):
         K = 3
         M = 5
         N = 2
@@ -100,7 +100,7 @@ class qCTestCase(unittest.TestCase):
         config_1 = Config(n_nodes=K, n_states=A, n_cells=N, chain_length=M)
         qc_1 = qC(config_1)
         qc_1.initialize()
-        q_eps = qEpsilonMulti(config_1).initialize()
+        q_eps = qEpsilonMulti(config_1).initialize('non-mutation')
         cross_entropy_rand = qc_1.neg_cross_entropy_arc(q_eps, 0, 1)
         print(f"Random: {cross_entropy_rand}")
         qc_2 = qC(config_1).initialize()

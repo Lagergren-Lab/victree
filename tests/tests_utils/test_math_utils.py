@@ -54,22 +54,23 @@ class MathUtilsTestCase(unittest.TestCase):
 
         self.assertAlmostEqual(d, y[-1], delta=0.01)
 
-        @unittest.skip("Plotting test")
-        def test_inverse_decay_function_as_tempering_scheme(self):
-            """
-            Manual check of the decay function for different values. Matplotlib backend set to run in Pycharm.
-            """
-            max_iter = 50
-            a = torch.tensor(50.)
-            b = torch.tensor(max_iter * 0.1)
-            d = torch.tensor(1.)
-            c = math_utils.inverse_decay_function_calculate_c(a, b, d, max_iter)
-            x = torch.arange(0, max_iter)
-            y = math_utils.inverse_decay_function(x, a, b, c)
+    @unittest.skip("Plotting test")
+    def test_inverse_decay_function_as_tempering_scheme(self):
+        """
+        Manual check of the decay function for different values. Matplotlib backend set to run in Pycharm.
+        """
+        max_iter = 100
+        a = torch.tensor(500.)
+        b = torch.tensor(max_iter * 0.2)
+        d = torch.tensor(1.)
+        c = math_utils.inverse_decay_function_calculate_c(a, b, d, max_iter, extend=5.)
+        x = torch.arange(0, max_iter)
+        y = math_utils.inverse_decay_function(x, a, b, c)
+        print(f"{y[70]}")
 
-            import matplotlib
-            matplotlib.use('module://backend_interagg')
-            import matplotlib.pyplot as plt
-            plt.plot(y)
-            plt.plot(torch.ones_like(y))
-            plt.show()
+        import matplotlib
+        matplotlib.use('module://backend_interagg')
+        import matplotlib.pyplot as plt
+        plt.plot(y)
+        plt.plot(torch.ones_like(y))
+        plt.show()

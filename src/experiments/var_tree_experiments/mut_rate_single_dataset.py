@@ -7,7 +7,7 @@ from inference.victree import make_input, VICTree
 from utils.evaluation import sample_dataset_generation, evaluate_victree_to_df
 
 
-def run_dataset(K, M, N, mr, seed):
+def run_dataset(K, M, N, mr, seed, extend_qt_temp=1.3, gt_temp_mult=2., final_step=False):
     out_path = f"./dat{seed}_K{K}M{M}N{N}mr{mr}"
     if not os.path.exists(out_path):
         os.mkdir(out_path)
@@ -26,15 +26,23 @@ def run_dataset(K, M, N, mr, seed):
                                 split='ELBO',
                                 debug=True)
     victree = VICTree(config, jq, data_handler=dh, draft=True, elbo_rtol=1e-4)
-    victree.run(100)
+    victree.run(100, final_step=final_step)
 
     # save results
-    results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed,
-                                        tree_enumeration=n_nodes < 7)
+    results_df = evaluate_victree_to_df(jq_true, victree, dataset_id=seed, tree_enumeration=n_nodes < 7,
+                                        sampling_relative_temp=2.0)
+
+    out_suff = f"d{seed}"
+    out_suff += f"mr{mr}"
+
+    out_path = './'
+    out_csv = os.path.join(out_path, "score" + out_suff + ".csv")
     results_df['mr'] = mr
-    out_csv = os.path.join(out_path, f"score_mr.csv")
-    print(f"results saved in: {out_csv}")
+    results_df['extend_temp'] = extend_qt_temp
+    results_df['gt_temp_mult'] = gt_temp_mult
+    results_df['final_step'] = int(final_step)
     results_df.to_csv(out_csv, index=False)
+    print(f"results saved in: {out_csv}")
 
 
 if __name__ == '__main__':
@@ -42,5 +50,6 @@ if __name__ == '__main__':
     dat_path = sys.argv[1]
     params_re = re.compile(r'^.*/K(?P<K>\d+)M(?P<M>\d+)N(?P<N>\d+)mr(?P<mr>\d+)/(?P<seed>\d+)\.png$')
     re_match = params_re.match(dat_path)
+
     run_dataset(int(re_match.group('K')), int(re_match.group('M')), int(re_match.group('N')),
                 int(re_match.group('mr')), int(re_match.group('seed')))

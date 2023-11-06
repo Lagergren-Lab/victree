@@ -100,7 +100,7 @@ class VICTree:
     def data_handler(self):
         return self._data_handler
 
-    def run(self, n_iter=-1, args=None):
+    def run(self, n_iter=-1, args=None, final_step=False):
         """
         Set-up diagnostics, run sieving and perform VI steps, checking elbo for early-stopping.
         Parameters
@@ -160,10 +160,10 @@ class VICTree:
             if self.config.split is not None and it % self.config.merge_and_split_interval == 0:
                 self.merge()
                 self.split()
-            self.step()
 
-            # update all the other meta-parameters
             self.set_temperature(it, n_iter)
+
+            self.step()
 
             rel_change = np.abs((self.elbo - old_elbo) / self.elbo)
 
@@ -173,7 +173,8 @@ class VICTree:
                 'elbo': self.elbo,
                 'diff': f"{rel_change * 100:.3f}%",
                 'll': f"{self.q.total_log_likelihood:.3f}",
-                'ss': self.config.step_size
+                'ss': self.config.step_size,
+                'qttemp': self.q.t.temp
             })
 
             # early-stopping
@@ -204,6 +205,14 @@ class VICTree:
 
         if not convergence:
             logging.warning(f"run did not converge, increase max iterations")
+
+        # run one more full step by fixing temperature to 1
+        if final_step:
+            logging.debug(f"running final full step with no tempering")
+            self.q.t.temp = self.q.t.g_temp = self.q.z.temp = 1.
+            self.config.step_size = 1.
+            self.q.update(self.it_counter)
+
         logging.info(f"ELBO final: {self.elbo:.2f}")
         # write last chunks of output to diagnostics
         if self.config.diagnostics:
@@ -380,11 +389,21 @@ class VICTree:
     def set_temperature(self, it, n_iter):
         if self.config.qT_temp != 1.:
             # inverse decay scheme following: f(x) = qT_temp * (x-b)**(-c)
+            a = torch.tensor(self.config.qT_temp)
             b = torch.tensor(int(n_iter * 0.2))
             d = torch.tensor(1.)
-            a = torch.tensor(self.config.qT_temp)
-            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter))
-            self.q.t.temp = math_utils.inverse_decay_function(it, a, b, c)
+            c = math_utils.inverse_decay_function_calculate_c(a, b, d, torch.tensor(n_iter),
+                                                              extend=self.config.temp_extend)
+            self.q.t.temp = torch.clamp(math_utils.inverse_decay_function(it, a, b, c), min=1.)
+            self.q.t.g_temp = self.q.t.temp  # g(T) temp by default set to q(T) temp
+
+        if self.config.gT_temp != 1.:
+            a2 = torch.tensor(self.config.gT_temp)
+            b2 = torch.tensor(int(n_iter * 0.2))
+            d2 = torch.tensor(1.)
+            c2 = math_utils.inverse_decay_function_calculate_c(a2, b2, d2, torch.tensor(n_iter),
+                                                               extend=self.config.temp_extend)
+            self.q.t.g_temp = torch.clamp(math_utils.inverse_decay_function(it, a2, b2, c2), 1.)
 
         if self.config.qZ_temp != 1.:
             # linear scheme: from annealing to 1 with equal steps between iterations
