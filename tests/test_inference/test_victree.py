@@ -36,7 +36,7 @@ class VICTreeTestCase(unittest.TestCase):
         # check victree convergence
         init_elbo = q.elbo
         print(f"init elbo: {init_elbo}")
-        victree = VICTree(config, q, data_handler=dh, elbo_rtol=1e-4)
+        victree = VICTree(config, q, data_handler=dh, elbo_rtol=1e-4, draft=True)
         victree.run(n_iter=60)
         self.assertGreater(victree.elbo, init_elbo, f"elbo diff: {victree.elbo - init_elbo}")
 

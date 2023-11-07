@@ -89,7 +89,7 @@ class VICTreeFixedTreeTrueInitializationsTestCase(unittest.TestCase):
         q.c.eta2 = eta2
         q.c.compute_filtering_probs()
 
-        victree = VICTree(config, q, data_handler=dh, elbo_rtol=1e-4)
+        victree = VICTree(config, q, data_handler=dh, elbo_rtol=1e-4, draft=True)
         victree.run(n_iter=100)
 
         # Assert

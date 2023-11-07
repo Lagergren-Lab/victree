@@ -150,10 +150,7 @@ def calculate_graph_distance(T_1: nx.DiGraph, T_2: nx.DiGraph, roots=(0, 0), lab
 
 
 def relabel_nodes(T, labeling):
-    mapping = {}
-    orig = list(range(0, 1 + np.max(labeling)))
-    for (old, new) in zip(orig, labeling):
-        mapping[old] = new
+    mapping = {o: i for i, o in enumerate(labeling)}
     return nx.relabel_nodes(T, mapping, copy=True)
 
 
