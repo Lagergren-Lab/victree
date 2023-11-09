@@ -461,7 +461,6 @@ class updatesTestCase(unittest.TestCase):
             print(f"{k}: {v}")
         # FIXME: this test only passes on MacOS for some reason
         # self.assertGreater(res_df['avg_edge_precision'].item(), 0.75, "tree inference not successfull"
-        #                                                        "without split-merge")
 
         sample_size = 20
         t_pmf: dict = joint_q.t.get_pmf_estimate(normalized=True, n=sample_size, desc_sorted=True)
