@@ -76,8 +76,8 @@ class VICtreeQcSmoothingFixedTreeTestCase(unittest.TestCase):
         q.initialize()
         q2.initialize()
 
-        copy_tree = VICTree(config, q, y)
-        copy_tree2 = VICTree(config2, q2, y)
+        copy_tree = VICTree(config, q, y, draft=True)
+        copy_tree2 = VICTree(config2, q2, y, draft=True)
 
         copy_tree.run()
         copy_tree2.run()
