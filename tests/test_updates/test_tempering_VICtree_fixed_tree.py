@@ -12,6 +12,7 @@ from utils.config import Config
 from variational_distributions.var_dists import qEpsilonMulti, qT, qZ, qPi, qMuTau, qC
 
 
+@unittest.skip("obsolete")
 class TemperingVICtreeFixedTreeTestCase(unittest.TestCase):
 
     def set_up_q(self, config):

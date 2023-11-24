@@ -139,6 +139,32 @@ def compute_edge_sensitivity_nwk(true_tree_newick, t_nwk):
     return len(intersect_edges) / len(tree.edges)
 
 
+def tree_matching_score(a_nx: nx.DiGraph, a_assignment,
+                        b_nx: nx.DiGraph, b_assignment,
+                        return_single_scores: bool = False) -> float | tuple[float, np.ndarray]:
+    # the score is
+    # sum_ij ( (path_a(i, j) / max_path_a) - (path_b(i, j) / max_path_b) )
+    n_nodes_a = a_nx.number_of_nodes()
+    n_nodes_b = b_nx.number_of_nodes()
+    n_cells = a_assignment.size
+    dist_mat_a = dict(nx.all_pairs_shortest_path_length(a_nx.to_undirected()))
+    dist_mat_b = dict(nx.all_pairs_shortest_path_length(b_nx.to_undirected()))
+    max_dist_a = max([dist_mat_a[i][j]
+                      for i, j in itertools.product(range(n_nodes_a), repeat=2)])
+    max_dist_b = max([dist_mat_b[i][j]
+                      for i, j in itertools.product(range(n_nodes_b), repeat=2)])
+    scores = np.empty((n_cells, n_cells))
+    for i in range(n_cells):
+        for j in range(n_cells):
+            path_aij = dist_mat_a[a_assignment[i]][a_assignment[j]] / max_dist_a
+            path_bij = dist_mat_b[b_assignment[i]][b_assignment[j]] / max_dist_b
+            scores[i, j] = np.abs(path_aij - path_bij)
+    if return_single_scores:
+        return np.mean(scores), scores
+    else:
+        return np.mean(scores)
+
+
 def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumeration=False,
                            sampling_relative_temp=1.):
     """

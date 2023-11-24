@@ -1649,12 +1649,6 @@ class qEpsilonMulti(VariationalDistribution):
         new_beta = {(u, v): self.beta_prior.detach().clone() for u, v in self._beta_dict.keys()}
         unique_edges, unique_edges_count = tree_utils.get_unique_edges(tree_list, N_nodes=K)
 
-        # check how many edges are effectively updated
-        # after some iterations (might be very few)
-        if len(unique_edges) < len(new_alpha):
-            logging.debug(f"\t[qEps] updating {len(unique_edges)}/{len(new_alpha)} edges,"
-                          f" consider increasing trees sample size")
-
         # E_T[ sum_m sum_{not A} Cu Cv ]
         exp_cuv_a = {}
         # E_T[ sum_m sum_{A} Cu Cv ]

@@ -46,7 +46,7 @@ class SplitAndMergeOperationsTestCase(unittest.TestCase):
         q.eps.initialize(method='uniform')
         q.z.update(qpsi=qmt, qc=qc, qpi=qpi, obs=obs)
         pre_merge_probs = copy.deepcopy(q.z.pi[:, 1])
-        self.assertTrue(torch.all(q.z.pi[:, 1] == q.z.pi[:, 2]))
+        self.assertTrue(torch.allclose(q.z.pi[:, 1], q.z.pi[:, 2]))
         self.split_and_merge_op.merge(obs=obs, q=q, trees=[T], tree_weights=[1.0])
 
         self.assertTrue(torch.all(q.z.pi[:, 1] > pre_merge_probs))

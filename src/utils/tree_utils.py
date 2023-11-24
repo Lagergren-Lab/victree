@@ -289,7 +289,7 @@ def parse_newick(tree_file, config=None):
     # Phylo names add unwanted information in unstructured way
     # find node numbers and relabel nx tree
     names_string = list(str(cl.confidence) if cl.name is None else cl.name for cl in und_tree_nx.nodes)
-    mapping = dict(zip(und_tree_nx, names_string))
+    mapping = dict(zip(und_tree_nx, map(int, names_string)))
     relabeled_tree = nx.relabel_nodes(und_tree_nx, mapping)
     tree_nx = nx.DiGraph()
     tree_nx.add_edges_from(relabeled_tree.edges())
