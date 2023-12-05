@@ -107,7 +107,7 @@ if __name__ == '__main__':
     parser.add_argument("-K", "--n-nodes", default=5, type=int, help="number of nodes/clones")
     parser.add_argument("-A", "--n-states", default=7, type=int, help="number of characters/copy number states")
     parser.add_argument("-S", "--step-size", default=.1, type=float, help="step-size for partial updates")
-    parser.add_argument("-L", "--tree-sample-size", default=10, type=int, help="number of sampled arborescences")
+    parser.add_argument("-L", "--tree-sample-size", default=5, type=int, help="number of sampled arborescences")
     parser.add_argument("--r-tol", default=10e-4, type=float, help="relative tolerance for early stopping")
 
     # priors parameters
@@ -121,22 +121,22 @@ if __name__ == '__main__':
                              "otherwise provide as many values as the specified K parameter (number of nodes)",
                         metavar="DELTA")
     # initialization
-    parser.add_argument("--z-init", default="random", type=str, metavar="TYPE_STR",
-                        help="initialization of clustering variable qZ, can be [`random`, `uniform`, `kmeans`], "
-                             "default to `random`")
-    parser.add_argument("--eps-init", default="random", type=str, metavar="TYPE_STR",
+    parser.add_argument("--z-init", default="gmm", type=str, metavar="TYPE_STR",
+                        help="initialization of clustering variable qZ, can be [`random`, `uniform`, `kmeans`, `gmm`], "
+                             "default to `gmm`")
+    parser.add_argument("--eps-init", default="data", type=str, metavar="TYPE_STR",
                         help="initialization of alpha/beta params in qEpsilon, can be [`random`, `uniform`,"
-                             " `non-mutation`, `prior`, `data`], default to `random`")
+                             " `non-mutation`, `prior`, `data`], default to `data`")
     parser.add_argument("--mt-init", default="data", type=str, metavar="TYPE_STR",
                         help="initialization of (nu, lambda, alpha, beta) params qMuTau, can be [`data`, `data-size`,"
-                             " `prior`], default to `data`")
+                             " `prior`], default to `data-size`")
     parser.add_argument("--c-init", default="diploid", type=str, metavar="TYPE_STR",
                         help="initialization of copy number variable qC, can be [`clonal`, `uniform`,"
                              " `diploid`, `random`], default to `diploid`")
     # Meta algorithms
-    parser.add_argument("--split", default="mixed", type=none_or_str, metavar="TYPE_STR",
-                        help="specify which split algorithm to run [`naive`, `categorical`, `mixed`, `inlier`, `mixed`, `None`],"
-                             " defaults to `mixed`")
+    parser.add_argument("--split", default="ELBO", type=none_or_str, metavar="TYPE_STR",
+                        help="specify which split algorithm to run [`naive`, `categorical`, `mixed`, `inlier`, `mixed`,"
+                             " `ELBO`, `None`], defaults to `ELBO`")
     parser.add_argument("--merge_and_split_interval", default=5, type=int,
                         help="specify the number of iterations between each call to the merge and split algorithm.")
     parser.add_argument("--SVI", action="store_true", help="Run Stochastic Variational inference.")
