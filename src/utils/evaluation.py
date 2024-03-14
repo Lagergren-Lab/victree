@@ -62,8 +62,10 @@ def get_dic(self, clusters, cells):
 
     return term_1, 4 * term_1 + term_2
 
+
 def calculate_expectation_of_D(j, epsilon_r, epsilon_s, cell):
     pass
+
 
 def add_noise(j):
     if j == 0:
@@ -97,6 +99,7 @@ def best_mapping(gt_z: np.ndarray, vi_z: np.ndarray, with_score=False):
         return perms[best_perm_idx], scores[best_perm_idx]
     else:
         return perms[best_perm_idx]
+
 
 def best_vi_map(vi_z, ref_vi_z):
     # FIXME: maybe too intensive for K > 10
@@ -144,25 +147,44 @@ def tree_matching_score(a_nx: nx.DiGraph, a_assignment,
                         return_single_scores: bool = False) -> float | tuple[float, np.ndarray]:
     # the score is
     # sum_ij ( (path_a(i, j) / max_path_a) - (path_b(i, j) / max_path_b) )
-    n_nodes_a = a_nx.number_of_nodes()
-    n_nodes_b = b_nx.number_of_nodes()
     n_cells = a_assignment.size
-    dist_mat_a = dict(nx.all_pairs_shortest_path_length(a_nx.to_undirected()))
-    dist_mat_b = dict(nx.all_pairs_shortest_path_length(b_nx.to_undirected()))
-    max_dist_a = max([dist_mat_a[i][j]
-                      for i, j in itertools.product(range(n_nodes_a), repeat=2)])
-    max_dist_b = max([dist_mat_b[i][j]
-                      for i, j in itertools.product(range(n_nodes_b), repeat=2)])
+    dist_mat_a = get_nodes_shortest_paths(a_nx, normalized=True)
+    dist_mat_b = get_nodes_shortest_paths(b_nx, normalized=True)
     scores = np.empty((n_cells, n_cells))
-    for i in range(n_cells):
-        for j in range(n_cells):
-            path_aij = dist_mat_a[a_assignment[i]][a_assignment[j]] / max_dist_a
-            path_bij = dist_mat_b[b_assignment[i]][b_assignment[j]] / max_dist_b
-            scores[i, j] = np.abs(path_aij - path_bij)
+    for i, j in itertools.combinations(range(n_cells), 2):
+        path_aij = dist_mat_a[a_assignment[i]][a_assignment[j]]
+        path_bij = dist_mat_b[b_assignment[i]][b_assignment[j]]
+        scores[i, j] = np.abs(path_aij - path_bij)
     if return_single_scores:
         return np.mean(scores), scores
     else:
         return np.mean(scores)
+
+
+def get_nodes_shortest_paths(tree, normalized=False) -> dict:
+    dist_mat: dict[dict] = dict(nx.all_pairs_shortest_path_length(tree.to_undirected()))
+    if normalized:
+        max_dist = max([dist_mat[i][j]
+                        for i, j in itertools.product(range(tree.number_of_nodes()), repeat=2)])
+        for a in dist_mat.keys():
+            for b in dist_mat[a].keys():
+                dist_mat[a][b] /= max_dist
+
+    return dist_mat
+
+
+def get_nodes_eps_dist(tree, eps_matrix):
+    # returns the distance between all combinations of nodes
+    # in terms of eps (sum of eps along each path linking two nodes)
+    paths: dict[dict] = dict(nx.all_pairs_shortest_path(tree))
+    n_nodes = tree.number_of_nodes()
+    eps_dist = np.zeros((n_nodes, n_nodes))
+    for a in paths.keys():
+        for b in paths[a].keys():
+            if len(paths[a][b]) > 1:
+                d = sum(eps_matrix[paths[a][b][i-1], paths[a][b][i]] for i in range(1, len(paths[a][b])))
+                eps_dist[a, b] = eps_dist[b, a] = d
+    return eps_dist
 
 
 def evaluate_victree_to_df(true_joint, victree, dataset_id, df=None, tree_enumeration=False,
