@@ -12,10 +12,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Create environment with mamba
+      - name: Create environment with conda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-environment: victree-env
+          activate-environment: victree
           python-version: 3.10
           environment-file: requirements.txt
           channels: conda-forge,bioconda,defaults
