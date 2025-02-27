@@ -17,9 +17,9 @@ jobs:
         with:
           activate-environment: victree
           python-version: 3.10
-          environment-file: requirements.txt
           channels: conda-forge,bioconda,defaults
           auto-activate-base: false
+        run: conda install --file requirements.txt
 
       - name: Install scgenome and package with pip
         run: |
