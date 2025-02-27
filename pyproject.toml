@@ -22,8 +22,8 @@ classifiers = [
 "Homepage" = "https://github.com/Lagergren-Lab/victree"
 
 [project.scripts]
-victree = "main:main"
-victree-simul = "simul:main"
+victree = "victree.main:main"
+victree-simul = "victree.simul:main"
 
 [project.optional-dependencies]
 dev = [
