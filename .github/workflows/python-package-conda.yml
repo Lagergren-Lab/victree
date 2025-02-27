@@ -25,10 +25,8 @@ jobs:
                 python=3.10
           init-shell: bash
 
-      - name: Install dependencies
+      - name: Install scgenome
         run: |
-          micromamba activate victree
-          micromamba install --file requirements.txt
           pip install scgenome
           pip install .
 
