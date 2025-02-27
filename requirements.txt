@@ -10,4 +10,5 @@ matplotlib==3.5.1
 pytorch==2.0.1
 DendroPy==4.6.1
 biopython==1.84
+setuptools==75.8.2
 #scgenome==0.0.20
