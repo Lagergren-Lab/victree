@@ -23,6 +23,7 @@ jobs:
               - pytorch
           create-args: >-
                 python=3.10
+          init-shell: bash
 
       - name: Install dependencies
         run: |
