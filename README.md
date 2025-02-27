@@ -25,7 +25,7 @@ pip install .
 To run the main program you can call `victree` in the environment
 
 ``` bash
-victree --input input_data.h5ad --output out_path -n-nodes 10 --n-iter 100
+victree --input input_data.h5ad --output out_path --n-nodes 8 --n-iter 100
 ```
 
 ### Options
