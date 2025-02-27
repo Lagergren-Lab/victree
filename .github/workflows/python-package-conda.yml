@@ -16,7 +16,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: victree
-          python-version: 3.10
+          python-version: "3.10"
           channels: conda-forge,bioconda,defaults
           auto-activate-base: false
 
