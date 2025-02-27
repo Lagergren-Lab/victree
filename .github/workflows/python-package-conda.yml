@@ -20,7 +20,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        conda env create -n victree-env -c bioconda -c conda-forge --file requirements.txt
+        conda env create -n victree-env -c bioconda conda-forge --file requirements.txt
         conda activate victree-env
         pip install scgenome
         pip install .
