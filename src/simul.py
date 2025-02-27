@@ -27,83 +27,6 @@ from utils.eps_utils import h_eps, h_eps0
 from variational_distributions.var_dists import qC, qZ, qEpsilonMulti, qMuTau, qPi, qT, qCMultiChrom
 
 
-def sample_raw_counts_from_corrected_data(obs):
-    # TODO: generate counts from observation using DirichletMultinomial
-    #   trying to avoid computationally expensive sampling i.e. sampling high dimensional
-    #   multinomial might be costly but if each bin is sampled individually with BetaBinomial
-    #   it might be better
-    # temporary solution, sample from poisson with mean rho * obs
-    rho = 300.
-    raw_counts = torch.distributions.Poisson(torch.clamp(obs * rho, min=0.)).sample((1,))[0]
-    assert raw_counts.shape == obs.shape
-    return raw_counts
-
-
-def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None = None) -> pd.DataFrame:
-    """
-    Parameters
-    ----------
-    n: int, total number of bins/sites. Note: given the specified number of chromosomes, the number of bins in the
-        dataframe might be slightly larger
-    method: str, whether to use the human genome 19 chromosomes reference or a uniformly distributed set of chromosomes;
-        can be 'real' or 'uniform'
-    n_chr: int, number of chromosomes in the 'uniform' method
-
-    Returns
-    -------
-    dataframe with start, end and chr columns, sorted by chr,start
-    """
-    if method == 'real':
-        ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
-        # https://www.ncbi.nlm.nih.gov/grc/human/data
-        hg19_total_length = 3099734149
-        binsize = math.ceil(hg19_total_length / n)
-        splits_df = create_bins(binsize)
-        splits_df.chr = pd.Categorical(splits_df.chr, categories=ord_chr, ordered=True)
-
-    elif method == 'uniform':
-        binsize = 1000
-        if n_chr is None:
-            raise ValueError("Must provide number of chromosomes for `uniform` chromosome splits")
-        chr_width = n // n_chr
-        chr = pd.Categorical([str(c) for c in range(1, n_chr + 1)], ordered=True)
-        pos = pd.DataFrame({
-            'start': [s * binsize + 1 for s in range(chr_width)],
-            'end': [(s + 1) * binsize for s in range(chr_width)]
-        })
-        splits_df = pos.merge(pd.DataFrame({'chr': chr}), how='cross')
-    else:
-        raise NotImplementedError(f"Method {method} for chromosome splits creation is not available.")
-
-    return splits_df
-
-
-def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, tree, obs_names: list | None = None):
-
-    adata = anndata.AnnData(raw_counts.T.numpy())
-    adata.layers['copy'] = obs.T.numpy()
-
-    cn_state = c[z, :].numpy()
-    assert cn_state.shape == adata.shape
-    adata.layers['state'] = cn_state
-    adata.obs['clone'] = z.numpy()
-    adata.obs['clone'] = adata.obs['clone'].astype('category')
-    adata.obs['baseline'] = mu.numpy()
-    adata.uns['tree-newick'] = np.array([tree_to_newick(tree)], dtype='S')
-
-    if chr_dataframe is None:
-        chr_dataframe = generate_chromosome_binning(adata.n_vars, method='uniform', n_chr=1)
-        chr_dataframe = chr_dataframe[:adata.n_vars]
-    adata.var = chr_dataframe
-
-    if obs_names is None:
-        pad_width = math.ceil(math.log10(adata.n_obs))
-        obs_names = ['c' + str(i).zfill(pad_width) for i in range(adata.n_obs)]
-    adata.obs_names = pd.Series(obs_names)
-
-    return adata
-
-
 def simulate_full_dataset(config: Config, eps_a=500., eps_b=50000., mu0=1., lambda0=1000.,
                           alpha0=500., beta0=50., dir_delta: [float | list[float]] = 1., tree=None, raw_reads=True,
                           chr_df: pd.DataFrame | None = None, nans: bool = False,
@@ -230,6 +153,83 @@ Generate full simulated dataset.
         'adata': adata
     }
     return out_simul
+
+
+def sample_raw_counts_from_corrected_data(obs):
+    # TODO: generate counts from observation using DirichletMultinomial
+    #   trying to avoid computationally expensive sampling i.e. sampling high dimensional
+    #   multinomial might be costly but if each bin is sampled individually with BetaBinomial
+    #   it might be better
+    # temporary solution, sample from poisson with mean rho * obs
+    rho = 300.
+    raw_counts = torch.distributions.Poisson(torch.clamp(obs * rho, min=0.)).sample((1,))[0]
+    assert raw_counts.shape == obs.shape
+    return raw_counts
+
+
+def generate_chromosome_binning(n: int, method: str = 'real', n_chr: int | None = None) -> pd.DataFrame:
+    """
+    Parameters
+    ----------
+    n: int, total number of bins/sites. Note: given the specified number of chromosomes, the number of bins in the
+        dataframe might be slightly larger
+    method: str, whether to use the human genome 19 chromosomes reference or a uniformly distributed set of chromosomes;
+        can be 'real' or 'uniform'
+    n_chr: int, number of chromosomes in the 'uniform' method
+
+    Returns
+    -------
+    dataframe with start, end and chr columns, sorted by chr,start
+    """
+    if method == 'real':
+        ord_chr = [str(c) for c in range(1, 23)] + ['X', 'Y']
+        # https://www.ncbi.nlm.nih.gov/grc/human/data
+        hg19_total_length = 3099734149
+        binsize = math.ceil(hg19_total_length / n)
+        splits_df = create_bins(binsize)
+        splits_df.chr = pd.Categorical(splits_df.chr, categories=ord_chr, ordered=True)
+
+    elif method == 'uniform':
+        binsize = 1000
+        if n_chr is None:
+            raise ValueError("Must provide number of chromosomes for `uniform` chromosome splits")
+        chr_width = n // n_chr
+        chr = pd.Categorical([str(c) for c in range(1, n_chr + 1)], ordered=True)
+        pos = pd.DataFrame({
+            'start': [s * binsize + 1 for s in range(chr_width)],
+            'end': [(s + 1) * binsize for s in range(chr_width)]
+        })
+        splits_df = pos.merge(pd.DataFrame({'chr': chr}), how='cross')
+    else:
+        raise NotImplementedError(f"Method {method} for chromosome splits creation is not available.")
+
+    return splits_df
+
+
+def make_anndata(obs, raw_counts, chr_dataframe, c, z, mu, tree, obs_names: list | None = None):
+
+    adata = anndata.AnnData(raw_counts.T.numpy())
+    adata.layers['copy'] = obs.T.numpy()
+
+    cn_state = c[z, :].numpy()
+    assert cn_state.shape == adata.shape
+    adata.layers['state'] = cn_state
+    adata.obs['clone'] = z.numpy()
+    adata.obs['clone'] = adata.obs['clone'].astype('category')
+    adata.obs['baseline'] = mu.numpy()
+    adata.uns['tree-newick'] = np.array([tree_to_newick(tree)], dtype='S')
+
+    if chr_dataframe is None:
+        chr_dataframe = generate_chromosome_binning(adata.n_vars, method='uniform', n_chr=1)
+        chr_dataframe = chr_dataframe[:adata.n_vars]
+    adata.var = chr_dataframe
+
+    if obs_names is None:
+        pad_width = math.ceil(math.log10(adata.n_obs))
+        obs_names = ['c' + str(i).zfill(pad_width) for i in range(adata.n_obs)]
+    adata.obs_names = pd.Series(obs_names)
+
+    return adata
 
 
 def simulate_quadruplet_data(M, A, tree: nx.DiGraph, eps_a, eps_b, eps_0):
@@ -519,9 +519,7 @@ def generate_dataset_var_tree(config: Config,
     else:
         return joint_q
 
-
-# script for simulating data
-if __name__ == '__main__':
+def main():
     cli = argparse.ArgumentParser(
         description="Data simulation script. Output format is compatible with VIC-Tree interface."
     )
@@ -605,3 +603,8 @@ if __name__ == '__main__':
     data['adata'].write_h5ad(Path(args.out_path, filename + '.h5ad'))
     # write_simulated_dataset_h5(data, args.out_path, filename, gt_mode='h5')
     logging.info(f'simulated dateset saved in {args.out_path}')
+
+
+# script for simulating data
+if __name__ == '__main__':
+    main()

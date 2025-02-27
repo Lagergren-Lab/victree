@@ -8,7 +8,7 @@ from typing import Union, List
 import networkx as nx
 import numpy as np
 import torch
-from numpy import infty
+from numpy import inf
 
 from utils import math_utils
 from utils.config import Config
@@ -36,8 +36,8 @@ class JointDist(VariationalDistribution):
         self.z: qZ = qZ(config)
         self.mt: qMuTau = qMuTau(config)
 
-        self._elbo: float = -infty
-        self._log_likelihood = torch.full((config.n_cells,), -infty)
+        self._elbo: float = -inf
+        self._log_likelihood = torch.full((config.n_cells,), -inf)
 
         self.params_history["elbo"] = []
 

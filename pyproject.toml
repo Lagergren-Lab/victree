@@ -1,17 +1,37 @@
-# [project]
-# see https://peps.python.org/pep-0621/
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
 
-[tool.poetry]
-# see https://python-poetry.org/docs/pyproject/
-name = "VICTree"
-version = "0.1"
+[project]
+name = "victree"
+version = "0.1.0"
+authors = [
+    {name = "Vittorio Zampinetti", email = "vz@kth.se"},
+    {name = "Harald Melin", email = "haralme@kth.se"},
+]
 description = "VI method for copy-number aware tumor phylogenetics clonal tree reconstruction"
-authors = ["Harald Melin <haraldme@kth.se>", "Vittorio Zampinetti <vz@kth.se>"]
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
-
-[tool.pytest.ini_options]
-pythonpath = [
-  "src"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/Lagergren-Lab/victree"
+
+[project.scripts]
+victree = "main:main"
+victree-simul = "simul:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

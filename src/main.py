@@ -18,75 +18,7 @@ from inference.run import run
 from utils.config import set_seed
 
 
-def main(args):
-    logging.info("running main program")
-    start = time.time()
-    try:
-        run(args)
-    except Exception as e:
-        logging.exception("main fail traceback")
-    # TODO: save time in output
-    tot_time = time.time() - start
-    logging.info(f"main is over. Total exec time: {tot_time // 60}m {math.ceil(tot_time % 60)}s")
-
-
-def set_logger(debug: bool, out_dir: str | None = None):
-    level = logging.DEBUG if debug else logging.INFO
-    c_handler = logging.StreamHandler(sys.stdout)
-
-    c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
-    logger = logging.root
-    logger.setLevel(level)
-    logger.addHandler(c_handler)
-
-    if out_dir is not None:
-        f_handler = logging.FileHandler(os.path.join(out_dir, "victree.log"))
-        f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
-        logger.addHandler(f_handler)
-
-
-def validate_path(f):
-    if not os.path.exists(f):
-        # Argparse uses the ArgumentTypeError to give a rejection message like:
-        # error: argument input: x does not exist
-        raise argparse.ArgumentTypeError("{0} does not exist".format(f))
-    return f
-
-
-def validate_args(args):
-    if not args.sieving[0] > 1:
-        args.sieving[1] = 0
-    elif args.sieving[1] < 2:
-        raise argparse.ArgumentError(args.sieving, message=f"If sieving, num of sieving iterations must be > 1")
-
-    if len(args.prior_pi) == 1:
-        args.prior_pi = args.prior_pi[0]
-    elif len(args.prior_pi) != args.n_nodes:
-        raise argparse.ArgumentError(args.prior_pi, message=f"Prior for pi must be either length 1 or K. "
-                                                            f"K was set to {args.n_nodes}, but pi prior "
-                                                            f"has length {len(args.prior_pi)}")
-    if args.z_init not in ["random", "uniform", "kmeans", "gmm"]:
-        raise argparse.ArgumentError(args.z_init, message=f"Init method {args.z_init} for"
-                                                          f"qZ variational distribution is not valid. Check usage.")
-
-
-def none_or_str(value):
-    if value == 'None':
-        return None
-    return value
-
-
-def parse_args(parser):
-    args = parser.parse_args()
-    # if args.config_file:
-    #     data = yaml.load(args.config_file)
-    #     delattr(args, 'config_file')
-    # TODO: continue implementation for yaml config with cli args
-    #   check this: https://codereview.stackexchange.com/questions/79008/parse-a-config-file-and-add-to-command-line-arguments-using-argparse-in-python
-    return args
-
-
-if __name__ == '__main__':
+def main():
     # parse arguments
     parser = argparse.ArgumentParser(
         description="VIC-Tree, variational inference on clonal tree with single-cell DNA data"
@@ -161,6 +93,73 @@ if __name__ == '__main__':
 
     # logger setup
     set_logger(args.debug, args.out_dir)
+    logging.info("running main program")
 
-    # main program
-    main(args)
+    # start program
+    start = time.time()
+    try:
+        run(args)
+    except Exception as e:
+        logging.exception("main fail traceback")
+    tot_time = time.time() - start
+    logging.info(f"main is over. Total exec time: {tot_time // 60}m {math.ceil(tot_time % 60)}s")
+
+
+def set_logger(debug: bool, out_dir: str | None = None):
+    level = logging.DEBUG if debug else logging.INFO
+    c_handler = logging.StreamHandler(sys.stdout)
+
+    c_handler.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))
+    logger = logging.root
+    logger.setLevel(level)
+    logger.addHandler(c_handler)
+
+    if out_dir is not None:
+        f_handler = logging.FileHandler(os.path.join(out_dir, "victree.log"))
+        f_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s: %(message)s', datefmt='%y%m%d-%H:%M:%S'))
+        logger.addHandler(f_handler)
+
+
+def validate_path(f):
+    if not os.path.exists(f):
+        # Argparse uses the ArgumentTypeError to give a rejection message like:
+        # error: argument input: x does not exist
+        raise argparse.ArgumentTypeError("{0} does not exist".format(f))
+    return f
+
+
+def validate_args(args):
+    if not args.sieving[0] > 1:
+        args.sieving[1] = 0
+    elif args.sieving[1] < 2:
+        raise argparse.ArgumentError(args.sieving, message=f"If sieving, num of sieving iterations must be > 1")
+
+    if len(args.prior_pi) == 1:
+        args.prior_pi = args.prior_pi[0]
+    elif len(args.prior_pi) != args.n_nodes:
+        raise argparse.ArgumentError(args.prior_pi, message=f"Prior for pi must be either length 1 or K. "
+                                                            f"K was set to {args.n_nodes}, but pi prior "
+                                                            f"has length {len(args.prior_pi)}")
+    if args.z_init not in ["random", "uniform", "kmeans", "gmm"]:
+        raise argparse.ArgumentError(args.z_init, message=f"Init method {args.z_init} for"
+                                                          f"qZ variational distribution is not valid. Check usage.")
+
+
+def none_or_str(value):
+    if value == 'None':
+        return None
+    return value
+
+
+def parse_args(parser):
+    args = parser.parse_args()
+    # if args.config_file:
+    #     data = yaml.load(args.config_file)
+    #     delattr(args, 'config_file')
+    # TODO: continue implementation for yaml config with cli args
+    #   check this: https://codereview.stackexchange.com/questions/79008/parse-a-config-file-and-add-to-command-line-arguments-using-argparse-in-python
+    return args
+
+
+if __name__ == '__main__':
+    main()

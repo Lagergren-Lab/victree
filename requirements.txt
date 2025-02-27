@@ -1,0 +1,13 @@
+anndata==0.11.3
+h5py==3.11.0
+hmmlearn==0.3.2
+networkx==3.3
+numpy==1.23.0
+pandas==2.2.2
+scipy==1.13.1
+tqdm==4.66.5
+matplotlib==3.5.1
+pytorch==2.0.1
+DendroPy==4.6.1
+biopython==1.84
+#scgenome==0.0.20
